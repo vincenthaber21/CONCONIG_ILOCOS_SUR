@@ -1,0 +1,3056 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Super Admin Console | {{ kiosk_system_name }}</title>
+  {% include "partials/bootstrap_head.html" %}
+  {% include "partials/chartjs_scripts.html" %}
+  <style>
+    :root {
+      --dark: #0f172a;
+      --brand: #ED1C24;
+      --accent: #E6C200;
+      --muted: #94a3b8;
+      --panel: #ffffff;
+      --gradient: linear-gradient(135deg, #ED1C24 0%, #C4121A 40%, #8B0E14 100%);
+    }
+
+    body {
+      background: #f1f5f9;
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    }
+
+    .super-nav {
+      background: var(--dark);
+      color: #fff;
+      box-shadow: 0 10px 30px rgba(15,23,42,0.4);
+    }
+
+    .nav-pill {
+      border-radius: 999px;
+      padding: 8px 18px;
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+    }
+
+    .nav-pill.active, .nav-pill:hover {
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+    }
+
+    .hero-card {
+      background: var(--gradient);
+      color: #fff;
+      border-radius: 24px;
+      padding: 32px;
+      box-shadow: 0 25px 55px rgba(15,23,42,0.35);
+    }
+
+    .hero-metric {
+      background: rgba(255,255,255,0.18);
+      border-radius: 16px;
+      padding: 16px 20px;
+      min-width: 160px;
+    }
+
+    .stat-card {
+      border: none;
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 18px 36px rgba(15,23,42,0.08);
+      background: var(--panel);
+      height: 100%;
+    }
+
+    .stat-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      color: #fff;
+    }
+
+    .stat-title {
+      color: var(--muted);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .stat-card .stat-kpi-row {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    .stat-card .stat-kpi-value {
+      font-size: clamp(1.1rem, 3.5vw, 1.65rem);
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .stat-card .stat-kpi-amount {
+      font-size: clamp(0.78rem, 2.2vw, 0.95rem);
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    .stat-card .stat-kpi-meta {
+      font-size: 0.72rem;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }
+
+    .chart-card {
+      border-radius: 20px;
+      padding: 20px;
+      background: var(--panel);
+      box-shadow: 0 15px 30px rgba(15,23,42,0.07);
+      height: 100%;
+      overflow: hidden;
+      position: relative;
+      z-index: 0;
+      display: flex;
+      flex-direction: column;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .chart-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 20px 40px rgba(15,23,42,0.12) !important;
+    }
+
+    .table-card {
+      position: relative;
+      z-index: 5;
+      overflow: visible;
+    }
+
+    .chart-wrapper {
+      position: relative;
+      width: 100%;
+      overflow: hidden;
+      padding: 10px 0;
+    }
+
+    .chart-wrapper canvas {
+      max-width: 100%;
+      display: block;
+    }
+
+    .chart-card.expanded {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100vw;
+      height: 100vh;
+      z-index: 9999;
+      border-radius: 0;
+      padding: 30px;
+      overflow-y: auto;
+      background: var(--panel);
+    }
+
+    .chart-card.expanded .chart-wrapper {
+      height: calc(100vh - 150px) !important;
+      max-height: none !important;
+    }
+
+    .expand-chart-btn {
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .expand-chart-btn:hover {
+      transform: scale(1.1);
+    }
+
+    .table-card table {
+      font-size: 0.9rem;
+    }
+
+    .table-card thead {
+      color: var(--muted);
+      text-transform: uppercase;
+      font-size: 0.75rem;
+    }
+
+    .refund-partial-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      color: #b45309;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 999px;
+      padding: 2px 8px;
+      margin-left: 6px;
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+
+    .refund-remaining-balance {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #b45309;
+      margin-top: 2px;
+    }
+
+    tr.refund-partial-row > td {
+      background: #fffbeb;
+    }
+
+    .walk-in-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+    @media (min-width: 576px) {
+      .walk-in-summary-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+    .walk-in-stat {
+      background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 14px 16px;
+      min-height: 88px;
+    }
+    .walk-in-stat .wi-lab {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .walk-in-stat .wi-val {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #0f172a;
+      line-height: 1.2;
+      margin-top: 4px;
+    }
+    .walk-in-stat .wi-sub {
+      font-size: 0.78rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    .walk-in-name {
+      font-weight: 600;
+      color: #0f172a;
+    }
+    .walk-in-badge {
+      font-size: 0.7rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #ecfdf5;
+      color: #047857;
+    }
+
+    .chips {
+      display: inline-flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .chip {
+      background: #e2e8f0;
+      color: #0f172a;
+      border-radius: 999px;
+      padding: 4px 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .period-toolbar {
+      background: var(--panel);
+      border-radius: 20px;
+      padding: 18px 20px;
+      box-shadow: 0 15px 30px rgba(15, 23, 42, 0.07);
+    }
+
+    .period-form {
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+
+    .period-form-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.65rem 0.85rem;
+      width: 100%;
+    }
+
+    .period-form-pickers {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.65rem 0.85rem;
+      width: 100%;
+    }
+
+    .period-tabs {
+      display: inline-flex;
+      background: #e2e8f0;
+      border-radius: 999px;
+      padding: 4px;
+      gap: 2px;
+      flex-wrap: wrap;
+      max-width: 100%;
+    }
+
+    .period-tab {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 18px;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #475569;
+      text-decoration: none;
+      transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+      white-space: nowrap;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      touch-action: manipulation;
+    }
+
+    .period-tab:hover {
+      background: rgba(237, 28, 36, 0.12);
+      color: #ED1C24;
+    }
+
+    .period-tab--active {
+      background: #ED1C24;
+      color: #fff !important;
+      box-shadow: 0 2px 8px rgba(237, 28, 36, 0.35);
+    }
+
+    .period-tab--active:hover {
+      background: #185f2e;
+      color: #fff;
+    }
+
+    .period-picker-wrap {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      max-width: 100%;
+    }
+
+    .period-picker-input {
+      position: relative;
+      border: 1.5px solid #ED1C24;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      color: #0f172a;
+      background: #fff;
+      padding: 0.4rem 2.25rem 0.4rem 0.9rem;
+      min-height: 2.375rem;
+      min-width: min(100%, 11.5rem);
+      max-width: 100%;
+      cursor: pointer;
+      transition: box-shadow 0.15s ease;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Full pill is clickable (not only the tiny calendar icon) */
+    .period-picker-wrap .period-picker-input::-webkit-calendar-picker-indicator {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      cursor: pointer;
+      opacity: 0;
+    }
+
+    .period-picker-wrap .period-picker-input::-moz-calendar-picker-indicator {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .period-picker-wrap:has(input[type="week"]),
+    .period-picker-wrap:has(input[type="month"]) {
+      cursor: pointer;
+    }
+
+    .period-picker-wrap:has(input[type="week"])::after,
+    .period-picker-wrap:has(input[type="month"])::after {
+      content: '';
+      position: absolute;
+      right: 0.85rem;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 1rem;
+      height: 1rem;
+      pointer-events: none;
+      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='%2364748b' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1.5A1.5 1.5 0 0 1 16 2.5v11a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 0 13.5v-11A1.5 1.5 0 0 1 1.5 1H3V.5a.5.5 0 0 1 .5-.5M2 4v9.5a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5V4z'/%3E%3C/svg%3E") center / contain no-repeat;
+    }
+
+    .period-custom-field input[type="date"].period-date-input::-webkit-calendar-picker-indicator,
+    .period-custom-field input[type="date"].period-date-input::-moz-calendar-picker-indicator {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+
+    .period-picker-input:focus {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(237, 28, 36, 0.2);
+      border-color: #ED1C24;
+    }
+
+    @media (max-width: 575.98px) {
+      .period-toolbar {
+        padding: 14px 16px;
+      }
+
+      .period-form-row--primary {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .period-tabs {
+        width: 100%;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+      }
+
+      .period-picker-wrap,
+      .period-picker-wrap .period-picker-input,
+      .period-custom-block {
+        width: 100%;
+      }
+
+      .period-picker-wrap .period-picker-input {
+        width: 100%;
+        font-size: 16px;
+      }
+
+      .period-custom-row input[type="date"].period-date-input {
+        font-size: 16px;
+      }
+
+      #rangeLabelBadge {
+        align-self: flex-start;
+      }
+    }
+
+    .period-custom-block {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.35rem;
+    }
+
+    .period-custom-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem 0.75rem;
+    }
+
+    .period-custom-field {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      flex: 0 1 auto;
+    }
+
+    .period-custom-row label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+      margin: 0;
+    }
+
+    /* Shrink date inputs to content; Bootstrap .form-control is width:100% by default */
+    .period-custom-row input[type="date"].period-date-input {
+      flex: 0 0 auto;
+      width: auto;
+      max-width: 100%;
+      min-width: 9.5ch;
+      field-sizing: content;
+    }
+
+    @supports not (field-sizing: content) {
+      .period-custom-row input[type="date"].period-date-input {
+        width: 11.5ch;
+        min-width: 11.5ch;
+      }
+    }
+
+    .period-custom-presets {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      align-items: center;
+    }
+
+    .period-custom-presets .btn {
+      font-size: 0.75rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      line-height: 1.3;
+    }
+
+    #paymentMixCenter {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    }
+
+    #paymentMixSummary {
+      border-top: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    #paymentMethodBreakdown .col-6 > div {
+      transition: all 0.2s ease;
+    }
+
+    #paymentMethodBreakdown .col-6 > div:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.5;
+      }
+    }
+
+    #salesTrendStats .col-6,
+    #salesTrendStats .col-md-3 {
+      transition: transform 0.2s ease;
+    }
+
+    #salesTrendStats .col-6:hover,
+    #salesTrendStats .col-md-3:hover {
+      transform: translateY(-2px);
+    }
+
+    #salesTrendStats .bg-light {
+      background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important;
+      box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+      transition: all 0.2s ease;
+    }
+
+      #salesTrendStats .bg-light:hover {
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
+      }
+
+      /* Custom Logout Confirmation Modal */
+      #logoutConfirmModal {
+        z-index: 9999 !important;
+      }
+      #logoutConfirmModal .modal-dialog {
+        max-width: 480px;
+        margin: 10vh auto;
+        display: flex;
+        align-items: center;
+        min-height: calc(100vh - 20vh);
+      }
+      #logoutConfirmModal .modal-content {
+        border-radius: 18px;
+        border: none;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        overflow: hidden;
+        animation: modalSlideIn 0.3s ease-out;
+      }
+      @keyframes modalSlideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-30px) scale(0.95);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+      #logoutConfirmModal .modal-backdrop {
+        background-color: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(4px);
+        z-index: 9998 !important;
+      }
+      #logoutConfirmModal .modal-header {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-bottom: 2px solid #dee2e6;
+        padding: 24px 32px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      #logoutConfirmModal .modal-header .modal-title {
+        font-weight: 700;
+        font-size: 1.5rem;
+        color: #1a1a1a;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 0;
+      }
+      #logoutConfirmModal .modal-header .modal-title i {
+        color: #ED1C24;
+        font-size: 1.8rem;
+      }
+      #logoutConfirmModal .modal-body {
+        padding: 32px;
+        text-align: center;
+      }
+      #logoutConfirmModal .modal-body .warning-icon {
+        font-size: 4rem;
+        color: #ED1C24;
+        margin-bottom: 20px;
+        display: block;
+      }
+      #logoutConfirmModal .modal-body p {
+        font-size: 1.1rem;
+        color: #495057;
+        line-height: 1.6;
+        margin: 0;
+        font-weight: 400;
+      }
+      #logoutConfirmModal .modal-footer {
+        border-top: 2px solid #e9ecef;
+        padding: 20px 32px;
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        background: #f8f9fa;
+      }
+      #logoutConfirmModal .modal-footer .btn {
+        min-width: 120px;
+        padding: 12px 24px;
+        font-weight: 600;
+        font-size: 1rem;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+      }
+      #logoutConfirmModal .modal-footer .btn-cancel {
+        background: #6c757d;
+        border: 2px solid #6c757d;
+        color: white;
+      }
+      #logoutConfirmModal .modal-footer .btn-cancel:hover {
+        background: #5a6268;
+        border-color: #5a6268;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+      }
+      #logoutConfirmModal .modal-footer .btn-confirm {
+        background: linear-gradient(135deg, #ED1C24, #C4121A);
+        border: 2px solid #ED1C24;
+        color: white;
+      }
+      #logoutConfirmModal .modal-footer .btn-confirm:hover {
+        background: linear-gradient(135deg, #C4121A, #A10F16);
+        border-color: #A10F16;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(237, 28, 36, 0.4);
+      }
+
+      @media (max-width: 992px) {
+        .hero-card {
+          padding: 22px;
+          border-radius: 16px;
+        }
+        .chart-wrapper {
+          overflow-x: auto;
+        }
+        .chart-wrapper canvas {
+          min-width: 520px;
+        }
+      }
+
+      @media (max-width: 576px) {
+        .period-tabs {
+          width: 100%;
+          justify-content: flex-start;
+          overflow-x: auto;
+          padding: 5px;
+        }
+        .period-tab {
+          padding: 6px 12px;
+          font-size: 0.78rem;
+        }
+        .chart-card {
+          padding: 14px;
+          border-radius: 14px;
+        }
+      }
+
+    /* Operational Insights — responsive metric tiles */
+    .op-insight-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.65rem;
+    }
+    @media (min-width: 576px) {
+      .op-insight-grid {
+        grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+      }
+    }
+    .op-insight-tile {
+      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+      border-radius: 14px;
+      padding: 0.85rem 0.75rem;
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      min-width: 0;
+    }
+    .op-insight-tile .op-lab {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #64748b;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+    .op-insight-tile .op-val {
+      font-size: clamp(0.95rem, 2.6vw, 1.12rem);
+      font-weight: 700;
+      color: #0f172a;
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+    .op-insight-tile .op-sub {
+      font-size: 0.7rem;
+      color: #94a3b8;
+      margin-top: 0.2rem;
+      line-height: 1.25;
+    }
+    .op-action-row {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.65rem;
+    }
+    @media (min-width: 768px) {
+      .op-action-row {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+      }
+    }
+    .op-action-row .op-action-text {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    /* Top Selling Products — fill card to match Operational Insights height */
+    #topProductsInsightsRow > [class*="col-"] {
+      display: flex;
+      flex-direction: column;
+    }
+    #topSellingProductsCard {
+      flex: 1 1 auto;
+      width: 100%;
+      min-height: 0;
+    }
+    #topSellingProductsCard .top-products-grid {
+      flex: 1 1 auto;
+      min-height: 0;
+      align-content: start;
+    }
+    .top-products-grid {
+      --tp-card-min: 168px;
+      --tp-card-est-height: 148px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--tp-card-min)), 1fr));
+      gap: 0.65rem;
+    }
+    .top-product-card {
+      background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+      border-radius: 16px;
+      padding: 0.9rem 0.85rem;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .top-product-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+    }
+    .top-product-card .tp-rank {
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+    .top-product-card .tp-name {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: #0f172a;
+      line-height: 1.35;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      flex: 1 1 auto;
+      margin-bottom: 0.65rem;
+    }
+    .top-product-card .tp-metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.4rem 0.5rem;
+      margin-top: auto;
+      padding-top: 0.5rem;
+      border-top: 1px solid rgba(148, 163, 184, 0.25);
+    }
+    .top-product-card .tp-metric-lab {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #64748b;
+      font-weight: 600;
+    }
+    .top-product-card .tp-metric-val {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #ED1C24;
+      line-height: 1.2;
+    }
+    .top-product-card .tp-metric-val.tp-rev {
+      color: #E6C200;
+      font-size: 0.82rem;
+    }
+    </style>
+</head>
+<body>
+  {% include 'admin_panel/partials/admin_top_navbar.html' %}
+
+  <main class="container-fluid px-4 py-5">
+    <section class="hero-card mb-4">
+      <div class="row align-items-center g-4">
+        <div class="col-12">
+          <p class="mb-2 text-uppercase fw-semibold" style="letter-spacing:0.2em;">Command Center</p>
+          <h1 class="fw-bold mb-2">Hello, {{ user_display_name|default:"Admin" }} 👋{% include 'admin_panel/partials/admin_role_badge.html' %}
+          </h1>
+          <p class="mb-4 lead text-white-50">
+            {{ dashboard_hero_description }}
+          </p>
+          <div class="chips">
+            <span class="chip"><i class="bi bi-lightning-charge-fill me-1"></i> Today: ₱{{ today_revenue|floatformat:2 }}</span>
+            <span class="chip"><i class="bi bi-receipt-cutoff me-1"></i> {{ today_transactions }} transactions</span>
+            <span class="chip"><i class="bi bi-graph-up-arrow me-1"></i> Total ₱{{ all_time_revenue|floatformat:2 }}</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {% include 'admin_panel/partials/admin_main_nav.html' with nav_active='dashboard' %}
+
+    <!-- Chart Period Selector -->
+    <div class="period-toolbar mb-4">
+      <form method="get" id="periodForm" class="period-form">
+        <input type="hidden" name="range" id="rangeInput" value="{{ selected_range }}">
+
+        <div class="period-form-row period-form-row--primary">
+
+        <span class="fw-semibold text-secondary" style="font-size:0.85rem; text-transform:uppercase; letter-spacing:0.08em;">
+          <i class="bi bi-calendar-range me-1"></i>Chart Period
+        </span>
+
+        <!-- Period type tabs -->
+        <div class="period-tabs" role="group" aria-label="Chart period selector">
+          <button type="button"
+                  class="period-tab {% if selected_range == 'week' %}period-tab--active{% endif %}"
+                  data-range="week"
+                  aria-pressed="{% if selected_range == 'week' %}true{% else %}false{% endif %}">
+            <i class="bi bi-calendar-week me-1"></i>Week
+          </button>
+          <button type="button"
+                  class="period-tab {% if selected_range == 'month' %}period-tab--active{% endif %}"
+                  data-range="month"
+                  aria-pressed="{% if selected_range == 'month' %}true{% else %}false{% endif %}">
+            <i class="bi bi-calendar-month me-1"></i>Month
+          </button>
+          <button type="button"
+                  class="period-tab {% if selected_range == 'year' %}period-tab--active{% endif %}"
+                  data-range="year"
+                  aria-pressed="{% if selected_range == 'year' %}true{% else %}false{% endif %}">
+            <i class="bi bi-calendar2-range me-1"></i>Year
+          </button>
+          <button type="button"
+                  class="period-tab {% if selected_range == 'custom' %}period-tab--active{% endif %}"
+                  data-range="custom"
+                  aria-pressed="{% if selected_range == 'custom' %}true{% else %}false{% endif %}">
+            <i class="bi bi-calendar-event me-1"></i>Custom
+          </button>
+          <button type="button"
+                  class="period-tab {% if selected_range == 'all' %}period-tab--active{% endif %}"
+                  data-range="all"
+                  aria-pressed="{% if selected_range == 'all' %}true{% else %}false{% endif %}">
+            <i class="bi bi-database me-1"></i>All Data
+          </button>
+        </div>
+
+          <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2 ms-md-auto" style="font-size:0.8rem;" id="rangeLabelBadge">
+            <i class="bi bi-clock-history me-1"></i><span id="rangeLabelText">{{ range_label }}</span>
+          </span>
+        </div>
+
+        <div class="period-form-pickers">
+        <!-- Week picker -->
+        <div id="weekPickerWrap" class="period-picker-wrap {% if selected_range != 'week' %}d-none{% endif %}">
+          <input type="week" name="week" id="weekInput"
+                 value="{{ selected_week }}"
+                 max="{{ max_week }}"
+                 class="form-control form-control-sm period-picker-input"
+                 {% if selected_range != 'week' %}disabled{% endif %}
+                 aria-label="Select week for chart">
+        </div>
+
+        <!-- Month picker -->
+        <div id="monthPickerWrap" class="period-picker-wrap {% if selected_range != 'month' %}d-none{% endif %}">
+          <input type="month" name="month" id="monthInput"
+                 value="{{ selected_month }}"
+                 max="{{ max_month }}"
+                 class="form-control form-control-sm period-picker-input"
+                 {% if selected_range != 'month' %}disabled{% endif %}
+                 aria-label="Select month for chart"
+                 title="Month only — use Custom to pick exact start and end dates">
+        </div>
+
+        <!-- Year picker -->
+        <div id="yearPickerWrap" class="period-picker-wrap {% if selected_range != 'year' %}d-none{% endif %}">
+          <select name="year" id="yearInput"
+                  class="form-select form-select-sm period-picker-input"
+                  {% if selected_range != 'year' %}disabled{% endif %}
+                  aria-label="Select year for chart">
+            {% for yr in available_years %}
+            <option value="{{ yr }}" {% if yr == selected_year %}selected{% endif %}>{{ yr }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Custom date range (start / end calendar pickers) -->
+        <div id="customPickerWrap" class="period-custom-block {% if selected_range != 'custom' %}d-none{% endif %}">
+          <div class="period-custom-row">
+            <div class="period-custom-field">
+              <label for="dateFromInput">From</label>
+              <input type="date" name="date_from" id="dateFromInput"
+                     value="{{ selected_date_from }}"
+                     min="{{ min_date_iso }}"
+                     max="{{ today_iso }}"
+                     class="form-control form-control-sm period-picker-input period-date-input w-auto"
+                     {% if selected_range != 'custom' %}disabled{% endif %}
+                     aria-label="Chart start date">
+            </div>
+            <div class="period-custom-field">
+              <label for="dateToInput">To</label>
+              <input type="date" name="date_to" id="dateToInput"
+                     value="{{ selected_date_to }}"
+                     min="{{ min_date_iso }}"
+                     max="{{ today_iso }}"
+                     class="form-control form-control-sm period-picker-input period-date-input w-auto"
+                     {% if selected_range != 'custom' %}disabled{% endif %}
+                     aria-label="Chart end date">
+            </div>
+            <button type="submit" class="btn btn-success btn-sm rounded-pill px-3">
+              <i class="bi bi-check2-circle me-1"></i>Apply
+            </button>
+          </div>
+        </div>
+
+        <div class="period-custom-presets align-items-center" title="Jump to a date range using full calendar pickers (Custom tab)">
+          <span class="text-muted small me-1" style="font-size:0.72rem;">Quick range</span>
+          <button type="button" class="btn btn-outline-secondary" data-preset-days="0">Today</button>
+          <button type="button" class="btn btn-outline-secondary" data-preset-days="7">Last 7 days</button>
+          <button type="button" class="btn btn-outline-secondary" data-preset-days="30">Last 30 days</button>
+        </div>
+        </div>
+      </form>
+    </div>
+
+    <script>
+      var dashboardMaxDate = '{{ today_iso }}';
+      var dashboardMinDate = '{{ min_date_iso }}';
+
+      function setPeriodPickerState(activeRange) {
+        var weekWrap = document.getElementById('weekPickerWrap');
+        var monthWrap = document.getElementById('monthPickerWrap');
+        var yearWrap = document.getElementById('yearPickerWrap');
+        var customWrap = document.getElementById('customPickerWrap');
+        var weekInput = document.getElementById('weekInput');
+        var monthInput = document.getElementById('monthInput');
+        var yearInput = document.getElementById('yearInput');
+        var dateFrom = document.getElementById('dateFromInput');
+        var dateTo = document.getElementById('dateToInput');
+        if (!weekInput || !monthInput || !yearInput || !dateFrom || !dateTo) return;
+        weekInput.disabled = activeRange !== 'week';
+        monthInput.disabled = activeRange !== 'month';
+        yearInput.disabled = activeRange !== 'year';
+        dateFrom.disabled = dateTo.disabled = activeRange !== 'custom';
+        if (weekWrap) weekWrap.classList.toggle('d-none', activeRange !== 'week');
+        if (monthWrap) monthWrap.classList.toggle('d-none', activeRange !== 'month');
+        if (yearWrap) yearWrap.classList.toggle('d-none', activeRange !== 'year');
+        if (customWrap) customWrap.classList.toggle('d-none', activeRange !== 'custom');
+      }
+
+      function highlightPeriodTab(range) {
+        document.querySelectorAll('#periodForm .period-tab').forEach(function(tab) {
+          var r = tab.getAttribute('data-range');
+          var on = r === range;
+          tab.classList.toggle('period-tab--active', on);
+          tab.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+      }
+
+      function openPeriodPicker(input) {
+        if (!input || input.disabled) return;
+        if (typeof input.showPicker === 'function') {
+          try {
+            input.showPicker();
+            return;
+          } catch (err) {
+            /* fall through */
+          }
+        }
+        input.focus();
+        input.click();
+      }
+
+      function bindPeriodPickerWrap(wrapId, inputId) {
+        var wrap = document.getElementById(wrapId);
+        var input = document.getElementById(inputId);
+        if (!wrap || !input) return;
+        wrap.addEventListener('pointerdown', function(e) {
+          if (input.disabled) return;
+          if (e.target === input) return;
+          e.preventDefault();
+          openPeriodPicker(input);
+        });
+      }
+
+      function switchPeriod(type) {
+        document.getElementById('rangeInput').value = type;
+        highlightPeriodTab(type);
+        setPeriodPickerState(type);
+        if (type !== 'custom') {
+          submitPeriodForm();
+        }
+      }
+
+      function formatLocalYMD(d) {
+        var y = d.getFullYear();
+        var m = String(d.getMonth() + 1).padStart(2, '0');
+        var day = String(d.getDate()).padStart(2, '0');
+        return y + '-' + m + '-' + day;
+      }
+
+      /** @param days 0 = today only; else rolling window ending today (e.g. 7 = last 7 days including today) */
+      function applyPresetRange(days) {
+        var fromEl = document.getElementById('dateFromInput');
+        var toEl = document.getElementById('dateToInput');
+        var maxStr = dashboardMaxDate;
+        var minStr = dashboardMinDate;
+        var endParts = maxStr.split('-');
+        var endDate = new Date(parseInt(endParts[0], 10), parseInt(endParts[1], 10) - 1, parseInt(endParts[2], 10));
+        var startDate = new Date(endDate);
+        if (days === 0) {
+          startDate = new Date(endDate);
+        } else {
+          startDate.setDate(startDate.getDate() - (days - 1));
+        }
+        var minParts = minStr.split('-');
+        var minD = new Date(parseInt(minParts[0], 10), parseInt(minParts[1], 10) - 1, parseInt(minParts[2], 10));
+        if (startDate < minD) startDate = minD;
+        fromEl.value = formatLocalYMD(startDate);
+        toEl.value = formatLocalYMD(endDate);
+        document.getElementById('rangeInput').value = 'custom';
+        highlightPeriodTab('custom');
+        setPeriodPickerState('custom');
+        submitPeriodForm();
+      }
+
+      function initDashboardPeriodControls() {
+        var rangeInput = document.getElementById('rangeInput');
+        if (rangeInput) {
+          setPeriodPickerState(rangeInput.value);
+        }
+
+        document.querySelectorAll('#periodForm .period-tab').forEach(function(tab) {
+          tab.addEventListener('click', function() {
+            var range = tab.getAttribute('data-range');
+            if (!range) return;
+            switchPeriod(range);
+          });
+        });
+
+        bindPeriodPickerWrap('weekPickerWrap', 'weekInput');
+        bindPeriodPickerWrap('monthPickerWrap', 'monthInput');
+        document.querySelectorAll('.period-custom-field').forEach(function(field) {
+          var dateInput = field.querySelector('input[type="date"]');
+          if (!dateInput) return;
+          field.addEventListener('pointerdown', function(e) {
+            if (dateInput.disabled) return;
+            if (e.target === dateInput) return;
+            e.preventDefault();
+            openPeriodPicker(dateInput);
+          });
+        });
+
+        var weekInput = document.getElementById('weekInput');
+        var monthInput = document.getElementById('monthInput');
+        var yearInput = document.getElementById('yearInput');
+        if (weekInput) weekInput.addEventListener('change', submitPeriodForm);
+        if (monthInput) monthInput.addEventListener('change', submitPeriodForm);
+        if (yearInput) yearInput.addEventListener('change', submitPeriodForm);
+
+        document.querySelectorAll('[data-preset-days]').forEach(function(btn) {
+          btn.addEventListener('click', function() {
+            var days = parseInt(btn.getAttribute('data-preset-days'), 10);
+            if (isNaN(days)) return;
+            applyPresetRange(days);
+          });
+        });
+      }
+    </script>
+
+    <section class="row row-cols-1 row-cols-sm-2 row-cols-lg-3 row-cols-xl-5 g-3 g-lg-4 mb-4">
+      <div class="col d-flex">
+        <div class="stat-card w-100">
+          <div class="d-flex align-items-center gap-3 flex-wrap flex-sm-nowrap">
+            <div class="stat-icon flex-shrink-0" style="background:#ED1C24;"><i class="bi bi-cash-stack"></i></div>
+            <div class="stat-kpi-row">
+              <div class="stat-title">Total Revenue</div>
+              <h3 class="mb-0 stat-kpi-value" id="kpiTotalRevenue">₱{{ total_revenue|floatformat:2 }}</h3>
+              <small class="text-success stat-kpi-meta"><span id="kpiTotalRevenueSub">{{ range_label }}</span></small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col d-flex">
+        <div class="stat-card w-100">
+          <div class="d-flex align-items-center gap-3 flex-wrap flex-sm-nowrap">
+            <div class="stat-icon flex-shrink-0" style="background:#FFF200;color:#111;"><i class="bi bi-bar-chart-line"></i></div>
+            <div class="stat-kpi-row">
+              <div class="stat-title">Transactions</div>
+              <h3 class="mb-0 stat-kpi-value" id="kpiTotalTransactions">{{ total_transactions }}</h3>
+              <small class="text-muted stat-kpi-meta"><span id="kpiTotalTransactionsSub">{{ range_label }}</span></small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col d-flex">
+        <div class="stat-card w-100">
+          <div class="d-flex align-items-center gap-3 flex-wrap flex-sm-nowrap">
+            <div class="stat-icon flex-shrink-0" style="background:#6366f1;"><i class="bi bi-boxes"></i></div>
+            <div class="stat-kpi-row">
+              <div class="stat-title">Inventory Alerts</div>
+              <h3 class="mb-0 stat-kpi-value" id="kpiInventoryAlerts">{{ inventory_alert_total }}</h3>
+              <small class="stat-kpi-meta">
+                <span class="text-muted"><span id="kpiInventoryLow">{{ low_stock_products }}</span> low stock</span>
+                <span class="text-muted"> · </span>
+                <span class="text-danger"><span id="kpiInventoryOut">{{ out_of_stock_products }}</span> out of stock</span>
+              </small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col d-flex">
+        <div class="stat-card w-100">
+          <div class="d-flex align-items-center gap-3 flex-wrap flex-sm-nowrap">
+            <div class="stat-icon flex-shrink-0" style="background:#ef4444;"><i class="bi bi-arrow-counterclockwise"></i></div>
+            <div class="stat-kpi-row">
+              <div class="stat-title">Total Refunds</div>
+              <h3 class="mb-0 stat-kpi-value" id="kpiTotalRefunds">{{ total_refunds }}</h3>
+              <small class="text-danger stat-kpi-amount d-block" id="kpiTotalRefundAmount">₱{{ total_refund_amount|floatformat:2 }}</small>
+              <small class="text-muted stat-kpi-meta d-block" id="kpiTotalRefundsSub">All time</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col d-flex">
+        <div class="stat-card w-100">
+          <div class="d-flex align-items-center gap-3 flex-wrap flex-sm-nowrap">
+            <div class="stat-icon flex-shrink-0" style="background:#f59e0b;"><i class="bi bi-arrow-counterclockwise"></i></div>
+            <div class="stat-kpi-row">
+              <div class="stat-title">Period Refunds</div>
+              <h3 class="mb-0 stat-kpi-value" id="kpiPeriodRefunds">{{ period_refunds }}</h3>
+              <small class="text-warning stat-kpi-amount d-block" id="kpiPeriodRefundAmount">₱{{ period_refund_amount|floatformat:2 }}</small>
+              <small class="text-muted stat-kpi-meta d-block" id="kpiPeriodRefundsSub">{{ range_label }}</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="row g-4 mb-4">
+      <div class="col-xl-8">
+        <div class="chart-card" id="salesTrendCard">
+          <div class="d-flex justify-content-between align-items-start mb-4">
+            <div class="flex-grow-1">
+              <div class="d-flex align-items-center gap-2 mb-2">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #ED1C24 0%, #C4121A 100%); width: 40px; height: 40px; font-size: 1.1rem;">
+                  <i class="bi bi-graph-up-arrow"></i>
+                </div>
+                <div>
+                  <h5 class="mb-0 fw-bold" id="salesTrendTitle">Sales Trend ({{ range_label }})</h5>
+                  <small class="text-muted" id="salesTrendSubtitle">Revenue snapshot for the selected period</small>
+                </div>
+              </div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2">
+                <i class="bi bi-circle-fill me-1" style="font-size: 0.5rem; animation: pulse 2s infinite;"></i>Live
+              </span>
+              <button type="button" class="btn btn-sm btn-outline-success rounded-pill expand-chart-btn" id="expandSalesChartBtn" title="Expand chart">
+                <i class="bi bi-arrows-fullscreen" id="expandSalesChartIcon"></i>
+              </button>
+            </div>
+          </div>
+          
+          <!-- Summary Statistics -->
+          <div class="row g-3 mb-4" id="salesTrendStats">
+            <div class="col-6 col-md-3">
+              <div class="bg-light rounded-3 p-3 text-center border-start border-4 border-success">
+                <div class="text-muted small mb-1" style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;">Total Revenue</div>
+                <div class="h5 mb-0 fw-bold text-success" id="total14DayRevenue">₱0.00</div>
+                <div class="text-muted" style="font-size: 0.75rem;">{{ range_label }}</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="bg-light rounded-3 p-3 text-center border-start border-4 border-primary">
+                <div class="text-muted small mb-1" style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;">Daily Average</div>
+                <div class="h5 mb-0 fw-bold text-primary" id="avgDailyRevenue">₱0.00</div>
+                <div class="text-muted" style="font-size: 0.75rem;">per day</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="bg-light rounded-3 p-3 text-center border-start border-4 border-warning">
+                <div class="text-muted small mb-1" style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;">Peak Day</div>
+                <div class="h6 mb-0 fw-bold text-warning" id="peakDayAmount">₱0.00</div>
+                <div class="text-muted" style="font-size: 0.7rem;" id="peakDayLabel">-</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-3">
+              <div class="bg-light rounded-3 p-3 text-center border-start border-4" id="growthCard" style="border-color: #10b981;">
+                <div class="text-muted small mb-1" style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em;">Growth</div>
+                <div class="h5 mb-0 fw-bold" id="growthPercentage" style="color: #10b981;">0%</div>
+                <div class="text-muted" style="font-size: 0.7rem;" id="growthLabel">Period over period</div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="chart-wrapper" id="salesTrendWrapper" style="height:280px; max-height:280px;">
+            <canvas id="salesTrendChart"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-4">
+        <div class="chart-card mb-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <h5 class="mb-0 d-flex align-items-center">
+                <i class="bi bi-pie-chart-fill me-2 text-primary"></i>Payment Mix
+              </h5>
+              <small class="text-muted">Actual sales by payment method (net of refunds)</small>
+            </div>
+            <span class="badge bg-primary-subtle text-primary rounded-pill">
+              <i class="bi bi-activity me-1"></i>Live
+            </span>
+          </div>
+          <div class="chart-wrapper position-relative" style="height:220px; max-height:220px;">
+            <canvas id="paymentMixChart"></canvas>
+            <div id="paymentMixCenter" class="position-absolute top-50 start-50 translate-middle text-center" style="pointer-events: none; z-index: 10;">
+              <div class="fw-bold text-primary" style="font-size: 1.5rem;" id="paymentMixTotal">₱0.00</div>
+              <small class="text-muted d-block">Total</small>
+            </div>
+          </div>
+          <div id="paymentMixSummary" class="mt-3 pt-3 border-top">
+            <div class="row g-2" id="paymentMethodBreakdown">
+              <!-- Payment method breakdown will be populated by JavaScript -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="row g-4 mb-4">
+      <div class="col-xl-8">
+        <div class="chart-card">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <div>
+              <h5 class="mb-0" id="refundTrendTitle">Refund Trend ({{ range_label }})</h5>
+              <small class="text-muted" id="refundTrendSubtitle">Refund activity and amounts for the selected period</small>
+            </div>
+            <a href="{% url 'process_refund' %}" class="btn btn-sm btn-outline-success rounded-pill">
+              <i class="bi bi-arrow-counterclockwise me-1"></i>Process Refund
+            </a>
+          </div>
+          <div class="chart-wrapper" style="height:240px; max-height:240px;">
+            <canvas id="refundTrendChart"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-4">
+        <div class="chart-card table-card h-100">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Recent Refunds</h5>
+            <a href="{% url 'process_refund' %}" class="btn btn-sm btn-outline-secondary rounded-pill">View all</a>
+          </div>
+          <div class="table-responsive" style="max-height: 240px; overflow-y: auto;">
+            <table class="table table-sm align-middle">
+              <thead>
+                <tr>
+                  <th>Transaction #</th>
+                  <th>Customer</th>
+                  <th>Date</th>
+                  <th class="text-end">Amount</th>
+                </tr>
+              </thead>
+              <tbody id="recentRefundsBody">
+                {% for refund in recent_refunds %}
+                <tr{% if refund.is_partially_refunded %} class="refund-partial-row"{% endif %}>
+                  <td class="fw-semibold">
+                    {{ refund.transaction_number }}
+                    {% if refund.is_partially_refunded %}
+                    <span class="refund-partial-badge" title="Not fully refunded — sale still has a remaining balance">
+                      <i class="bi bi-exclamation-circle" aria-hidden="true"></i> Has balance
+                    </span>
+                    {% endif %}
+                  </td>
+                  <td>{{ refund.member_name|default:"Guest" }}</td>
+                  <td><small>{{ refund.refunded_at }}</small></td>
+                  <td class="text-end">
+                    <span class="fw-semibold text-danger">₱{{ refund.refund_amount|floatformat:2 }}</span>
+                    {% if refund.is_partially_refunded %}
+                    <span class="refund-remaining-balance">Balance ₱{{ refund.remaining_balance|floatformat:2 }}</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-center text-muted py-4">No refunds for this period</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="row g-4 mb-4">
+      <div class="col-xl-4">
+        <div class="chart-card table-card h-100">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Top Members</h5>
+            {% if top_members.paginator.count %}
+            <small class="text-muted">Page {{ top_members.number }} of {{ top_members.paginator.num_pages }}</small>
+            {% endif %}
+          </div>
+          <ul class="list-group list-group-flush">
+            {% for member in top_members %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+              <div>
+                <strong>{{ member.full_name|default:member }}</strong><br>
+                <small class="text-muted">{{ member.member_id|default:"No ID" }}</small>
+              </div>
+              <span class="fw-semibold text-success">₱{{ member.total_spent|default:0|floatformat:2 }}</span>
+            </li>
+            {% empty %}
+            <li class="list-group-item text-center text-muted">No member purchases yet</li>
+            {% endfor %}
+          </ul>
+          {% if top_members.paginator.num_pages > 1 %}
+          <div class="d-flex justify-content-between align-items-center mt-3">
+            {% if top_members.has_previous %}
+            <a class="btn btn-sm btn-outline-secondary rounded-pill px-3" href="?{% if top_members_query_params %}{{ top_members_query_params }}&{% endif %}top_members_page={{ top_members.previous_page_number }}">
+              <i class="bi bi-chevron-left me-1"></i>Previous
+            </a>
+            {% else %}
+            <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" type="button" disabled>
+              <i class="bi bi-chevron-left me-1"></i>Previous
+            </button>
+            {% endif %}
+            {% if top_members.has_next %}
+            <a class="btn btn-sm btn-outline-secondary rounded-pill px-3" href="?{% if top_members_query_params %}{{ top_members_query_params }}&{% endif %}top_members_page={{ top_members.next_page_number }}">
+              Next<i class="bi bi-chevron-right ms-1"></i>
+            </a>
+            {% else %}
+            <button class="btn btn-sm btn-outline-secondary rounded-pill px-3" type="button" disabled>
+              Next<i class="bi bi-chevron-right ms-1"></i>
+            </button>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      <div class="col-xl-8">
+        <div class="chart-card table-card">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0">Recent Transactions</h5>
+            <a href="{% url 'transaction_history' %}" class="btn btn-sm btn-outline-secondary rounded-pill">View all</a>
+          </div>
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th>Transaction #</th>
+                  <th>Customer</th>
+                  <th>Method</th>
+                  <th>Date</th>
+                  <th class="text-end">Amount</th>
+                </tr>
+              </thead>
+              <tbody id="recentTransactionsBody">
+                {% for txn in recent_transactions %}
+                <tr{% if txn.kind == 'refund' %} class="table-light"{% endif %}>
+                  <td class="fw-semibold">
+                    {{ txn.transaction_number }}
+                    {% if txn.kind == 'refund' %}
+                    <span class="badge bg-danger-subtle text-danger ms-1">Refund</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if txn.is_walk_in %}
+                    <span class="walk-in-name">{{ txn.customer_name }}</span>
+                    <span class="walk-in-badge ms-1">Walk-in</span>
+                    {% elif txn.customer_name %}
+                    {{ txn.customer_name }}
+                    {% else %}
+                    <span class="text-muted">Guest</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if txn.kind == 'refund' %}
+                    <span class="badge bg-danger text-uppercase">Refund</span>
+                    {% else %}
+                    <span class="badge bg-light text-dark text-uppercase">{{ txn.payment_method }}</span>
+                    {% endif %}
+                  </td>
+                  <td>{{ txn.created_at }}</td>
+                  <td class="fw-semibold text-end{% if txn.kind == 'refund' %} text-danger{% endif %}">
+                    {% if txn.kind == 'refund' %}−{% endif %}₱{{ txn.amount|floatformat:2 }}
+                  </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-center text-muted py-4">No transactions yet</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="row g-4 mb-4" id="walkInCustomersRow">
+      <div class="col-12">
+        <div class="chart-card table-card">
+          <div class="d-flex flex-column flex-md-row justify-content-between align-items-start gap-2 mb-3">
+            <div>
+              <h5 class="mb-1 d-flex align-items-center gap-2">
+                <i class="bi bi-person-vcard-fill text-success"></i>Walk-in Customers
+              </h5>
+              <small class="text-muted d-block" id="walkInRangeNote">Registered names from kiosk · {{ range_label }}</small>
+            </div>
+            <a href="{{ walk_in_insights.admin_url }}" class="btn btn-sm btn-outline-success rounded-pill" target="_blank" rel="noopener">
+              <i class="bi bi-box-arrow-up-right me-1"></i>Open in Admin
+            </a>
+          </div>
+
+          <div class="walk-in-summary-grid mb-4">
+            <div class="walk-in-stat">
+              <div class="wi-lab">Registered</div>
+              <div class="wi-val" id="wiTotalRegistered">{{ walk_in_insights.total_registered }}</div>
+              <div class="wi-sub">All time in database</div>
+            </div>
+            <div class="walk-in-stat">
+              <div class="wi-lab">New names</div>
+              <div class="wi-val" id="wiNewInPeriod">{{ walk_in_insights.new_in_period }}</div>
+              <div class="wi-sub">First saved in period</div>
+            </div>
+            <div class="walk-in-stat">
+              <div class="wi-lab">Sales</div>
+              <div class="wi-val" id="wiPeriodTxnCount">{{ walk_in_insights.period_txn_count }}</div>
+              <div class="wi-sub">Walk-in transactions</div>
+            </div>
+            <div class="walk-in-stat">
+              <div class="wi-lab">Revenue</div>
+              <div class="wi-val text-success" id="wiPeriodRevenue">₱{{ walk_in_insights.period_revenue|floatformat:2 }}</div>
+              <div class="wi-sub">Walk-in sales total</div>
+            </div>
+          </div>
+
+          <div class="row g-4">
+            <div class="col-lg-7">
+              <p class="small text-muted mb-2 fw-semibold text-uppercase" style="letter-spacing:0.06em;">Top walk-in customers (period)</p>
+              <div class="table-responsive">
+                <table class="table align-middle mb-0">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Customer name</th>
+                      <th class="text-center">Orders</th>
+                      <th class="text-end">Revenue</th>
+                      <th>Last visit</th>
+                    </tr>
+                  </thead>
+                  <tbody id="walkInTopCustomersBody">
+                    {% for c in walk_in_insights.top_customers %}
+                    <tr>
+                      <td class="text-muted">{{ forloop.counter }}</td>
+                      <td><span class="walk-in-name">{{ c.display_name }}</span></td>
+                      <td class="text-center">{{ c.txn_count }}</td>
+                      <td class="text-end fw-semibold text-success">₱{{ c.revenue|floatformat:2 }}</td>
+                      <td class="text-muted small">{{ c.last_seen_at }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-center text-muted py-3">No walk-in sales in this period</td></tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="col-lg-5">
+              <p class="small text-muted mb-2 fw-semibold text-uppercase" style="letter-spacing:0.06em;">Recently active</p>
+              <ul class="list-group list-group-flush rounded-3 border" id="walkInRecentList">
+                {% for c in walk_in_insights.recent_customers %}
+                <li class="list-group-item d-flex justify-content-between align-items-start gap-2 py-3">
+                  <div class="min-w-0">
+                    <div class="walk-in-name d-block text-truncate">{{ c.display_name }}</div>
+                    <small class="text-muted">Last seen {{ c.last_seen_at }}</small>
+                  </div>
+                  <div class="text-end flex-shrink-0">
+                    <div class="fw-semibold">{{ c.txn_count }}</div>
+                    <small class="text-muted d-block">order{{ c.txn_count|pluralize }}</small>
+                  </div>
+                </li>
+                {% empty %}
+                <li class="list-group-item text-center text-muted py-4">No walk-in customers saved yet</li>
+                {% endfor %}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="row g-4 align-items-stretch" id="topProductsInsightsRow">
+      <div class="col-12 col-xl-6">
+        <div class="chart-card" id="topSellingProductsCard">
+          <div id="topProductsCardHeader" class="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-2 mb-3">
+            <div>
+              <h5 class="mb-1 d-flex align-items-center gap-2 flex-wrap">
+                <i class="bi bi-trophy-fill text-warning"></i>Top Selling Products
+              </h5>
+              <small class="text-muted d-block" id="topProductsRangeNote">By units sold · {{ range_label }}</small>
+            </div>
+          </div>
+          <div class="top-products-grid" id="topProductsGrid" aria-live="polite">
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-xl-6">
+        <div class="chart-card" id="operationalInsightsCard">
+          <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-2 mb-3">
+            <div>
+              <h5 class="mb-1 d-flex align-items-center gap-2 flex-wrap">
+                <i class="bi bi-lightbulb-fill text-warning"></i>Operational Insights
+              </h5>
+              <small class="text-muted d-block" id="opInsightsRangeNote">Period metrics for {{ range_label }} · Queue counts are live</small>
+            </div>
+          </div>
+
+          <div class="op-insight-grid mb-3" aria-label="Key operational metrics">
+            <div class="op-insight-tile">
+              <div class="op-lab">Avg order</div>
+              <div class="op-val" id="opInsightAvgOrder">₱{{ operational_insights.avg_order_value|floatformat:2 }}</div>
+              <div class="op-sub">Completed sales in period</div>
+            </div>
+            <div class="op-insight-tile">
+              <div class="op-lab">Guest vs member</div>
+              <div class="op-val"><span id="opInsightGuestCount">{{ operational_insights.guest_txn_count }}</span> / <span id="opInsightMemberCount">{{ operational_insights.member_txn_count }}</span></div>
+              <div class="op-sub"><span id="opInsightGuestPct">{{ operational_insights.guest_share_pct }}%</span> guest · <span id="opInsightMemberPct">{{ operational_insights.member_share_pct }}%</span> member</div>
+            </div>
+            <div class="op-insight-tile">
+              <div class="op-lab">Revenue split</div>
+              <div class="op-val text-truncate" style="max-width:100%;" title="Guest and member revenue">G <span id="opInsightGuestRev">₱{{ operational_insights.guest_revenue|floatformat:2 }}</span></div>
+              <div class="op-sub">M <span id="opInsightMemberRev">₱{{ operational_insights.member_revenue|floatformat:2 }}</span></div>
+            </div>
+            <div class="op-insight-tile">
+              <div class="op-lab">New members</div>
+              <div class="op-val" id="opInsightNewMembers">{{ operational_insights.new_members_in_period }}</div>
+              <div class="op-sub">Joined in this period</div>
+            </div>
+            <div class="op-insight-tile">
+              <div class="op-lab">Refund rate</div>
+              <div class="op-val" id="opInsightRefundRate">{{ operational_insights.refund_rate_pct }}%</div>
+              <div class="op-sub">Refunds completed vs sales in period</div>
+            </div>
+            <div class="op-insight-tile">
+              <div class="op-lab">Active SKUs</div>
+              <div class="op-val" id="opInsightActiveProducts">{{ operational_insights.active_products }}</div>
+              <div class="op-sub">Catalog (active products)</div>
+            </div>
+          </div>
+
+          <p class="small text-muted mb-2 fw-semibold text-uppercase" style="letter-spacing:0.06em;">Live queues</p>
+          <div class="row g-2 mb-3">
+            <div class="col-6 col-md-4">
+              <div class="rounded-3 border bg-white px-3 py-2 h-100">
+                <div class="text-muted small">Pending checkout</div>
+                <div class="fs-5 fw-bold text-primary" id="opInsightPending">{{ operational_insights.pending_checkouts }}</div>
+              </div>
+            </div>
+            <div class="col-6 col-md-4">
+              <div class="rounded-3 border bg-white px-3 py-2 h-100">
+                <div class="text-muted small">Refund requests</div>
+                <div class="fs-5 fw-bold text-danger" id="opInsightRefundReq">{{ operational_insights.refund_requested_open }}</div>
+              </div>
+            </div>
+            <div class="col-12 col-md-4">
+              <div class="rounded-3 border bg-white px-3 py-2 h-100">
+                <div class="text-muted small">Return window</div>
+                <div class="fs-5 fw-bold text-warning" id="opInsightReturnWin">{{ operational_insights.return_window_open }}</div>
+              </div>
+            </div>
+          </div>
+
+          <ul class="list-group list-group-flush rounded-3 border">
+            <li class="list-group-item op-action-row py-3">
+              <div class="op-action-text">
+                <strong>{{ low_stock_products }}</strong> low stock and <strong>{{ out_of_stock_products }}</strong> out of stock (<strong>{{ inventory_alert_total }}</strong> alerts).
+              </div>
+              <a href="{% url 'inventory_management' %}?filter=low_stock" class="btn btn-outline-success btn-sm rounded-pill flex-shrink-0 align-self-start align-self-md-center">Review inventory</a>
+            </li>
+            <li class="list-group-item op-action-row py-3">
+              <div class="op-action-text">
+                <strong>{{ total_refunds }}</strong> refunds all-time · <strong>₱{{ total_refund_amount|floatformat:2 }}</strong> · Period: <strong id="opInsightPeriodRefundsInline">{{ period_refunds }}</strong> / <strong id="opInsightPeriodRefundAmtInline">₱{{ period_refund_amount|floatformat:2 }}</strong>
+              </div>
+              <div class="d-flex flex-wrap gap-2 flex-shrink-0">
+                <a href="{% url 'transaction_history' %}" class="btn btn-outline-secondary btn-sm rounded-pill">Transactions</a>
+                <a href="{% url 'process_refund' %}" class="btn btn-outline-success btn-sm rounded-pill">Refunds</a>
+              </div>
+            </li>
+            <li class="list-group-item op-action-row py-3">
+              <div class="op-action-text">
+                <strong>{{ total_members }}</strong> active members · New in period: <strong id="opInsightNewMembersInline">{{ operational_insights.new_members_in_period }}</strong>
+              </div>
+              <a href="{% url 'member_management' %}" class="btn btn-outline-success btn-sm rounded-pill flex-shrink-0 align-self-start align-self-md-center">Members</a>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  {% include 'admin_panel/partials/footer.html' %}
+
+  <script>
+    // Data injected from server as JSON
+    let dailySalesLabels, dailySalesTotals, paymentLabels, paymentTotals, categoryLabels, categoryTotals;
+    let dailyRefundLabels, dailyRefundAmounts, dailyRefundCounts;
+    let selectedRange = "{{ selected_range }}";
+    let rangeLabel = "{{ range_label }}";
+    const dashboardPeriodApiUrl = "{% url 'api_dashboard_period_data' %}";
+    const initialKpiData = {
+      total_revenue: Number("{{ total_revenue|default:0 }}"),
+      total_transactions: Number("{{ total_transactions|default:0 }}"),
+      low_stock_products: Number("{{ low_stock_products|default:0 }}"),
+      out_of_stock_products: Number("{{ out_of_stock_products|default:0 }}"),
+      inventory_alert_total: Number("{{ inventory_alert_total|default:0 }}"),
+      total_refunds: Number("{{ total_refunds|default:0 }}"),
+      total_refund_amount: Number("{{ total_refund_amount|default:0 }}"),
+      period_refunds: Number("{{ period_refunds|default:0 }}"),
+      period_refund_amount: Number("{{ period_refund_amount|default:0 }}")
+    };
+
+    let topProductsAllRows = [];
+    let topProductsResizeTimer = null;
+    try {
+      topProductsAllRows = {{ top_products_json|default:'[]'|safe }};
+    } catch (e) {
+      console.error('Error parsing top products data:', e);
+      topProductsAllRows = [];
+    }
+
+    try {
+      dailySalesLabels = {{ daily_sales_labels|default:'[]'|safe }};
+      dailySalesTotals = {{ daily_sales_totals|default:'[]'|safe }};
+      paymentLabels = {{ payment_labels|default:'[]'|safe }};
+      paymentTotals = {{ payment_totals|default:'[]'|safe }};
+      categoryLabels = {{ category_labels|default:'[]'|safe }};
+      categoryTotals = {{ category_totals|default:'[]'|safe }};
+      dailyRefundLabels = {{ daily_refund_labels|default:'[]'|safe }};
+      dailyRefundAmounts = {{ daily_refund_amounts|default:'[]'|safe }};
+      dailyRefundCounts = {{ daily_refund_counts|default:'[]'|safe }};
+    } catch (e) {
+      console.error('Error parsing chart data:', e);
+      dailySalesLabels = [];
+      dailySalesTotals = [];
+      paymentLabels = [];
+      paymentTotals = [];
+      categoryLabels = [];
+      categoryTotals = [];
+      dailyRefundLabels = [];
+      dailyRefundAmounts = [];
+      dailyRefundCounts = [];
+    }
+
+    let safeDailySalesLabels = [];
+    let safeDailySalesTotals = [];
+    let safePaymentLabels = [];
+    let safePaymentTotals = [];
+    let safeCategoryLabels = [];
+    let safeCategoryTotals = [];
+    let safeDailyRefundLabels = [];
+    let safeDailyRefundAmounts = [];
+    let safeDailyRefundCounts = [];
+    let normDailyTotals = [];
+    let normPaymentTotals = [];
+    let normCategoryTotals = [];
+    let normRefundAmounts = [];
+    let normRefundCounts = [];
+
+    const normNumbers = (arr) => Array.isArray(arr) ? arr.map(v => { const n = Number(v); return isNaN(n) ? 0 : n; }) : [];
+
+    function syncNormalizedData() {
+      safeDailySalesLabels = Array.isArray(dailySalesLabels) ? [...dailySalesLabels] : [];
+      safeDailySalesTotals = Array.isArray(dailySalesTotals) ? [...dailySalesTotals] : [];
+      safePaymentLabels = Array.isArray(paymentLabels) ? [...paymentLabels] : [];
+      safePaymentTotals = Array.isArray(paymentTotals) ? [...paymentTotals] : [];
+      safeCategoryLabels = Array.isArray(categoryLabels) ? [...categoryLabels] : [];
+      safeCategoryTotals = Array.isArray(categoryTotals) ? [...categoryTotals] : [];
+      safeDailyRefundLabels = Array.isArray(dailyRefundLabels) ? [...dailyRefundLabels] : [];
+      safeDailyRefundAmounts = Array.isArray(dailyRefundAmounts) ? [...dailyRefundAmounts] : [];
+      safeDailyRefundCounts = Array.isArray(dailyRefundCounts) ? [...dailyRefundCounts] : [];
+
+      normDailyTotals = normNumbers(safeDailySalesTotals);
+      normPaymentTotals = normNumbers(safePaymentTotals);
+      normCategoryTotals = normNumbers(safeCategoryTotals);
+      normRefundAmounts = normNumbers(safeDailyRefundAmounts);
+      normRefundCounts = normNumbers(safeDailyRefundCounts);
+
+      if (safeDailySalesLabels.length !== normDailyTotals.length) {
+        const len = Math.max(safeDailySalesLabels.length, normDailyTotals.length);
+        while (safeDailySalesLabels.length < len) safeDailySalesLabels.push('');
+        while (normDailyTotals.length < len) normDailyTotals.push(0);
+      }
+    }
+
+    syncNormalizedData();
+
+    // Create gradient function
+    const createGradient = (ctx, colorStops, height) => {
+      const canvasHeight = height || ctx.canvas.height || 240;
+      const gradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
+      for (const stop of colorStops) {
+        gradient.addColorStop(stop.position, stop.color);
+      }
+      return gradient;
+    };
+
+    // Store chart instances
+    let salesTrendChartInstance = null;
+    let isLoadingPeriodData = false;
+
+    function updatePeriodLabels(newRangeLabel) {
+      const rangeLabelText = document.getElementById('rangeLabelText');
+      const salesTrendTitle = document.getElementById('salesTrendTitle');
+      const refundTrendTitle = document.getElementById('refundTrendTitle');
+      const revenueSub = document.getElementById('kpiTotalRevenueSub');
+      const txSub = document.getElementById('kpiTotalTransactionsSub');
+      if (rangeLabelText) rangeLabelText.textContent = newRangeLabel;
+      if (salesTrendTitle) salesTrendTitle.textContent = `Sales Trend (${newRangeLabel})`;
+      if (refundTrendTitle) refundTrendTitle.textContent = `Refund Trend (${newRangeLabel})`;
+      if (revenueSub) revenueSub.textContent = newRangeLabel;
+      if (txSub) txSub.textContent = newRangeLabel;
+      const periodRefundsSub = document.getElementById('kpiPeriodRefundsSub');
+      if (periodRefundsSub) periodRefundsSub.textContent = newRangeLabel;
+      const topProductsRange = document.getElementById('topProductsRangeNote');
+      if (topProductsRange) topProductsRange.textContent = 'By units sold · ' + newRangeLabel;
+    }
+
+    function formatPeso(value) {
+      const n = Number(value) || 0;
+      return `₱${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+
+    function asNumberOrFallback(value, fallback) {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : fallback;
+    }
+
+    function updateKpiCards(payload) {
+      const totalRevenueEl = document.getElementById('kpiTotalRevenue');
+      const totalTransactionsEl = document.getElementById('kpiTotalTransactions');
+      const inventoryAlertsEl = document.getElementById('kpiInventoryAlerts');
+      const inventoryLowEl = document.getElementById('kpiInventoryLow');
+      const inventoryOutEl = document.getElementById('kpiInventoryOut');
+      const totalRefundsEl = document.getElementById('kpiTotalRefunds');
+      const totalRefundAmountEl = document.getElementById('kpiTotalRefundAmount');
+      const periodRefundsEl = document.getElementById('kpiPeriodRefunds');
+      const periodRefundAmountEl = document.getElementById('kpiPeriodRefundAmount');
+
+      const salesTotalFromSeries = Array.isArray(payload.daily_sales_totals)
+        ? payload.daily_sales_totals.reduce((acc, val) => acc + (Number(val) || 0), 0)
+        : initialKpiData.total_revenue;
+      const refundsTotalFromSeries = Array.isArray(payload.daily_refund_amounts)
+        ? payload.daily_refund_amounts.reduce((acc, val) => acc + (Number(val) || 0), 0)
+        : initialKpiData.period_refund_amount;
+      const refundsCountFromSeries = Array.isArray(payload.daily_refund_counts)
+        ? payload.daily_refund_counts.reduce((acc, val) => acc + (Number(val) || 0), 0)
+        : initialKpiData.period_refunds;
+
+      const totalRevenue = asNumberOrFallback(payload.total_revenue, salesTotalFromSeries);
+      const totalTransactions = asNumberOrFallback(payload.total_transactions, initialKpiData.total_transactions);
+      const lowStockProducts = asNumberOrFallback(payload.low_stock_products, initialKpiData.low_stock_products);
+      const outOfStockProducts = asNumberOrFallback(payload.out_of_stock_products, initialKpiData.out_of_stock_products);
+      const inventoryAlertTotal = asNumberOrFallback(
+        payload.inventory_alert_total,
+        lowStockProducts + outOfStockProducts
+      );
+
+      const allTimeRefunds = asNumberOrFallback(
+        payload.all_time_refunds !== undefined ? payload.all_time_refunds : payload.total_refunds,
+        initialKpiData.total_refunds
+      );
+      const allTimeRefundAmount = asNumberOrFallback(
+        payload.all_time_refund_amount !== undefined ? payload.all_time_refund_amount : payload.total_refund_amount,
+        initialKpiData.total_refund_amount
+      );
+      const periodRefunds = asNumberOrFallback(payload.period_refunds, refundsCountFromSeries);
+      const periodRefundAmount = asNumberOrFallback(payload.period_refund_amount, refundsTotalFromSeries);
+
+      if (totalRevenueEl) totalRevenueEl.textContent = formatPeso(totalRevenue);
+      if (totalTransactionsEl) totalTransactionsEl.textContent = totalTransactions.toLocaleString('en-US');
+      if (inventoryAlertsEl) inventoryAlertsEl.textContent = inventoryAlertTotal.toLocaleString('en-US');
+      if (inventoryLowEl) inventoryLowEl.textContent = lowStockProducts.toLocaleString('en-US');
+      if (inventoryOutEl) inventoryOutEl.textContent = outOfStockProducts.toLocaleString('en-US');
+      if (totalRefundsEl) totalRefundsEl.textContent = allTimeRefunds.toLocaleString('en-US');
+      if (totalRefundAmountEl) totalRefundAmountEl.textContent = formatPeso(allTimeRefundAmount);
+      if (periodRefundsEl) periodRefundsEl.textContent = periodRefunds.toLocaleString('en-US');
+      if (periodRefundAmountEl) periodRefundAmountEl.textContent = formatPeso(periodRefundAmount);
+
+      const prInline = document.getElementById('opInsightPeriodRefundsInline');
+      const praInline = document.getElementById('opInsightPeriodRefundAmtInline');
+      if (prInline) prInline.textContent = periodRefunds.toLocaleString('en-US');
+      if (praInline) praInline.textContent = formatPeso(periodRefundAmount);
+    }
+
+    function updateOperationalInsights(payload) {
+      const oi = payload.operational_insights;
+      if (!oi) return;
+      const set = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+      };
+      set('opInsightAvgOrder', formatPeso(oi.avg_order_value));
+      set('opInsightGuestCount', String(oi.guest_txn_count));
+      set('opInsightMemberCount', String(oi.member_txn_count));
+      set('opInsightGuestRev', formatPeso(oi.guest_revenue));
+      set('opInsightMemberRev', formatPeso(oi.member_revenue));
+      set('opInsightGuestPct', String(oi.guest_share_pct) + '%');
+      set('opInsightMemberPct', String(oi.member_share_pct) + '%');
+      const nm = String(oi.new_members_in_period);
+      set('opInsightNewMembers', nm);
+      set('opInsightNewMembersInline', nm);
+      set('opInsightRefundRate', String(oi.refund_rate_pct) + '%');
+      set('opInsightActiveProducts', String(oi.active_products));
+      set('opInsightPending', String(oi.pending_checkouts));
+      set('opInsightRefundReq', String(oi.refund_requested_open));
+      set('opInsightReturnWin', String(oi.return_window_open));
+      const note = document.getElementById('opInsightsRangeNote');
+      if (note && payload.range_label) {
+        note.textContent = 'Period metrics for ' + payload.range_label + ' · Queue counts are live';
+      }
+    }
+
+    function escapeHtml(text) {
+      return String(text || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    let topProductsRenderedLimit = 0;
+
+    function getTopProductsGridCapacity() {
+      const grid = document.getElementById('topProductsGrid');
+      const card = document.getElementById('topSellingProductsCard');
+      const peer = document.getElementById('operationalInsightsCard');
+      if (!grid) return 10;
+
+      const cs = getComputedStyle(grid);
+      const gapPx = parseFloat(cs.rowGap) || parseFloat(cs.gap) || 10.4;
+      const colGapPx = parseFloat(cs.columnGap) || gapPx;
+      const minCard = parseFloat(cs.getPropertyValue('--tp-card-min')) || 168;
+      const estCardH = parseFloat(cs.getPropertyValue('--tp-card-est-height')) || 148;
+
+      const w = grid.clientWidth;
+      if (w <= 0) return 10;
+      const cols = Math.max(1, Math.floor((w + colGapPx) / (minCard + colGapPx)));
+
+      let availableH = 0;
+      if (peer && card) {
+        const header = document.getElementById('topProductsCardHeader');
+        const headerH = header ? header.offsetHeight : 72;
+        const cardStyle = getComputedStyle(card);
+        const padY = parseFloat(cardStyle.paddingTop) + parseFloat(cardStyle.paddingBottom);
+        availableH = peer.offsetHeight - headerH - padY - 6;
+      }
+
+      const probe = grid.querySelector('.top-product-card');
+      const cardH = probe && probe.offsetHeight > 0 ? probe.offsetHeight : estCardH;
+
+      let rows = 2;
+      if (availableH > cardH) {
+        rows = Math.max(2, Math.floor((availableH + gapPx) / (cardH + gapPx)));
+      }
+
+      return Math.max(cols * 2, cols * rows);
+    }
+
+    function renderTopProductsGrid() {
+      const grid = document.getElementById('topProductsGrid');
+      if (!grid) return;
+      const limit = getTopProductsGridCapacity();
+      const rows = topProductsAllRows.slice(0, limit);
+      if (!rows.length) {
+        grid.innerHTML = '<div class="text-center text-muted py-4 px-2" style="grid-column: 1 / -1;">No completed sales in this period</div>';
+        return;
+      }
+      grid.innerHTML = rows.map((p, idx) => {
+        const name = escapeHtml(p.product_name || 'Unknown');
+        const sold = Number(p.total_sold) || 0;
+        const rev = formatPeso(p.total_revenue);
+        return (
+          '<article class="top-product-card">' +
+            '<div class="d-flex justify-content-between align-items-center mb-1">' +
+              '<span class="tp-rank text-success">#' + (idx + 1) + '</span>' +
+              '<i class="bi bi-box-seam text-muted" style="font-size:1rem;" aria-hidden="true"></i>' +
+            '</div>' +
+            '<div class="tp-name">' + name + '</div>' +
+            '<div class="tp-metrics">' +
+              '<div><div class="tp-metric-lab">Sold</div><div class="tp-metric-val">' + sold.toLocaleString('en-US') + '</div></div>' +
+              '<div><div class="tp-metric-lab">Revenue</div><div class="tp-metric-val tp-rev">' + rev + '</div></div>' +
+            '</div>' +
+          '</article>'
+        );
+      }).join('');
+      topProductsRenderedLimit = limit;
+
+      requestAnimationFrame(function() {
+        const refined = getTopProductsGridCapacity();
+        if (refined > topProductsRenderedLimit && topProductsAllRows.length > topProductsRenderedLimit) {
+          topProductsRenderedLimit = 0;
+          renderTopProductsGrid();
+        }
+      });
+    }
+
+    function scheduleTopProductsRelayout() {
+      clearTimeout(topProductsResizeTimer);
+      topProductsResizeTimer = setTimeout(function() {
+        topProductsRenderedLimit = 0;
+        renderTopProductsGrid();
+      }, 120);
+    }
+
+    function updateTopProducts(payload) {
+      topProductsAllRows = Array.isArray(payload.top_products) ? payload.top_products : [];
+      renderTopProductsGrid();
+    }
+
+    function initTopProductsGrid() {
+      renderTopProductsGrid();
+      const grid = document.getElementById('topProductsGrid');
+      const card = document.getElementById('topSellingProductsCard');
+      const peer = document.getElementById('operationalInsightsCard');
+      const row = document.getElementById('topProductsInsightsRow');
+      if (typeof ResizeObserver !== 'undefined') {
+        const ro = new ResizeObserver(scheduleTopProductsRelayout);
+        if (grid) ro.observe(grid);
+        if (card) ro.observe(card);
+        if (peer) ro.observe(peer);
+        if (row) ro.observe(row);
+      }
+      window.addEventListener('resize', scheduleTopProductsRelayout);
+    }
+
+    function updateRecentRefunds(payload) {
+      const tbody = document.getElementById('recentRefundsBody');
+      if (!tbody) return;
+      const rows = Array.isArray(payload.recent_refunds) ? payload.recent_refunds : [];
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted py-4">No refunds for this period</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = rows.map((refund) => {
+        const partial = !!refund.is_partially_refunded;
+        const rowClass = partial ? ' class="refund-partial-row"' : '';
+        const balanceBadge = partial
+          ? ` <span class="refund-partial-badge" title="Not fully refunded — sale still has a remaining balance">
+                <i class="bi bi-exclamation-circle" aria-hidden="true"></i> Has balance
+              </span>`
+          : '';
+        const remaining = partial && refund.remaining_balance != null
+          ? `<span class="refund-remaining-balance">Balance ${formatPeso(refund.remaining_balance)}</span>`
+          : '';
+        return `
+          <tr${rowClass}>
+            <td class="fw-semibold">${escapeHtml(refund.transaction_number)}${balanceBadge}</td>
+            <td>${escapeHtml(refund.member_name || 'Guest')}</td>
+            <td><small>${escapeHtml(refund.refunded_at || '')}</small></td>
+            <td class="text-end">
+              <span class="fw-semibold text-danger">${formatPeso(refund.refund_amount)}</span>
+              ${remaining}
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function updateRecentTransactions(payload) {
+      const tbody = document.getElementById('recentTransactionsBody');
+      if (!tbody) return;
+      const rows = Array.isArray(payload.recent_transactions) ? payload.recent_transactions : [];
+      if (!rows.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">No transactions for this period</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = rows.map((txn) => {
+        const isRefund = txn.kind === 'refund';
+        const amount = (isRefund ? '−' : '') + formatPeso(txn.amount);
+        const amountClass = isRefund ? ' text-danger' : '';
+        const rowClass = isRefund ? ' class="table-light"' : '';
+        const refundBadge = isRefund
+          ? ' <span class="badge bg-danger-subtle text-danger ms-1">Refund</span>'
+          : '';
+        const methodBadge = isRefund
+          ? '<span class="badge bg-danger text-uppercase">Refund</span>'
+          : `<span class="badge bg-light text-dark text-uppercase">${escapeHtml(txn.payment_method).toUpperCase()}</span>`;
+        const name = escapeHtml(txn.customer_name || txn.member_name || 'Guest');
+        const walkIn = txn.is_walk_in
+          ? ' <span class="walk-in-badge ms-1">Walk-in</span>'
+          : '';
+        return `
+          <tr${rowClass}>
+            <td class="fw-semibold">${escapeHtml(txn.transaction_number)}${refundBadge}</td>
+            <td><span class="walk-in-name">${name}</span>${walkIn}</td>
+            <td>${methodBadge}</td>
+            <td>${escapeHtml(txn.created_at)}</td>
+            <td class="fw-semibold text-end${amountClass}">${amount}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function updateWalkInInsights(payload) {
+      const wi = payload.walk_in_insights;
+      if (!wi) return;
+      const set = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = val;
+      };
+      set('wiTotalRegistered', String(wi.total_registered));
+      set('wiNewInPeriod', String(wi.new_in_period));
+      set('wiPeriodTxnCount', String(wi.period_txn_count));
+      set('wiPeriodRevenue', formatPeso(wi.period_revenue));
+      const note = document.getElementById('walkInRangeNote');
+      if (note && payload.range_label) {
+        note.textContent = 'Registered names from kiosk · ' + payload.range_label;
+      }
+      const topBody = document.getElementById('walkInTopCustomersBody');
+      if (topBody) {
+        const top = Array.isArray(wi.top_customers) ? wi.top_customers : [];
+        if (!top.length) {
+          topBody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-3">No walk-in sales in this period</td></tr>';
+        } else {
+          topBody.innerHTML = top.map((c, idx) => `
+            <tr>
+              <td class="text-muted">${idx + 1}</td>
+              <td><span class="walk-in-name">${escapeHtml(c.display_name)}</span></td>
+              <td class="text-center">${c.txn_count}</td>
+              <td class="text-end fw-semibold text-success">${formatPeso(c.revenue)}</td>
+              <td class="text-muted small">${escapeHtml(c.last_seen_at)}</td>
+            </tr>
+          `).join('');
+        }
+      }
+      const recentList = document.getElementById('walkInRecentList');
+      if (recentList) {
+        const recent = Array.isArray(wi.recent_customers) ? wi.recent_customers : [];
+        if (!recent.length) {
+          recentList.innerHTML = '<li class="list-group-item text-center text-muted py-4">No walk-in customers saved yet</li>';
+        } else {
+          recentList.innerHTML = recent.map((c) => `
+            <li class="list-group-item d-flex justify-content-between align-items-start gap-2 py-3">
+              <div class="min-w-0">
+                <span class="walk-in-name d-block text-truncate">${escapeHtml(c.display_name)}</span>
+                <small class="text-muted">Last seen ${escapeHtml(c.last_seen_at)}</small>
+              </div>
+              <div class="text-end flex-shrink-0">
+                <div class="fw-semibold">${c.txn_count}</div>
+                <small class="text-muted d-block">order${c.txn_count === 1 ? '' : 's'}</small>
+              </div>
+            </li>
+          `).join('');
+        }
+      }
+    }
+
+    function destroyExistingCharts() {
+      ['salesTrendChart', 'paymentMixChart', 'refundTrendChart', 'categoryChart'].forEach((id) => {
+        const chart = Chart.getChart(id);
+        if (chart) chart.destroy();
+      });
+    }
+
+    async function submitPeriodForm() {
+      if (isLoadingPeriodData) return;
+      const periodForm = document.getElementById('periodForm');
+      if (!periodForm) return;
+
+      const formData = new FormData(periodForm);
+      const params = new URLSearchParams(formData);
+      isLoadingPeriodData = true;
+      try {
+        const response = await fetch(`${dashboardPeriodApiUrl}?${params.toString()}`, {
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          credentials: 'same-origin'
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const payload = await response.json();
+        if (!payload.success) {
+          throw new Error(payload.error || 'Failed to load chart data');
+        }
+
+        selectedRange = payload.selected_range || selectedRange;
+        rangeLabel = payload.range_label || rangeLabel;
+        updatePeriodLabels(rangeLabel);
+        updateKpiCards(payload);
+        updateRecentTransactions(payload);
+        updateRecentRefunds(payload);
+        updateWalkInInsights(payload);
+        updateOperationalInsights(payload);
+        updateTopProducts(payload);
+
+        dailySalesLabels = payload.daily_sales_labels || [];
+        dailySalesTotals = payload.daily_sales_totals || [];
+        paymentLabels = payload.payment_labels || [];
+        paymentTotals = payload.payment_totals || [];
+        categoryLabels = payload.category_labels || [];
+        categoryTotals = payload.category_totals || [];
+        dailyRefundLabels = payload.daily_refund_labels || [];
+        dailyRefundAmounts = payload.daily_refund_amounts || [];
+        dailyRefundCounts = payload.daily_refund_counts || [];
+
+        destroyExistingCharts();
+        initializeAllCharts();
+        window.history.replaceState({}, '', `${window.location.pathname}?${params.toString()}`);
+      } catch (error) {
+        console.error('Error fetching period data:', error);
+      } finally {
+        isLoadingPeriodData = false;
+      }
+    }
+
+    // Initialize all charts
+    function initializeAllCharts() {
+      syncNormalizedData();
+      // Check if Chart.js is available
+      if (typeof Chart === 'undefined') {
+        console.error('Chart.js is not loaded');
+        const chartContainers = ['salesTrendChart', 'paymentMixChart', 'refundTrendChart', 'categoryChart'];
+        chartContainers.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) {
+            const wrapper = el.closest('.chart-wrapper');
+            if (wrapper) {
+              wrapper.innerHTML = '<div class="text-center text-muted p-4"><i class="bi bi-exclamation-triangle me-2"></i>Chart library not loaded</div>';
+            }
+          }
+        });
+        return;
+      }
+
+      const salesCanvas = document.getElementById('salesTrendChart');
+      if (salesCanvas) {
+        try {
+          const salesCtx = salesCanvas.getContext('2d');
+          if (!salesCtx) {
+            throw new Error('Could not get 2d context');
+          }
+
+          // Get the wrapper height for gradient
+          const wrapper = salesCanvas.closest('.chart-wrapper');
+          const wrapperHeight = wrapper ? wrapper.clientHeight : 240;
+
+          const salesGradient = createGradient(salesCtx, [
+            { position: 0, color: 'rgba(237,28,36,0.4)' },
+            { position: 0.5, color: 'rgba(237,28,36,0.15)' },
+            { position: 1, color: 'rgba(237,28,36,0)' }
+          ], wrapperHeight);
+
+          salesTrendChartInstance = new Chart(salesCtx, {
+            type: 'line',
+            data: {
+              labels: safeDailySalesLabels.length > 0 ? safeDailySalesLabels : ['No data'],
+              datasets: [{
+                label: 'Revenue',
+                data: normDailyTotals.length > 0 ? normDailyTotals : [0],
+                tension: 0.5,
+                borderColor: '#ED1C24',
+                backgroundColor: salesGradient,
+                borderWidth: 3,
+                fill: true,
+                pointRadius: 5,
+                pointBackgroundColor: '#ffffff',
+                pointBorderColor: '#ED1C24',
+                pointBorderWidth: 3,
+                pointHoverRadius: 8,
+                pointHoverBackgroundColor: '#ED1C24',
+                pointHoverBorderColor: '#ffffff',
+                pointHoverBorderWidth: 3
+              }]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: {
+                intersect: false,
+                mode: 'index'
+              },
+              plugins: {
+                legend: { display: false },
+                tooltip: {
+                  backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                  padding: 12,
+                  titleFont: {
+                    size: 14,
+                    weight: 'bold'
+                  },
+                  bodyFont: {
+                    size: 13
+                  },
+                  titleColor: '#ffffff',
+                  bodyColor: '#ffffff',
+                  borderColor: '#ED1C24',
+                  borderWidth: 2,
+                  cornerRadius: 8,
+                  displayColors: false,
+                  callbacks: {
+                    title: function(context) {
+                      return context[0].label;
+                    },
+                    label: function(context) {
+                      return 'Revenue: ₱' + context.parsed.y.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                    }
+                  }
+                }
+              },
+              scales: {
+                x: {
+                  grid: {
+                    display: false,
+                    drawBorder: false
+                  },
+                  ticks: {
+                    font: {
+                      size: 11
+                    },
+                    color: '#64748b',
+                    padding: 8
+                  }
+                },
+                y: {
+                  beginAtZero: true,
+                  ticks: {
+                    font: {
+                      size: 11
+                    },
+                    color: '#64748b',
+                    padding: 8,
+                    callback: function(value) {
+                      return '₱' + value.toLocaleString();
+                    }
+                  },
+                  grid: {
+                    color: 'rgba(148, 163, 184, 0.1)',
+                    drawBorder: false,
+                    lineWidth: 1
+                  }
+                }
+              }
+            }
+          });
+          
+          // Calculate and display summary statistics
+          if (normDailyTotals.length > 0) {
+            const totalRevenue = normDailyTotals.reduce((a, b) => a + b, 0);
+            const avgDaily = totalRevenue / normDailyTotals.length;
+            
+            // Find peak day
+            let peakIndex = 0;
+            let peakValue = normDailyTotals[0];
+            normDailyTotals.forEach((val, idx) => {
+              if (val > peakValue) {
+                peakValue = val;
+                peakIndex = idx;
+              }
+            });
+            
+            // Calculate week-over-week growth (first 7 days vs last 7 days)
+            const firstWeek = normDailyTotals.slice(0, 7).reduce((a, b) => a + b, 0);
+            const secondWeek = normDailyTotals.slice(7, 14).reduce((a, b) => a + b, 0);
+            let growthPercent = 0;
+            if (firstWeek > 0) {
+              growthPercent = ((secondWeek - firstWeek) / firstWeek) * 100;
+            } else if (secondWeek > 0) {
+              growthPercent = 100;
+            }
+            
+            // Update UI elements
+            const total14DayEl = document.getElementById('total14DayRevenue');
+            const avgDailyEl = document.getElementById('avgDailyRevenue');
+            const peakDayAmountEl = document.getElementById('peakDayAmount');
+            const peakDayLabelEl = document.getElementById('peakDayLabel');
+            const growthPercentEl = document.getElementById('growthPercentage');
+            const growthLabelEl = document.getElementById('growthLabel');
+            const growthCard = document.getElementById('growthCard');
+            
+            if (total14DayEl) {
+              total14DayEl.textContent = '₱' + totalRevenue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            }
+            if (avgDailyEl) {
+              avgDailyEl.textContent = '₱' + avgDaily.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            }
+            if (peakDayAmountEl && peakDayLabelEl) {
+              peakDayAmountEl.textContent = '₱' + peakValue.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+              peakDayLabelEl.textContent = safeDailySalesLabels[peakIndex] || '-';
+            }
+            if (growthPercentEl && growthLabelEl && growthCard) {
+              const isPositive = growthPercent >= 0;
+              const color = isPositive ? '#10b981' : '#ef4444';
+              const icon = isPositive ? '↑' : '↓';
+              growthPercentEl.textContent = (isPositive ? '+' : '') + growthPercent.toFixed(1) + '%';
+              growthPercentEl.style.color = color;
+              growthCard.style.borderColor = color;
+              growthLabelEl.innerHTML = `<i class="bi bi-${isPositive ? 'arrow-up' : 'arrow-down'}" style="font-size: 0.7rem;"></i> ${rangeLabel} comparison`;
+            }
+          }
+        } catch (err) {
+          console.error('Sales Trend chart error', err);
+          const wrapper = salesCanvas.closest('.chart-wrapper');
+          if (wrapper) {
+            wrapper.innerHTML = '<div class="text-center text-muted p-4"><i class="bi bi-exclamation-triangle me-2"></i>Unable to load chart</div>';
+          }
+        }
+      }
+
+      // Initialize Payment Mix Chart
+      const paymentEl = document.getElementById('paymentMixChart');
+      if (paymentEl) {
+        try {
+          const paymentCtx = paymentEl.getContext('2d');
+          if (!paymentCtx) {
+            throw new Error('Could not get 2d context');
+          }
+
+          if (Array.isArray(normPaymentTotals) && normPaymentTotals.length > 0 && normPaymentTotals.some(v => v > 0)) {
+            const totalAmount = normPaymentTotals.reduce((a, b) => a + b, 0);
+            const paymentMixTotal = document.getElementById('paymentMixTotal');
+            const paymentMethodBreakdown = document.getElementById('paymentMethodBreakdown');
+            
+            // Update center total
+            if (paymentMixTotal) {
+              paymentMixTotal.textContent = '₱' + totalAmount.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            }
+
+            // Match Transaction.PAYMENT_METHODS labels (always includes Cash)
+            const paymentIcons = {
+              'Cash': 'bi-cash-coin',
+              'Debit (Member Account)': 'bi-credit-card-2-front',
+              'Credit (Utang)': 'bi-journal-text',
+              'Debit': 'bi-credit-card-2-front',
+              'Credit': 'bi-journal-text',
+              'Card': 'bi-card-text',
+              'Other': 'bi-wallet2'
+            };
+            const paymentColorByLabel = {
+              'Debit (Member Account)': { bg: 'rgba(22, 163, 74, 0.1)', border: 'rgba(22, 163, 74, 0.3)', text: '#16a34a', chart: 'rgba(22, 163, 74, 0.95)' },
+              'Cash': { bg: 'rgba(14, 165, 233, 0.1)', border: 'rgba(14, 165, 233, 0.3)', text: '#0ea5e9', chart: 'rgba(14, 165, 233, 0.95)' },
+              'Credit (Utang)': { bg: 'rgba(245, 158, 11, 0.1)', border: 'rgba(245, 158, 11, 0.3)', text: '#d97706', chart: 'rgba(245, 158, 11, 0.95)' },
+            };
+            const fallbackPalette = [
+              { bg: 'rgba(139, 92, 246, 0.1)', border: 'rgba(139, 92, 246, 0.3)', text: '#8b5cf6', chart: 'rgba(139, 92, 246, 0.95)' },
+              { bg: 'rgba(239, 68, 68, 0.1)', border: 'rgba(239, 68, 68, 0.3)', text: '#ef4444', chart: 'rgba(239, 68, 68, 0.95)' }
+            ];
+
+            // Breakdown cards always list Cash / Debit / Credit (₱0 when unused)
+            if (paymentMethodBreakdown) {
+              paymentMethodBreakdown.innerHTML = '';
+              safePaymentLabels.forEach((label, i) => {
+                const value = normPaymentTotals[i];
+                const percentage = totalAmount > 0 ? ((value / totalAmount) * 100).toFixed(1) : '0.0';
+                const icon = paymentIcons[label] || paymentIcons['Other'];
+                const color = paymentColorByLabel[label] || fallbackPalette[i % fallbackPalette.length];
+                
+                const card = document.createElement('div');
+                card.className = 'col-6';
+                card.innerHTML = `
+                  <div class="d-flex align-items-center p-2 rounded" style="background: ${color.bg}; border-left: 3px solid ${color.border};">
+                    <div class="me-2">
+                      <i class="bi ${icon}" style="color: ${color.text}; font-size: 1.2rem;"></i>
+                    </div>
+                    <div class="flex-grow-1" style="min-width: 0;">
+                      <div class="fw-semibold text-truncate" style="font-size: 0.75rem; color: ${color.text};">${label}</div>
+                      <div class="fw-bold" style="font-size: 0.85rem; color: #0f172a;">₱${value.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+                      <small class="text-muted" style="font-size: 0.7rem;">${percentage}%</small>
+                    </div>
+                  </div>
+                `;
+                paymentMethodBreakdown.appendChild(card);
+              });
+            }
+
+            const chartColors = safePaymentLabels.map((label, i) =>
+              (paymentColorByLabel[label] || fallbackPalette[i % fallbackPalette.length]).chart
+            );
+
+            const paymentChart = new Chart(paymentCtx, {
+              type: 'doughnut',
+              data: {
+                labels: safePaymentLabels,
+                datasets: [{
+                  data: normPaymentTotals,
+                  backgroundColor: chartColors,
+                  borderColor: '#ffffff',
+                  borderWidth: 4,
+                  hoverOffset: 15,
+                  hoverBorderWidth: 5
+                }]
+              },
+              options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                  legend: {
+                    display: false
+                  },
+                  tooltip: {
+                    backgroundColor: 'rgba(15, 23, 42, 0.98)',
+                    padding: 16,
+                    titleFont: {
+                      size: 15,
+                      weight: 'bold'
+                    },
+                    bodyFont: {
+                      size: 14,
+                      weight: '500'
+                    },
+                    titleColor: '#ffffff',
+                    bodyColor: '#ffffff',
+                    borderColor: '#ffffff',
+                    borderWidth: 2,
+                    cornerRadius: 12,
+                    displayColors: true,
+                    boxPadding: 8,
+                    callbacks: {
+                      label: function(context) {
+                        const label = context.label || '';
+                        const value = context.parsed || 0;
+                        const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                        const percentage = ((value / total) * 100).toFixed(1);
+                        return `${label}: ₱${value.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})} (${percentage}%)`;
+                      }
+                    }
+                  }
+                },
+                cutout: '75%',
+                animation: {
+                  animateRotate: true,
+                  animateScale: true,
+                  duration: 1200,
+                  easing: 'easeOutQuart'
+                }
+              }
+            });
+          } else {
+            const wrapper = paymentEl.closest('.chart-wrapper');
+            if (wrapper) {
+              wrapper.innerHTML = '<div class="text-center text-muted p-4"><i class="bi bi-info-circle me-2"></i>No payment data available</div>';
+            }
+            const paymentMixTotal = document.getElementById('paymentMixTotal');
+            if (paymentMixTotal) {
+              paymentMixTotal.textContent = '₱0.00';
+            }
+            const paymentMethodBreakdown = document.getElementById('paymentMethodBreakdown');
+            if (paymentMethodBreakdown) {
+              paymentMethodBreakdown.innerHTML = '<div class="col-12 text-center text-muted py-3"><small>No payment data to display</small></div>';
+            }
+          }
+        } catch (err) {
+          console.error('Payment Mix chart error', err);
+          const wrapper = paymentEl.closest('.chart-wrapper');
+          if (wrapper) {
+            wrapper.innerHTML = '<div class="text-center text-muted p-4"><i class="bi bi-exclamation-triangle me-2"></i>Unable to load chart</div>';
+          }
+        }
+      }
+
+      // Initialize Refund Trend Chart
+      const refundEl = document.getElementById('refundTrendChart');
+      if (refundEl) {
+        try {
+          const refundCtx = refundEl.getContext('2d');
+          if (!refundCtx) {
+            throw new Error('Could not get 2d context');
+          }
+
+          const wrapper = refundEl.closest('.chart-wrapper');
+          const wrapperHeight = wrapper ? wrapper.clientHeight : 240;
+
+          const refundGradient = createGradient(refundCtx, [
+            { position: 0, color: 'rgba(239, 68, 68, 0.4)' },
+            { position: 0.5, color: 'rgba(239, 68, 68, 0.15)' },
+            { position: 1, color: 'rgba(239, 68, 68, 0)' }
+          ], wrapperHeight);
+
+          new Chart(refundCtx, {
+            type: 'line',
+            data: {
+              labels: safeDailyRefundLabels.length > 0 ? safeDailyRefundLabels : ['No data'],
+              datasets: [
+                {
+                  label: 'Refund Amount',
+                  data: normRefundAmounts.length > 0 ? normRefundAmounts : [0],
+                  tension: 0.5,
+                  borderColor: '#ef4444',
+                  backgroundColor: refundGradient,
+                  borderWidth: 3,
+                  fill: true,
+                  pointRadius: 5,
+                  pointBackgroundColor: '#ffffff',
+                  pointBorderColor: '#ef4444',
+                  pointBorderWidth: 3,
+                  pointHoverRadius: 8,
+                  pointHoverBackgroundColor: '#ef4444',
+                  pointHoverBorderColor: '#ffffff',
+                  pointHoverBorderWidth: 3,
+                  yAxisID: 'y'
+                },
+                {
+                  label: 'Refund Count',
+                  data: normRefundCounts.length > 0 ? normRefundCounts : [0],
+                  tension: 0.5,
+                  borderColor: '#f59e0b',
+                  backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                  borderWidth: 2,
+                  fill: false,
+                  pointRadius: 4,
+                  pointBackgroundColor: '#ffffff',
+                  pointBorderColor: '#f59e0b',
+                  pointBorderWidth: 2,
+                  pointHoverRadius: 7,
+                  pointHoverBackgroundColor: '#f59e0b',
+                  pointHoverBorderColor: '#ffffff',
+                  pointHoverBorderWidth: 2,
+                  yAxisID: 'y1'
+                }
+              ]
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              interaction: {
+                intersect: false,
+                mode: 'index'
+              },
+              plugins: {
+                legend: {
+                  display: true,
+                  position: 'top',
+                  labels: {
+                    usePointStyle: true,
+                    padding: 12,
+                    font: {
+                      size: 12,
+                      weight: '500'
+                    }
+                  }
+                },
+                tooltip: {
+                  backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                  padding: 12,
+                  titleFont: {
+                    size: 14,
+                    weight: 'bold'
+                  },
+                  bodyFont: {
+                    size: 13
+                  },
+                  titleColor: '#ffffff',
+                  bodyColor: '#ffffff',
+                  borderColor: '#ef4444',
+                  borderWidth: 2,
+                  cornerRadius: 8,
+                  displayColors: true,
+                  callbacks: {
+                    title: function(context) {
+                      return context[0].label;
+                    },
+                    label: function(context) {
+                      if (context.datasetIndex === 0) {
+                        return 'Amount: ₱' + context.parsed.y.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                      } else {
+                        return 'Count: ' + context.parsed.y + ' refund(s)';
+                      }
+                    }
+                  }
+                }
+              },
+              scales: {
+                x: {
+                  grid: {
+                    display: false,
+                    drawBorder: false
+                  },
+                  ticks: {
+                    font: {
+                      size: 11
+                    },
+                    color: '#64748b',
+                    padding: 8
+                  }
+                },
+                y: {
+                  type: 'linear',
+                  display: true,
+                  position: 'left',
+                  beginAtZero: true,
+                  ticks: {
+                    font: {
+                      size: 11
+                    },
+                    color: '#ef4444',
+                    padding: 8,
+                    callback: function(value) {
+                      return '₱' + value.toLocaleString();
+                    }
+                  },
+                  grid: {
+                    color: 'rgba(239, 68, 68, 0.1)',
+                    drawBorder: false,
+                    lineWidth: 1
+                  },
+                  title: {
+                    display: true,
+                    text: 'Amount (₱)',
+                    color: '#ef4444',
+                    font: {
+                      size: 11,
+                      weight: '600'
+                    }
+                  }
+                },
+                y1: {
+                  type: 'linear',
+                  display: true,
+                  position: 'right',
+                  beginAtZero: true,
+                  ticks: {
+                    font: {
+                      size: 11
+                    },
+                    color: '#f59e0b',
+                    padding: 8,
+                    callback: function(value) {
+                      return value + ' refunds';
+                    }
+                  },
+                  grid: {
+                    drawOnChartArea: false,
+                    drawBorder: false
+                  },
+                  title: {
+                    display: true,
+                    text: 'Count',
+                    color: '#f59e0b',
+                    font: {
+                      size: 11,
+                      weight: '600'
+                    }
+                  }
+                }
+              }
+            }
+          });
+        } catch (err) {
+          console.error('Refund Trend chart error', err);
+          const wrapper = refundEl.closest('.chart-wrapper');
+          if (wrapper) {
+            wrapper.innerHTML = '<div class="text-center text-muted p-4"><i class="bi bi-exclamation-triangle me-2"></i>Unable to load chart</div>';
+          }
+        }
+      }
+
+      // Initialize Category Chart
+      const categoryEl = document.getElementById('categoryChart');
+      if (categoryEl) {
+        try {
+          const categoryCtx = categoryEl.getContext('2d');
+          if (!categoryCtx) {
+            throw new Error('Could not get 2d context');
+          }
+
+          if (Array.isArray(normCategoryTotals) && normCategoryTotals.length > 0 && normCategoryTotals.some(v => v > 0)) {
+            new Chart(categoryCtx, {
+              type: 'bar',
+              data: {
+                labels: safeCategoryLabels,
+                datasets: [{
+                  label: 'Revenue',
+                  data: normCategoryTotals,
+                  backgroundColor: 'rgba(14, 165, 233, 0.8)',
+                  borderColor: 'rgba(14, 165, 233, 1)',
+                  borderWidth: 2,
+                  borderRadius: 6,
+                  barThickness: 24,
+                  maxBarThickness: 30
+                }]
+              },
+              options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                  legend: { display: false },
+                  tooltip: {
+                    callbacks: {
+                      label: function(context) {
+                        return `₱${context.parsed.x.toLocaleString()}`;
+                      }
+                    }
+                  }
+                },
+                scales: {
+                  x: {
+                    beginAtZero: true,
+                    ticks: {
+                      font: { size: 11 },
+                      color: '#64748b',
+                      padding: 8,
+                      callback: function(value) {
+                        return '₱' + value.toLocaleString();
+                      }
+                    },
+                    grid: {
+                      color: 'rgba(148, 163, 184, 0.1)',
+                      drawBorder: false,
+                      lineWidth: 1
+                    }
+                  },
+                  y: {
+                    grid: {
+                      display: false,
+                      drawBorder: false
+                    },
+                    ticks: {
+                      font: { size: 11 },
+                      color: '#64748b',
+                      padding: 8
+                    }
+                  }
+                }
+              }
+            });
+          } else {
+            const wrapper = categoryEl.closest('.chart-wrapper');
+            if (wrapper) {
+              wrapper.innerHTML = '<div class="text-center text-muted p-4"><i class="bi bi-info-circle me-2"></i>No category data available</div>';
+            }
+          }
+        } catch (err) {
+          console.error('Category chart error', err);
+          const wrapper = categoryEl.closest('.chart-wrapper');
+          if (wrapper) {
+            wrapper.innerHTML = '<div class="text-center text-muted p-4"><i class="bi bi-exclamation-triangle me-2"></i>Unable to load chart</div>';
+          }
+        }
+      }
+    }
+
+    // Initialize charts when DOM and Chart.js are ready
+    document.addEventListener('DOMContentLoaded', () => {
+      initDashboardPeriodControls();
+      initTopProductsGrid();
+
+      const periodForm = document.getElementById('periodForm');
+      if (periodForm) {
+        periodForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          submitPeriodForm();
+        });
+      }
+
+      if (typeof Chart !== 'undefined') {
+        initializeAllCharts();
+      } else {
+        // Wait for Chart.js to load
+        let attempts = 0;
+        const checkChart = setInterval(() => {
+          attempts++;
+          if (typeof Chart !== 'undefined') {
+            clearInterval(checkChart);
+            initializeAllCharts();
+          } else if (attempts > 50) {
+            clearInterval(checkChart);
+            console.error('Chart.js failed to load');
+            initializeAllCharts(); // Will show error messages
+          }
+        }, 100);
+      }
+
+      // Keep KPI cards aligned with currently loaded series on first paint.
+      updateKpiCards({
+        ...initialKpiData,
+        daily_sales_totals: dailySalesTotals,
+        daily_refund_amounts: dailyRefundAmounts,
+        daily_refund_counts: dailyRefundCounts
+      });
+
+      // Sales Trend Chart Expand/Collapse Functionality
+      const salesTrendCard = document.getElementById('salesTrendCard');
+      const expandSalesChartBtn = document.getElementById('expandSalesChartBtn');
+      const expandSalesChartIcon = document.getElementById('expandSalesChartIcon');
+      const salesTrendWrapper = document.getElementById('salesTrendWrapper');
+      let isSalesChartExpanded = false;
+
+      if (expandSalesChartBtn && salesTrendCard) {
+        expandSalesChartBtn.addEventListener('click', () => {
+          isSalesChartExpanded = !isSalesChartExpanded;
+          
+          if (isSalesChartExpanded) {
+            // Expand
+            salesTrendCard.classList.add('expanded');
+            expandSalesChartIcon.className = 'bi bi-fullscreen-exit';
+            expandSalesChartBtn.title = 'Collapse chart';
+            
+            // Update gradient for expanded view
+            if (salesTrendChartInstance) {
+              const wrapper = salesTrendChartInstance.canvas.closest('.chart-wrapper');
+              const wrapperHeight = wrapper ? wrapper.clientHeight : window.innerHeight - 150;
+              const salesCtx = salesTrendChartInstance.canvas.getContext('2d');
+              const salesGradient = createGradient(salesCtx, [
+                { position: 0, color: 'rgba(237,28,36,0.4)' },
+                { position: 0.5, color: 'rgba(237,28,36,0.15)' },
+                { position: 1, color: 'rgba(237,28,36,0)' }
+              ], wrapperHeight);
+              
+              // Update the dataset background color
+              salesTrendChartInstance.data.datasets[0].backgroundColor = salesGradient;
+              salesTrendChartInstance.update('none');
+            }
+            
+            // Resize chart after a short delay to ensure container is resized
+            setTimeout(() => {
+              if (salesTrendChartInstance) {
+                salesTrendChartInstance.resize();
+              }
+            }, 100);
+          } else {
+            // Collapse
+            salesTrendCard.classList.remove('expanded');
+            expandSalesChartIcon.className = 'bi bi-arrows-fullscreen';
+            expandSalesChartBtn.title = 'Expand chart';
+            
+            // Update gradient for collapsed view
+            if (salesTrendChartInstance) {
+              const wrapper = salesTrendChartInstance.canvas.closest('.chart-wrapper');
+              const wrapperHeight = 280;
+              const salesCtx = salesTrendChartInstance.canvas.getContext('2d');
+              const salesGradient = createGradient(salesCtx, [
+                { position: 0, color: 'rgba(237,28,36,0.4)' },
+                { position: 0.5, color: 'rgba(237,28,36,0.15)' },
+                { position: 1, color: 'rgba(237,28,36,0)' }
+              ], wrapperHeight);
+              
+              // Update the dataset background color
+              salesTrendChartInstance.data.datasets[0].backgroundColor = salesGradient;
+              salesTrendChartInstance.update('none');
+            }
+            
+            // Resize chart after a short delay
+            setTimeout(() => {
+              if (salesTrendChartInstance) {
+                salesTrendChartInstance.resize();
+              }
+            }, 100);
+          }
+        });
+
+        // Close expanded chart on Escape key
+        document.addEventListener('keydown', (e) => {
+          if (e.key === 'Escape' && isSalesChartExpanded) {
+            expandSalesChartBtn.click();
+          }
+        });
+
+        // Handle window resize for expanded chart
+        window.addEventListener('resize', () => {
+          if (isSalesChartExpanded && salesTrendChartInstance) {
+            setTimeout(() => {
+              salesTrendChartInstance.resize();
+            }, 100);
+          }
+        });
+      }
+    });
+  </script>
+  <script>
+
+    // Logout confirmation handler
+    (function() {
+      const logoutBtn = document.getElementById('logoutBtn');
+      const logoutForm = document.getElementById('logoutForm');
+      
+      if (logoutBtn && logoutForm) {
+        logoutBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          showLogoutConfirmModal();
+        });
+      }
+
+      function showLogoutConfirmModal() {
+        const modal = document.getElementById('logoutConfirmModal');
+        if (!modal) {
+          console.error('Logout confirmation modal not found');
+          // Fallback to browser confirm
+          if (confirm('Are you sure you want to logout?')) {
+            logoutForm.submit();
+          }
+          return;
+        }
+        
+        // Check if Bootstrap is available
+        if (typeof bootstrap === 'undefined') {
+          console.error('Bootstrap is not loaded');
+          // Fallback to browser confirm
+          if (confirm('Are you sure you want to logout?')) {
+            logoutForm.submit();
+          }
+          return;
+        }
+        
+        // Get or create modal instance
+        let bsModal = bootstrap.Modal.getInstance(modal);
+        if (!bsModal) {
+          bsModal = new bootstrap.Modal(modal, {
+            backdrop: true,
+            keyboard: true,
+            focus: true
+          });
+        }
+        
+        // Remove existing event listeners to prevent duplicates
+        const confirmBtn = modal.querySelector('.btn-confirm');
+        const cancelBtn = modal.querySelector('.btn-cancel');
+        
+        // Clone and replace buttons to remove old listeners
+        if (confirmBtn) {
+          const newConfirmBtn = confirmBtn.cloneNode(true);
+          confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+          newConfirmBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            bsModal.hide();
+            setTimeout(function() {
+              logoutForm.submit();
+            }, 300);
+          });
+        }
+        
+        if (cancelBtn) {
+          const newCancelBtn = cancelBtn.cloneNode(true);
+          cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+          newCancelBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            bsModal.hide();
+          });
+        }
+        
+        // Show modal
+        try {
+          bsModal.show();
+        } catch (error) {
+          console.error('Error showing modal:', error);
+          // Fallback to browser confirm
+          if (confirm('Are you sure you want to logout?')) {
+            logoutForm.submit();
+          }
+        }
+      }
+    })();
+  </script>
+
+  <!-- Logout Confirmation Modal -->
+  <div class="modal fade" id="logoutConfirmModal" tabindex="-1" aria-labelledby="logoutConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="logoutConfirmModalLabel">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            Confirm Logout
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <i class="bi bi-exclamation-triangle-fill warning-icon"></i>
+          <p>Are you sure you want to logout?</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-cancel" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-confirm">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% include "partials/bootstrap_scripts.html" %}
+  {% include 'admin_panel/partials/admin_nav_footer.html' %}
+</body>
+</html>

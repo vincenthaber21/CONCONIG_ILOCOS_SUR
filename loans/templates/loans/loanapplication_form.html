@@ -1,0 +1,12 @@
+{% extends "loans/base_loans.html" %}
+{% block title %}New Loan Application{% endblock %}
+{% block extra_head %}
+  {% include "partials/tom_select_head.html" %}
+{% endblock %}
+{% block content %}
+{% include "loans/partials/loan_request_form.html" %}
+{% endblock %}
+{% block extra_scripts %}
+  {% include "partials/tom_select_scripts.html" %}
+  {% include "loans/partials/loan_request_form_scripts.html" %}
+{% endblock %}

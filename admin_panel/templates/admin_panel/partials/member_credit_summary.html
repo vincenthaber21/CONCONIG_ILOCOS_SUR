@@ -1,0 +1,57 @@
+{# Credit (utang) summary cards — expects total_credit_outstanding, members_with_credit, member_max_credit, credit_limit_enabled, credit_settings #}
+<div class="col-md-3" id="member-credit-summary">
+  <div class="stat-card">
+    <div class="d-flex align-items-center gap-3">
+      <div class="stat-icon" style="background:#5b21b6;">
+        <i class="bi bi-journal-text"></i>
+      </div>
+      <div>
+        <div class="stat-title">Total Credit Owed</div>
+        <h3 class="mb-0 credit-outstanding">₱{{ total_credit_outstanding|floatformat:2 }}</h3>
+        <small class="text-muted">Outstanding utang (all members)</small>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="col-md-3">
+  <div class="stat-card">
+    <div class="d-flex align-items-center gap-3">
+      <div class="stat-icon" style="background:#7c3aed;">
+        <i class="bi bi-person-lines-fill"></i>
+      </div>
+      <div>
+        <div class="stat-title">Members with Credit</div>
+        <h3 class="mb-0">{{ members_with_credit }}</h3>
+        <small class="text-muted">Have unpaid credit sales</small>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="col-12">
+  <div class="alert alert-light border py-2 px-3 mb-0 d-flex flex-wrap align-items-center gap-2" style="border-color:#ddd6fe !important;background:#f5f3ff;">
+    <i class="bi bi-percent text-primary"></i>
+    <span class="small mb-0">
+      {% if credit_interest_enabled %}
+      <strong>Credit interest:</strong> (principal × {{ credit_settings.interest_rate }}) added each unpaid month after {{ credit_settings.grace_period_days }} day{{ credit_settings.grace_period_days|pluralize }} grace.
+      {% if total_credit_interest %}
+      <span class="ms-1">Accrued interest in totals: ₱{{ total_credit_interest|floatformat:2 }}.</span>
+      {% endif %}
+      {% else %}
+      <strong>Credit interest:</strong> Off — unpaid utang does not get interest.
+      {% endif %}
+      <a href="{% url 'credit_unpaid_history' %}" class="text-decoration-none ms-1">View unpaid history</a>
+      <a href="#" class="text-decoration-none ms-1" data-open-credit-interest-modal>Edit interest settings</a>
+    </span>
+  </div>
+</div>
+{% if credit_limit_enabled %}
+<div class="col-12">
+  <div class="alert alert-light border py-2 px-3 mb-0 d-flex flex-wrap align-items-center gap-2" style="border-color:#ddd6fe !important;background:#f5f3ff;">
+    <i class="bi bi-sliders text-primary"></i>
+    <span class="small mb-0">
+      <strong>Credit limit (kiosk):</strong> ₱{{ member_max_credit|floatformat:2 }} maximum outstanding credit per member.
+      <a href="#" class="text-decoration-none ms-1" data-open-credit-limit-modal>Edit credit limit</a>
+    </span>
+  </div>
+</div>
+{% endif %}

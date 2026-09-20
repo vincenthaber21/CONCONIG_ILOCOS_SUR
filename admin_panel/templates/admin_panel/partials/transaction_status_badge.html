@@ -1,0 +1,23 @@
+{# Usage: {% include 'admin_panel/partials/transaction_status_badge.html' with status=transaction.status label=transaction.get_status_display %} #}
+<span class="txn-status-badge txn-status-{{ status }}" role="status">
+  {% if status == 'completed' %}
+  <i class="bi bi-check-circle-fill" aria-hidden="true"></i>
+  {% elif status == 'pending' %}
+  <i class="bi bi-hourglass-split" aria-hidden="true"></i>
+  {% elif status == 'cancelled' %}
+  <i class="bi bi-x-circle-fill" aria-hidden="true"></i>
+  {% elif status == 'refund_requested' %}
+  <i class="bi bi-arrow-repeat" aria-hidden="true"></i>
+  {% elif status == 'return_window' %}
+  <i class="bi bi-box-arrow-in-left" aria-hidden="true"></i>
+  {% elif status == 'partially_refunded' %}
+  <i class="bi bi-arrow-counterclockwise" aria-hidden="true"></i>
+  {% elif status == 'refunded' %}
+  <i class="bi bi-cash-stack" aria-hidden="true"></i>
+  {% elif status == 'return_expired' %}
+  <i class="bi bi-calendar-x" aria-hidden="true"></i>
+  {% else %}
+  <i class="bi bi-info-circle" aria-hidden="true"></i>
+  {% endif %}
+  <span class="txn-status-label">{{ label }}</span>
+</span>

@@ -1,0 +1,124 @@
+{% extends "loans/base_loans.html" %}
+{% block title %}New Loan Inquiry{% endblock %}
+{% block content %}
+<div class="loan-form-page">
+  <header class="loan-form-page__header">
+    <a class="loan-form-page__back" href="{% url 'loans_overview' %}">
+      <i class="bi bi-arrow-left"></i> Loans
+    </a>
+    <h1>New Loan Inquiry</h1>
+    <p class="subtitle">Log an initial member inquiry before a formal application.</p>
+  </header>
+
+  <section class="card loan-form-page__card">
+    <form method="post" class="loan-form">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+      <ul class="errorlist">{{ form.non_field_errors }}</ul>
+      {% endif %}
+
+      <div class="loan-form__field">
+        <label for="{{ form.loan_product.id_for_label }}">Loan product</label>
+        {{ form.loan_product }}
+        {% if form.loan_product.errors %}
+        <ul class="errorlist">{{ form.loan_product.errors }}</ul>
+        {% endif %}
+        {% if form.loan_product.help_text %}
+        <p class="helptext">{{ form.loan_product.help_text }}</p>
+        {% endif %}
+      </div>
+
+      <div class="loan-form__field">
+        <label for="{{ form.notes.id_for_label }}">Notes</label>
+        {{ form.notes }}
+        {% if form.notes.errors %}
+        <ul class="errorlist">{{ form.notes.errors }}</ul>
+        {% endif %}
+        {% if form.notes.help_text %}
+        <p class="helptext">{{ form.notes.help_text }}</p>
+        {% endif %}
+        <p class="helptext">Optional — purpose of inquiry, preferred amount, or follow-up notes.</p>
+      </div>
+
+      <div class="loan-form__actions">
+        <button type="submit" class="btn-loan">
+          <i class="bi bi-check2"></i> Save inquiry
+        </button>
+        <a class="btn--secondary" href="{% url 'loans_overview' %}">Cancel</a>
+      </div>
+    </form>
+  </section>
+</div>
+
+<style>
+  .loan-form-page {
+    width: 100%;
+    max-width: 640px;
+    margin-inline: auto;
+  }
+
+  .loan-form-page__header { margin-bottom: 1.25rem; }
+  .loan-form-page__header h1 { margin: 0 0 .35rem; }
+  .loan-form-page__header .subtitle { margin-bottom: 0; }
+
+  .loan-form-page__back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    color: #64748b;
+    text-decoration: none;
+    font-size: .88rem;
+    font-weight: 500;
+    margin-bottom: .65rem;
+  }
+  .loan-form-page__back:hover { color: #0f172a; }
+
+  .loan-form-page__card {
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    border-radius: 14px;
+    padding: 1.5rem 1.6rem;
+  }
+
+  .loan-form__field { margin-bottom: 1.15rem; }
+  .loan-form__field label {
+    display: block;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: .35rem;
+    font-size: .9rem;
+  }
+  .loan-form__field select,
+  .loan-form__field textarea,
+  .loan-form__field input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    font-size: .92rem;
+    background: #fff;
+  }
+  .loan-form__field select:focus,
+  .loan-form__field textarea:focus,
+  .loan-form__field input:focus {
+    outline: none;
+    border-color: #E6C200;
+    box-shadow: 0 0 0 3px rgba(230, 194, 0, 0.15);
+  }
+  .loan-form__field textarea { min-height: 110px; resize: vertical; }
+
+  .loan-form__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    align-items: center;
+    margin-top: 1.35rem;
+    padding-top: 1.15rem;
+    border-top: 1px solid #f1f5f9;
+  }
+  .loan-form__actions .btn-loan,
+  .loan-form__actions .btn--secondary {
+    margin: 0;
+  }
+</style>
+{% endblock %}

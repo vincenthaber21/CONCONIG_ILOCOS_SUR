@@ -1,0 +1,184 @@
+{% extends "palay_trade/base_palay.html" %}
+{% load currency_filters %}
+{% block title %}Edit {{ product.name }} Features{% endblock %}
+{% block content %}
+<style>
+  .pf-edit { max-width: 760px; margin: 0 auto; }
+  .pf-edit__hero {
+    background: var(--gradient); color: #fff; border-radius: 22px;
+    padding: 1.25rem 1.4rem; margin-bottom: 1.15rem;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.28);
+  }
+  .pf-edit__hero a {
+    color: rgba(255,255,255,.9); text-decoration: none; font-size: .88rem; font-weight: 600;
+    display: inline-flex; align-items: center; gap: .35rem;
+  }
+  .pf-edit__hero a:hover { color: #fff; }
+  .pf-edit__hero h1 { color: #fff; font-size: 1.4rem; margin: .35rem 0 .2rem; }
+  .pf-edit__hero p { margin: 0; opacity: .92; font-size: .9rem; }
+  .pf-panel {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 18px;
+    padding: 1.35rem 1.45rem; box-shadow: 0 12px 28px rgba(15, 23, 42, 0.07);
+  }
+  .pf-section + .pf-section {
+    margin-top: 1.2rem; padding-top: 1.15rem; border-top: 1px solid #f1f5f9;
+  }
+  .pf-section h2 {
+    margin: 0 0 .85rem; font-size: .98rem; font-weight: 700; color: #0f172a;
+    display: flex; align-items: center; gap: .45rem;
+  }
+  .pf-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: .85rem;
+  }
+  @media (max-width: 640px) { .pf-grid { grid-template-columns: 1fr; } }
+  .pf-field { margin-bottom: .95rem; }
+  .pf-field > label {
+    display: block; margin-bottom: .35rem; font-weight: 700; font-size: .88rem; color: #334155;
+  }
+  .pf-field .helptext { margin: .3rem 0 0; color: #94a3b8; font-size: .78rem; }
+  .pf-field .error { margin-top: .3rem; color: #dc2626; font-size: .82rem; }
+  .pf-money { position: relative; display: flex; align-items: center; }
+  .pf-money > span {
+    position: absolute; left: 12px; z-index: 1; color: #64748b; font-weight: 700;
+  }
+  .pf-money input { padding-left: 30px !important; }
+  .pf-check {
+    display: flex; align-items: flex-start; gap: .65rem;
+    padding: .85rem 1rem; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc;
+  }
+  .pf-check input { width: 16px; height: 16px; margin-top: .15rem; accent-color: #ED1C24; }
+  .pf-check span { font-weight: 600; color: #334155; font-size: .9rem; }
+  .pf-check small { display: block; color: #64748b; font-weight: 500; margin-top: .2rem; }
+  .pf-actions {
+    display: flex; flex-wrap: wrap; gap: .55rem;
+    margin-top: 1.25rem; padding-top: 1.1rem; border-top: 1px solid #f1f5f9;
+  }
+  .pf-actions .btn-loan, .pf-actions .btn--secondary {
+    min-height: 44px; padding: 10px 18px;
+    display: inline-flex; align-items: center; gap: .4rem;
+  }
+  .pf-alert {
+    margin-bottom: 1rem; padding: .85rem 1rem; border-radius: 12px;
+    background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; font-size: .9rem;
+  }
+  .pf-meta {
+    display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem;
+  }
+  .pf-chip {
+    display: inline-flex; align-items: center; gap: .3rem;
+    padding: .3rem .7rem; border-radius: 999px; font-size: .76rem; font-weight: 700;
+    background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0;
+  }
+</style>
+
+<div class="pf-edit">
+  <header class="pf-edit__hero">
+    <a href="{% url 'palay_trade:product-list' %}">
+      <i class="bi bi-arrow-left"></i> Back to product features
+    </a>
+    <h1>Edit {{ product.name }} features</h1>
+    <p>Update buy/sell rates, stock, and trade limits for this default product.</p>
+  </header>
+
+  <section class="pf-panel">
+    <div class="pf-meta">
+      <span class="pf-chip"><i class="bi bi-tag"></i> {{ product.code }}</span>
+      <span class="pf-chip"><i class="bi bi-box-seam"></i> {{ product.stock_kg|currency }} kg on hand</span>
+    </div>
+
+    <form method="post" novalidate>
+      {% csrf_token %}
+      {% if form.errors %}
+      <div class="pf-alert" role="alert">
+        <strong>Could not save.</strong> Fix the items below, then try again.
+        {{ form.non_field_errors }}
+      </div>
+      {% endif %}
+
+      <div class="pf-section">
+        <h2><i class="bi bi-currency-exchange text-success"></i> Buy &amp; sell rates</h2>
+        <div class="pf-grid">
+          <div class="pf-field">
+            <label for="{{ form.buy_price_per_kg.id_for_label }}">{{ form.buy_price_per_kg.label }}</label>
+            <div class="pf-money"><span>&#8369;</span>{{ form.buy_price_per_kg }}</div>
+            {% if form.buy_price_per_kg.help_text %}<p class="helptext">{{ form.buy_price_per_kg.help_text }}</p>{% endif %}
+            {% if form.buy_price_per_kg.errors %}<div class="error">{{ form.buy_price_per_kg.errors|striptags }}</div>{% endif %}
+          </div>
+          <div class="pf-field">
+            <label for="{{ form.sell_price_per_kg.id_for_label }}">{{ form.sell_price_per_kg.label }}</label>
+            <div class="pf-money"><span>&#8369;</span>{{ form.sell_price_per_kg }}</div>
+            {% if form.sell_price_per_kg.help_text %}<p class="helptext">{{ form.sell_price_per_kg.help_text }}</p>{% endif %}
+            {% if form.sell_price_per_kg.errors %}<div class="error">{{ form.sell_price_per_kg.errors|striptags }}</div>{% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="pf-section">
+        <h2><i class="bi bi-box-seam text-success"></i> Stock</h2>
+        <div class="pf-grid">
+          <div class="pf-field">
+            <label for="{{ form.stock_kg.id_for_label }}">{{ form.stock_kg.label }}</label>
+            {{ form.stock_kg }}
+            {% if form.stock_kg.help_text %}<p class="helptext">{{ form.stock_kg.help_text }}</p>{% endif %}
+            {% if form.stock_kg.errors %}<div class="error">{{ form.stock_kg.errors|striptags }}</div>{% endif %}
+          </div>
+          <div class="pf-field">
+            <label for="{{ form.low_stock_kg.id_for_label }}">{{ form.low_stock_kg.label }}</label>
+            {{ form.low_stock_kg }}
+            {% if form.low_stock_kg.help_text %}<p class="helptext">{{ form.low_stock_kg.help_text }}</p>{% endif %}
+            {% if form.low_stock_kg.errors %}<div class="error">{{ form.low_stock_kg.errors|striptags }}</div>{% endif %}
+          </div>
+        </div>
+      </div>
+
+      <div class="pf-section">
+        <h2><i class="bi bi-sliders text-success"></i> Trade limits</h2>
+        <div class="pf-grid">
+          <div class="pf-field">
+            <label for="{{ form.min_quantity_kg.id_for_label }}">{{ form.min_quantity_kg.label }}</label>
+            {{ form.min_quantity_kg }}
+            {% if form.min_quantity_kg.help_text %}<p class="helptext">{{ form.min_quantity_kg.help_text }}</p>{% endif %}
+            {% if form.min_quantity_kg.errors %}<div class="error">{{ form.min_quantity_kg.errors|striptags }}</div>{% endif %}
+          </div>
+          <div class="pf-field">
+            <label for="{{ form.max_quantity_kg.id_for_label }}">{{ form.max_quantity_kg.label }}</label>
+            {{ form.max_quantity_kg }}
+            {% if form.max_quantity_kg.help_text %}<p class="helptext">{{ form.max_quantity_kg.help_text }}</p>{% endif %}
+            {% if form.max_quantity_kg.errors %}<div class="error">{{ form.max_quantity_kg.errors|striptags }}</div>{% endif %}
+          </div>
+        </div>
+        <label class="pf-check">
+          {{ form.members_only }}
+          <span>
+            {{ form.members_only.label }}
+            {% if form.members_only.help_text %}<small>{{ form.members_only.help_text }}</small>{% endif %}
+          </span>
+        </label>
+        <label class="pf-check">
+          {{ form.credit_enabled }}
+          <span>
+            {{ form.credit_enabled.label }}
+            {% if form.credit_enabled.help_text %}<small>{{ form.credit_enabled.help_text }}</small>{% endif %}
+          </span>
+        </label>
+      </div>
+
+      <div class="pf-section">
+        <h2><i class="bi bi-card-text text-success"></i> Notes</h2>
+        <div class="pf-field" style="margin-bottom:0;">
+          <label for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
+          {{ form.description }}
+          {% if form.description.errors %}<div class="error">{{ form.description.errors|striptags }}</div>{% endif %}
+        </div>
+      </div>
+
+      <div class="pf-actions">
+        <button type="submit" class="btn-loan">
+          <i class="bi bi-check2-circle"></i> Save features
+        </button>
+        <a class="btn--secondary" href="{% url 'palay_trade:product-list' %}">Cancel</a>
+      </div>
+    </form>
+  </section>
+</div>
+{% endblock %}

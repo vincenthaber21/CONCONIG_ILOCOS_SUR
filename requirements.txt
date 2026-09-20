@@ -1,0 +1,45 @@
+# Core framework
+Django>=5.1
+whitenoise>=6.6.0
+
+# Django extensions
+djangorestframework>=3.16.1
+django-cors-headers>=4.3.1
+django-crispy-forms>=2.5
+crispy-bootstrap5>=2025.6
+django-widget-tweaks>=1.5.0
+django-import-export>=4.0
+django-fsm-2>=4.0
+
+# Database drivers
+# Use PyMySQL as a drop-in replacement for mysqlclient (MySQL/MariaDB)
+PyMySQL>=1.1.0
+# PostgreSQL driver (for production DATABASE_URL pointing at Postgres)
+psycopg2-binary>=2.9.11
+# Parse DATABASE_URL environment variable into Django DATABASES dict
+dj-database-url>=2.2.0
+
+# Scheduling
+APScheduler>=3.10.4
+
+# Async workers (ingestion pipeline)
+celery>=5.4.0
+redis>=5.0.0
+
+# Image & barcode
+Pillow>=10.0.0
+python-barcode>=0.16.1
+
+# QR codes
+qrcode[pil]>=7.4.2
+
+# PDF generation
+reportlab>=4.2.0
+
+# Excel export
+openpyxl>=3.1.5
+
+# Google Drive backup upload
+google-api-python-client>=2.100.0
+google-auth>=2.23.0
+google-auth-oauthlib>=1.1.0

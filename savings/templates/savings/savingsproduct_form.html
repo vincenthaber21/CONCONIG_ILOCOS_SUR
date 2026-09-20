@@ -1,0 +1,104 @@
+{% extends "savings/base_savings.html" %}
+{% load currency_filters %}
+{% block title %}{% if object %}Edit Regular Savings{% else %}Add Regular Savings{% endif %}{% endblock %}
+{% block content %}
+<div class="loan-form-page">
+  <header class="loan-form-page__header">
+    <a class="loan-form-page__back" href="{% url 'savings:product-list' %}">
+      <i class="bi bi-arrow-left"></i> Savings products
+    </a>
+    <h1>{% if object %}Edit Regular Savings{% else %}Add Regular Savings{% endif %}</h1>
+    <p class="subtitle">All member savings use the same Regular Savings policy at a flat 5% annual rate. Set minimum opening deposit and other limits in Django admin under Savings products.</p>
+  </header>
+
+  <section class="card loan-form-page__card">
+    <div class="regular-policy" role="note">
+      <div class="regular-policy__badge"><i class="bi bi-piggy-bank"></i> Regular Savings</div>
+      <dl class="regular-policy__grid">
+        <div><dt>Interest</dt><dd>{{ savings_policy.annual_rate_display }} / year</dd></div>
+        <div><dt>Opening min</dt><dd>{% if object %}&#8369;{{ object.min_opening_deposit|currency }}{% else %}&#8369;1,000.00{% endif %}</dd></div>
+        <div><dt>Maximum</dt><dd>{% if object and object.max_balance %}&#8369;{{ object.max_balance|currency }}{% elif object %}No limit{% else %}&#8369;1,000,000.00{% endif %}</dd></div>
+        <div><dt>Term</dt><dd>Open-ended</dd></div>
+      </dl>
+    </div>
+
+    <form method="post" class="loan-form">
+      {% csrf_token %}
+      {% if form.errors %}
+      <div class="loan-form__errors" style="margin-bottom:1rem;padding:.85rem 1rem;border-radius:10px;background:#fee2e2;color:#991b1b;">
+        <strong>Could not save.</strong> Fix the items below, then save again.
+        {{ form.non_field_errors }}
+      </div>
+      {% endif %}
+
+      <div class="loan-form__field">
+        <label for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+        {{ form.name }}
+        {% if form.name.errors %}<div class="loan-form__errors">{{ form.name.errors }}</div>{% endif %}
+      </div>
+
+      <div class="loan-form__field">
+        <label for="{{ form.code.id_for_label }}">{{ form.code.label }}</label>
+        {{ form.code }}
+        {% if form.code.help_text %}<p class="helptext">{{ form.code.help_text }}</p>{% endif %}
+        {% if form.code.errors %}<div class="loan-form__errors">{{ form.code.errors }}</div>{% endif %}
+      </div>
+
+      <div class="loan-form__field">
+        <label for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
+        {{ form.description }}
+      </div>
+
+      <div class="loan-form__checks">
+        <label class="loan-form__check">{{ form.is_active }}<span>{{ form.is_active.label }}</span></label>
+      </div>
+
+      <div class="loan-form__actions">
+        <button type="submit" class="btn-loan" name="save_product" value="1">
+          <i class="bi bi-check-lg"></i> Save
+        </button>
+        <a class="btn--secondary" href="{% url 'savings:product-list' %}">Cancel</a>
+      </div>
+    </form>
+  </section>
+</div>
+
+<style>
+  .loan-form-page { width: 100%; max-width: 560px; margin-inline: auto; }
+  .loan-form-page__header { margin-bottom: 1.25rem; }
+  .loan-form-page__header h1 { margin: 0 0 .35rem; }
+  .loan-form-page__header .subtitle { margin-bottom: 0; }
+  .loan-form-page__back {
+    display: inline-flex; align-items: center; gap: .4rem; color: #64748b;
+    text-decoration: none; font-size: .88rem; font-weight: 500; margin-bottom: .65rem;
+  }
+  .loan-form-page__card { padding: 1.5rem 1.6rem; margin-bottom: 0; }
+  .loan-form__field { margin-bottom: 1.1rem; }
+  .loan-form__field > label:first-child { display: block; margin-bottom: .4rem; font-weight: 600; }
+  .loan-form__checks {
+    display: flex; flex-direction: column; gap: .55rem; padding: .9rem 1rem;
+    border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc;
+  }
+  .loan-form__check { display: flex; align-items: center; gap: .55rem; margin: 0; cursor: pointer; }
+  .loan-form__check input { width: 16px; height: 16px; margin: 0; accent-color: #E6C200; }
+  .loan-form__actions { display: flex; gap: .5rem; margin-top: 1.35rem; padding-top: 1.15rem; border-top: 1px solid #f1f5f9; }
+  .loan-form__errors { color: #dc2626; font-size: .82rem; margin-top: .35rem; }
+
+  .regular-policy {
+    margin-bottom: 1.35rem; padding: 1rem 1.1rem; border-radius: 12px;
+    background: #f8fafc; border: 1px solid #e2e8f0;
+  }
+  .regular-policy__badge {
+    display: inline-flex; align-items: center; gap: .4rem;
+    font-weight: 700; font-size: .88rem; color: #0f172a; margin-bottom: .75rem;
+  }
+  .regular-policy__badge i { color: #ED1C24; }
+  .regular-policy__grid {
+    margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: .55rem .85rem;
+  }
+  @media (max-width: 480px) { .regular-policy__grid { grid-template-columns: 1fr; } }
+  .regular-policy__grid > div:first-child { grid-column: 1 / -1; }
+  .regular-policy__grid dt { margin: 0; font-size: .75rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: .03em; }
+  .regular-policy__grid dd { margin: .15rem 0 0; font-size: .9rem; font-weight: 600; color: #0f172a; }
+</style>
+{% endblock %}

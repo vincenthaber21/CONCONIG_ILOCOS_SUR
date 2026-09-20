@@ -1,0 +1,12 @@
+{% comment %}Shared role pills for admin console. Set `role_badge` via admin_role_badge_context.{% endcomment %}
+{% if role_badge == 'admin_verified' %}
+<span class="admin-role-pill" style="display:inline-flex;align-items:center;margin-left:0.5rem;vertical-align:middle;background:#FFEB3B;color:#0f172a;font-weight:700;padding:0.2rem 0.7rem;border-radius:0.65rem;font-size:0.75rem;border:2px solid #0f172a;white-space:nowrap;">Admin Verified</span>
+{% elif role_badge == 'cashier' %}
+<span class="cashier-role-pill" style="display:inline-flex;align-items:center;margin-left:0.5rem;vertical-align:middle;background:#a7f3d0;color:#0f172a;font-weight:700;padding:0.2rem 0.7rem;border-radius:0.65rem;font-size:0.75rem;border:2px solid #0f172a;white-space:nowrap;">Cashier</span>
+{% elif role_badge == 'committee' %}
+<span class="committee-role-pill" style="display:inline-flex;align-items:center;margin-left:0.5rem;vertical-align:middle;background:#fbcfe8;color:#0f172a;font-weight:700;padding:0.2rem 0.7rem;border-radius:0.65rem;font-size:0.75rem;border:2px solid #0f172a;white-space:nowrap;">Credit Committee</span>
+{% elif role_badge == 'loan_officer' %}
+<span class="loan-officer-role-pill" style="display:inline-flex;align-items:center;margin-left:0.5rem;vertical-align:middle;background:#e0e7ff;color:#0f172a;font-weight:700;padding:0.2rem 0.7rem;border-radius:0.65rem;font-size:0.75rem;border:2px solid #0f172a;white-space:nowrap;">Loan Officer</span>
+{% elif role_badge == 'staff' %}
+<span class="staff-role-pill" style="display:inline-flex;align-items:center;margin-left:0.5rem;vertical-align:middle;background:#7dd3fc;color:#0f172a;font-weight:700;padding:0.2rem 0.7rem;border-radius:0.65rem;font-size:0.75rem;border:2px solid #0f172a;white-space:nowrap;">Staff</span>
+{% endif %}

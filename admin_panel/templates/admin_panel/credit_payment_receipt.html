@@ -1,0 +1,110 @@
+{% load currency_filters %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Credit Payment — {{ payment.settlement_number }}</title>
+  {% include "partials/bootstrap_head.html" %}
+  <style>
+    body { background: #eef0f4; font-family: Arial, Helvetica, sans-serif; }
+    .toolbar { background: #1e293b; color: #fff; padding: 12px 20px; position: sticky; top: 0; z-index: 10; }
+    .receipt-wrap { max-width: {{ receipt_paper_width|default:"57mm" }}; margin: 24px auto; background: #fff; padding: 8px 3.5mm; box-shadow: 0 4px 20px rgba(0,0,0,.12); font-family: Arial, Helvetica, sans-serif; font-size: 9px; line-height: 1.25; box-sizing: border-box; }
+    .receipt-wrap, .receipt-wrap * { color: #000 !important; }
+    .receipt-wrap h1 { font-size: 11px; font-weight: 700; text-align: center; margin-bottom: 3px; }
+    .receipt-wrap .meta { text-align: center; font-size: 8px; margin-bottom: 8px; }
+    .line-item { display: flex; justify-content: space-between; padding: 2px 0; border-bottom: 1px dashed #000; font-size: 8.5px; }
+    .total-paid { font-size: 12px; font-weight: 700; text-align: center; margin: 8px 0; }
+    .receipt-wrap .receipt-store-logo {
+      text-align: center;
+      margin: 0 0 10px;
+    }
+    .receipt-wrap .receipt-store-logo img {
+      display: inline-block;
+      max-width: 92%;
+      max-height: 72px;
+      width: auto;
+      height: auto;
+      object-fit: contain;
+    }
+    {% include "admin_panel/partials/receipt_amount_center.html" %}
+    {% include "admin_panel/partials/receipt_thermal_print.html" %}
+  </style>
+</head>
+<body>
+  <div class="toolbar d-flex justify-content-between align-items-center no-print">
+    <span class="fw-semibold"><i class="bi bi-receipt me-1"></i> Credit Payment Receipt</span>
+    <div class="d-flex gap-2">
+      <button type="button" class="btn btn-sm btn-primary" onclick="window.print()"><i class="bi bi-printer me-1"></i>Print</button>
+      <a href="{% url 'member_management' %}?credit=owed" class="btn btn-sm btn-outline-light">Back to Members</a>
+    </div>
+  </div>
+
+  <div class="receipt-wrap">
+    {% if store_logo_url %}<div class="receipt-store-logo"><img src="{{ store_logo_url }}" alt="{{ shop_name }} logo"></div>{% endif %}
+    <div class="text-center fw-bold">{{ shop_name }}</div>
+    {% if shop_description %}<div class="meta">{{ shop_description|linebreaksbr }}</div>{% endif %}
+    {% if shop_address %}<div class="meta">{{ shop_address }}</div>{% endif %}
+    {% if shop_phone %}<div class="meta">{{ shop_phone }}</div>{% endif %}
+
+    <h1>CREDIT PAYMENT</h1>
+    <div class="meta">Settlement {{ payment.settlement_number }}</div>
+    <div class="meta">{{ payment.created_at|date:"M d, Y g:i A" }}</div>
+
+    <hr>
+    <div><strong>Member:</strong> {{ member.full_name }}</div>
+    <div><strong>Payment:</strong> {{ payment.get_payment_method_display }}</div>
+    {% if payment.performed_by_display %}
+    <div><strong>Processed By:</strong> {{ payment.performed_by_display }}</div>
+    {% endif %}
+    {% if payment.balance_before is not None %}
+    <div class="small text-muted mt-1">Balance: ₱{{ payment.balance_before|floatformat:2 }} → ₱{{ payment.balance_after|floatformat:2 }}</div>
+    {% endif %}
+
+    <p class="fw-semibold mt-3 mb-1" style="font-size:8.5px;">Settled products</p>
+    {% if payment_lines %}
+      {% for line in payment_lines %}
+      <div class="line-item">
+        <span>{{ line.item.transaction.transaction_number }}<br><small>{{ line.item.product_name }} x{{ line.item.quantity }}</small></span>
+        <span>₱{{ line.amount_applied|floatformat:2 }}</span>
+      </div>
+      {% endfor %}
+    {% elif settled_items %}
+      {% for item in settled_items %}
+      <div class="line-item">
+        <span>{{ item.transaction.transaction_number }}<br><small>{{ item.product_name }} x{{ item.quantity }}</small></span>
+        <span>₱{{ item.credit_line_amount|floatformat:2 }}</span>
+      </div>
+      {% endfor %}
+    {% else %}
+      {% for sale in settled_sales %}
+      <div class="line-item">
+        <span>{{ sale.transaction_number }}<br><small class="text-muted">{{ sale.created_at|date:"M d, Y" }}</small></span>
+        <span>₱{{ sale.total_amount|floatformat:2 }}</span>
+      </div>
+      {% empty %}
+      <div class="text-muted small">No items linked.</div>
+      {% endfor %}
+    {% endif %}
+
+    {% if settled_vat_amount %}
+    <hr style="border-style:dashed; margin:6px 0;">
+    <div style="font-size:8px; font-weight:600; margin-bottom:2px; color:#374151;">Tax Breakdown (included in settled amount)</div>
+    <div class="line-item" style="border:none; font-size:8px;">
+        <span style="color:#374151;">Vatable Sale</span>
+        <span style="color:#374151;">₱{{ settled_vatable_sale|floatformat:2 }}</span>
+    </div>
+    <div class="line-item" style="border-bottom:1px dashed #000; font-size:8px; padding-bottom:4px;">
+        <span style="color:#374151; font-weight:600;">{{ active_tax_label|default:"VAT" }}</span>
+        <span style="color:#374151; font-weight:600;">₱{{ settled_vat_amount|floatformat:2 }}</span>
+    </div>
+    {% endif %}
+
+    <div class="total-paid">PAID ₱{{ payment.amount_paid|floatformat:2 }}</div>
+    <div class="text-center small text-muted">{{ receipt_thank_you }}</div>
+    {% if receipt_footer_customer_tagline %}<div class="text-center small mt-2">{{ receipt_footer_customer_tagline }}</div>{% endif %}
+  </div>
+
+  <pre id="rawPrintText" class="d-none">{{ raw_print_text }}</pre>
+</body>
+</html>

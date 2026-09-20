@@ -1,0 +1,20 @@
+<div class="d-flex flex-wrap gap-2 align-items-center">
+  {% if transaction.status != 'pending' %}
+  <button type="button"
+          class="btn btn-sm btn-outline-primary rounded-pill print-receipt-btn"
+          data-txn-id="{{ transaction.id }}"
+          data-payment-method="{{ transaction.payment_method }}">
+    <i class="bi bi-printer me-1"></i>Print Receipt
+  </button>
+  {% endif %}
+  {% if show_refund_action %}
+    {% if transaction.status == 'completed' or transaction.status == 'partially_refunded' %}
+    <button type="button"
+            class="btn btn-sm btn-outline-danger rounded-pill open-process-refund-btn"
+            data-txn-id="{{ transaction.id }}"
+            data-txn-number="{{ transaction.transaction_number }}">
+      <i class="bi bi-arrow-counterclockwise me-1"></i>Process Refund
+    </button>
+    {% endif %}
+  {% endif %}
+</div>

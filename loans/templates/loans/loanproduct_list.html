@@ -1,0 +1,446 @@
+{% extends "loans/base_loans.html" %}
+{% load currency_filters %}
+{% block title %}Loan Products{% endblock %}
+{% block content %}
+<div class="lp-page">
+  <header class="lp-header">
+    <div class="lp-header__text">
+      <a class="lp-back" href="{% url 'loans_overview' %}">
+        <i class="bi bi-arrow-left"></i> Loans
+      </a>
+      <h1>Loan products</h1>
+      <p class="subtitle mb-0">Offerings members can apply for — amount range and term.</p>
+    </div>
+    <div class="lp-header__actions">
+      <a class="btn--secondary" href="{% url 'loan_settings' %}">
+        <i class="bi bi-sliders me-1"></i><span class="lp-btn-label">Settings</span>
+      </a>
+      <a class="btn-loan" href="{% url 'loans:product-create' %}">
+        <i class="bi bi-plus-lg me-1"></i><span class="lp-btn-label">Add product</span>
+      </a>
+    </div>
+  </header>
+
+  {% if products %}
+  <div class="lp-toolbar">
+    <span class="lp-count">{{ page_obj.paginator.count }} product{{ page_obj.paginator.count|pluralize }}</span>
+  </div>
+
+  {# ---- Desktop table ---- #}
+  <div class="lp-table-wrap card">
+    <div class="lp-table-scroll">
+      <table class="lp-table">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Amount range</th>
+            <th>Term</th>
+            <th>Late interest from</th>
+            <th class="lp-th-num">Apps</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for product in products %}
+          <tr>
+            <td>
+              <div class="lp-product-cell">
+                <strong>{{ product.name }}</strong>
+                {% if product.description %}
+                <small>{{ product.description|truncatechars:90 }}</small>
+                {% endif %}
+              </div>
+            </td>
+            <td class="lp-nowrap">
+              &#8369;{{ product.min_amount|currency }}
+              <span class="lp-range-sep">–</span>
+              &#8369;{{ product.max_amount|currency }}
+            </td>
+            <td class="lp-nowrap">{{ product.term_months }} months</td>
+            <td>
+              <div class="lp-interest">
+                <strong>Month {{ product.interest_start_month }}</strong>
+                <small>Rate set per application</small>
+              </div>
+            </td>
+            <td class="lp-th-num">
+              <span class="lp-apps-badge">{{ product.application_count }}</span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {# ---- Mobile / tablet cards ---- #}
+  <div class="lp-grid">
+    {% for product in products %}
+    <article class="lp-card">
+      <div class="lp-card__top">
+        <h2 class="lp-card__name">{{ product.name }}</h2>
+        <span class="lp-apps-badge" title="Applications">{{ product.application_count }} apps</span>
+      </div>
+
+      {% if product.description %}
+      <p class="lp-card__desc">{{ product.description|truncatechars:100 }}</p>
+      {% endif %}
+
+      <div class="lp-card__metrics">
+        <div class="lp-metric">
+          <span class="lp-metric__label">Amount</span>
+          <span class="lp-metric__value">&#8369;{{ product.min_amount|currency }} – &#8369;{{ product.max_amount|currency }}</span>
+        </div>
+        <div class="lp-metric">
+          <span class="lp-metric__label">Term</span>
+          <span class="lp-metric__value">{{ product.term_months }} months</span>
+        </div>
+        <div class="lp-metric">
+          <span class="lp-metric__label">Late interest from</span>
+          <span class="lp-metric__value">Month {{ product.interest_start_month }}</span>
+          <span class="lp-metric__sub">Rate set per application</span>
+        </div>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+
+  {% if is_paginated %}
+  <nav class="lp-pager" aria-label="Product pages">
+    {% if page_obj.has_previous %}
+    <a class="btn--secondary" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+    {% endif %}
+    <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}
+    <a class="btn--secondary" href="?page={{ page_obj.next_page_number }}">Next</a>
+    {% endif %}
+  </nav>
+  {% endif %}
+
+  {% else %}
+  <div class="lp-empty card">
+    <i class="bi bi-bank2" aria-hidden="true"></i>
+    <h2>No loan products yet</h2>
+    <p>Add a product so members can request loans with clear amount limits and terms.</p>
+    <a class="btn-loan" href="{% url 'loans:product-create' %}">
+      <i class="bi bi-plus-lg me-1"></i>Add first product
+    </a>
+  </div>
+  {% endif %}
+</div>
+
+<style>
+  .lp-page {
+    width: 100%;
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+
+  .lp-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .lp-header__text { min-width: 0; flex: 1 1 280px; }
+  .lp-header h1 {
+    margin: 0 0 .35rem;
+    font-size: clamp(1.35rem, 2.2vw, 1.7rem);
+  }
+  .lp-header .subtitle {
+    max-width: 36rem;
+    font-size: .95rem;
+  }
+  .lp-header__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .lp-back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    color: #64748b;
+    text-decoration: none;
+    font-size: .88rem;
+    font-weight: 500;
+    margin-bottom: .5rem;
+  }
+  .lp-back:hover { color: #0f172a; }
+
+  .lp-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    margin-bottom: .75rem;
+  }
+  .lp-count {
+    margin: 0;
+    color: #64748b;
+    font-size: .88rem;
+    font-weight: 500;
+  }
+
+  /* ---- Desktop table ---- */
+  .lp-table-wrap {
+    display: none;
+    padding: 0;
+    overflow: hidden;
+    margin-bottom: 0;
+  }
+  .lp-table-scroll {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .lp-table {
+    width: 100%;
+    min-width: 720px;
+    border-collapse: collapse;
+  }
+  .lp-table th {
+    text-align: left;
+    padding: 12px 16px;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: #64748b;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap;
+  }
+  .lp-table td {
+    padding: 16px;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+    font-size: .92rem;
+    color: #0f172a;
+  }
+  .lp-table tbody tr:last-child td { border-bottom: none; }
+  .lp-table tbody tr:hover { background: #f8fafc; }
+  .lp-th-num { text-align: center !important; width: 72px; }
+  .lp-nowrap { white-space: nowrap; }
+  .lp-range-sep { color: #94a3b8; margin: 0 .15rem; }
+
+  .lp-product-cell {
+    display: flex;
+    flex-direction: column;
+    gap: .2rem;
+    min-width: 160px;
+  }
+  .lp-product-cell strong {
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .lp-product-cell small {
+    color: #64748b;
+    font-size: .8rem;
+    line-height: 1.4;
+  }
+
+  .lp-interest {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+  }
+  .lp-interest strong { font-weight: 600; }
+  .lp-interest small { color: #94a3b8; font-size: .78rem; }
+
+  .lp-apps-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 2rem;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #475569;
+    font-size: .78rem;
+    font-weight: 700;
+  }
+
+  .lp-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+  }
+  .lp-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #64748b;
+    font-size: .74rem;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .lp-tag--warn {
+    background: #fef3c7;
+    color: #92400e;
+  }
+
+  /* ---- Mobile cards (default) ---- */
+  .lp-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: .85rem;
+  }
+  .lp-card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 14px;
+    padding: 1.1rem 1.15rem;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+    display: flex;
+    flex-direction: column;
+    gap: .75rem;
+  }
+  .lp-card__top {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: .75rem;
+  }
+  .lp-card__name {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #0f172a;
+    line-height: 1.3;
+  }
+  .lp-card__desc {
+    margin: 0;
+    color: #64748b;
+    font-size: .86rem;
+    line-height: 1.45;
+  }
+  .lp-card__metrics {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .65rem;
+    padding: .75rem;
+    background: #f8fafc;
+    border: 1px solid #f1f5f9;
+    border-radius: 10px;
+  }
+  .lp-metric {
+    display: flex;
+    flex-direction: column;
+    gap: .15rem;
+    min-width: 0;
+  }
+  .lp-metric:last-child {
+    grid-column: 1 / -1;
+  }
+  .lp-metric__label {
+    color: #94a3b8;
+    font-size: .7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .lp-metric__value {
+    color: #0f172a;
+    font-size: .9rem;
+    font-weight: 600;
+    word-break: break-word;
+  }
+  .lp-metric__sub {
+    color: #94a3b8;
+    font-size: .78rem;
+  }
+
+  .lp-pager {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: .75rem;
+    margin-top: 1.25rem;
+    color: #64748b;
+    font-size: .9rem;
+  }
+
+  .lp-empty {
+    text-align: center;
+    padding: 3rem 1.5rem;
+    max-width: 420px;
+    margin: 1rem auto 0;
+  }
+  .lp-empty i {
+    font-size: 2.4rem;
+    color: #cbd5e1;
+    display: block;
+    margin-bottom: .75rem;
+  }
+  .lp-empty h2 {
+    margin: 0 0 .4rem;
+    font-size: 1.15rem;
+  }
+  .lp-empty p {
+    margin: 0 0 1.15rem;
+    color: #64748b;
+    font-size: .92rem;
+  }
+
+  /* Tablet: 2-column cards */
+  @media (min-width: 640px) and (max-width: 991.98px) {
+    .lp-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+    .lp-card__metrics {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+    .lp-metric:last-child {
+      grid-column: auto;
+    }
+  }
+
+  /* Desktop: full table, hide cards */
+  @media (min-width: 992px) {
+    .lp-table-wrap { display: block; }
+    .lp-grid { display: none; }
+
+    .lp-header {
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+    .lp-header__actions .btn-loan,
+    .lp-header__actions .btn--secondary {
+      padding: 9px 18px;
+    }
+  }
+
+  /* Narrow phones */
+  @media (max-width: 575.98px) {
+    .lp-header {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .lp-header__actions {
+      width: 100%;
+    }
+    .lp-header__actions .btn-loan,
+    .lp-header__actions .btn--secondary {
+      flex: 1 1 auto;
+      text-align: center;
+      justify-content: center;
+      display: inline-flex;
+      align-items: center;
+    }
+    .lp-card__metrics {
+      grid-template-columns: 1fr;
+    }
+    .lp-metric:last-child {
+      grid-column: auto;
+    }
+  }
+</style>
+{% endblock %}

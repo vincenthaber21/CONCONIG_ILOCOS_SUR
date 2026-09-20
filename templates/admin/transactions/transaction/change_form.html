@@ -1,0 +1,33 @@
+{% extends "admin/change_form.html" %}
+
+{% block form_top %}
+{{ block.super }}
+{% if add and txn_add_nonce %}
+<input type="hidden" name="_txn_add_nonce" value="{{ txn_add_nonce }}">
+{% endif %}
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+{% if add %}
+<script>
+(function () {
+  document.addEventListener('DOMContentLoaded', function () {
+    var form = document.getElementById('{{ opts.model_name }}_form');
+    if (!form) return;
+    var submitted = false;
+    form.addEventListener('submit', function (e) {
+      if (submitted) {
+        e.preventDefault();
+        return false;
+      }
+      submitted = true;
+      form.querySelectorAll('input[type="submit"], button[type="submit"]').forEach(function (el) {
+        el.disabled = true;
+      });
+    });
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,96 @@
+{% load currency_filters %}
+{# Expects: txn, account, member_name, store_profile #}
+<article class="or-sheet" data-ref="{{ txn.reference }}" id="sheet-{{ txn.pk }}">
+  <button type="button" class="sheet-print no-print" data-print-sheet="{{ txn.pk }}" title="Print this receipt">
+    Print this
+  </button>
+  <header class="or-head">
+    <div class="or-brand">
+      {% include "admin_panel/partials/receipt_or_store_brand.html" with fallback_title="Cooperative Savings Office" %}
+    </div>
+    <div class="or-badge">
+      <div class="label">Member receipt</div>
+      <div class="or-no" data-copy-source>{{ txn.reference }}</div>
+      <div class="copy">Member / Office copy</div>
+    </div>
+  </header>
+
+  <h2 class="or-title">Savings {{ txn.get_transaction_type_display }} Receipt</h2>
+
+  <dl class="meta-grid">
+    <div>
+      <dt>Date / time</dt>
+      <dd>{{ txn.created_at|date:"M j, Y g:i A" }}</dd>
+    </div>
+    <div>
+      <dt>Account opened</dt>
+      <dd>{{ account.opened_at|date:"M j, Y" }}</dd>
+    </div>
+    <div>
+      <dt>Transaction type</dt>
+      <dd>{{ txn.get_transaction_type_display }}</dd>
+    </div>
+    <div>
+      <dt>Member</dt>
+      <dd>{{ member_name }}</dd>
+    </div>
+    <div>
+      <dt>Username</dt>
+      <dd>{{ account.member.username|default:"—" }}</dd>
+    </div>
+    <div>
+      <dt>Savings product</dt>
+      <dd>{{ account.product.name }}</dd>
+    </div>
+    <div>
+      <dt>Account number</dt>
+      <dd class="mono">{{ account.account_number }}</dd>
+    </div>
+    <div>
+      <dt>Balance before</dt>
+      <dd>&#8369;{{ txn.balance_before|currency }}</dd>
+    </div>
+    <div>
+      <dt>Balance after</dt>
+      <dd>&#8369;{{ txn.balance_after|currency }}</dd>
+    </div>
+  </dl>
+
+  <div class="amount-box{% if not txn.is_credit %} amount-box--out{% endif %}">
+    <div>
+      <div class="lbl">{{ txn.receipt_amount_label }}</div>
+      <div class="amount-ref">Ref {{ txn.reference }}</div>
+    </div>
+    <div class="val">
+      {% if txn.is_credit %}+{% else %}&minus;{% endif %}&#8369;{{ txn.amount|currency }}
+    </div>
+  </div>
+
+  {% if txn.notes %}
+  <div class="notes"><strong>Notes:</strong> {{ txn.notes }}</div>
+  {% endif %}
+
+  <div class="sign-row">
+    <div class="sign-box">
+      <div class="sign-line">Member</div>
+      <div class="sign-sub">{{ member_name }}</div>
+    </div>
+    <div class="sign-box">
+      <div class="sign-line">Posted by</div>
+      <div class="sign-sub">
+        {% if txn.performed_by %}
+          {{ txn.performed_by.get_full_name|default:txn.performed_by.username }}
+        {% else %}
+          —
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <p class="security">
+    This receipt is issued to the member as proof of the savings movement.
+    Keep this copy for your records. The reference number must match the ledger in the system.
+    Generated {{ txn.created_at|date:"M j, Y g:i A" }}.
+    <span class="print-stamp"></span>
+  </p>
+</article>

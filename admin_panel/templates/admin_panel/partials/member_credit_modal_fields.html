@@ -1,0 +1,17 @@
+{# Read-only credit standing in member edit modal — populated via JS from edit button data attributes #}
+<div class="col-md-6">
+  <label class="form-label">Credit owed (utang)</label>
+  <div class="input-group">
+    <span class="input-group-text"><i class="bi bi-journal-text text-primary"></i></span>
+    <input type="text" class="form-control bg-light" id="memberCreditOutstanding" readonly tabindex="-1" value="₱0.00">
+  </div>
+  <small class="text-muted">Sum of completed credit sales not yet paid off.</small>
+</div>
+<div class="col-md-6" id="memberCreditLimitWrap" style="display:none;">
+  <label class="form-label">Credit available</label>
+  <div class="input-group">
+    <span class="input-group-text"><i class="bi bi-pie-chart text-success"></i></span>
+    <input type="text" class="form-control bg-light" id="memberCreditAvailable" readonly tabindex="-1" value="—">
+  </div>
+  <small class="text-muted" id="memberCreditLimitHint">Under kiosk max of ₱{{ member_max_credit|floatformat:2 }}.</small>
+</div>

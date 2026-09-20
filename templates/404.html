@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Page Not Found (404) | {{ kiosk_system_name }}</title>
+    {% include "partials/bootstrap_head.html" %}
+    {% include "partials/inter_font.html" %}
+    <style>
+
+        :root {
+            --dark: #0f172a;
+            --brand: #ED1C24;
+            --accent: #E6C200;
+            --muted: #64748b;
+            --panel: #ffffff;
+            --gradient: linear-gradient(135deg, #ED1C24 0%, #C4121A 40%, #8B0E14 100%);
+            --gradient-light: linear-gradient(135deg, rgba(237,28,36,0.1) 0%, rgba(230,194,0,0.1) 40%, rgba(230,194,0,0.1) 100%);
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 25%, #f1f5f9 50%, #f0fdf4 75%, #ecfdf5 100%);
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Animated background pattern */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                radial-gradient(circle at 20% 50%, rgba(237, 28, 36, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(230, 194, 0, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 40% 20%, rgba(230, 194, 0, 0.06) 0%, transparent 50%);
+            animation: patternMove 20s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        @keyframes patternMove {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(-20px, -20px) scale(1.1); }
+        }
+
+        .error-container {
+            width: 100%;
+            max-width: 600px;
+            padding: 24px;
+            position: relative;
+            z-index: 1;
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .error-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 28px;
+            padding: 64px 48px;
+            box-shadow: 
+                0 25px 50px -12px rgba(0, 0, 0, 0.15),
+                0 0 0 1px rgba(255, 255, 255, 0.5) inset,
+                0 1px 0 rgba(255, 255, 255, 0.8) inset;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            overflow: hidden;
+            text-align: center;
+        }
+
+        .error-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: var(--gradient-light);
+            border-radius: 50%;
+            opacity: 0.3;
+            animation: rotate 20s linear infinite;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .error-card > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        .error-icon-wrapper {
+            width: 140px;
+            height: 140px;
+            background: var(--gradient);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 32px;
+            font-size: 4rem;
+            color: white;
+            box-shadow: 
+                0 10px 25px -5px rgba(237, 28, 36, 0.4),
+                0 0 0 4px rgba(255, 255, 255, 0.1) inset;
+            position: relative;
+            animation: iconFloat 3s ease-in-out infinite;
+        }
+
+        @keyframes iconFloat {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+
+        .error-code {
+            font-size: 6rem;
+            font-weight: 800;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1;
+            margin-bottom: 16px;
+            letter-spacing: -0.02em;
+        }
+
+        .error-title {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 16px;
+            letter-spacing: -0.01em;
+        }
+
+        .error-message {
+            color: var(--muted);
+            font-size: 1.125rem;
+            font-weight: 400;
+            margin-bottom: 40px;
+            line-height: 1.6;
+        }
+
+        .error-actions {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn-primary-custom {
+            background: var(--gradient);
+            border: none;
+            color: white;
+            padding: 14px 32px;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 12px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 
+                0 4px 12px -2px rgba(237, 28, 36, 0.3),
+                0 0 0 1px rgba(255, 255, 255, 0.1) inset;
+        }
+
+        .btn-primary-custom:hover {
+            transform: translateY(-2px);
+            box-shadow: 
+                0 8px 20px -4px rgba(237, 28, 36, 0.4),
+                0 0 0 1px rgba(255, 255, 255, 0.2) inset;
+            color: white;
+        }
+
+        .btn-secondary-custom {
+            background: rgba(255, 255, 255, 0.8);
+            border: 2px solid rgba(237, 28, 36, 0.2);
+            color: var(--brand);
+            padding: 14px 32px;
+            font-size: 1rem;
+            font-weight: 600;
+            border-radius: 12px;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .btn-secondary-custom:hover {
+            background: rgba(237, 28, 36, 0.05);
+            border-color: var(--brand);
+            color: var(--accent);
+            transform: translateY(-2px);
+        }
+
+        .contact-section {
+            margin-top: 40px;
+            padding-top: 32px;
+            border-top: 1px solid rgba(237, 28, 36, 0.1);
+        }
+
+        .contact-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 16px;
+        }
+
+        .contact-info {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .contact-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--dark);
+            font-size: 0.95rem;
+            font-weight: 500;
+        }
+
+        .contact-item i {
+            color: var(--brand);
+            font-size: 1.1rem;
+        }
+
+        .contact-item a {
+            color: var(--brand);
+            text-decoration: none;
+            transition: color 0.2s ease;
+        }
+
+        .contact-item a:hover {
+            color: var(--accent);
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .error-container {
+                max-width: 100%;
+                padding: 16px;
+            }
+
+            .error-card {
+                padding: 48px 32px;
+            }
+
+            .error-code {
+                font-size: 4rem;
+            }
+
+            .error-title {
+                font-size: 1.5rem;
+            }
+
+            .error-icon-wrapper {
+                width: 120px;
+                height: 120px;
+                font-size: 3rem;
+            }
+
+            .error-actions {
+                flex-direction: column;
+            }
+
+            .btn-primary-custom,
+            .btn-secondary-custom {
+                width: 100%;
+                justify-content: center;
+            }
+
+            .contact-section {
+                margin-top: 32px;
+                padding-top: 24px;
+            }
+
+            .contact-info {
+                gap: 10px;
+            }
+
+            .contact-item {
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="error-container">
+        <div class="error-card">
+            <div class="error-icon-wrapper">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+            </div>
+            <div class="error-code">404</div>
+            <h1 class="error-title">PAGE NOT FOUND</h1>
+            <p class="error-message">
+                The page you are looking for might have been removed, had its name changed, or is temporarily unavailable.
+            </p>
+            <div class="error-actions">
+                <!-- <a href="/" class="btn-primary-custom">
+                    <i class="bi bi-house-door"></i>
+                    Go to Home
+                </a> -->
+                <a href="javascript:history.back()" class="btn-secondary-custom">
+                    <i class="bi bi-arrow-left"></i>
+                    Go Back
+                </a>
+            </div>
+            <div class="contact-section">
+                <div class="contact-title">Contact the Developer</div>
+                <div class="contact-info">
+                    <div class="contact-item">
+                        <i class="bi bi-person-fill"></i>
+                        <span>VINCENT HABER</span>
+                    </div>
+                    <div class="contact-item">
+                        <i class="bi bi-telephone-fill"></i>
+                        <a href="tel:09284719995">09284719995</a>
+                    </div>
+                    <div class="contact-item">
+                        <i class="bi bi-facebook"></i>
+                        <a href="https://www.facebook.com/VINCENT HABER" target="_blank" rel="noopener noreferrer">VINCENT HABER</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
+

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Palay Trade{% endblock %} | {{ kiosk_system_name }}</title>
+  {% include "partials/bootstrap_head.html" %}
+  <style>
+    :root {
+      --dark: #0f172a;
+      --brand: #ED1C24;
+      --accent: #E6C200;
+      --gradient: linear-gradient(135deg, #ED1C24 0%, #C4121A 40%, #8B0E14 100%);
+    }
+    body { background: #f1f5f9; font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif; }
+    .super-nav { background: var(--dark); color: #fff; box-shadow: 0 10px 30px rgba(15,23,42,0.4); }
+
+    h1 { font-weight: 700; color: var(--dark); font-size: 1.6rem; }
+    h2 { font-weight: 700; color: var(--dark); font-size: 1.15rem; margin-bottom: .75rem; }
+    .subtitle { color: #64748b; margin-bottom: 1.25rem; }
+
+    .card {
+      background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
+      padding: 20px 22px; box-shadow: 0 12px 30px rgba(15,23,42,0.08); margin-bottom: 1.25rem;
+    }
+
+    .btn-loan, .btn--secondary {
+      display: inline-block; border-radius: 999px; padding: 8px 18px; font-weight: 600;
+      font-size: .88rem; text-decoration: none; border: 1px solid transparent; cursor: pointer;
+      margin: 2px 0;
+    }
+    .btn-loan { background: var(--brand); color: #fff; }
+    .btn-loan:hover { background: #C4121A; color: #fff; }
+    .btn--secondary { background: #eef2f7; color: var(--dark); border-color: #e2e8f0; }
+    .btn--secondary:hover { background: #e2e8f0; color: var(--dark); }
+
+    form p { margin-bottom: .85rem; }
+    form label { display: block; font-weight: 600; color: #334155; margin-bottom: .3rem; font-size: .9rem; }
+    form input:not([type=checkbox]):not([type=radio]), form select, form textarea {
+      width: 100%; padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 10px;
+      font-size: .92rem; background: #fff;
+    }
+    .helptext { color: #94a3b8; font-size: .78rem; }
+    ul.errorlist { color: #dc2626; font-size: .82rem; padding-left: 1rem; }
+
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid #eef2f7; font-size: .9rem; }
+    th { color: #64748b; font-weight: 600; }
+
+    .status-pill {
+      display: inline-block; padding: 3px 12px; border-radius: 999px; font-size: .78rem;
+      font-weight: 600; background: #e2e8f0; color: #334155; text-transform: capitalize;
+    }
+    .status-pill--buy, .status-pill--posted { background: #dcfce7; color: #166534; }
+    .status-pill--sell { background: #ffedd5; color: #9a3412; }
+    .status-pill--void { background: #fee2e2; color: #991b1b; }
+
+    .messages { list-style: none; padding: 0; margin: 0 0 1rem; }
+    .message { padding: 10px 16px; border-radius: 10px; margin-bottom: .5rem; font-size: .9rem; }
+    .message--success { background: #dcfce7; color: #166534; }
+    .message--warning { background: #fef3c7; color: #92400e; }
+    .message--error { background: #fee2e2; color: #991b1b; }
+    .message--info { background: #e0f2fe; color: #075985; }
+
+    /* Tom Select — match native palay form controls */
+    .ts-wrapper.single .ts-control {
+      padding: 9px 12px; border: 1px solid #cbd5e1; border-radius: 10px;
+      font-size: .92rem; background: #fff; min-height: auto;
+    }
+    .ts-wrapper.single .ts-control input { font-size: .92rem; }
+    .ts-dropdown { border-radius: 10px; border-color: #cbd5e1; }
+
+    /* Light buttons on red/purple hero gradients — dark text for readability */
+    .hero-card .btn-light,
+    .pf-hero .btn-light,
+    .pc-desk__hero .btn-light,
+    .pc-ov__hero .btn-light {
+      background: #fff !important;
+      color: #0f172a !important;
+      border-color: #fff !important;
+    }
+    .hero-card .btn-light:hover,
+    .pf-hero .btn-light:hover,
+    .pc-desk__hero .btn-light:hover,
+    .pc-ov__hero .btn-light:hover {
+      background: #f1f5f9 !important;
+      color: #0f172a !important;
+      border-color: #f1f5f9 !important;
+    }
+  </style>
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="palay-trade-page">
+  {% include 'admin_panel/partials/admin_top_navbar.html' %}
+  <main class="container-fluid px-4 py-4">
+    {% include 'admin_panel/partials/admin_main_nav.html' with nav_active='palay_trade' %}
+
+    {% if messages %}
+      <ul class="messages">
+        {% for message in messages %}
+          <li class="message message--{{ message.tags }}">{{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+
+    {% block content %}{% endblock %}
+  </main>
+  {% include "partials/bootstrap_scripts.html" %}
+  {% include "partials/money_input_script.html" %}
+  {% include 'admin_panel/partials/admin_nav_footer.html' %}
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,4270 @@
+{% load currency_filters %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Member Management | {{ kiosk_system_name }}</title>
+  {% include "partials/bootstrap_head.html" %}
+  <style>
+    :root {
+      --dark: #0f172a;
+      --brand: #ED1C24;
+      --accent: #E6C200;
+      --muted: #94a3b8;
+      --panel: #ffffff;
+      --gradient: linear-gradient(135deg, #ED1C24 0%, #C4121A 40%, #8B0E14 100%);
+    }
+
+    body {
+      background: #f1f5f9;
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    }
+
+    .super-nav {
+      background: var(--dark);
+      color: #fff;
+      box-shadow: 0 10px 30px rgba(15,23,42,0.4);
+    }
+
+    .nav-pill {
+      border-radius: 999px;
+      padding: 8px 18px;
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+    }
+
+    .nav-pill.active, .nav-pill:hover {
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+    }
+
+    .hero-card {
+      background: var(--gradient);
+      color: #fff;
+      border-radius: 24px;
+      padding: 32px;
+      box-shadow: 0 25px 55px rgba(15,23,42,0.35);
+    }
+
+    .stat-card {
+      border: none;
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 18px 36px rgba(15,23,42,0.08);
+      background: var(--panel);
+      height: 100%;
+    }
+
+    .stat-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      color: #fff;
+    }
+
+    .stat-title {
+      color: var(--muted);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .member-panel {
+      border: none;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 25px 60px rgba(15, 23, 42, 0.12);
+      background: #f1f5f9;
+    }
+
+    .member-panel-header {
+      background: var(--gradient);
+      color: #fff;
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .member-panel-header h5,
+    .member-panel-header .member-panel-title {
+      font-weight: 600;
+      font-size: 1.125rem;
+      letter-spacing: -0.02em;
+      margin: 0;
+      width: 100%;
+    }
+
+    .member-panel-sub {
+      display: block;
+      width: 100%;
+      font-size: 0.8125rem;
+      font-weight: 400;
+      opacity: 0.92;
+      line-height: 1.45;
+      margin: 0.15rem 0 0;
+    }
+
+    .member-panel-body {
+      padding: 1.25rem 1.5rem 1.5rem;
+    }
+
+    .member-form-section {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 1.1rem 1.25rem;
+      margin-bottom: 0.85rem;
+    }
+
+    .member-form-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .inactive-remark-box {
+      background: #fff7ed;
+      border: 1px solid #fdba74;
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+    }
+    .inactive-remark-box .form-label {
+      color: #9a3412;
+      font-weight: 600;
+    }
+
+    .member-form-section-title {
+      font-size: 0.6875rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #64748b;
+      margin: 0 0 1rem;
+      padding-bottom: 0.65rem;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .member-form-section--discount > .mt-3.mb-1:first-child {
+      margin-top: 0 !important;
+    }
+
+    .member-form-section--discount > .mt-3.mb-1:first-child p {
+      font-size: 0.6875rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: #64748b;
+      margin-bottom: 0.75rem !important;
+      padding-bottom: 0.65rem;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .member-form-section--discount .alert.small {
+      border-radius: 10px;
+      font-size: 0.8125rem;
+    }
+
+    .member-page .form-label {
+      font-weight: 500;
+      font-size: 0.875rem;
+      color: #334155;
+      margin-bottom: 0.35rem;
+    }
+
+    .member-page .form-control,
+    .member-page .form-select,
+    .member-modal .form-control,
+    .member-modal .form-select {
+      border-radius: 10px;
+      border-color: #e2e8f0;
+    }
+
+    .member-page .form-control:focus,
+    .member-page .form-select:focus,
+    .member-modal .form-control:focus,
+    .member-modal .form-select:focus {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(237, 28, 36, 0.12);
+    }
+
+    .member-stat-grid .stat-card {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      box-shadow: none;
+      padding: 1.1rem 1.25rem;
+    }
+
+    .member-stat-grid .stat-title {
+      font-size: 0.6875rem;
+      font-weight: 700;
+      letter-spacing: 0.07em;
+      color: #64748b;
+    }
+
+    .member-segment-card {
+      border: 1px solid #e2e8f0 !important;
+      border-radius: 12px !important;
+      box-shadow: none !important;
+      background: #fff;
+    }
+
+    .member-segment-card .card-body {
+      padding: 1.1rem 1.25rem !important;
+    }
+
+    .member-segment-card h2,
+    .member-segment-card .member-segment-card-title {
+      font-size: 0.6875rem !important;
+      font-weight: 700 !important;
+      letter-spacing: 0.07em !important;
+      color: #64748b !important;
+      text-transform: uppercase;
+      margin-bottom: 0 !important;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+
+    .member-segment-card-toggle {
+      cursor: pointer;
+      border-radius: 12px;
+      transition: background 0.15s ease;
+    }
+
+    .member-segment-card-toggle:hover,
+    .member-segment-card-toggle:focus-visible {
+      background: #f8fafc !important;
+      outline: none;
+    }
+
+    .member-segment-card-toggle[aria-expanded="true"] .member-segment-chevron {
+      transform: rotate(180deg);
+    }
+
+    .member-segment-chevron {
+      transition: transform 0.2s ease;
+      font-size: 0.9rem;
+    }
+
+    .members-table-wrap table {
+      font-size: 0.875rem;
+      margin-bottom: 0;
+    }
+
+    .members-table-wrap thead {
+      color: #64748b;
+      text-transform: uppercase;
+      font-size: 0.6875rem;
+      letter-spacing: 0.05em;
+    }
+
+    .members-table-wrap thead th {
+      border-bottom-color: #e2e8f0;
+      font-weight: 700;
+      padding-top: 0.65rem;
+      padding-bottom: 0.65rem;
+    }
+
+    .members-table-wrap tbody td {
+      border-color: #f1f5f9;
+      vertical-align: middle;
+    }
+
+    .btn-member-primary {
+      border-radius: 10px;
+      font-weight: 600;
+      padding: 0.45rem 1rem;
+      background: var(--brand);
+      border-color: var(--brand);
+      color: #fff;
+    }
+
+    .btn-member-primary:hover {
+      background: #C4121A;
+      border-color: #C4121A;
+      color: #fff;
+    }
+
+    .btn-member-outline {
+      border-radius: 10px;
+      font-weight: 500;
+    }
+
+    .member-filter-pill.btn-primary,
+    .member-filter-pill.btn-success,
+    .member-filter-pill.btn-secondary,
+    .member-filter-pill.btn-danger {
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 0.8125rem;
+    }
+
+    .pay-credit-sale-item {
+      cursor: pointer;
+      border: none;
+      border-bottom: 1px solid #f1f5f9;
+      text-align: left;
+      width: 100%;
+      background: #fff;
+      transition: background 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .pay-credit-sale-item:last-child {
+      border-bottom: none;
+    }
+
+    .pay-credit-sale-item.selected {
+      background: #f5f3ff;
+      box-shadow: inset 3px 0 0 #5b21b6;
+    }
+
+    .pay-credit-sale-item .pay-credit-sale-check {
+      color: #cbd5e1;
+      font-size: 1.1rem;
+      flex-shrink: 0;
+    }
+
+    .pay-credit-sale-item.selected .pay-credit-sale-check {
+      color: #5b21b6;
+    }
+
+    .pay-credit-sale-receipt-btn {
+      flex-shrink: 0;
+      color: #64748b;
+      padding: 0.15rem 0.35rem;
+    }
+
+    .pay-credit-sale-receipt-btn:hover {
+      color: #5b21b6;
+    }
+
+    .pay-credit-sale-block {
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    .pay-credit-sale-block:last-child {
+      border-bottom: none;
+    }
+
+    .pay-credit-sale-header {
+      cursor: pointer;
+      border: none;
+      width: 100%;
+      background: #fff;
+      text-align: left;
+      padding: 0.5rem 0.75rem;
+      transition: background 0.15s ease;
+    }
+
+    .pay-credit-sale-header:hover {
+      background: #f8fafc;
+    }
+
+    .pay-credit-sale-header.selected {
+      background: #f5f3ff;
+      box-shadow: inset 3px 0 0 #5b21b6;
+    }
+
+    .pay-credit-sale-header.partial {
+      background: #faf5ff;
+      box-shadow: inset 3px 0 0 #c4b5fd;
+    }
+
+    .pay-credit-sale-header.selected .pay-credit-sale-check,
+    .pay-credit-sale-header.partial .pay-credit-sale-check {
+      color: #5b21b6;
+    }
+
+    .pay-credit-item-row {
+      cursor: pointer;
+      border: none;
+      width: 100%;
+      background: #fff;
+      text-align: left;
+      padding: 0.35rem 0.75rem 0.35rem 2.25rem;
+      font-size: 0.8125rem;
+      border-top: 1px dashed #f1f5f9;
+      transition: background 0.15s ease;
+    }
+
+    .pay-credit-item-row:hover {
+      background: #f8fafc;
+    }
+
+    .pay-credit-item-row.selected {
+      background: #f5f3ff;
+    }
+
+    .pay-credit-item-row .pay-credit-sale-check {
+      font-size: 0.95rem;
+    }
+
+    .pay-credit-item-row.selected .pay-credit-sale-check {
+      color: #5b21b6;
+    }
+
+    .pay-credit-item-qty {
+      color: #64748b;
+      font-size: 0.75rem;
+    }
+
+    .member-filter-pill.btn-outline-secondary,
+    .member-filter-pill.btn-outline-success,
+    .member-filter-pill.btn-outline-danger {
+      border-radius: 10px;
+      font-size: 0.8125rem;
+      border-color: #e2e8f0;
+      color: #475569;
+    }
+
+    .member-page .member-search-wrap .form-control,
+    .member-page .member-search-wrap .input-group-text,
+    .member-page .member-search-wrap .btn {
+      border-radius: 10px;
+    }
+
+    .member-page .member-search-wrap .input-group-text {
+      border-color: #e2e8f0;
+    }
+
+    .member-panel .btn-member-primary {
+      background: #fff;
+      color: var(--brand);
+    }
+
+    .member-panel .btn-member-primary:hover {
+      background: #f8fafc;
+      color: var(--accent);
+    }
+
+    .badge-role {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.75rem;
+    }
+
+    .role-admin {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .role-cashier {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+
+    .role-staff {
+      background: #e9d5ff;
+      color: #6b21a8;
+    }
+
+    .role-loan_officer,
+    .role-loan-officer {
+      background: #e0e7ff;
+      color: #3730a3;
+    }
+
+    .role-member {
+      background: #d1fae5;
+      color: #065f46;
+    }
+
+    .role-committee {
+      background: #fce7f3;
+      color: #9d174d;
+    }
+
+    /* Custom dashboard roles (e.g. Django Role slug re-seller / reseller) */
+    .role-re-seller,
+    .role-reseller,
+    .role-re_seller {
+      background: #ffedd5;
+      color: #9a3412;
+    }
+
+    .balance-positive {
+      color: #059669;
+      font-weight: 600;
+    }
+
+    .balance-negative {
+      color: #dc2626;
+      font-weight: 600;
+    }
+
+    .credit-outstanding {
+      color: #5b21b6;
+      font-weight: 600;
+    }
+
+    .member-search-wrap {
+      width: min(100%, calc(var(--search-text-ch, 48) * 0.62ch + 190px));
+      max-width: 100%;
+    }
+
+    @media (max-width: 768px) {
+      .member-search-wrap {
+        max-width: 100%;
+      }
+    }
+
+    /* Custom Logout Confirmation Modal */
+    #logoutConfirmModal {
+      z-index: 9999 !important;
+    }
+    #logoutConfirmModal .modal-dialog {
+      max-width: 480px;
+      margin: 10vh auto;
+      display: flex;
+      align-items: center;
+      min-height: calc(100vh - 20vh);
+    }
+    #logoutConfirmModal .modal-content {
+      border-radius: 18px;
+      border: none;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+      animation: modalSlideIn 0.3s ease-out;
+    }
+    @keyframes modalSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-30px) scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+    #logoutConfirmModal .modal-backdrop {
+      background-color: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      z-index: 9998 !important;
+    }
+    #logoutConfirmModal .modal-header {
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      border-bottom: 2px solid #dee2e6;
+      padding: 24px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    #logoutConfirmModal .modal-header .modal-title {
+      font-weight: 700;
+      font-size: 1.5rem;
+      color: #1a1a1a;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 0;
+    }
+    #logoutConfirmModal .modal-header .modal-title i {
+      color: #ED1C24;
+      font-size: 1.8rem;
+    }
+    #logoutConfirmModal .modal-body {
+      padding: 32px;
+      text-align: center;
+    }
+    #logoutConfirmModal .modal-body .warning-icon {
+      font-size: 4rem;
+      color: #ED1C24;
+      margin-bottom: 20px;
+      display: block;
+    }
+    #logoutConfirmModal .modal-body p {
+      font-size: 1.1rem;
+      color: #495057;
+      line-height: 1.6;
+      margin: 0;
+      font-weight: 400;
+    }
+    #logoutConfirmModal .modal-footer {
+      border-top: 2px solid #e9ecef;
+      padding: 20px 32px;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      background: #f8f9fa;
+    }
+    #logoutConfirmModal .modal-footer .btn {
+      min-width: 120px;
+      padding: 12px 24px;
+      font-weight: 600;
+      font-size: 1rem;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+    }
+    #logoutConfirmModal .modal-footer .btn-cancel {
+      background: #6c757d;
+      border: 2px solid #6c757d;
+      color: white;
+    }
+    #logoutConfirmModal .modal-footer .btn-cancel:hover {
+      background: #5a6268;
+      border-color: #5a6268;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+    }
+    #logoutConfirmModal .modal-footer .btn-confirm {
+      background: linear-gradient(135deg, #ED1C24, #C4121A);
+      border: 2px solid #ED1C24;
+      color: white;
+    }
+    #logoutConfirmModal .modal-footer .btn-confirm:hover {
+      background: linear-gradient(135deg, #C4121A, #A10F16);
+      border-color: #A10F16;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(237, 28, 36, 0.4);
+    }
+
+    /* Member modals — same look as Add member */
+    .member-modal .modal-dialog {
+      max-width: min(720px, calc(100vw - 1.5rem));
+    }
+    #memberFormModal.member-modal .modal-dialog {
+      max-width: min(820px, calc(100vw - 1.5rem));
+    }
+    .member-modal .modal-content {
+      border: none;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 25px 60px rgba(15, 23, 42, 0.2);
+    }
+    .member-modal .modal-header {
+      background: var(--gradient);
+      border-bottom: none;
+      padding: 1.25rem 1.5rem;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      align-items: flex-start;
+    }
+    .member-modal .modal-header .modal-title {
+      font-weight: 600;
+      font-size: 1.125rem;
+      letter-spacing: -0.02em;
+      width: 100%;
+      margin: 0;
+    }
+    .member-modal .member-modal-sub,
+    .member-modal .add-member-modal-sub {
+      display: block;
+      width: 100%;
+      font-size: 0.8125rem;
+      font-weight: 400;
+      opacity: 0.92;
+      line-height: 1.45;
+      margin: 0.15rem 0 0;
+    }
+    .member-modal .modal-body {
+      background: #f1f5f9;
+      padding: 1.25rem 1.5rem 1.5rem;
+    }
+    .member-modal .member-form-section {
+      padding-bottom: 0.35rem;
+    }
+    .member-modal .form-label {
+      font-weight: 500;
+      font-size: 0.875rem;
+      color: #334155;
+      margin-bottom: 0.35rem;
+    }
+    .member-modal .modal-footer {
+      background: #fff;
+      border-top: 1px solid #e2e8f0;
+      padding: 1rem 1.5rem;
+      gap: 0.5rem;
+    }
+    .member-modal .modal-footer .btn-primary,
+    .member-modal #adminAddSaveMemberBtn,
+    .member-modal #saveMemberBtn {
+      min-width: 8.5rem;
+      border-radius: 10px;
+      font-weight: 600;
+      padding: 0.5rem 1.15rem;
+      background: var(--brand);
+      border-color: var(--brand);
+    }
+    .member-modal .modal-footer .btn-primary:hover,
+    .member-modal #adminAddSaveMemberBtn:hover,
+    .member-modal #saveMemberBtn:hover {
+      background: #C4121A;
+      border-color: #C4121A;
+    }
+    .member-modal .modal-footer .btn-outline-secondary,
+    .member-modal .modal-footer .btn-secondary {
+      border-radius: 10px;
+    }
+
+    .members-pagination-bar {
+      padding-top: .35rem;
+    }
+    .members-pagination {
+      flex-wrap: nowrap;
+      gap: .2rem;
+    }
+    .members-pagination .page-link {
+      border-radius: 8px !important;
+      min-width: 2rem;
+      text-align: center;
+      font-weight: 600;
+    }
+    .members-pagination .page-item.disabled .page-link {
+      opacity: .55;
+    }
+    @media (max-width: 575.98px) {
+      .members-pagination {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+      }
+    }
+
+  </style>
+</head>
+<body class="member-page">
+  {% include 'admin_panel/partials/admin_top_navbar.html' %}
+
+  <main class="container-fluid px-4 py-5">
+    <section class="hero-card mb-4">
+      <div class="row align-items-center">
+        <div class="col-lg-8">
+          <p class="mb-2 text-uppercase fw-semibold" style="letter-spacing:0.2em;">Member Management</p>
+          <h1 class="fw-bold mb-2">Cooperative Members{% include 'admin_panel/partials/admin_role_badge.html' %}</h1>
+          <p class="mb-0 lead text-white-50">
+            Manage member accounts, balances, credit standing, and member types from this centralized console.
+          </p>
+        </div>
+        <div class="col-lg-4 text-end">
+          <a href="{% url 'dashboard' %}" class="btn btn-light rounded-pill px-4">
+            <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+          </a>
+        </div>
+      </div>
+    </section>
+
+    {% include 'admin_panel/partials/admin_main_nav.html' with nav_active='members' %}
+
+    <section class="row g-3 mb-4 member-stat-grid">
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#ED1C24;">
+              <i class="bi bi-people"></i>
+            </div>
+            <div>
+              <div class="stat-title">Total Members</div>
+              <h3 class="mb-0">{{ total_members }}</h3>
+              <small class="text-muted">All members</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#059669;">
+              <i class="bi bi-check-circle"></i>
+            </div>
+            <div>
+              <div class="stat-title">Active Members</div>
+              <h3 class="mb-0">{{ active_members }}</h3>
+              <small class="text-muted">Currently active</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#f97316;">
+              <i class="bi bi-credit-card-2-front"></i>
+            </div>
+            <div>
+              <div class="stat-title">Inactive Members</div>
+              <h3 class="mb-0">{{ inactive_members }}</h3>
+              <small class="text-muted">Currently inactive</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#6366f1;">
+              <i class="bi bi-wallet2"></i>
+            </div>
+            <div>
+              <div class="stat-title">Total Balances</div>
+              <h3 class="mb-0">₱{{ total_balances|floatformat:2 }}</h3>
+              <small class="text-muted">Combined balances</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% include 'admin_panel/partials/member_credit_summary.html' %}
+    </section>
+
+    {% include 'admin_panel/partials/member_segment_discount_reference.html' %}
+
+    <section class="row g-3" id="all-members-section">
+      <div class="col-12">
+        <div class="member-panel">
+          <div class="member-panel-header">
+            <div class="flex-grow-1">
+              <h5 class="member-panel-title"><i class="bi bi-people-fill me-2"></i>All members</h5>
+              <span class="member-panel-sub">Search, filter, and manage cooperative member accounts from one list.</span>
+            </div>
+            <div class="d-flex gap-2 align-items-center flex-wrap">
+              <button type="button" class="btn btn-light btn-member-primary border-0" id="addMemberBtnToolbar" title="Create a new member account">
+                <i class="bi bi-person-plus me-1"></i>Add member
+              </button>
+              <div class="dropdown">
+                <button class="btn btn-light btn-sm btn-member-outline dropdown-toggle" type="button" id="actionsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                  <i class="bi bi-list-ul me-1"></i>Actions
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="actionsDropdown">
+                  <li>
+                    <a class="dropdown-item" href="#" id="backupDataBtn" title="Download backup of all member data">
+                      <i class="bi bi-download me-2 text-primary"></i>Backup Data
+                    </a>
+                  </li>
+                  <li>
+                    <a class="dropdown-item" href="#" id="restoreAllLastEditBtn" title="Undo the last edit for every member that has edit history">
+                      <i class="bi bi-clock-history me-2 text-info"></i>Restore
+                    </a>
+                  </li>
+                  <li><hr class="dropdown-divider"></li>
+                  <li>
+                    <a class="dropdown-item" href="#" id="addMemberBtn">
+                      <i class="bi bi-plus-circle me-2 text-success"></i>Add Member
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+          <div class="member-panel-body">
+            <div class="member-form-section">
+              <div class="member-form-section-title">Search &amp; filters</div>
+            {{ member_complete_details_map|json_script:"member-complete-details-map" }}
+            <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+              <a
+                href="{% url 'member_management' %}?{% if search_query %}search={{ search_query|urlencode }}&{% endif %}{% if credit_filter == 'owed' %}credit=owed&{% endif %}status=all{% if sort_filter == 'za' %}&sort=za{% endif %}#all-members-section"
+                class="btn btn-sm member-filter-pill {% if pin_lock_filter != 'locked' and credit_filter != 'owed' and status_filter == 'all' %}btn-primary{% else %}btn-outline-secondary{% endif %}"
+              >
+                <i class="bi bi-people me-1"></i>
+                All ({{ total_members }})
+              </a>
+              <a
+                href="{% url 'member_management' %}?{% if search_query %}search={{ search_query|urlencode }}&{% endif %}{% if credit_filter == 'owed' %}credit=owed&{% endif %}status=active{% if sort_filter == 'za' %}&sort=za{% endif %}#all-members-section"
+                class="btn btn-sm member-filter-pill {% if pin_lock_filter != 'locked' and credit_filter != 'owed' and status_filter == 'active' %}btn-success{% else %}btn-outline-success{% endif %}"
+              >
+                <i class="bi bi-check-circle me-1"></i>
+                Active ({{ active_members }})
+              </a>
+              <a
+                href="{% url 'member_management' %}?{% if search_query %}search={{ search_query|urlencode }}&{% endif %}{% if credit_filter == 'owed' %}credit=owed&{% endif %}status=inactive{% if sort_filter == 'za' %}&sort=za{% endif %}#all-members-section"
+                class="btn btn-sm member-filter-pill {% if pin_lock_filter != 'locked' and credit_filter != 'owed' and status_filter == 'inactive' %}btn-secondary{% else %}btn-outline-secondary{% endif %}"
+              >
+                <i class="bi bi-person-x me-1"></i>
+                Inactive ({{ inactive_members }})
+              </a>
+              <a
+                href="{% url 'member_management' %}?pin_lock=locked{% if search_query %}&search={{ search_query|urlencode }}{% endif %}{% if credit_filter == 'owed' %}&credit=owed{% endif %}{% if status_filter != 'all' and credit_filter != 'owed' %}&status={{ status_filter }}{% endif %}{% if sort_filter == 'za' %}&sort=za{% endif %}#all-members-section"
+                class="btn btn-sm member-filter-pill {% if pin_lock_filter == 'locked' %}btn-danger{% else %}btn-outline-danger{% endif %}"
+              >
+                <i class="bi bi-lock-fill me-1"></i>
+                Locked PIN ({{ active_locked_members }})
+              </a>
+              <a
+                href="{% url 'member_management' %}?credit=owed{% if search_query %}&search={{ search_query|urlencode }}{% endif %}{% if sort_filter == 'za' %}&sort=za{% endif %}#all-members-section"
+                class="btn btn-sm member-filter-pill {% if credit_filter == 'owed' %}btn-primary{% else %}btn-outline-primary{% endif %}"
+                style="{% if credit_filter == 'owed' %}background:#5b21b6;border-color:#5b21b6;{% endif %}"
+              >
+                <i class="bi bi-journal-text me-1"></i>
+                With credit ({{ members_with_credit }})
+              </a>
+            </div>
+            <form method="GET" action="{% url 'member_management' %}#all-members-section" id="memberSearchForm">
+              {% if credit_filter != 'owed' %}
+              <input type="hidden" name="status" value="{{ status_filter }}">
+              {% endif %}
+              {% if pin_lock_filter == 'locked' %}
+              <input type="hidden" name="pin_lock" value="locked">
+              {% endif %}
+              {% if credit_filter == 'owed' %}
+              <input type="hidden" name="credit" value="owed">
+              {% endif %}
+              <input type="hidden" name="sort" value="{{ sort_filter }}">
+              <div class="input-group member-search-wrap">
+                <span class="input-group-text bg-light border-end-0">
+                  <i class="bi bi-search"></i>
+                </span>
+                <input 
+                  type="text" 
+                  class="form-control border-start-0" 
+                  id="memberSearchInput" 
+                  name="search" 
+                  placeholder="Search by name, RFID, email, phone, member type, or role..." 
+                  value="{{ search_query }}"
+                  autocomplete="off"
+                >
+                {% if search_query %}
+                <a href="{% url 'member_management' %}{% if members_filter_query %}?{{ members_filter_query }}{% endif %}#all-members-section" class="btn btn-outline-secondary" type="button" title="Clear search">
+                  <i class="bi bi-x-lg"></i>
+                </a>
+                {% endif %}
+                <button class="btn btn-member-primary" type="submit">
+                  <i class="bi bi-search me-1"></i>Search
+                </button>
+              </div>
+              {% if search_query %}
+              <small class="text-muted mt-2 d-block">
+                <i class="bi bi-info-circle me-1"></i>
+                Showing results for "<strong>{{ search_query }}</strong>". 
+                <a href="{% url 'member_management' %}{% if members_filter_query %}?{{ members_filter_query }}{% endif %}#all-members-section" class="text-decoration-none">Clear search</a>
+              </small>
+              {% endif %}
+              {% if pin_lock_filter == 'locked' %}
+              <small class="text-danger mt-1 d-block">
+                <i class="bi bi-lock-fill me-1"></i>
+                Showing locked accounts only.
+              </small>
+              {% endif %}
+              {% if credit_filter == 'owed' %}
+              <small class="mt-1 d-block" style="color:#5b21b6;">
+                <i class="bi bi-journal-text me-1"></i>
+                Showing all members with outstanding credit (active and inactive).
+              </small>
+              {% endif %}
+            </form>
+            </div>
+            <div class="member-form-section mb-0">
+              <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+                <div class="member-form-section-title mb-0">Member directory</div>
+                <div class="d-flex align-items-center gap-2">
+                  <span class="text-muted small text-uppercase fw-semibold" style="letter-spacing:0.06em;">Last name</span>
+                  <a
+                    href="{% url 'member_management' %}?{% if members_base_query %}{{ members_base_query }}&{% endif %}sort=az#all-members-section"
+                    class="btn btn-sm member-filter-pill {% if sort_filter == 'az' %}btn-primary{% else %}btn-outline-secondary{% endif %}"
+                    title="Sort by last name A to Z"
+                  >
+                    <i class="bi bi-sort-alpha-down me-1"></i>A–Z
+                  </a>
+                  <a
+                    href="{% url 'member_management' %}?{% if members_base_query %}{{ members_base_query }}&{% endif %}sort=za#all-members-section"
+                    class="btn btn-sm member-filter-pill {% if sort_filter == 'za' %}btn-primary{% else %}btn-outline-secondary{% endif %}"
+                    title="Sort by last name Z to A"
+                  >
+                    <i class="bi bi-sort-alpha-down-alt me-1"></i>Z–A
+                  </a>
+                </div>
+              </div>
+          <div class="table-responsive members-table-wrap">
+            <table class="table align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Member</th>
+                  <th>Username</th>
+                  <th>RFID Card</th>
+                  <th>Role</th>
+                  <th>Concession</th>
+                  <th>Balance</th>
+                  <th>Share capital</th>
+                  <th>Credit (utang)</th>
+                  <th>Status</th>
+                  <th>PIN</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for member in members %}
+                <tr>
+                  <td>
+                    <div class="fw-semibold">{% if member.last_name %}{{ member.last_name }}{% if member.first_name %}, {{ member.first_name }}{% endif %}{% else %}{{ member.first_name }}{% endif %}</div>
+                    {% if member.email %}
+                    <small class="text-muted">{{ member.email }}</small>
+                    {% endif %}
+                    {% if member.phone %}
+                    <small class="text-muted d-block">{{ member.phone }}</small>
+                    {% endif %}
+                    {% if member.member_type %}
+                    <small class="text-muted d-block">{{ member.member_type.name }}</small>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if member.user %}
+                    <span class="fw-semibold">{{ member.user.username }}</span>
+                    {% elif member.username %}
+                    <span class="fw-semibold">{{ member.username }}</span>
+                    {% else %}
+                    <span class="text-muted">—</span>
+                    {% endif %}
+                  </td>
+                  <td><code>{% if member.rfid_card_number %}{% if is_admin_user %}{{ member.rfid_card_number }}{% else %}{{ member.rfid_card_number|mask_rfid }}{% endif %}{% else %}N/A{% endif %}</code></td>
+                  <td>
+                    <span class="badge-role role-{{ member.role }}">
+                      {{ member.member_role.name }}
+                    </span>
+                  </td>
+                  <td>
+                    {% if member.active_concession_kind == 'senior' %}
+                    <span class="badge rounded-pill" style="background:#fef3c7;color:#92400e;font-size:0.75rem;">Senior</span>
+                    {% elif member.active_concession_kind == 'pwd' %}
+                    <span class="badge rounded-pill" style="background:#dbeafe;color:#1e40af;font-size:0.75rem;">PWD</span>
+                    {% else %}
+                    <span class="text-muted small">—</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if member.role == 'committee' %}
+                    <span class="text-muted">—</span>
+                    {% else %}
+                    <span class="balance-positive">₱{{ member.balance|floatformat:2 }}</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <span class="balance-positive">₱{{ member.share_capital|floatformat:2 }}</span>
+                  </td>
+                  <td>
+                    {% include 'admin_panel/partials/member_credit_table_cell.html' %}
+                  </td>
+                  <td>
+                    {% if member.is_active %}
+                    <span class="badge bg-success">Active</span>
+                    {% else %}
+                    <span class="badge bg-secondary"{% if member.inactive_remark %} title="{{ member.inactive_remark }}"{% endif %}>Inactive</span>
+                    {% if member.inactive_remark %}
+                    <small class="d-block text-muted mt-1" style="max-width:14rem;white-space:normal;line-height:1.3;">{{ member.inactive_remark|truncatechars:80 }}</small>
+                    {% endif %}
+                    {% endif %}
+                    {% if member.user %}
+                    <span class="badge bg-info ms-1">Has Account</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if member.is_pin_locked %}
+                      <span class="badge bg-danger" title="Locked after 5 failed attempts">
+                        <i class="bi bi-lock-fill me-1"></i>Locked
+                      </span>
+                    {% elif member.pin_attempts > 0 %}
+                      <span class="badge bg-warning text-dark" title="{{ member.pin_attempts }} failed attempt(s)">
+                        {{ member.pin_attempts }}/5
+                      </span>
+                    {% else %}
+                      <span class="badge bg-light text-success border">
+                        <i class="bi bi-unlock-fill me-1"></i>OK
+                      </span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <div class="d-flex gap-1">
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-primary rounded-pill edit-member-btn"
+                        title="Edit Member"
+                        data-id="{{ member.id }}"
+                        data-first-name="{{ member.first_name|escapejs }}"
+                        data-last-name="{{ member.last_name|escapejs }}"
+                        data-email="{{ member.email|default_if_none:''|escapejs }}"
+                        data-phone="{{ member.phone|escapejs }}"
+                        data-rfid="{% if member.rfid_card_number and member.rfid_card_number|lower != 'none' and member.rfid_card_number|lower != 'null' %}{{ member.rfid_card_number|escapejs }}{% endif %}"
+                        data-role="{{ member.role }}"
+                        data-member-type-id="{{ member.member_type_id|default_if_none:'' }}"
+                        data-active="{{ member.is_active }}"
+                        data-inactive-remark="{{ member.inactive_remark|default:''|escapejs }}"
+                        data-user-id="{% if member.user %}{{ member.user.id }}{% endif %}"
+                        data-username="{{ member.username|default:''|escapejs }}"
+                        data-has-user="{% if member.user %}true{% else %}false{% endif %}"
+                        data-balance="{{ member.balance }}"
+                        data-share-capital="{{ member.share_capital }}"
+                        data-credit-outstanding="{{ member.credit_outstanding }}"
+                        {% if credit_limit_enabled %}data-credit-available="{{ member.credit_available }}"{% endif %}
+                        data-pin-attempts="{{ member.pin_attempts }}"
+                        data-is-pin-locked="{{ member.is_pin_locked }}"
+                        data-date-joined="{% if member.date_joined %}{{ member.date_joined|date:'Y-m-d\TH:i' }}{% endif %}"
+                        data-senior-active="{% if member.active_concession_kind == 'senior' %}true{% else %}false{% endif %}"
+                        data-senior-osca="{% with sp=member.get_senior_profile_safe %}{% if sp %}{{ sp.osca_id_number|default:''|escapejs }}{% endif %}{% endwith %}"
+                        data-senior-notes="{% with sp=member.get_senior_profile_safe %}{% if sp %}{{ sp.notes|default:''|escapejs }}{% endif %}{% endwith %}"
+                        data-pwd-active="{% if member.active_concession_kind == 'pwd' %}true{% else %}false{% endif %}"
+                        data-pwd-id="{% with pp=member.get_pwd_profile_safe %}{% if pp %}{{ pp.pwd_id_number|default:''|escapejs }}{% endif %}{% endwith %}"
+                        data-pwd-notes="{% with pp=member.get_pwd_profile_safe %}{% if pp %}{{ pp.notes|default:''|escapejs }}{% endif %}{% endwith %}"
+                      >
+                        <i class="bi bi-pencil"></i>
+                      </button>
+                      <button 
+                        type="button" 
+                        class="btn btn-sm btn-outline-success rounded-pill quick-refill-btn" 
+                        data-member-id="{{ member.id }}"
+                        data-member-name="{{ member.full_name|escapejs }}"
+                        data-member-rfid="{% if is_admin_user %}{{ member.rfid_card_number|escapejs }}{% elif member.rfid_card_number %}{{ member.rfid_card_number|mask_rfid|escapejs }}{% endif %}"
+                        data-member-balance="{{ member.balance }}"
+                        title="Quick Refill"
+                      >
+                        <i class="bi bi-wallet2"></i>
+                      </button>
+                      {% if member.credit_outstanding and member.credit_outstanding > 0 %}
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-primary rounded-pill pay-credit-btn"
+                        title="Pay Credit"
+                        style="border-color:#5b21b6;color:#5b21b6;"
+                        data-member-id="{{ member.id }}"
+                        data-member-name="{{ member.full_name|escapejs }}"
+                        data-member-email="{{ member.email|default:''|escapejs }}"
+                        data-member-balance="{{ member.balance }}"
+                        data-credit-outstanding="{{ member.credit_outstanding }}"
+                      >
+                        <i class="bi bi-cash-coin"></i>
+                      </button>
+                      {% endif %}
+                      {% if member.pin_attempts > 0 or member.is_pin_locked %}
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-danger rounded-pill reset-pin-btn"
+                        title="Reset PIN Attempts"
+                        data-member-id="{{ member.id }}"
+                        data-member-name="{{ member.full_name|escapejs }}"
+                        data-is-locked="{{ member.is_pin_locked|yesno:'true,false' }}"
+                        data-attempts="{{ member.pin_attempts }}"
+                      >
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                      </button>
+                      {% endif %}
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-outline-warning rounded-pill restore-last-edit-btn"
+                        title="Restore Last Edit"
+                        data-member-id="{{ member.id }}"
+                        data-member-name="{{ member.full_name|escapejs }}"
+                      >
+                        <i class="bi bi-clock-history"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="11" class="text-center text-muted py-4">
+                    {% if credit_filter == 'owed' %}
+                    <i class="bi bi-check-circle me-2"></i>No members with outstanding credit right now.
+                    {% elif search_query %}
+                    <i class="bi bi-search me-2"></i>No members match your search.
+                    {% else %}
+                    <i class="bi bi-inbox me-2"></i>No members found.
+                    <a href="#" onclick="event.preventDefault(); window.openAddMemberAdminModal();">Add your first member</a>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% if members_filtered_total %}
+          <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-center mt-3 gap-3 members-pagination-bar">
+            <div class="text-muted small">
+              Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ members_filtered_total }}
+              <span class="text-secondary">· Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+            </div>
+            {% if page_obj.paginator.num_pages > 1 %}
+            <nav aria-label="Members pagination">
+              <ul class="pagination pagination-sm mb-0 members-pagination">
+                <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                  {% if page_obj.has_previous %}
+                  <a class="page-link" href="{% url 'member_management' %}?{% if members_list_query %}{{ members_list_query }}&{% endif %}page=1#all-members-section" aria-label="First page" title="First page"><i class="bi bi-chevron-bar-left"></i></a>
+                  {% else %}
+                  <span class="page-link" aria-label="First page"><i class="bi bi-chevron-bar-left"></i></span>
+                  {% endif %}
+                </li>
+                <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                  {% if page_obj.has_previous %}
+                  <a class="page-link" href="{% url 'member_management' %}?{% if members_list_query %}{{ members_list_query }}&{% endif %}page={{ page_obj.previous_page_number }}#all-members-section" aria-label="Previous">Prev</a>
+                  {% else %}
+                  <span class="page-link" aria-label="Previous">Prev</span>
+                  {% endif %}
+                </li>
+                {% for num in members_elided_pages %}
+                <li class="page-item {% if num == page_obj.paginator.ELLIPSIS %}disabled{% elif page_obj.number == num %}active{% endif %}">
+                  {% if num == page_obj.paginator.ELLIPSIS %}
+                  <span class="page-link">{{ num }}</span>
+                  {% else %}
+                  <a class="page-link" href="{% url 'member_management' %}?{% if members_list_query %}{{ members_list_query }}&{% endif %}page={{ num }}#all-members-section">{{ num }}</a>
+                  {% endif %}
+                </li>
+                {% endfor %}
+                <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                  {% if page_obj.has_next %}
+                  <a class="page-link" href="{% url 'member_management' %}?{% if members_list_query %}{{ members_list_query }}&{% endif %}page={{ page_obj.next_page_number }}#all-members-section" aria-label="Next">Next</a>
+                  {% else %}
+                  <span class="page-link" aria-label="Next">Next</span>
+                  {% endif %}
+                </li>
+                <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                  {% if page_obj.has_next %}
+                  <a class="page-link" href="{% url 'member_management' %}?{% if members_list_query %}{{ members_list_query }}&{% endif %}page={{ page_obj.paginator.num_pages }}#all-members-section" aria-label="Last page" title="Last page"><i class="bi bi-chevron-bar-right"></i></a>
+                  {% else %}
+                  <span class="page-link" aria-label="Last page"><i class="bi bi-chevron-bar-right"></i></span>
+                  {% endif %}
+                </li>
+              </ul>
+            </nav>
+            {% endif %}
+          </div>
+          {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Add Member Modal (mirrors /admin/members/member/add/ fieldsets) -->
+  <div class="modal fade member-modal" id="addMemberAdminModal" tabindex="-1" aria-labelledby="addMemberAdminModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl">
+      <div class="modal-content">
+        <div class="modal-header text-white">
+          <h5 class="modal-title" id="addMemberAdminModalLabel">
+            <i class="bi bi-person-plus me-2"></i>Add member
+            <span class="member-modal-sub">Only first and last name are required. Everything else is optional unless your co-op needs it.</span>
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div id="addMemberAdminAlert" style="display:none;"></div>
+          <form id="addMemberAdminForm" autocomplete="off">
+
+            <div class="member-form-section">
+              <div class="member-form-section-title">Basic information</div>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label" for="adminAddFirstName">First name <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control" id="adminAddFirstName" placeholder="e.g. Juan" required>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="adminAddMiddleName">Middle name</label>
+                  <input type="text" class="form-control" id="adminAddMiddleName" placeholder="Optional">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="adminAddLastName">Last name <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control" id="adminAddLastName" placeholder="e.g. dela Cruz" required>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="adminAddUsername">Username</label>
+                  <div class="position-relative">
+                    <input type="text" class="form-control bg-light pe-5" id="adminAddUsername" placeholder="Generated when you enter the name" autocomplete="off" readonly>
+                    <span class="position-absolute top-50 end-0 translate-middle-y me-2" id="adminAddUsernameSpinner" style="display:none;">
+                      <span class="spinner-border spinner-border-sm text-success" role="status" aria-hidden="true"></span>
+                    </span>
+                  </div>
+                  <small class="text-muted">Created from the member’s name. You do not need to type this.</small>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="adminAddRfid">RFID card <span class="text-muted fw-normal">(optional)</span></label>
+                  <input type="text" class="form-control" id="adminAddRfid" placeholder="Scan or type card number">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="adminAddEmail">Email <span class="text-muted fw-normal">(optional)</span></label>
+                  <input type="email" class="form-control" id="adminAddEmail" placeholder="name@example.com">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="adminAddPhone">Contact number <span class="text-muted fw-normal">(optional)</span></label>
+                  <input type="text" class="form-control" id="adminAddPhone" placeholder="Mobile or landline">
+                </div>
+              </div>
+            </div>
+
+            {% include 'admin_panel/partials/member_complete_details_fields.html' with id_prefix='adminAdd' %}
+
+            <div class="member-form-section">
+              <div class="member-form-section-title">Role &amp; account</div>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label" for="adminAddRole">Role</label>
+                  <select class="form-select" id="adminAddRole">
+                    {% for role in assignable_roles %}
+                    {% if restrict_member_role and role.slug != 'member' %}
+                    {% else %}
+                    <option value="{{ role.slug }}">{{ role.name }}</option>
+                    {% endif %}
+                    {% empty %}
+                    <option value="member">Member</option>
+                    {% if not restrict_member_role %}
+                    <option value="staff">Staff</option>
+                    <option value="cashier">Cashier</option>
+                    <option value="admin">Admin</option>
+                    {% endif %}
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-md-6" id="adminAddBalanceWrap">
+                  <label class="form-label" for="adminAddBalance">Starting balance</label>
+                  <div class="input-group">
+                    <span class="input-group-text bg-white">₱</span>
+                    <input type="number" class="form-control" id="adminAddBalance" value="0.00" min="0" step="0.01">
+                  </div>
+                  <small class="text-muted">Usually leave at zero unless you are loading an initial balance.</small>
+                </div>
+                <div class="col-md-6" id="adminAddShareCapitalWrap">
+                  <label class="form-label" for="adminAddShareCapital">Share capital</label>
+                  <div class="input-group">
+                    <span class="input-group-text bg-white">₱</span>
+                    <input type="number" class="form-control" id="adminAddShareCapital" value="0.00" min="0" step="0.01">
+                  </div>
+                  <small class="text-muted">Paid-up share capital. Amounts above zero create an opening deposit in history.</small>
+                </div>
+                <div class="col-12">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="adminAddIsActive" checked>
+                    <label class="form-check-label" for="adminAddIsActive">Account is active</label>
+                  </div>
+                  <small class="text-muted d-block mt-1" id="adminAddActiveDiscountHint">Active members can use kiosk pricing and discounts tied to their segment.</small>
+                  <div id="adminAddInactiveRemarkWrap" class="inactive-remark-box mt-3" style="display:none;">
+                    <label class="form-label" for="adminAddInactiveRemark">Reason for inactive status <span class="text-danger">*</span></label>
+                    <textarea class="form-control" id="adminAddInactiveRemark" rows="3" maxlength="500" placeholder="Explain why this member is being set as inactive (e.g. resigned, deceased, suspended)."></textarea>
+                    <small class="text-muted">Required when the account is inactive.</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="memberDiscountSection_add" class="member-form-section member-form-section--discount">
+              {% include 'admin_panel/partials/member_concession_modal_fields.html' with suffix='_add' expanded_discount_help=False %}
+            </div>
+
+            <div class="member-form-section">
+              <div class="member-form-section-title">Loan eligibility</div>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label" for="adminAddDateJoined">Registration date</label>
+                  <input type="datetime-local" class="form-control" id="adminAddDateJoined">
+                  <small class="text-muted">Exact date and time the member registered. Used for loan eligibility. Defaults to now if unchanged.</small>
+                </div>
+              </div>
+            </div>
+
+            <div class="member-form-section">
+              <div class="member-form-section-title">Security</div>
+              <div class="row g-3">
+                <div class="col-md-8">
+                  <label class="form-label" for="adminAddPin">4-digit PIN</label>
+                  <div class="input-group">
+                    <span class="input-group-text bg-white"><i class="bi bi-lock-fill text-secondary"></i></span>
+                    <input type="password" class="form-control" id="adminAddPin" placeholder="Leave blank for no PIN" maxlength="4" inputmode="numeric" pattern="\d{4}">
+                    <button class="btn btn-outline-secondary" type="button" id="adminAddTogglePinBtn" tabindex="-1" title="Show or hide PIN">
+                      <i class="bi bi-eye" id="adminAddTogglePinIcon"></i>
+                    </button>
+                  </div>
+                  <small class="text-muted">Digits only, 4 characters. Skip if this member will not use a PIN at the kiosk.</small>
+                </div>
+                <div class="col-md-4 d-flex align-items-end pb-2">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="adminAddIsPinLocked">
+                    <label class="form-check-label" for="adminAddIsPinLocked">Lock PIN</label>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="adminAddSaveMemberBtn">
+            <i class="bi bi-check-lg me-1"></i>Save member
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Member Modal -->
+  <div class="modal fade member-modal" id="memberFormModal" tabindex="-1" aria-labelledby="memberFormModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl">
+      <div class="modal-content">
+        <div class="modal-header text-white">
+          <h5 class="modal-title" id="memberFormModalLabel">
+            <i class="bi bi-pencil-square me-2"></i>Edit member
+            <span class="member-modal-sub">Update account details, role, concessions, and security settings.</span>
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <div id="memberFormAlert" style="display:none;"></div>
+          <form id="memberForm">
+            {% csrf_token %}
+            <input type="hidden" id="memberIdInput" />
+
+            <div class="member-form-section">
+              <div class="member-form-section-title">Basic information</div>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label" for="memberFirstName">First name <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control" id="memberFirstName" required>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="memberMiddleName">Middle name</label>
+                  <input type="text" class="form-control" id="memberMiddleName" placeholder="Optional">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="memberLastName">Last name <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control" id="memberLastName" required>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Username</label>
+                  <div class="input-group">
+                    <span class="input-group-text bg-white"><i class="bi bi-person-fill text-secondary"></i></span>
+                    <input type="text" class="form-control" id="memberUsername" placeholder="e.g. juan.delacruz" autocomplete="off">
+                  </div>
+                  <small class="text-muted" id="memberUsernameHint">Auto-filled from name. You can change it.</small>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">RFID card <span class="text-muted fw-normal">(optional)</span></label>
+                  <input type="text" class="form-control" id="memberRfid" placeholder="Scan or type card number">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Email <span class="text-muted fw-normal">(optional)</span></label>
+                  <input type="email" class="form-control" id="memberEmail" placeholder="name@example.com">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label">Contact number <span class="text-muted fw-normal">(optional)</span></label>
+                  <input type="text" class="form-control" id="memberPhone" placeholder="Mobile or landline">
+                </div>
+              </div>
+            </div>
+
+            {% include 'admin_panel/partials/member_complete_details_fields.html' with id_prefix='member' %}
+
+            <div class="member-form-section">
+              <div class="member-form-section-title">Role &amp; account</div>
+              <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Role</label>
+                <select class="form-select" id="memberRole">
+                  {% for role in assignable_roles %}
+                  {% if restrict_member_role and role.slug != 'member' %}
+                  {% else %}
+                  <option value="{{ role.slug }}">{{ role.name }}</option>
+                  {% endif %}
+                  {% empty %}
+                  <option value="member">Member</option>
+                  {% if not restrict_member_role %}
+                  <option value="staff">Staff</option>
+                  <option value="cashier">Cashier</option>
+                  <option value="admin">Admin</option>
+                  {% endif %}
+                  {% endfor %}
+                </select>
+              </div>
+              <div class="col-md-6" id="memberBalanceWrap">
+                <label class="form-label">Balance</label>
+                <div class="input-group">
+                  <span class="input-group-text">₱</span>
+                  <input type="text" class="form-control bg-light" id="memberBalance" readonly tabindex="-1">
+                </div>
+                <small class="text-muted"><i class="bi bi-lock-fill me-1"></i>Balance is read-only. Use <strong>Refill Card Balance</strong> to add funds.</small>
+              </div>
+              <div class="col-md-6" id="memberShareCapitalWrap">
+                <label class="form-label" for="memberShareCapital">Share capital</label>
+                <div class="input-group">
+                  <span class="input-group-text">₱</span>
+                  <input type="number" class="form-control" id="memberShareCapital" value="0.00" min="0" step="0.01">
+                </div>
+                <small class="text-muted">Changing this amount records an <strong>Adjustment</strong> in share capital history.</small>
+              </div>
+              {% include 'admin_panel/partials/member_credit_modal_fields.html' %}
+              <div class="col-12">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="memberIsActive" checked>
+                  <label class="form-check-label" for="memberIsActive">Active <span class="text-muted fw-normal" id="memberIsActiveDiscountHint">(required for member discount pricing at kiosk)</span></label>
+                </div>
+                <div id="memberInactiveRemarkWrap" class="inactive-remark-box mt-3" style="display:none;">
+                  <label class="form-label" for="memberInactiveRemark">Reason for inactive status <span class="text-danger">*</span></label>
+                  <textarea class="form-control" id="memberInactiveRemark" rows="3" maxlength="500" placeholder="Explain why this member is being set as inactive (e.g. resigned, deceased, suspended)."></textarea>
+                  <small class="text-muted">Required when the account is inactive. Staff can see this remark in the member list.</small>
+                </div>
+              </div>
+              </div>
+            </div>
+
+            <div id="memberDiscountSection_edit" class="member-form-section member-form-section--discount">
+            {% include 'admin_panel/partials/member_concession_modal_fields.html' with suffix='_edit' expanded_discount_help=True %}
+            </div>
+
+            <div class="member-form-section">
+              <div class="member-form-section-title">Loan eligibility</div>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label" for="memberDateJoined">Registration date</label>
+                  <input type="datetime-local" class="form-control" id="memberDateJoined">
+                  <small class="text-muted">Exact registration date used to calculate when this member can request a loan.</small>
+                </div>
+              </div>
+            </div>
+
+            <div class="member-form-section">
+              <div class="member-form-section-title">Security</div>
+              <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">Old PIN</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-white"><i class="bi bi-lock-fill text-secondary"></i></span>
+                  <input type="password" class="form-control" id="memberOldPin" placeholder="Required when changing PIN" maxlength="4" inputmode="numeric" pattern="\d{4}">
+                  <button class="btn btn-outline-secondary" type="button" id="togglePinVisibilityBtn" tabindex="-1" title="Show/hide PIN">
+                    <i class="bi bi-eye" id="togglePinIcon"></i>
+                  </button>
+                </div>
+                <small class="text-muted">Enter current PIN before setting a new one.</small>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">New PIN</label>
+                <div class="input-group">
+                  <span class="input-group-text bg-white"><i class="bi bi-shield-lock-fill text-secondary"></i></span>
+                  <input type="password" class="form-control" id="memberNewPin" placeholder="Leave blank to keep current PIN" maxlength="4" inputmode="numeric" pattern="\d{4}">
+                </div>
+                <small class="text-muted">Numbers only, exactly 4 digits.</small>
+              </div>
+              <div class="col-md-3">
+                <label class="form-label">PIN Attempts</label>
+                <input type="number" class="form-control" id="memberPinAttempts" value="0" min="0">
+              </div>
+              <div class="col-md-3 d-flex align-items-center">
+                <div class="form-check mt-4">
+                  <input class="form-check-input" type="checkbox" id="memberIsPinLocked">
+                  <label class="form-check-label" for="memberIsPinLocked">PIN Locked</label>
+                </div>
+              </div>
+              </div>
+            </div>
+
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="saveMemberBtn">
+            <i class="bi bi-check-lg me-1"></i>Save member
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Authorization PIN Modal -->
+  <div class="modal fade" id="editPinModal" tabindex="-1" aria-labelledby="editPinModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title" id="editPinModalLabel">
+            <i class="bi bi-shield-lock me-2"></i>Authorize Edit
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-2">Enter a 4-digit PIN that is already saved on a member account to proceed.</p>
+          <div id="editPinAlert" class="alert alert-danger" style="display:none;"></div>
+          <label for="editAuthorizerPinInput" class="form-label">4-digit PIN</label>
+          <input
+            type="password"
+            class="form-control"
+            id="editAuthorizerPinInput"
+            maxlength="4"
+            inputmode="numeric"
+            pattern="\d{4}"
+            placeholder="••••"
+            autocomplete="off"
+          >
+          <small class="text-muted">Must match a PIN stored in the database for an active member.</small>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="confirmEditPinBtn">
+            <i class="bi bi-check-circle me-1"></i>Continue
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Member Type Modal -->
+  {% include 'admin_panel/partials/pay_credit_modal.html' %}
+
+  <!-- Backup Data Modal -->
+  <div class="modal fade" id="backupDataModal" tabindex="-1" aria-labelledby="backupDataModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+          <h5 class="modal-title" id="backupDataModalLabel">
+            <i class="bi bi-download me-2"></i>Backup Member Data
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="backupDataForm">
+            <div class="mb-3">
+              <label for="backupDate" class="form-label">Backup Date</label>
+              <input type="date" class="form-control" id="backupDate" required>
+              <small class="text-muted">Include members created on or before this date. Defaults to today.</small>
+            </div>
+            <div class="mb-3">
+              <label for="backupFormat" class="form-label">File format</label>
+              <select class="form-select" id="backupFormat">
+                <option value="xlsx" selected>Excel (.xlsx)</option>
+                <option value="csv">CSV (.csv)</option>
+              </select>
+            </div>
+            <div class="alert alert-info mb-0">
+              <i class="bi bi-info-circle me-2"></i>
+              <strong>Note:</strong> The backup includes member profile fields, balance, share capital, and account status.
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-primary" id="downloadBackupBtn">
+            <i class="bi bi-download me-1"></i>Download Backup
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Restore Last Edit Modal -->
+  <div class="modal fade" id="restoreLastEditModal" tabindex="-1" aria-labelledby="restoreLastEditModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content" style="border-radius:20px;overflow:hidden;border:none;box-shadow:0 25px 60px rgba(15,23,42,.25);">
+        <div class="modal-header text-white" style="background:var(--gradient);padding:20px 24px;">
+          <div>
+            <h5 class="modal-title mb-0 fw-semibold" id="restoreLastEditModalLabel">
+              <i class="bi bi-clock-history me-2"></i>Restore Last Edit
+            </h5>
+            <small id="restoreLastEditSubtitle" class="opacity-75" style="font-size:.8rem;"></small>
+          </div>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body p-4">
+          <div id="restoreLastEditAlert" style="display:none;" class="mb-3"></div>
+
+          <!-- Loading state -->
+          <div id="restoreLastEditLoading" class="text-center py-4">
+            <div class="spinner-border text-success mb-2" style="width:2rem;height:2rem;" role="status"></div>
+            <div class="text-muted" style="font-size:.9rem;">Loading previous data…</div>
+          </div>
+
+          <!-- Diff content -->
+          <div id="restoreLastEditContent" style="display:none;">
+            <div class="alert alert-info d-flex align-items-start gap-2 py-2 mb-3" style="border-radius:12px;font-size:.875rem;">
+              <i class="bi bi-info-circle-fill mt-1 flex-shrink-0"></i>
+              <span>Fields highlighted in <strong>yellow</strong> will change. Unchanged fields stay the same.</span>
+            </div>
+
+            <!-- Diff table -->
+            <div style="border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;">
+              <table class="table table-sm mb-0" style="font-size:.875rem;">
+                <thead>
+                  <tr style="background:#f8fafc;">
+                    <th class="ps-3 py-2 text-uppercase text-muted fw-semibold" style="font-size:.75rem;letter-spacing:.06em;width:22%;white-space:nowrap;">Field</th>
+                    <th class="py-2 text-uppercase text-muted fw-semibold" style="font-size:.75rem;letter-spacing:.06em;">Current</th>
+                    <th class="py-2 pe-3 text-uppercase fw-semibold" style="font-size:.75rem;letter-spacing:.06em;color:#ED1C24;">Will Restore To</th>
+                  </tr>
+                </thead>
+                <tbody id="restoreLastEditDiffBody"></tbody>
+              </table>
+            </div>
+
+            <!-- Meta info -->
+            <div class="d-flex align-items-center gap-2 mt-3 px-1">
+              <i class="bi bi-person-circle text-muted"></i>
+              <small class="text-muted">
+                Last edited <strong id="restoreLastEditDate"></strong> by
+                <span class="badge bg-light text-dark border" style="font-size:.78rem;"><strong id="restoreLastEditBy"></strong></span>
+              </small>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer px-4 py-3" style="background:#f8fafc;border-top:1px solid #e2e8f0;">
+          <button type="button" class="btn btn-light rounded-pill px-4" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn rounded-pill px-4 text-white" id="confirmRestoreLastEditBtn" style="display:none;background:var(--brand);">
+            <i class="bi bi-clock-history me-1"></i>Restore
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Restore Modal -->
+  <div class="modal fade" id="restoreAllLastEditModal" tabindex="-1" aria-labelledby="restoreAllLastEditModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header bg-info text-white">
+          <h5 class="modal-title" id="restoreAllLastEditModalLabel">
+            <i class="bi bi-clock-history me-2"></i>Restore
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <!-- Confirm step -->
+          <div id="restoreAllConfirmStep">
+            <div class="alert alert-info d-flex align-items-start gap-2 mb-3">
+              <i class="bi bi-info-circle-fill fs-5 mt-1 flex-shrink-0"></i>
+              <div>
+                <strong>This will undo the most-recent edit for every member that has edit history.</strong>
+                <ul class="mb-0 mt-1 ps-3 small">
+                  <li>Each member's profile is rolled back to the snapshot saved just before their last edit.</li>
+                  <li>Members with no edit history are not affected.</li>
+                  <li>Members whose previous username, email, or RFID is now used by someone else will be skipped.</li>
+                  <li>A new snapshot of the current state is saved first, so you can undo again if needed.</li>
+                </ul>
+              </div>
+            </div>
+            <p class="text-muted small mb-0">Are you sure you want to continue?</p>
+          </div>
+          <!-- Result step -->
+          <div id="restoreAllResultStep" style="display:none;">
+            <div id="restoreAllResultAlert" class="alert mb-3"></div>
+            <div id="restoreAllRestoredSection" style="display:none;">
+              <p class="fw-semibold text-success mb-1"><i class="bi bi-check-circle me-1"></i>Restored (<span id="restoreAllRestoredCount">0</span>)</p>
+              <ul id="restoreAllRestoredList" class="small mb-3 ps-3"></ul>
+            </div>
+            <div id="restoreAllSkippedSection" style="display:none;">
+              <p class="fw-semibold text-warning mb-1"><i class="bi bi-exclamation-triangle me-1"></i>Skipped (<span id="restoreAllSkippedCount">0</span>)</p>
+              <ul id="restoreAllSkippedList" class="small mb-0 ps-3"></ul>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer" id="restoreAllFooter">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-info text-white" id="confirmRestoreAllBtn">
+            <i class="bi bi-clock-history me-1"></i>Restore
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Restore Members Modal -->
+  <div class="modal fade" id="restoreDataModal" tabindex="-1" aria-labelledby="restoreDataModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-warning text-dark">
+          <h5 class="modal-title" id="restoreDataModalLabel">
+            <i class="bi bi-arrow-counterclockwise me-2"></i>Restore Deleted Members
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="restoreDataForm">
+            <div class="mb-3">
+              <div class="form-check mb-3">
+                <input class="form-check-input" type="checkbox" id="restoreAllCheckbox">
+                <label class="form-check-label" for="restoreAllCheckbox">
+                  <strong>Restore all inactive members</strong> (ignore date filter)
+                </label>
+              </div>
+              <label for="restoreDate" class="form-label">Backup Date</label>
+              <input type="date" class="form-control" id="restoreDate">
+              <small class="text-muted">Select the backup date to restore deleted/inactive members from, or check "Restore all" above</small>
+            </div>
+            <div class="alert alert-warning mb-0">
+              <i class="bi bi-exclamation-triangle me-2"></i>
+              <strong>Warning:</strong> This will reactivate inactive/deleted members. This action cannot be undone easily.
+            </div>
+            <div id="restoreAlert" style="display: none;" class="mt-3"></div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-warning" id="confirmRestoreBtn">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Restore Members
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% include "partials/bootstrap_scripts.html" %}
+  <script>
+    (function () {
+      const collapseEl = document.getElementById('segmentStoreRulesCollapse');
+      const toggleBtn = document.getElementById('segmentStoreRulesToggle');
+      if (!collapseEl || !toggleBtn) return;
+
+      const AUTO_HIDE_MS = 45000;
+      let hideTimer = null;
+
+      function clearAutoHide() {
+        if (hideTimer) {
+          clearTimeout(hideTimer);
+          hideTimer = null;
+        }
+      }
+
+      function scheduleAutoHide() {
+        clearAutoHide();
+        if (!collapseEl.classList.contains('show')) return;
+        hideTimer = setTimeout(function () {
+          bootstrap.Collapse.getOrCreateInstance(collapseEl, { toggle: false }).hide();
+        }, AUTO_HIDE_MS);
+      }
+
+      collapseEl.addEventListener('shown.bs.collapse', function () {
+        toggleBtn.setAttribute('aria-expanded', 'true');
+        scheduleAutoHide();
+      });
+
+      collapseEl.addEventListener('hidden.bs.collapse', function () {
+        toggleBtn.setAttribute('aria-expanded', 'false');
+        clearAutoHide();
+      });
+
+      collapseEl.addEventListener('mouseenter', clearAutoHide);
+      collapseEl.addEventListener('mouseleave', scheduleAutoHide);
+      collapseEl.addEventListener('focusin', clearAutoHide);
+      collapseEl.addEventListener('focusout', scheduleAutoHide);
+
+      if (window.location.hash === '#segment-store-rules') {
+        bootstrap.Collapse.getOrCreateInstance(collapseEl, { toggle: false }).show();
+      }
+    })();
+  </script>
+  <script>
+    (function (global) {
+      global.syncConcessionFieldVisibility = function (suffix) {
+        const checked = document.querySelector('input[name="concessionType' + suffix + '"]:checked');
+        const type = (checked && checked.value) ? checked.value : 'none';
+        const seniorWrap = document.getElementById('concessionSeniorWrap' + suffix);
+        const pwdWrap = document.getElementById('concessionPwdWrap' + suffix);
+        if (seniorWrap) seniorWrap.style.display = (type === 'senior') ? '' : 'none';
+        if (pwdWrap) pwdWrap.style.display = (type === 'pwd') ? '' : 'none';
+      };
+      global.resetConcessionFormUI = function (suffix) {
+        const noneEl = document.querySelector('input[name="concessionType' + suffix + '"][value="none"]');
+        if (noneEl) noneEl.checked = true;
+        ['seniorOsca', 'seniorNotes', 'pwdId', 'pwdNotes'].forEach(function (prefix) {
+          const el = document.getElementById(prefix + suffix);
+          if (el) el.value = '';
+        });
+        global.syncConcessionFieldVisibility(suffix);
+      };
+      global.setConcessionFormUI = function (suffix, data) {
+        const seniorActive = data.senior_active === true || data.senior_active === 'true';
+        const pwdActive = data.pwd_active === true || data.pwd_active === 'true';
+        let type = 'none';
+        if (seniorActive) type = 'senior';
+        else if (pwdActive) type = 'pwd';
+        const typeEl = document.querySelector('input[name="concessionType' + suffix + '"][value="' + type + '"]');
+        if (typeEl) typeEl.checked = true;
+        const v = function (k, d) {
+          if (data[k] !== undefined && data[k] !== null) return String(data[k]);
+          return d || '';
+        };
+        const so = document.getElementById('seniorOsca' + suffix);
+        if (so) so.value = v('senior_osca', '');
+        const sn = document.getElementById('seniorNotes' + suffix);
+        if (sn) sn.value = v('senior_notes', '');
+        const pi = document.getElementById('pwdId' + suffix);
+        if (pi) pi.value = v('pwd_id', '');
+        const pn = document.getElementById('pwdNotes' + suffix);
+        if (pn) pn.value = v('pwd_notes', '');
+        global.syncConcessionFieldVisibility(suffix);
+      };
+      global.buildConcessionPayload = function (suffix) {
+        const checked = document.querySelector('input[name="concessionType' + suffix + '"]:checked');
+        const type = (checked && checked.value) ? checked.value : 'none';
+        const g = function (id) {
+          const el = document.getElementById(id + suffix);
+          return el ? el.value.trim() : '';
+        };
+        return {
+          concession: {
+            type: type,
+            senior: { osca_id_number: g('seniorOsca'), notes: g('seniorNotes') },
+            pwd: { pwd_id_number: g('pwdId'), notes: g('pwdNotes') },
+          },
+        };
+      };
+      global.emptyConcessionPayload = function () {
+        return {
+          concession: {
+            type: 'none',
+            senior: { osca_id_number: '', notes: '' },
+            pwd: { pwd_id_number: '', notes: '' },
+          },
+        };
+      };
+      global.buildConcessionPayloadForRole = function (suffix, role) {
+        if ((role || 'member') !== 'member') {
+          return global.emptyConcessionPayload();
+        }
+        return global.buildConcessionPayload(suffix);
+      };
+      global.syncMemberDiscountSectionVisibility = function (suffix, role) {
+        const isMember = (role || 'member') === 'member';
+        const section = document.getElementById('memberDiscountSection' + suffix);
+        if (section) section.style.display = isMember ? '' : 'none';
+        const activeHintId = suffix === '_add' ? 'adminAddActiveDiscountHint' : 'memberIsActiveDiscountHint';
+        const activeHint = document.getElementById(activeHintId);
+        if (activeHint) activeHint.style.display = isMember ? '' : 'none';
+        if (!isMember) global.resetConcessionFormUI(suffix);
+        global.syncMemberBalanceVisibility(role);
+      };
+      global.syncMemberBalanceVisibility = function (role) {
+        const isCommittee = (role || '') === 'committee';
+        const addWrap = document.getElementById('adminAddBalanceWrap');
+        const editWrap = document.getElementById('memberBalanceWrap');
+        if (addWrap) addWrap.style.display = isCommittee ? 'none' : '';
+        if (editWrap) editWrap.style.display = isCommittee ? 'none' : '';
+        const addInput = document.getElementById('adminAddBalance');
+        if (isCommittee && addInput) addInput.value = '0.00';
+      };
+    })(window);
+
+    (function () {
+      ['_add', '_edit'].forEach(function (suffix) {
+        document.querySelectorAll('input[name="concessionType' + suffix + '"]').forEach(function (el) {
+          el.addEventListener('change', function () {
+            window.syncConcessionFieldVisibility(suffix);
+          });
+        });
+        window.syncConcessionFieldVisibility(suffix);
+      });
+
+      const adminAddRoleEl = document.getElementById('adminAddRole');
+      if (adminAddRoleEl) {
+        adminAddRoleEl.addEventListener('change', function () {
+          window.syncMemberDiscountSectionVisibility('_add', adminAddRoleEl.value);
+        });
+        window.syncMemberDiscountSectionVisibility('_add', adminAddRoleEl.value);
+      }
+
+      const memberRoleEl = document.getElementById('memberRole');
+      if (memberRoleEl) {
+        memberRoleEl.addEventListener('change', function () {
+          window.syncMemberDiscountSectionVisibility('_edit', memberRoleEl.value);
+        });
+      }
+    })();
+
+    window.sanitizeRfidValue = function (val) {
+      if (val == null || val === undefined) return '';
+      const s = String(val).trim();
+      if (!s) return '';
+      const lower = s.toLowerCase();
+      if (lower === 'none' || lower === 'null' || lower === 'n/a' || lower === 'na' || lower === 'undefined') {
+        return '';
+      }
+      return s;
+    };
+
+    window.MEMBER_COMPLETE_DETAIL_FIELDS = [
+      'middle_name', 'barangay', 'municipality', 'province', 'date_of_birth', 'gender', 'tin', 'age',
+      'civil_status', 'religion', 'educational_attainment', 'occupation', 'coop_type', 'area',
+      'membership_status', 'location', 'rsbsa_remarks', 'rsbsa_number', 'income_sources', 'annual_income',
+      'other_assets', 'spouse_name', 'spouse_occupation', 'date_of_pmes', 'resolution_number',
+      'date_accepted', 'or_number', 'initial_capital_paid_up', 'date_of_mf_recog', 'mf_center'
+    ];
+
+    window.memberCompleteDetailFieldId = function (prefix, field) {
+      const camel = field.split('_').map(function (part, i) {
+        if (i === 0) return part.charAt(0).toUpperCase() + part.slice(1);
+        return part.charAt(0).toUpperCase() + part.slice(1);
+      }).join('');
+      return prefix + camel;
+    };
+
+    window.collectMemberCompleteDetails = function (prefix) {
+      const out = {};
+      (window.MEMBER_COMPLETE_DETAIL_FIELDS || []).forEach(function (field) {
+        const el = document.getElementById(window.memberCompleteDetailFieldId(prefix, field));
+        out[field] = el ? String(el.value || '').trim() : '';
+      });
+      return out;
+    };
+
+    window.fillMemberCompleteDetails = function (prefix, data) {
+      const src = data || {};
+      (window.MEMBER_COMPLETE_DETAIL_FIELDS || []).forEach(function (field) {
+        const el = document.getElementById(window.memberCompleteDetailFieldId(prefix, field));
+        if (!el) return;
+        const val = src[field];
+        el.value = (val === undefined || val === null) ? '' : String(val);
+      });
+    };
+
+    window.computeAgeFromDob = function (dobStr) {
+      if (!dobStr) return '';
+      const parts = String(dobStr).split('-');
+      if (parts.length < 3) return '';
+      const born = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+      if (Number.isNaN(born.getTime())) return '';
+      const today = new Date();
+      let age = today.getFullYear() - born.getFullYear();
+      const m = today.getMonth() - born.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < born.getDate())) age -= 1;
+      return age >= 0 ? String(age) : '';
+    };
+
+    document.querySelectorAll('.member-dob-input').forEach(function (dobEl) {
+      dobEl.addEventListener('change', function () {
+        const ageId = dobEl.getAttribute('data-age-target');
+        const ageEl = ageId ? document.getElementById(ageId) : null;
+        if (!ageEl) return;
+        const computed = window.computeAgeFromDob(dobEl.value);
+        if (computed !== '') ageEl.value = computed;
+      });
+    });
+
+    function toDatetimeLocalValue(value) {
+      const dt = value instanceof Date ? value : new Date(value || Date.now());
+      if (Number.isNaN(dt.getTime())) return '';
+      const pad = n => String(n).padStart(2, '0');
+      return dt.getFullYear() + '-' + pad(dt.getMonth() + 1) + '-' + pad(dt.getDate()) +
+        'T' + pad(dt.getHours()) + ':' + pad(dt.getMinutes());
+    }
+
+    // ── Add Member (mirrors /admin/members/member/add/ fieldsets) ───────────────
+    (function() {
+      const addMemberAdminModalEl = document.getElementById('addMemberAdminModal');
+      const adminAddAlert         = document.getElementById('addMemberAdminAlert');
+      const adminAddSaveBtn       = document.getElementById('adminAddSaveMemberBtn');
+      const adminAddUsername        = document.getElementById('adminAddUsername');
+      const adminAddUsernameSpinner = document.getElementById('adminAddUsernameSpinner');
+      const adminAddRfid            = document.getElementById('adminAddRfid');
+      const adminAddFirstName       = document.getElementById('adminAddFirstName');
+      const adminAddLastName        = document.getElementById('adminAddLastName');
+      const adminAddEmail         = document.getElementById('adminAddEmail');
+      const adminAddPhone         = document.getElementById('adminAddPhone');
+      const adminAddRole          = document.getElementById('adminAddRole');
+      const adminAddBalance       = document.getElementById('adminAddBalance');
+      const adminAddShareCapital  = document.getElementById('adminAddShareCapital');
+      const adminAddIsActive      = document.getElementById('adminAddIsActive');
+      const adminAddInactiveRemark = document.getElementById('adminAddInactiveRemark');
+      const adminAddInactiveRemarkWrap = document.getElementById('adminAddInactiveRemarkWrap');
+      const adminAddPin           = document.getElementById('adminAddPin');
+      const adminAddTogglePinBtn  = document.getElementById('adminAddTogglePinBtn');
+      const adminAddTogglePinIcon = document.getElementById('adminAddTogglePinIcon');
+      const adminAddIsPinLocked   = document.getElementById('adminAddIsPinLocked');
+      const adminAddDateJoined    = document.getElementById('adminAddDateJoined');
+
+      function getCsrf() {
+        const el = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (el) return el.value;
+        const m = document.cookie.match(/csrftoken=([^;]+)/);
+        return m ? decodeURIComponent(m[1]) : '';
+      }
+
+      function showAddAlert(msg, type) {
+        adminAddAlert.className = 'alert alert-' + (type || 'danger') + ' mb-3 border-0 shadow-sm';
+        adminAddAlert.innerHTML = msg;
+        adminAddAlert.style.display = 'block';
+      }
+
+      function hideAddAlert() {
+        adminAddAlert.style.display = 'none';
+      }
+
+      // Auto-generate unique username via backend endpoint
+      let usernameDebounce = null;
+
+      function setUsernameSpinner(show) {
+        if (adminAddUsernameSpinner) adminAddUsernameSpinner.style.display = show ? '' : 'none';
+      }
+
+      function autoFillUsername() {
+        const first = adminAddFirstName ? adminAddFirstName.value.trim() : '';
+        const last  = adminAddLastName  ? adminAddLastName.value.trim()  : '';
+        if (!first && !last) {
+          if (adminAddUsername) adminAddUsername.value = '';
+          setUsernameSpinner(false);
+          return;
+        }
+        clearTimeout(usernameDebounce);
+        if (adminAddUsername) adminAddUsername.value = '';
+        setUsernameSpinner(true);
+        usernameDebounce = setTimeout(function() {
+          fetch('/api/members/generate-username/?first_name=' + encodeURIComponent(first) + '&last_name=' + encodeURIComponent(last))
+            .then(r => r.json())
+            .then(data => {
+              setUsernameSpinner(false);
+              if (data.success && adminAddUsername) adminAddUsername.value = data.username;
+            })
+            .catch(() => { setUsernameSpinner(false); });
+        }, 350);
+      }
+
+      if (adminAddFirstName) adminAddFirstName.addEventListener('input', autoFillUsername);
+      if (adminAddLastName)  adminAddLastName.addEventListener('input', autoFillUsername);
+
+      function syncAddInactiveRemark() {
+        const inactive = adminAddIsActive && !adminAddIsActive.checked;
+        if (adminAddInactiveRemarkWrap) {
+          adminAddInactiveRemarkWrap.style.display = inactive ? '' : 'none';
+        }
+      }
+      if (adminAddIsActive) {
+        adminAddIsActive.addEventListener('change', syncAddInactiveRemark);
+      }
+
+      if (adminAddTogglePinBtn && adminAddPin) {
+        adminAddTogglePinBtn.addEventListener('click', function() {
+          const hide = adminAddPin.type === 'password';
+          adminAddPin.type = hide ? 'text' : 'password';
+          adminAddTogglePinIcon.className = hide ? 'bi bi-eye-slash' : 'bi bi-eye';
+        });
+      }
+
+      // Reset form on every modal open
+      if (addMemberAdminModalEl) {
+        addMemberAdminModalEl.addEventListener('show.bs.modal', function() {
+          document.getElementById('addMemberAdminForm').reset();
+          clearTimeout(usernameDebounce);
+          setUsernameSpinner(false);
+          hideAddAlert();
+          if (adminAddBalance) adminAddBalance.value = '0.00';
+          if (adminAddShareCapital) adminAddShareCapital.value = '0.00';
+          if (adminAddPin) adminAddPin.type = 'password';
+          if (adminAddTogglePinIcon) adminAddTogglePinIcon.className = 'bi bi-eye';
+          resetConcessionFormUI('_add');
+          if (adminAddDateJoined) adminAddDateJoined.value = toDatetimeLocalValue(new Date());
+          if (adminAddRole && typeof window.syncMemberDiscountSectionVisibility === 'function') {
+            window.syncMemberDiscountSectionVisibility('_add', adminAddRole.value);
+          }
+          if (adminAddSaveBtn) {
+            adminAddSaveBtn.disabled = false;
+            adminAddSaveBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Save member';
+          }
+          syncAddInactiveRemark();
+        });
+      }
+
+      async function ensureAddMemberUsername() {
+        if (!adminAddUsername) return '';
+        const existing = adminAddUsername.value.trim();
+        if (existing) return existing;
+
+        const first = adminAddFirstName ? adminAddFirstName.value.trim() : '';
+        const last = adminAddLastName ? adminAddLastName.value.trim() : '';
+        if (!first && !last) return '';
+
+        try {
+          const response = await fetch(
+            '/api/members/generate-username/?first_name=' + encodeURIComponent(first) +
+            '&last_name=' + encodeURIComponent(last),
+            { credentials: 'same-origin' }
+          );
+          const data = await response.json();
+          if (data.success && data.username) {
+            adminAddUsername.value = data.username;
+            return data.username;
+          }
+        } catch (e) {
+          /* fall through */
+        }
+        return '';
+      }
+
+      async function submitAdminAddMember() {
+        hideAddAlert();
+
+        const firstName = adminAddFirstName ? adminAddFirstName.value.trim() : '';
+        const lastName  = adminAddLastName  ? adminAddLastName.value.trim()  : '';
+
+        if (!firstName || !lastName) {
+          showAddAlert('First name and last name are required.', 'warning');
+          return;
+        }
+
+        const pin = adminAddPin ? adminAddPin.value.trim() : '';
+        if (pin && !/^\d{4}$/.test(pin)) {
+          showAddAlert('PIN must be exactly 4 digits (numbers only).', 'warning');
+          return;
+        }
+
+        const isActive = adminAddIsActive ? adminAddIsActive.checked : true;
+        const inactiveRemark = (adminAddInactiveRemark ? adminAddInactiveRemark.value : '').trim();
+        if (!isActive && !inactiveRemark) {
+          showAddAlert('Please enter a remark explaining why this member is inactive.', 'warning');
+          if (adminAddInactiveRemark) adminAddInactiveRemark.focus();
+          return;
+        }
+
+        adminAddSaveBtn.disabled = true;
+        adminAddSaveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...';
+
+        try {
+          const username = await ensureAddMemberUsername();
+          const payload = {
+            first_name: firstName,
+            last_name: lastName,
+            username: username,
+            rfid: adminAddRfid ? window.sanitizeRfidValue(adminAddRfid.value) : '',
+            email: adminAddEmail ? adminAddEmail.value.trim() : '',
+            phone: adminAddPhone ? adminAddPhone.value.trim() : '',
+            role: adminAddRole ? adminAddRole.value : 'member',
+            balance: (adminAddRole && adminAddRole.value === 'committee')
+              ? '0.00'
+              : (adminAddBalance ? (adminAddBalance.value || '0.00') : '0.00'),
+            share_capital: adminAddShareCapital ? (adminAddShareCapital.value || '0.00') : '0.00',
+            pin_attempts: 0,
+            is_active: isActive,
+            inactive_remark: isActive ? '' : inactiveRemark,
+            is_pin_locked: adminAddIsPinLocked ? adminAddIsPinLocked.checked : false,
+            date_joined: adminAddDateJoined ? adminAddDateJoined.value : '',
+          };
+          Object.assign(payload, window.collectMemberCompleteDetails('adminAdd'));
+
+          Object.assign(payload, window.buildConcessionPayloadForRole('_add', payload.role));
+          if (pin) {
+            payload.pin = pin;
+          }
+
+          const response = await fetch('/api/members/create/', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': getCsrf(),
+            },
+            body: JSON.stringify(payload),
+            credentials: 'same-origin',
+          });
+
+          const data = await response.json();
+          if (data.success) {
+            const notifNote = data.notification_sent
+              ? ' <span class="small fw-normal">A welcome notification has been sent to the member\'s email.</span>'
+              : '';
+            showAddAlert('<i class="bi bi-check-circle me-1"></i> Member added successfully!' + notifNote, 'success');
+            setTimeout(function() { window.location.reload(); }, 2000);
+            return;
+          }
+
+          showAddAlert(data.error || 'Failed to add member. Please check the form and try again.', 'danger');
+        } catch (err) {
+          showAddAlert('Server error while saving member. Please try again.', 'danger');
+        } finally {
+          adminAddSaveBtn.disabled = false;
+          adminAddSaveBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Save member';
+        }
+      }
+
+      if (adminAddSaveBtn) {
+        adminAddSaveBtn.addEventListener('click', submitAdminAddMember);
+      }
+
+      // Expose so the addMemberBtn handler can open this modal
+      window.openAddMemberAdminModal = function() {
+        if (addMemberAdminModalEl) {
+          var modal = new bootstrap.Modal(addMemberAdminModalEl);
+          modal.show();
+        }
+      };
+    })();
+
+    // Member Search Functionality
+    (function() {
+      const memberSearchInput = document.getElementById('memberSearchInput');
+      const memberSearchForm = document.getElementById('memberSearchForm');
+      const allMembersSection = document.getElementById('all-members-section');
+      const memberSearchWrap = memberSearchForm?.querySelector('.member-search-wrap');
+      let searchTimeout = null;
+
+      function updateSearchWidth() {
+        if (!memberSearchInput || !memberSearchWrap) return;
+        const placeholderLen = (memberSearchInput.getAttribute('placeholder') || '').length;
+        const valueLen = (memberSearchInput.value || '').length;
+        const contentLen = Math.max(placeholderLen, valueLen, 28);
+        memberSearchWrap.style.setProperty('--search-text-ch', String(contentLen));
+      }
+
+      updateSearchWidth();
+      window.addEventListener('resize', updateSearchWidth);
+
+      {% if search_query %}
+      // Keep the member table visible after reloads from search links without hash.
+      if (allMembersSection && !window.location.hash) {
+        allMembersSection.scrollIntoView({ behavior: 'auto', block: 'start' });
+      }
+      {% endif %}
+
+      if (memberSearchInput && memberSearchForm) {
+        // Auto-submit search on input with debouncing (after 500ms of no typing)
+        memberSearchInput.addEventListener('input', function(e) {
+          updateSearchWidth();
+          clearTimeout(searchTimeout);
+          const query = e.target.value.trim();
+          
+          // If query is empty, submit immediately to clear search
+          if (query === '') {
+            memberSearchForm.submit();
+            return;
+          }
+          
+          // Debounce: submit after 500ms of no typing
+          searchTimeout = setTimeout(() => {
+            memberSearchForm.submit();
+          }, 500);
+        });
+
+        // Also allow Enter key to submit immediately
+        memberSearchInput.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter') {
+            clearTimeout(searchTimeout);
+            e.preventDefault();
+            memberSearchForm.submit();
+          }
+        });
+
+        // Focus search input on page load if it's empty
+        if (!memberSearchInput.value) {
+          // Don't auto-focus as it might be annoying, but we could enable it
+          // memberSearchInput.focus();
+        }
+      }
+    })();
+
+    // Member Management & Refill Functionality
+    (function() {
+      function getCsrfToken() {
+        const fromContext = '{{ csrf_token|escapejs }}';
+        if (fromContext) return fromContext;
+        const token = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+        if (token) return token;
+        const name = 'csrftoken';
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+          const [key, value] = cookie.trim().split('=');
+          if (key === name) return decodeURIComponent(value || '');
+        }
+        return '';
+      }
+      const csrftoken = getCsrfToken();
+
+      // Refill modal elements
+      const submitRefillBtn = document.getElementById('submitRefillBtn');
+      const refillCancelBtn = document.getElementById('refillCancelBtn');
+      const refillDoneBtn = document.getElementById('refillDoneBtn');
+      const refillAlert = document.getElementById('refillAlert');
+      const refillBalanceModal = document.getElementById('refillBalanceModal');
+      const refillBalanceForm = document.getElementById('refillBalanceForm');
+      const refillSuccessSummary = document.getElementById('refillSuccessSummary');
+      const refillMemberSearch = document.getElementById('memberSearch');
+      const memberSearchResults = document.getElementById('memberSearchResults');
+      const memberResultsList = document.getElementById('memberResultsList');
+      const selectedMemberInfo = document.getElementById('selectedMemberInfo');
+      const selectedMemberName = document.getElementById('selectedMemberName');
+      const selectedMemberRfid = document.getElementById('selectedMemberRfid');
+      const selectedMemberBalance = document.getElementById('selectedMemberBalance');
+      const selectedMemberId = document.getElementById('selectedMemberId');
+      const refillAmount = document.getElementById('refillAmount');
+      const searchMemberBtn = document.getElementById('searchMemberBtn');
+      const clearSelectedMemberBtn = document.getElementById('clearSelectedMemberBtn');
+      let selectedMember = null;
+      let refillSearchTimeout = null;
+      // PIN box logic
+      const pinBoxes = Array.from(document.querySelectorAll('#refillPinBoxes .pin-box'));
+      const refillAdminPinHidden = document.getElementById('refillAdminPin');
+      const refillPinError = document.getElementById('refillPinError');
+      function getPinValue() { return pinBoxes.map(b => b.value).join(''); }
+      function hideRefillPinError() {
+        if (refillPinError) { refillPinError.style.display = 'none'; refillPinError.textContent = ''; }
+      }
+      function showRefillPinError(message) {
+        hideRefillPinError();
+        if (refillPinError) {
+          refillPinError.textContent = message;
+          refillPinError.style.display = 'block';
+          refillPinError.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+        pinBoxes.forEach(b => { b.value = ''; b.style.borderColor = '#dc3545'; });
+        if (refillAdminPinHidden) refillAdminPinHidden.value = '';
+        if (pinBoxes[0]) pinBoxes[0].focus();
+        updateSubmitButton();
+      }
+      function isRefillPinErrorResponse(data) {
+        return !!(data && (data.pin_wrong || (data.error && /pin/i.test(data.error))));
+      }
+      function clearPinBoxes() {
+        hideRefillPinError();
+        pinBoxes.forEach(b => { b.value = ''; b.style.borderColor = '#dee2e6'; });
+        if (refillAdminPinHidden) refillAdminPinHidden.value = '';
+      }
+      pinBoxes.forEach((box, idx) => {
+        box.addEventListener('input', e => {
+          hideRefillPinError();
+          box.value = box.value.replace(/[^0-9]/g, '').slice(-1);
+          box.style.borderColor = box.value ? '#0d6efd' : '#dee2e6';
+          if (refillAdminPinHidden) refillAdminPinHidden.value = getPinValue();
+          if (box.value && idx < pinBoxes.length - 1) pinBoxes[idx + 1].focus();
+          updateSubmitButton();
+        });
+        box.addEventListener('keydown', e => {
+          if (e.key === 'Backspace' && !box.value && idx > 0) { pinBoxes[idx - 1].focus(); pinBoxes[idx - 1].value = ''; pinBoxes[idx - 1].style.borderColor = '#dee2e6'; if (refillAdminPinHidden) refillAdminPinHidden.value = getPinValue(); updateSubmitButton(); }
+          if (e.key === 'ArrowLeft' && idx > 0) pinBoxes[idx - 1].focus();
+          if (e.key === 'ArrowRight' && idx < pinBoxes.length - 1) pinBoxes[idx + 1].focus();
+        });
+        box.addEventListener('paste', e => {
+          e.preventDefault();
+          const pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/[^0-9]/g, '').slice(0, 4);
+          pasted.split('').forEach((ch, i) => { if (pinBoxes[i]) { pinBoxes[i].value = ch; pinBoxes[i].style.borderColor = '#0d6efd'; } });
+          if (refillAdminPinHidden) refillAdminPinHidden.value = getPinValue();
+          const next = pinBoxes[Math.min(pasted.length, pinBoxes.length - 1)]; if (next) next.focus();
+          updateSubmitButton();
+        });
+      });
+      const memberFormModal = document.getElementById('memberFormModal');
+      const memberForm = document.getElementById('memberForm');
+      const saveMemberBtn = document.getElementById('saveMemberBtn');
+      const memberFormAlert = document.getElementById('memberFormAlert');
+      const memberModalTitle = document.getElementById('memberFormModalLabel');
+      const memberIdInput = document.getElementById('memberIdInput');
+      const memberUsername = document.getElementById('memberUsername');
+      const memberRfid = document.getElementById('memberRfid');
+      const memberFirstName = document.getElementById('memberFirstName');
+      const memberLastName = document.getElementById('memberLastName');
+      const memberEmail = document.getElementById('memberEmail');
+      const memberPhone = document.getElementById('memberPhone');
+      const memberRole = document.getElementById('memberRole');
+      const memberBalance = document.getElementById('memberBalance');
+      const memberShareCapital = document.getElementById('memberShareCapital');
+      const memberIsActive = document.getElementById('memberIsActive');
+      const memberInactiveRemark = document.getElementById('memberInactiveRemark');
+      const memberInactiveRemarkWrap = document.getElementById('memberInactiveRemarkWrap');
+      const memberOldPin = document.getElementById('memberOldPin');
+      const memberNewPin = document.getElementById('memberNewPin');
+      const togglePinVisibilityBtn = document.getElementById('togglePinVisibilityBtn');
+      const togglePinIcon = document.getElementById('togglePinIcon');
+      const memberPinAttempts = document.getElementById('memberPinAttempts');
+      const memberIsPinLocked = document.getElementById('memberIsPinLocked');
+      const memberDateJoined = document.getElementById('memberDateJoined');
+      const addMemberBtn = document.getElementById('addMemberBtn');
+      const addMemberBtnToolbar = document.getElementById('addMemberBtnToolbar');
+      const editPinModal = document.getElementById('editPinModal');
+      const editPinInput = document.getElementById('editAuthorizerPinInput');
+      const editPinAlert = document.getElementById('editPinAlert');
+      const confirmEditPinBtn = document.getElementById('confirmEditPinBtn');
+      let editAuthorizerPin = '';
+      let pendingEditData = null;
+
+      function syncEditInactiveRemark() {
+        const inactive = memberIsActive && !memberIsActive.checked;
+        if (memberInactiveRemarkWrap) {
+          memberInactiveRemarkWrap.style.display = inactive ? '' : 'none';
+        }
+      }
+      if (memberIsActive) {
+        memberIsActive.addEventListener('change', syncEditInactiveRemark);
+      }
+
+      // Toggle PIN visibility
+      if (togglePinVisibilityBtn && memberOldPin && togglePinIcon) {
+        togglePinVisibilityBtn.addEventListener('click', function () {
+          const isHidden = memberOldPin.type === 'password';
+          memberOldPin.type = isHidden ? 'text' : 'password';
+          if (memberNewPin) memberNewPin.type = isHidden ? 'text' : 'password';
+          togglePinIcon.className = isHidden ? 'bi bi-eye-slash' : 'bi bi-eye';
+        });
+      }
+
+      // Auto-generate username from first + last name (edit mode: only when field is empty)
+      let editUsernameManual = false;
+
+      function genEditUsername(first, last) {
+        const clean = s => (s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        const f = clean(first), l = clean(last);
+        return (f && l) ? f + '.' + l : (f || l);
+      }
+
+      function autoFillEditUsername() {
+        // In edit mode, only auto-fill when the username field is still empty
+        if (editUsernameManual) return;
+        if (memberIdInput && memberIdInput.value && memberUsername && memberUsername.value) return;
+        const gen = genEditUsername(
+          memberFirstName ? memberFirstName.value : '',
+          memberLastName  ? memberLastName.value  : ''
+        );
+        if (gen && memberUsername && !memberUsername.value) memberUsername.value = gen;
+      }
+
+      if (memberFirstName) memberFirstName.addEventListener('input', autoFillEditUsername);
+      if (memberLastName)  memberLastName.addEventListener('input', autoFillEditUsername);
+      if (memberUsername) {
+        memberUsername.addEventListener('input', function() {
+          editUsernameManual = this.value.length > 0;
+        });
+      }
+
+      function showAlert(message, type = 'success') {
+        refillAlert.className = `alert alert-${type} alert-dismissible fade show`;
+        refillAlert.innerHTML = `
+          ${message}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        refillAlert.style.display = 'block';
+        if (type !== 'danger') {
+          setTimeout(() => {
+            refillAlert.style.display = 'none';
+          }, 5000);
+        }
+      }
+
+      function showInlineAlert(target, message, type = 'success') {
+        if (!target) return;
+        target.className = `alert alert-${type} alert-dismissible fade show`;
+        target.innerHTML = `
+          ${message}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        target.style.display = 'block';
+        setTimeout(() => {
+          target.style.display = 'none';
+        }, 5000);
+      }
+
+      function openMemberModal(mode = 'add', data = {}) {
+        memberForm.reset();
+        memberFormAlert.style.display = 'none';
+        if (mode !== 'edit') editAuthorizerPin = '';
+        memberIdInput.value = mode === 'edit' ? data.id || '' : '';
+        memberModalTitle.textContent = mode === 'edit' ? 'Edit Member' : 'Add Member';
+        editUsernameManual = false;
+
+        // Identity
+        if (memberUsername) { memberUsername.value = data.username || ''; }
+        if (memberRfid)     { memberRfid.value     = window.sanitizeRfidValue(data.rfid); }
+        memberFirstName.value = data.first_name || '';
+        memberLastName.value  = data.last_name  || '';
+        memberEmail.value     = data.email      || '';
+        memberPhone.value     = data.phone      || '';
+        window.fillMemberCompleteDetails('member', data);
+
+        // Role & account
+        {% if restrict_member_role %}
+        memberRole.value = (data.role && data.role !== 'member') ? data.role : 'member';
+        memberRole.disabled = true;
+        {% else %}
+        memberRole.value = data.role || 'member';
+        memberRole.disabled = false;
+        {% endif %}
+
+        if (memberBalance) memberBalance.value = data.balance !== undefined ? data.balance : '0.00';
+        if (memberShareCapital) {
+          memberShareCapital.value = data.share_capital !== undefined && data.share_capital !== ''
+            ? data.share_capital
+            : '0.00';
+        }
+
+        const memberCreditOutstanding = document.getElementById('memberCreditOutstanding');
+        const memberCreditAvailable = document.getElementById('memberCreditAvailable');
+        const memberCreditLimitWrap = document.getElementById('memberCreditLimitWrap');
+        const creditOwed = parseFloat(data.credit_outstanding || 0) || 0;
+        if (memberCreditOutstanding) {
+          memberCreditOutstanding.value = '₱' + creditOwed.toFixed(2);
+        }
+        const maxCredit = parseFloat('{{ member_max_credit }}') || 0;
+        if (memberCreditLimitWrap) {
+          if (maxCredit > 0) {
+            memberCreditLimitWrap.style.display = '';
+            const avail = data.credit_available != null && data.credit_available !== ''
+              ? parseFloat(data.credit_available)
+              : Math.max(0, maxCredit - creditOwed);
+            if (memberCreditAvailable) {
+              memberCreditAvailable.value = '₱' + avail.toFixed(2);
+              if (avail <= 0) {
+                memberCreditAvailable.classList.add('text-danger');
+              } else {
+                memberCreditAvailable.classList.remove('text-danger');
+              }
+            }
+          } else {
+            memberCreditLimitWrap.style.display = 'none';
+            if (memberCreditAvailable) memberCreditAvailable.value = '—';
+          }
+        }
+
+        memberIsActive.checked = data.is_active !== undefined
+          ? (data.is_active === true || data.is_active === 'True' || data.is_active === 'true' || data.is_active === '1')
+          : true;
+        if (memberInactiveRemark) {
+          memberInactiveRemark.value = data.inactive_remark || '';
+        }
+        syncEditInactiveRemark();
+
+        // Security
+        if (memberOldPin) {
+          memberOldPin.value = '';
+          memberOldPin.type = 'password';
+        }
+        if (memberNewPin) {
+          memberNewPin.value = '';
+          memberNewPin.type = 'password';
+        }
+        if (togglePinIcon) togglePinIcon.className = 'bi bi-eye';
+        if (memberPinAttempts) memberPinAttempts.value = data.pin_attempts !== undefined ? data.pin_attempts : '0';
+        if (memberIsPinLocked) memberIsPinLocked.checked = (data.is_pin_locked === true || data.is_pin_locked === 'True' || data.is_pin_locked === 'true');
+        if (memberDateJoined) {
+          memberDateJoined.value = data.date_joined
+            ? toDatetimeLocalValue(data.date_joined)
+            : toDatetimeLocalValue(new Date());
+        }
+
+        if (typeof window.setConcessionFormUI === 'function') {
+          window.setConcessionFormUI('_edit', data);
+        }
+        if (typeof window.syncMemberDiscountSectionVisibility === 'function') {
+          window.syncMemberDiscountSectionVisibility('_edit', memberRole ? memberRole.value : 'member');
+        }
+
+        const modal = new bootstrap.Modal(memberFormModal);
+        modal.show();
+      }
+
+      function requestEditAuthorization(data) {
+        pendingEditData = data;
+        editAuthorizerPin = '';
+        if (editPinInput) editPinInput.value = '';
+        if (editPinAlert) editPinAlert.style.display = 'none';
+        if (!editPinModal) return;
+        const modal = bootstrap.Modal.getOrCreateInstance(editPinModal);
+        modal.show();
+      }
+
+      if (editPinModal) {
+        editPinModal.addEventListener('shown.bs.modal', function() {
+          if (editPinInput) editPinInput.focus();
+        });
+      }
+
+      function showEditPinError(message) {
+        if (editPinAlert) {
+          editPinAlert.className = 'alert alert-danger';
+          editPinAlert.textContent = message;
+          editPinAlert.style.display = 'block';
+        }
+      }
+
+      if (confirmEditPinBtn) {
+        confirmEditPinBtn.addEventListener('click', function() {
+          const cleanPin = (editPinInput ? editPinInput.value : '').trim();
+          if (!/^\d{4}$/.test(cleanPin)) {
+            showEditPinError('A valid 4-digit PIN is required.');
+            return;
+          }
+
+          confirmEditPinBtn.disabled = true;
+          const originalLabel = confirmEditPinBtn.innerHTML;
+          confirmEditPinBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Verifying...';
+
+          fetch('/api/members/verify-edit-pin/', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({ pin: cleanPin })
+          })
+          .then(res => res.json())
+          .then(data => {
+            if (data.success) {
+              editAuthorizerPin = cleanPin;
+              bootstrap.Modal.getOrCreateInstance(editPinModal).hide();
+              if (pendingEditData) {
+                openMemberModal('edit', pendingEditData);
+              }
+            } else {
+              editAuthorizerPin = '';
+              showEditPinError(data.error || 'Invalid PIN. Enter a 4-digit PIN that is saved on a member account.');
+              if (editPinInput) {
+                editPinInput.value = '';
+                editPinInput.focus();
+              }
+            }
+          })
+          .catch(() => {
+            showEditPinError('Server error while verifying PIN. Please try again.');
+          })
+          .finally(() => {
+            confirmEditPinBtn.disabled = false;
+            confirmEditPinBtn.innerHTML = originalLabel;
+          });
+        });
+      }
+
+      if (editPinInput) {
+        editPinInput.addEventListener('input', function() {
+          this.value = this.value.replace(/\D/g, '').slice(0, 4);
+          if (editPinAlert) editPinAlert.style.display = 'none';
+        });
+        editPinInput.addEventListener('keydown', function(e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            if (confirmEditPinBtn) confirmEditPinBtn.click();
+          }
+        });
+      }
+
+      function submitMemberForm() {
+        const firstName = memberFirstName.value.trim();
+        const lastName  = memberLastName.value.trim();
+
+        if (!firstName || !lastName) {
+          showInlineAlert(memberFormAlert, 'First and last name are required', 'warning');
+          return;
+        }
+
+        const oldPin = memberOldPin ? memberOldPin.value.trim() : '';
+        const newPin = memberNewPin ? memberNewPin.value.trim() : '';
+
+        if (oldPin && !/^\d{4}$/.test(oldPin)) {
+          showInlineAlert(memberFormAlert, 'Old PIN must be exactly 4 digits (numbers only)', 'warning');
+          return;
+        }
+        if (newPin && !/^\d{4}$/.test(newPin)) {
+          showInlineAlert(memberFormAlert, 'New PIN must be exactly 4 digits (numbers only)', 'warning');
+          return;
+        }
+        if (newPin && !oldPin) {
+          showInlineAlert(memberFormAlert, 'Please enter the old PIN before setting a new PIN.', 'warning');
+          return;
+        }
+
+        const isActive = memberIsActive ? memberIsActive.checked : true;
+        const inactiveRemark = (memberInactiveRemark ? memberInactiveRemark.value : '').trim();
+        if (!isActive && !inactiveRemark) {
+          showInlineAlert(memberFormAlert, 'Please enter a remark explaining why this member is inactive.', 'warning');
+          if (memberInactiveRemark) memberInactiveRemark.focus();
+          return;
+        }
+
+        const payload = {
+          first_name:    firstName,
+          last_name:     lastName,
+          username:      memberUsername      ? memberUsername.value.trim()  : '',
+          rfid:          memberRfid          ? window.sanitizeRfidValue(memberRfid.value) : '',
+          email:         memberEmail         ? memberEmail.value.trim()      : '',
+          phone:         memberPhone         ? memberPhone.value.trim()      : '',
+          role:          memberRole          ? memberRole.value              : 'member',
+          share_capital: memberShareCapital  ? (memberShareCapital.value || '0.00') : '0.00',
+          is_active:     isActive,
+          inactive_remark: isActive ? '' : inactiveRemark,
+          pin_attempts:  memberPinAttempts   ? parseInt(memberPinAttempts.value, 10) || 0 : 0,
+          is_pin_locked: memberIsPinLocked   ? memberIsPinLocked.checked     : false,
+        };
+        Object.assign(payload, window.collectMemberCompleteDetails('member'));
+
+        if (memberDateJoined && memberDateJoined.value) {
+          payload.date_joined = memberDateJoined.value;
+        }
+
+        if (oldPin) payload.old_pin = oldPin;
+        if (newPin) payload.new_pin = newPin;
+
+        Object.assign(payload, window.buildConcessionPayloadForRole('_edit', payload.role));
+
+        const memberId = memberIdInput ? String(memberIdInput.value || '').trim() : '';
+        if (!memberId) {
+          showInlineAlert(memberFormAlert, 'Cannot save: member ID is missing. Close the form, open Edit again, and retry.', 'danger');
+          return;
+        }
+        const url = '/api/members/update/';
+        payload.member_id = memberId;
+        payload.authorizer_pin = editAuthorizerPin;
+
+        saveMemberBtn.disabled = true;
+        saveMemberBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...';
+
+        fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrftoken
+          },
+          body: JSON.stringify(payload)
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (data.success) {
+            showInlineAlert(memberFormAlert, data.message || 'Saved successfully', 'success');
+            setTimeout(() => window.location.reload(), 800);
+          } else {
+            showInlineAlert(memberFormAlert, data.error || 'Unable to save member', 'danger');
+            saveMemberBtn.disabled = false;
+            saveMemberBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Save Member';
+          }
+        })
+        .catch(() => {
+          showInlineAlert(memberFormAlert, 'Server error while saving member', 'danger');
+          saveMemberBtn.disabled = false;
+          saveMemberBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Save Member';
+        });
+      }
+
+      function openAddMemberModalFromMenu(fromActionsDropdown) {
+        if (fromActionsDropdown) {
+          const dropdownEl = document.getElementById('actionsDropdown');
+          const dropdown = dropdownEl ? bootstrap.Dropdown.getInstance(dropdownEl) : null;
+          if (dropdown) dropdown.hide();
+          setTimeout(function() { window.openAddMemberAdminModal(); }, 100);
+        } else {
+          window.openAddMemberAdminModal();
+        }
+      }
+
+      if (addMemberBtn) {
+        addMemberBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          openAddMemberModalFromMenu(true);
+        });
+      }
+      if (addMemberBtnToolbar) {
+        addMemberBtnToolbar.addEventListener('click', function() {
+          openAddMemberModalFromMenu(false);
+        });
+      }
+
+      document.querySelectorAll('.edit-member-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const detailsMapEl = document.getElementById('member-complete-details-map');
+          let details = {};
+          try {
+            const map = detailsMapEl ? JSON.parse(detailsMapEl.textContent || '{}') : {};
+            details = map[String(btn.dataset.id)] || {};
+          } catch (e) {
+            details = {};
+          }
+          requestEditAuthorization(Object.assign({
+            id:             btn.dataset.id,
+            username:       btn.dataset.username       || '',
+            rfid:           window.sanitizeRfidValue(btn.dataset.rfid),
+            first_name:     btn.dataset.firstName      || '',
+            last_name:      btn.dataset.lastName       || '',
+            email:          btn.dataset.email          || '',
+            phone:          btn.dataset.phone          || '',
+            role:           btn.dataset.role           || 'member',
+            balance:        btn.dataset.balance        || '0.00',
+            share_capital:  btn.dataset.shareCapital   || '0.00',
+            credit_outstanding: btn.dataset.creditOutstanding || '0',
+            credit_available: btn.dataset.creditAvailable || '',
+            is_active:      btn.dataset.active,
+            inactive_remark: btn.dataset.inactiveRemark || '',
+            pin_attempts:   btn.dataset.pinAttempts    || '0',
+            is_pin_locked:  btn.dataset.isPinLocked    || 'False',
+            date_joined:    btn.dataset.dateJoined     || '',
+            senior_active:  btn.getAttribute('data-senior-active') || 'false',
+            senior_osca:    btn.getAttribute('data-senior-osca') || '',
+            senior_notes:   btn.getAttribute('data-senior-notes') || '',
+            pwd_active:     btn.getAttribute('data-pwd-active') || 'false',
+            pwd_id:         btn.getAttribute('data-pwd-id') || '',
+            pwd_notes:      btn.getAttribute('data-pwd-notes') || '',
+          }, details));
+        });
+      });
+
+      if (saveMemberBtn) {
+        saveMemberBtn.addEventListener('click', submitMemberForm);
+      }
+
+      function searchRefillMembers(query) {
+        if (!query || query.length < 2) {
+          if (memberSearchResults) memberSearchResults.style.display = 'none';
+          return;
+        }
+        // Show loading
+        if (memberResultsList) memberResultsList.innerHTML = '<div class="list-group-item text-muted text-center"><span class="spinner-border spinner-border-sm me-1"></span>Searching…</div>';
+        if (memberSearchResults) memberSearchResults.style.display = 'block';
+
+        fetch(`/api/search-members/?q=${encodeURIComponent(query)}`, {
+          method: 'GET',
+          headers: { 'X-CSRFToken': csrftoken }
+        })
+        .then(res => res.json())
+        .then(data => {
+          if (!memberResultsList) return;
+          if (data.success && data.members && data.members.length > 0) {
+            memberResultsList.innerHTML = '';
+            data.members.forEach(member => {
+              const item = document.createElement('a');
+              item.href = '#';
+              item.className = 'list-group-item list-group-item-action';
+              item.innerHTML = `
+                <div class="d-flex w-100 justify-content-between align-items-start gap-2 flex-wrap">
+                  <div style="min-width:0;">
+                    <div class="fw-semibold small" style="word-break:break-word;">${member.name}</div>
+                    <div style="font-size:0.75rem;color:#6c757d;word-break:break-all;">
+                      RFID: ${member.rfid || 'N/A'}${member.email ? ' &nbsp;|&nbsp; ' + member.email : ''}
+                    </div>
+                  </div>
+                  <span class="text-success fw-bold small text-nowrap">₱${parseFloat(member.current_balance).toFixed(2)}</span>
+                </div>`;
+              item.addEventListener('click', (e) => {
+                e.preventDefault();
+                selectRefillMember(member);
+              });
+              memberResultsList.appendChild(item);
+            });
+            if (memberSearchResults) memberSearchResults.style.display = 'block';
+          } else {
+            memberResultsList.innerHTML = '<div class="list-group-item text-muted text-center">No members found</div>';
+            if (memberSearchResults) memberSearchResults.style.display = 'block';
+          }
+        })
+        .catch(err => {
+          console.error('Search error:', err);
+          showAlert('Error searching members. Please try again.', 'danger');
+        });
+      }
+
+      function selectRefillMember(member) {
+        selectedMember = member;
+        if (selectedMemberName) selectedMemberName.textContent = member.name;
+        if (selectedMemberRfid) selectedMemberRfid.textContent = member.rfid || 'N/A';
+        if (selectedMemberBalance) selectedMemberBalance.textContent = `₱${parseFloat(member.current_balance).toFixed(2)}`;
+        if (selectedMemberId) selectedMemberId.value = member.id;
+        if (selectedMemberInfo) selectedMemberInfo.style.display = 'block';
+        if (memberSearchResults) memberSearchResults.style.display = 'none';
+        if (refillMemberSearch) refillMemberSearch.value = member.name;
+        updateSubmitButton();
+      }
+
+      function updateSubmitButton() {
+        if (submitRefillBtn) {
+          submitRefillBtn.disabled = !(selectedMember && refillAmount && refillAmount.value && parseFloat(refillAmount.value) > 0 && getPinValue().length === 4);
+        }
+      }
+
+      function resetRefillForm() {
+        if (refillMemberSearch) refillMemberSearch.value = '';
+        if (refillAmount) refillAmount.value = '';
+        const notesEl = document.getElementById('refillNotes');
+        if (notesEl) notesEl.value = '';
+        clearPinBoxes();
+        selectedMember = null;
+        if (selectedMemberInfo) selectedMemberInfo.style.display = 'none';
+        if (memberSearchResults) memberSearchResults.style.display = 'none';
+        if (refillAlert) refillAlert.style.display = 'none';
+        hideRefillPinError();
+        if (refillBalanceForm) refillBalanceForm.style.display = 'block';
+        if (refillSuccessSummary) refillSuccessSummary.style.display = 'none';
+        if (submitRefillBtn) { submitRefillBtn.disabled = true; submitRefillBtn.style.display = ''; submitRefillBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Refill Balance'; }
+        if (refillCancelBtn) { refillCancelBtn.style.display = ''; refillCancelBtn.disabled = false; }
+        if (refillDoneBtn) refillDoneBtn.style.display = 'none';
+      }
+
+      // Quick refill function (called from per-row buttons)
+      window.quickRefill = function(memberId, memberName, memberRfid, currentBalance) {
+        selectedMember = { id: memberId, name: memberName, rfid: memberRfid, current_balance: String(currentBalance) };
+        if (selectedMemberName) selectedMemberName.textContent = memberName;
+        if (selectedMemberRfid) selectedMemberRfid.textContent = memberRfid || 'N/A';
+        if (selectedMemberBalance) selectedMemberBalance.textContent = `₱${parseFloat(currentBalance).toFixed(2)}`;
+        if (selectedMemberId) selectedMemberId.value = memberId;
+        if (selectedMemberInfo) selectedMemberInfo.style.display = 'block';
+        if (refillMemberSearch) refillMemberSearch.value = memberName;
+        if (memberSearchResults) memberSearchResults.style.display = 'none';
+        updateSubmitButton();
+        bootstrap.Modal.getOrCreateInstance(refillBalanceModal).show();
+      };
+
+      // Quick-refill buttons in the member list rows
+      document.querySelectorAll('.quick-refill-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+          window.quickRefill(
+            this.dataset.memberId,
+            this.dataset.memberName,
+            this.dataset.memberRfid,
+            parseFloat(this.dataset.memberBalance)
+          );
+        });
+      });
+
+      // Clear selected member (×) button
+      if (clearSelectedMemberBtn) {
+        clearSelectedMemberBtn.addEventListener('click', () => {
+          selectedMember = null;
+          if (selectedMemberInfo) selectedMemberInfo.style.display = 'none';
+          if (refillMemberSearch) { refillMemberSearch.value = ''; refillMemberSearch.focus(); }
+          if (memberSearchResults) memberSearchResults.style.display = 'none';
+          updateSubmitButton();
+        });
+      }
+
+      // Search on input with debounce
+      if (refillMemberSearch) {
+        refillMemberSearch.addEventListener('input', (e) => {
+          clearTimeout(refillSearchTimeout);
+          const query = e.target.value.trim();
+          if (query.length >= 2) {
+            refillSearchTimeout = setTimeout(() => searchRefillMembers(query), 300);
+          } else {
+            if (memberSearchResults) memberSearchResults.style.display = 'none';
+            selectedMember = null;
+            if (selectedMemberInfo) selectedMemberInfo.style.display = 'none';
+            updateSubmitButton();
+          }
+        });
+      }
+
+      if (searchMemberBtn) {
+        searchMemberBtn.addEventListener('click', () => {
+          const query = refillMemberSearch ? refillMemberSearch.value.trim() : '';
+          if (query.length >= 2) searchRefillMembers(query);
+        });
+      }
+
+      if (refillAmount) {
+        refillAmount.addEventListener('input', updateSubmitButton);
+      }
+
+      // Handle form submission
+      if (submitRefillBtn) {
+        submitRefillBtn.addEventListener('click', () => {
+          if (!selectedMember || !refillAmount || !refillAmount.value) {
+            showAlert('Please select a member and enter an amount.', 'warning');
+            return;
+          }
+          const amount = parseFloat(refillAmount.value);
+          if (isNaN(amount) || amount <= 0) {
+            showAlert('Please enter a valid amount greater than zero.', 'warning');
+            return;
+          }
+          const adminPwd = getPinValue();
+          if (adminPwd.length !== 4) {
+            showRefillPinError('Please enter the full 4-digit Admin PIN.');
+            return;
+          }
+          hideRefillPinError();
+
+          submitRefillBtn.disabled = true;
+          submitRefillBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Verifying & Processing...';
+          if (refillCancelBtn) refillCancelBtn.disabled = true;
+
+          fetch('/api/refill-balance/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+            body: JSON.stringify({
+              member_id: selectedMember.id,
+              amount: amount,
+              notes: (document.getElementById('refillNotes') || {}).value || '',
+              admin_pin: adminPwd
+            })
+          })
+          .then(async (res) => {
+            const text = await res.text();
+            let data;
+            try {
+              data = JSON.parse(text);
+            } catch (e) {
+              if (refillCancelBtn) refillCancelBtn.disabled = false;
+              showAlert(
+                res.status === 403
+                  ? 'Security check failed or your session expired. Refresh the page and try again.'
+                  : 'Unexpected server response. Please try again.',
+                'danger'
+              );
+              submitRefillBtn.disabled = false;
+              submitRefillBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Refill Balance';
+              return;
+            }
+            if (refillCancelBtn) refillCancelBtn.disabled = false;
+            if (data.success) {
+              if (refillSuccessSummary && refillBalanceForm) {
+                const sName = document.getElementById('summaryMemberName');
+                const sRfid = document.getElementById('summaryMemberRfid');
+                const sAmt = document.getElementById('summaryAmount');
+                const sNewBal = document.getElementById('summaryNewBalance');
+                const sNotif = document.getElementById('summaryMemberNotified');
+                if (sName) sName.textContent = data.member.name;
+                if (sRfid) sRfid.textContent = data.member.rfid;
+                if (sAmt) sAmt.textContent = `₱${amount.toFixed(2)}`;
+                if (sNewBal) sNewBal.textContent = `₱${parseFloat(data.member.new_balance).toFixed(2)}`;
+                if (sNotif) sNotif.style.display = data.member_notified ? 'block' : 'none';
+                refillBalanceForm.style.display = 'none';
+                refillSuccessSummary.style.display = 'block';
+                if (refillCancelBtn) refillCancelBtn.style.display = 'none';
+                submitRefillBtn.style.display = 'none';
+                if (refillDoneBtn) refillDoneBtn.style.display = '';
+              } else {
+                showAlert(data.message || 'Balance refilled successfully.', 'success');
+                resetRefillForm();
+                setTimeout(() => window.location.reload(), 1500);
+              }
+            } else if (isRefillPinErrorResponse(data)) {
+              showRefillPinError(data.error || 'Incorrect PIN. Please try again.');
+              submitRefillBtn.disabled = false;
+              submitRefillBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Refill Balance';
+            } else {
+              hideRefillPinError();
+              showAlert(`<strong>Error:</strong> ${data.error || 'Failed to refill balance.'}`, 'danger');
+              submitRefillBtn.disabled = false;
+              submitRefillBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Refill Balance';
+            }
+          })
+          .catch(err => {
+            console.error('Refill error:', err);
+            if (refillCancelBtn) refillCancelBtn.disabled = false;
+            showAlert('Network error. Please try again.', 'danger');
+            submitRefillBtn.disabled = false;
+            submitRefillBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Refill Balance';
+          });
+        });
+      }
+
+      if (refillDoneBtn) {
+        refillDoneBtn.addEventListener('click', () => {
+          bootstrap.Modal.getInstance(refillBalanceModal).hide();
+          setTimeout(() => window.location.reload(), 200);
+        });
+      }
+
+      // Reset form when modal is closed
+      if (refillBalanceModal) {
+        refillBalanceModal.addEventListener('hidden.bs.modal', () => { resetRefillForm(); });
+      }
+
+      // Pay Credit Modal (same scope as csrftoken / showAlert)
+      const payCreditModal = document.getElementById('payCreditModal');
+      if (payCreditModal) {
+      const payCreditForm = document.getElementById('payCreditForm');
+      const payCreditSuccessSummary = document.getElementById('payCreditSuccessSummary');
+      const payCreditAlert = document.getElementById('payCreditAlert');
+      const submitPayCreditBtn = document.getElementById('submitPayCreditBtn');
+      const payCreditPinBoxes = document.querySelectorAll('.pay-credit-pin-box');
+      const payCreditSelectAllBtn = document.getElementById('payCreditSelectAllBtn');
+      const payCreditClearSelectionBtn = document.getElementById('payCreditClearSelectionBtn');
+      const payCreditSalesSelectActions = document.getElementById('payCreditSalesSelectActions');
+      let payCreditMemberId = null;
+      let payCreditSalesData = [];
+      let payCreditSelectedItemIds = new Set();
+      let payCreditAmountDirty = false;
+
+      function escapeHtml(text) {
+        if (text == null) return '';
+        const div = document.createElement('div');
+        div.textContent = String(text);
+        return div.innerHTML;
+      }
+
+      function resetPayCreditModal() {
+        payCreditMemberId = null;
+        payCreditSalesData = [];
+        payCreditSelectedItemIds = new Set();
+        payCreditAmountDirty = false;
+        if (payCreditSalesSelectActions) payCreditSalesSelectActions.style.display = 'none';
+        if (payCreditForm) payCreditForm.style.display = '';
+        if (payCreditSuccessSummary) payCreditSuccessSummary.style.display = 'none';
+        if (payCreditAlert) payCreditAlert.style.display = 'none';
+        if (submitPayCreditBtn) {
+          submitPayCreditBtn.style.display = '';
+          submitPayCreditBtn.disabled = false;
+          submitPayCreditBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Confirm Pay Credit';
+        }
+        payCreditPinBoxes.forEach(b => { b.value = ''; });
+        const notes = document.getElementById('payCreditNotes');
+        if (notes) notes.value = '';
+        const method = document.getElementById('payCreditMethod');
+        if (method) method.value = 'cash';
+        const amtReset = document.getElementById('payCreditAmount');
+        if (amtReset) {
+          amtReset.value = '';
+          amtReset.removeAttribute('max');
+          amtReset.classList.remove('is-invalid');
+        }
+        const amtErrReset = document.getElementById('payCreditAmountError');
+        if (amtErrReset) {
+          amtErrReset.textContent = '';
+          amtErrReset.style.display = 'none';
+        }
+      }
+
+      function getPayCreditAmountValue() {
+        const amtEl = document.getElementById('payCreditAmount');
+        const v = parseFloat(amtEl && amtEl.value);
+        return isNaN(v) ? 0 : v;
+      }
+
+      function syncPayCreditAmountMax() {
+        const amtEl = document.getElementById('payCreditAmount');
+        if (!amtEl) return;
+        const max = getPayCreditSelectedTotal();
+        if (max > 0) {
+          amtEl.max = max.toFixed(2);
+        } else {
+          amtEl.removeAttribute('max');
+        }
+      }
+
+      function getPayCreditAmountError() {
+        const hasItems = getAllPayCreditItemIds().length > 0;
+        if (!hasItems || payCreditSelectedItemIds.size === 0) {
+          return null;
+        }
+        const amountPaid = getPayCreditAmountValue();
+        const selectedMax = getPayCreditSelectedTotal();
+        if (amountPaid <= 0) {
+          return 'Enter a valid amount to pay.';
+        }
+        if (selectedMax > 0 && amountPaid > selectedMax + 0.001) {
+          return 'Amount cannot exceed ₱' + selectedMax.toFixed(2) + ' (total of selected products).';
+        }
+        return null;
+      }
+
+      function validatePayCreditAmount() {
+        const amtEl = document.getElementById('payCreditAmount');
+        const errEl = document.getElementById('payCreditAmountError');
+        const err = getPayCreditAmountError();
+        if (amtEl) {
+          amtEl.classList.toggle('is-invalid', !!err);
+        }
+        if (errEl) {
+          if (err) {
+            errEl.textContent = err;
+            errEl.style.display = 'block';
+          } else {
+            errEl.textContent = '';
+            errEl.style.display = 'none';
+          }
+        }
+        updatePayCreditSubmitState();
+        return !err;
+      }
+
+      function updatePayCreditSubmitState() {
+        if (!submitPayCreditBtn) return;
+        const hasItems = getAllPayCreditItemIds().length > 0;
+        const noSelection = hasItems && payCreditSelectedItemIds.size === 0;
+        submitPayCreditBtn.disabled = noSelection || !!getPayCreditAmountError();
+      }
+
+      function getPayCreditPin() {
+        return Array.from(payCreditPinBoxes).map(b => b.value).join('');
+      }
+
+      function setupPayCreditPinBoxes() {
+        payCreditPinBoxes.forEach((box, idx) => {
+          box.addEventListener('input', function () {
+            this.value = this.value.replace(/\D/g, '').slice(0, 1);
+            if (this.value && idx < payCreditPinBoxes.length - 1) {
+              payCreditPinBoxes[idx + 1].focus();
+            }
+          });
+          box.addEventListener('keydown', function (e) {
+            if (e.key === 'Backspace' && !this.value && idx > 0) {
+              payCreditPinBoxes[idx - 1].focus();
+            }
+          });
+        });
+      }
+      setupPayCreditPinBoxes();
+
+      const payCreditAmountEl = document.getElementById('payCreditAmount');
+      if (payCreditAmountEl) {
+        payCreditAmountEl.addEventListener('input', function () {
+          payCreditAmountDirty = true;
+          validatePayCreditAmount();
+        });
+        payCreditAmountEl.addEventListener('blur', function () {
+          validatePayCreditAmount();
+        });
+      }
+
+      function getAllPayCreditItemIds() {
+        const ids = [];
+        payCreditSalesData.forEach(function (s) {
+          (s.items || []).forEach(function (item) {
+            ids.push(item.id);
+          });
+        });
+        return ids;
+      }
+
+      function getSaleItemIds(sale) {
+        return (sale.items || []).map(function (item) { return item.id; });
+      }
+
+      function isSaleFullySelected(sale) {
+        const itemIds = getSaleItemIds(sale);
+        if (!itemIds.length) return false;
+        return itemIds.every(function (id) { return payCreditSelectedItemIds.has(id); });
+      }
+
+      function isSalePartiallySelected(sale) {
+        const itemIds = getSaleItemIds(sale);
+        if (!itemIds.length) return false;
+        const selectedCount = itemIds.filter(function (id) {
+          return payCreditSelectedItemIds.has(id);
+        }).length;
+        return selectedCount > 0 && selectedCount < itemIds.length;
+      }
+
+      function getPayCreditSelectedTotal() {
+        let total = 0;
+        const salesWithSelectedItems = new Set();
+        payCreditSalesData.forEach(function (s) {
+          (s.items || []).forEach(function (item) {
+            if (payCreditSelectedItemIds.has(item.id)) {
+              total += parseFloat(item.line_amount) || 0;
+              salesWithSelectedItems.add(s.id);
+            }
+          });
+        });
+        // Include sale interest when any of its products are selected
+        payCreditSalesData.forEach(function (s) {
+          const interest = parseFloat(s.interest_amount) || 0;
+          if (interest <= 0) return;
+          const itemIds = getSaleItemIds(s);
+          if (!itemIds.length || salesWithSelectedItems.has(s.id)) {
+            total += interest;
+          }
+        });
+        return total;
+      }
+
+      function updatePayCreditAmountFromSelection() {
+        const amtEl = document.getElementById('payCreditAmount');
+        const total = getPayCreditSelectedTotal();
+        syncPayCreditAmountMax();
+        if (amtEl && !payCreditAmountDirty) {
+          amtEl.value = total > 0 ? total.toFixed(2) : '';
+        }
+        validatePayCreditAmount();
+      }
+
+      function syncPayCreditSelectionStyles() {
+        const salesList = document.getElementById('payCreditSalesList');
+        if (!salesList) return;
+        payCreditSalesData.forEach(function (sale) {
+          const header = salesList.querySelector(
+            '.pay-credit-sale-header[data-transaction-id="' + sale.id + '"]'
+          );
+          if (header) {
+            header.classList.toggle('selected', isSaleFullySelected(sale));
+            header.classList.toggle('partial', isSalePartiallySelected(sale));
+          }
+        });
+        salesList.querySelectorAll('.pay-credit-item-row').forEach(function (btn) {
+          const itemId = parseInt(btn.dataset.itemId, 10);
+          btn.classList.toggle('selected', payCreditSelectedItemIds.has(itemId));
+        });
+      }
+
+      function toggleSaleSelection(sale) {
+        const itemIds = getSaleItemIds(sale);
+        if (!itemIds.length) return;
+        const allSelected = isSaleFullySelected(sale);
+        itemIds.forEach(function (id) {
+          if (allSelected) {
+            payCreditSelectedItemIds.delete(id);
+          } else {
+            payCreditSelectedItemIds.add(id);
+          }
+        });
+        syncPayCreditSelectionStyles();
+        updatePayCreditAmountFromSelection();
+      }
+
+      function renderPayCreditSalesList(sales) {
+        const salesList = document.getElementById('payCreditSalesList');
+        if (!salesList) return;
+        payCreditSalesData = sales || [];
+        payCreditSelectedItemIds = new Set(getAllPayCreditItemIds());
+
+        if (!payCreditSalesData.length) {
+          if (payCreditSalesSelectActions) payCreditSalesSelectActions.style.display = 'none';
+          salesList.innerHTML = '<div class="list-group-item text-muted small text-center">No unsettled credit sales.</div>';
+          updatePayCreditAmountFromSelection();
+          return;
+        }
+
+        if (payCreditSalesSelectActions) payCreditSalesSelectActions.style.display = '';
+        salesList.innerHTML = payCreditSalesData.map(function (s) {
+          const receiptUrl = escapeHtml(s.receipt_url || '#');
+          const saleTotal = parseFloat(s.total_amount) || 0;
+          const interestAmt = parseFloat(s.interest_amount) || 0;
+          const headerSelected = false;
+          const interestHtml = interestAmt > 0
+            ? '<div class="pay-credit-item-row d-flex justify-content-between align-items-center text-muted" style="cursor:default;opacity:0.95;">' +
+              '<span class="small"><i class="bi bi-percent me-1"></i>Interest (paid first)</span>' +
+              '<span class="fw-semibold ms-2" style="color:#7c3aed;">₱' + interestAmt.toFixed(2) + '</span></div>'
+            : '';
+          const itemsHtml = (s.items || []).map(function (item) {
+            return '<button type="button" class="pay-credit-item-row d-flex justify-content-between align-items-center" ' +
+              'data-item-id="' + escapeHtml(String(item.id)) + '" data-transaction-id="' + escapeHtml(String(s.id)) + '">' +
+              '<span class="d-flex align-items-center gap-2 flex-grow-1 min-width-0">' +
+              '<span class="pay-credit-sale-check"><i class="bi bi-check-circle-fill"></i></span>' +
+              '<span class="min-width-0">' + escapeHtml(item.product_name) +
+              ' <span class="pay-credit-item-qty">x' + escapeHtml(String(item.quantity)) + '</span></span></span>' +
+              '<span class="fw-semibold ms-2" style="color:#5b21b6;">₱' + parseFloat(item.line_amount).toFixed(2) + '</span>' +
+              '</button>';
+          }).join('') + interestHtml;
+
+          return '<div class="pay-credit-sale-block">' +
+            '<button type="button" class="pay-credit-sale-header d-flex justify-content-between align-items-center small' +
+            (headerSelected ? ' selected' : '') + '" data-transaction-id="' + escapeHtml(String(s.id)) + '">' +
+            '<span class="d-flex align-items-center gap-2 flex-grow-1 min-width-0">' +
+            '<span class="pay-credit-sale-check"><i class="bi bi-check-circle-fill"></i></span>' +
+            '<span class="min-width-0"><strong>' + escapeHtml(s.transaction_number) + '</strong><br>' +
+            '<span class="text-muted">' + escapeHtml(s.created_at) +
+            (typeof s.days_unpaid === 'number'
+              ? ' · <span style="color:#5b21b6;">unpaid ' + s.days_unpaid + ' day' + (s.days_unpaid === 1 ? '' : 's') + '</span>'
+              : '') +
+            '</span></span></span>' +
+            '<span class="d-flex align-items-center gap-1 ms-2">' +
+            '<span class="fw-bold" style="color:#5b21b6;">₱' + saleTotal.toFixed(2) + '</span>' +
+            '<a href="' + receiptUrl + '" class="btn btn-sm pay-credit-sale-receipt-btn" target="_blank" rel="noopener" ' +
+            'title="View sale receipt" aria-label="View sale receipt" onclick="event.stopPropagation();">' +
+            '<i class="bi bi-receipt"></i></a></span></button>' +
+            itemsHtml +
+            '</div>';
+        }).join('');
+
+        salesList.querySelectorAll('.pay-credit-sale-header').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            const tid = parseInt(this.dataset.transactionId, 10);
+            const sale = payCreditSalesData.find(function (s) { return s.id === tid; });
+            if (sale) toggleSaleSelection(sale);
+          });
+        });
+
+        salesList.querySelectorAll('.pay-credit-item-row').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            const itemId = parseInt(this.dataset.itemId, 10);
+            if (payCreditSelectedItemIds.has(itemId)) {
+              payCreditSelectedItemIds.delete(itemId);
+            } else {
+              payCreditSelectedItemIds.add(itemId);
+            }
+            syncPayCreditSelectionStyles();
+            updatePayCreditAmountFromSelection();
+          });
+        });
+
+        syncPayCreditSelectionStyles();
+        updatePayCreditAmountFromSelection();
+      }
+
+      if (payCreditSelectAllBtn) {
+        payCreditSelectAllBtn.addEventListener('click', function () {
+          payCreditSelectedItemIds = new Set(getAllPayCreditItemIds());
+          syncPayCreditSelectionStyles();
+          updatePayCreditAmountFromSelection();
+        });
+      }
+
+      if (payCreditClearSelectionBtn) {
+        payCreditClearSelectionBtn.addEventListener('click', function () {
+          payCreditSelectedItemIds.clear();
+          syncPayCreditSelectionStyles();
+          updatePayCreditAmountFromSelection();
+        });
+      }
+
+      function openPayCreditModal(memberId, memberName, memberEmail, memberBalance, creditOutstanding) {
+        resetPayCreditModal();
+        payCreditMemberId = memberId;
+        const nameEl = document.getElementById('payCreditMemberName');
+        const outEl = document.getElementById('payCreditOutstanding');
+        const balEl = document.getElementById('payCreditMemberBalance');
+        const amtEl = document.getElementById('payCreditAmount');
+        const emailWrap = document.getElementById('payCreditMemberEmailWrap');
+        const emailEl = document.getElementById('payCreditMemberEmail');
+        const salesList = document.getElementById('payCreditSalesList');
+
+        if (nameEl) nameEl.textContent = memberName || '—';
+        const owed = parseFloat(creditOutstanding || 0) || 0;
+        if (outEl) outEl.textContent = '₱' + owed.toFixed(2);
+        if (balEl) balEl.textContent = '₱' + (parseFloat(memberBalance || 0) || 0).toFixed(2);
+        if (emailWrap && emailEl) {
+          if (memberEmail) {
+            emailEl.textContent = memberEmail;
+            emailWrap.style.display = '';
+          } else {
+            emailWrap.style.display = 'none';
+          }
+        }
+        if (salesList) salesList.innerHTML = '<div class="list-group-item text-muted small text-center">Loading…</div>';
+
+        bootstrap.Modal.getOrCreateInstance(payCreditModal).show();
+
+        fetch('/api/members/credit-details/?member_id=' + encodeURIComponent(String(memberId)), {
+          headers: { 'X-CSRFToken': csrftoken },
+          credentials: 'same-origin',
+        })
+          .then(function (res) {
+            return res.json().then(function (data) {
+              return { ok: res.ok, data: data };
+            });
+          })
+          .then(function (result) {
+            if (!salesList) return;
+            const data = result.data || {};
+            if (!result.ok || !data.success) {
+              salesList.innerHTML = '<div class="list-group-item text-danger small text-center">' +
+                escapeHtml(data.error || 'Could not load credit sales.') + '</div>';
+              return;
+            }
+            renderPayCreditSalesList(data.sales || []);
+            if (outEl && data.credit_outstanding) {
+              outEl.textContent = '₱' + parseFloat(data.credit_outstanding).toFixed(2);
+            }
+            const interestWrap = document.getElementById('payCreditInterestWrap');
+            const principalEl = document.getElementById('payCreditPrincipal');
+            const interestEl = document.getElementById('payCreditInterest');
+            const interestAmt = parseFloat(data.credit_interest || 0) || 0;
+            if (interestWrap && principalEl && interestEl) {
+              if (interestAmt > 0 || data.credit_interest_enabled) {
+                principalEl.textContent = '₱' + (parseFloat(data.credit_principal || 0) || 0).toFixed(2);
+                interestEl.textContent = '₱' + interestAmt.toFixed(2);
+                interestWrap.style.display = '';
+              } else {
+                interestWrap.style.display = 'none';
+              }
+            }
+          })
+          .catch(function (err) {
+            console.error('Pay credit details error:', err);
+            if (salesList) {
+              salesList.innerHTML = '<div class="list-group-item text-danger small text-center">Could not load credit sales. Please refresh and try again.</div>';
+            }
+          });
+      }
+
+      document.querySelectorAll('.pay-credit-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          openPayCreditModal(
+            this.dataset.memberId,
+            this.dataset.memberName,
+            this.dataset.memberEmail || '',
+            this.dataset.memberBalance,
+            this.dataset.creditOutstanding
+          );
+        });
+      });
+
+      function showPayCreditAlert(message, isHtml) {
+        if (!payCreditAlert) return;
+        if (isHtml) {
+          payCreditAlert.innerHTML = message;
+        } else {
+          payCreditAlert.textContent = message;
+        }
+        payCreditAlert.style.display = 'block';
+        payCreditAlert.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+
+      if (submitPayCreditBtn) {
+        submitPayCreditBtn.addEventListener('click', function () {
+          if (payCreditAlert) payCreditAlert.style.display = 'none';
+          if (!payCreditMemberId) {
+            showPayCreditAlert('Member session lost. Close the modal and open Pay Credit again.');
+            return;
+          }
+          const pin = getPayCreditPin();
+          if (pin.length !== 4) {
+            showPayCreditAlert('Enter a 4-digit Admin PIN.');
+            return;
+          }
+          if (getAllPayCreditItemIds().length && payCreditSelectedItemIds.size === 0) {
+            showPayCreditAlert('Select at least one product to pay.');
+            return;
+          }
+          if (!validatePayCreditAmount()) {
+            const err = getPayCreditAmountError();
+            showPayCreditAlert(err || 'Invalid amount to pay.');
+            const amtFocus = document.getElementById('payCreditAmount');
+            if (amtFocus) amtFocus.focus();
+            return;
+          }
+          const amountPaid = getPayCreditAmountValue();
+          const method = document.getElementById('payCreditMethod');
+          const notes = document.getElementById('payCreditNotes');
+          const selectedItemIds = Array.from(payCreditSelectedItemIds);
+          submitPayCreditBtn.disabled = true;
+          submitPayCreditBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Processing…';
+
+          fetch('/api/members/pay-credit/', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': csrftoken
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify({
+              member_id: payCreditMemberId,
+              item_ids: selectedItemIds,
+              amount_paid: amountPaid.toFixed(2),
+              payment_method: method ? method.value : 'cash',
+              notes: notes ? notes.value.trim() : '',
+              admin_pin: pin
+            })
+          })
+            .then(function (res) {
+              return res.json().then(function (data) {
+                return { ok: res.ok, data: data };
+              });
+            })
+            .then(function (result) {
+              const data = result.data || {};
+              if (result.ok && data.success) {
+                if (payCreditForm) payCreditForm.style.display = 'none';
+                if (payCreditSuccessSummary) payCreditSuccessSummary.style.display = 'block';
+                const sSet = document.getElementById('payCreditSummarySettlement');
+                const sAmt = document.getElementById('payCreditSummaryAmount');
+                const sCnt = document.getElementById('payCreditSummaryCount');
+                const sNot = document.getElementById('payCreditSummaryNotified');
+                const link = document.getElementById('payCreditReceiptLink');
+                if (sSet) sSet.textContent = data.settlement_number || '—';
+                if (sAmt) sAmt.textContent = '₱' + parseFloat(data.amount_paid || 0).toFixed(2);
+                if (sCnt) sCnt.textContent = String(data.settled_count || 0);
+                if (sNot) sNot.textContent = data.member_notified ? 'Yes (email sent)' : 'No email on file';
+                if (link && data.receipt_url) link.href = data.receipt_url;
+                submitPayCreditBtn.style.display = 'none';
+                showAlert(data.message || 'Credit paid successfully.', 'success');
+              } else {
+                showPayCreditAlert('<strong>Error:</strong> ' + escapeHtml(data.error || 'Payment failed.'), true);
+                submitPayCreditBtn.disabled = false;
+                submitPayCreditBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Confirm Pay Credit';
+              }
+            })
+            .catch(function (err) {
+              console.error('Pay credit error:', err);
+              showPayCreditAlert('Network error. Please try again.');
+              submitPayCreditBtn.disabled = false;
+              submitPayCreditBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Confirm Pay Credit';
+            });
+        });
+      }
+
+      payCreditModal.addEventListener('hidden.bs.modal', function () {
+        resetPayCreditModal();
+        if (payCreditSuccessSummary && payCreditSuccessSummary.style.display !== 'none') {
+          window.location.reload();
+        }
+      });
+      } // payCreditModal
+
+    })();
+
+    // Backup Data Modal Functionality
+    (function() {
+      const backupDataModal = document.getElementById('backupDataModal');
+      const backupDateInput = document.getElementById('backupDate');
+      const backupFormatInput = document.getElementById('backupFormat');
+      const downloadBackupBtn = document.getElementById('downloadBackupBtn');
+      const backupDataBtn = document.getElementById('backupDataBtn');
+
+      function openBackupModal() {
+        if (!backupDataModal || typeof bootstrap === 'undefined') return;
+        // Closing the Actions dropdown first avoids Bootstrap's dropdown+modal conflict.
+        const dropdownEl = document.getElementById('actionsDropdown');
+        const dropdown = dropdownEl ? bootstrap.Dropdown.getInstance(dropdownEl) : null;
+        if (dropdown) dropdown.hide();
+        const modal = bootstrap.Modal.getOrCreateInstance(backupDataModal);
+        modal.show();
+      }
+
+      if (backupDataBtn) {
+        backupDataBtn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          openBackupModal();
+        });
+      }
+
+      if (backupDataModal && backupDateInput) {
+        backupDataModal.addEventListener('show.bs.modal', function () {
+          const today = new Date().toISOString().split('T')[0];
+          if (!backupDateInput.value) backupDateInput.value = today;
+        });
+      }
+
+      if (downloadBackupBtn) {
+        downloadBackupBtn.addEventListener('click', function () {
+          const selectedDate = backupDateInput ? backupDateInput.value : '';
+          if (!selectedDate) {
+            if (backupDateInput) backupDateInput.focus();
+            return;
+          }
+          const format = backupFormatInput ? (backupFormatInput.value || 'xlsx') : 'xlsx';
+          const backupUrl = '{% url "backup_members_data" %}?date=' + encodeURIComponent(selectedDate) +
+            '&format=' + encodeURIComponent(format);
+          // Prefer a temporary link so download works even when nested in modals.
+          const link = document.createElement('a');
+          link.href = backupUrl;
+          link.style.display = 'none';
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+          if (backupDataModal && typeof bootstrap !== 'undefined') {
+            const modal = bootstrap.Modal.getInstance(backupDataModal);
+            if (modal) modal.hide();
+          }
+        });
+      }
+    })();
+
+    // ── Restore All Last Edits ────────────────────────────────────────────────
+    (function () {
+      function getToken() {
+        const t = document.querySelector('[name=csrfmiddlewaretoken]');
+        if (t) return t.value;
+        const m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+        return m ? m[1] : '';
+      }
+
+      const triggerBtn       = document.getElementById('restoreAllLastEditBtn');
+      const modal            = document.getElementById('restoreAllLastEditModal');
+      const confirmStep      = document.getElementById('restoreAllConfirmStep');
+      const resultStep       = document.getElementById('restoreAllResultStep');
+      const resultAlert      = document.getElementById('restoreAllResultAlert');
+      const restoredSection  = document.getElementById('restoreAllRestoredSection');
+      const skippedSection   = document.getElementById('restoreAllSkippedSection');
+      const restoredCount    = document.getElementById('restoreAllRestoredCount');
+      const skippedCount     = document.getElementById('restoreAllSkippedCount');
+      const restoredList     = document.getElementById('restoreAllRestoredList');
+      const skippedList      = document.getElementById('restoreAllSkippedList');
+      const footer           = document.getElementById('restoreAllFooter');
+      const confirmBtn       = document.getElementById('confirmRestoreAllBtn');
+
+      if (!triggerBtn || !modal) return;
+
+      triggerBtn.addEventListener('click', function (e) {
+        e.preventDefault();
+        // Reset to confirm step
+        confirmStep.style.display = '';
+        resultStep.style.display  = 'none';
+        footer.style.display      = '';
+        confirmBtn.disabled       = false;
+        confirmBtn.innerHTML      = '<i class="bi bi-clock-history me-1"></i>Restore';
+        bootstrap.Modal.getOrCreateInstance(modal).show();
+      });
+
+      confirmBtn.addEventListener('click', function () {
+        confirmBtn.disabled  = true;
+        confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Restoring…';
+
+        fetch('/api/members/restore-all-last-edit/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getToken() },
+          body: JSON.stringify({}),
+        })
+        .then(r => r.json())
+        .then(data => {
+          confirmStep.style.display = 'none';
+          resultStep.style.display  = '';
+          footer.innerHTML = '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>';
+
+          if (data.success) {
+            resultAlert.className = 'alert alert-success mb-3';
+            resultAlert.innerHTML = `<i class="bi bi-check-circle me-1"></i><strong>${data.message}</strong>`;
+
+            if (data.restored && data.restored.length) {
+              restoredCount.textContent = data.restored_count;
+              restoredList.innerHTML    = data.restored.map(n => `<li>${n}</li>`).join('');
+              restoredSection.style.display = '';
+            } else {
+              restoredSection.style.display = 'none';
+            }
+
+            if (data.skipped && data.skipped.length) {
+              skippedCount.textContent = data.skipped_count;
+              skippedList.innerHTML    = data.skipped.map(s => `<li><strong>${s.name}</strong> — ${s.reason}</li>`).join('');
+              skippedSection.style.display = '';
+            } else {
+              skippedSection.style.display = 'none';
+            }
+
+            // Reload table after short delay if anything was restored
+            if (data.restored_count > 0) {
+              setTimeout(() => location.reload(), 2000);
+            }
+          } else {
+            resultAlert.className = 'alert alert-danger mb-3';
+            resultAlert.innerHTML = `<i class="bi bi-x-circle me-1"></i>${data.error || 'An error occurred.'}`;
+            restoredSection.style.display = 'none';
+            skippedSection.style.display  = 'none';
+          }
+        })
+        .catch(() => {
+          confirmStep.style.display = 'none';
+          resultStep.style.display  = '';
+          footer.innerHTML = '<button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>';
+          resultAlert.className = 'alert alert-danger mb-3';
+          resultAlert.innerHTML = '<i class="bi bi-x-circle me-1"></i>Network error. Please try again.';
+          restoredSection.style.display = 'none';
+          skippedSection.style.display  = 'none';
+        });
+      });
+    })();
+
+    // Restore Members Modal Functionality
+    (function() {
+      function getCsrfToken() {
+        const token = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+        if (token) return token;
+        const name = 'csrftoken';
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+          const [key, value] = cookie.trim().split('=');
+          if (key === name) return value;
+        }
+        return '';
+      }
+
+      const restoreDataModal = document.getElementById('restoreDataModal');
+      const restoreDateInput = document.getElementById('restoreDate');
+      const confirmRestoreBtn = document.getElementById('confirmRestoreBtn');
+      const restoreAlert = document.getElementById('restoreAlert');
+      const restoreDataBtn = document.getElementById('restoreDataBtn');
+      const restoreAllCheckbox = document.getElementById('restoreAllCheckbox');
+      
+      // Handle restore data button click - close dropdown and open modal
+      if (restoreDataBtn) {
+        restoreDataBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          // Close the dropdown menu if it's open
+          const dropdown = bootstrap.Dropdown.getInstance(document.getElementById('actionsDropdown'));
+          if (dropdown) {
+            dropdown.hide();
+          }
+          // Let Bootstrap handle modal opening via data-bs-toggle
+        });
+      }
+
+      // Set default date to today when modal opens
+      if (restoreDataModal && restoreDateInput) {
+        restoreDataModal.addEventListener('show.bs.modal', () => {
+          const today = new Date().toISOString().split('T')[0];
+          restoreDateInput.value = today;
+          if (restoreAllCheckbox) restoreAllCheckbox.checked = false;
+          if (restoreDateInput) restoreDateInput.disabled = false;
+          restoreAlert.style.display = 'none';
+        });
+
+        // Toggle date input based on restore all checkbox
+        if (restoreAllCheckbox) {
+          restoreAllCheckbox.addEventListener('change', () => {
+            if (restoreDateInput) {
+              restoreDateInput.disabled = restoreAllCheckbox.checked;
+              restoreDateInput.required = !restoreAllCheckbox.checked;
+            }
+          });
+        }
+
+        // Handle restore button click
+        if (confirmRestoreBtn) {
+          confirmRestoreBtn.addEventListener('click', async () => {
+            const restoreAll = restoreAllCheckbox ? restoreAllCheckbox.checked : false;
+            const selectedDate = restoreDateInput ? restoreDateInput.value : '';
+
+            if (!restoreAll && !selectedDate) {
+              restoreAlert.className = 'alert alert-danger mt-3';
+              restoreAlert.innerHTML = 'Please select a backup date or check "Restore all inactive members"';
+              restoreAlert.style.display = 'block';
+              return;
+            }
+
+            // Confirm action
+            const confirmMessage = restoreAll 
+              ? 'Are you sure you want to restore ALL inactive/deleted members? This will reactivate them.'
+              : `Are you sure you want to restore all deleted/inactive members from ${selectedDate}? This will reactivate them.`;
+            
+            if (!confirm(confirmMessage)) {
+              return;
+            }
+
+            // Disable button and show loading
+            confirmRestoreBtn.disabled = true;
+            confirmRestoreBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Restoring...';
+
+            try {
+              const requestBody = restoreAll 
+                ? { restore_all: true }
+                : { date: selectedDate };
+
+              const response = await fetch('{% url "restore_members_data" %}', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify(requestBody)
+              });
+
+              const data = await response.json();
+
+              if (data.success) {
+                restoreAlert.className = 'alert alert-success mt-3';
+                restoreAlert.innerHTML = `
+                  <strong>Success!</strong> ${data.message}<br>
+                  <small>Restored ${data.restored_count} member(s).</small>
+                `;
+                restoreAlert.style.display = 'block';
+
+                // Reload page after 2 seconds to see restored members
+                setTimeout(() => {
+                  window.location.reload();
+                }, 2000);
+              } else {
+                restoreAlert.className = 'alert alert-danger mt-3';
+                restoreAlert.innerHTML = `<strong>Error:</strong> ${data.error || 'Failed to restore members'}`;
+                restoreAlert.style.display = 'block';
+                confirmRestoreBtn.disabled = false;
+                confirmRestoreBtn.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i>Restore Members';
+              }
+            } catch (error) {
+              restoreAlert.className = 'alert alert-danger mt-3';
+              restoreAlert.innerHTML = `<strong>Error:</strong> ${error.message}`;
+              restoreAlert.style.display = 'block';
+              confirmRestoreBtn.disabled = false;
+              confirmRestoreBtn.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i>Restore Members';
+            }
+          });
+        }
+      }
+    })();
+
+    // Restore Last Edit per-member functionality
+    (function() {
+      function getCsrfToken() {
+        const el = document.querySelector('[name=csrfmiddlewaretoken]');
+        return el ? el.value : '';
+      }
+
+      const modal = document.getElementById('restoreLastEditModal');
+      const loadingEl = document.getElementById('restoreLastEditLoading');
+      const contentEl = document.getElementById('restoreLastEditContent');
+      const alertEl = document.getElementById('restoreLastEditAlert');
+      const diffBody = document.getElementById('restoreLastEditDiffBody');
+      const dateEl = document.getElementById('restoreLastEditDate');
+      const byEl = document.getElementById('restoreLastEditBy');
+      const confirmBtn = document.getElementById('confirmRestoreLastEditBtn');
+
+      let pendingMemberId = null;
+
+      function showAlert(msg, type = 'danger') {
+        alertEl.className = `alert alert-${type}`;
+        alertEl.innerHTML = msg;
+        alertEl.style.display = 'block';
+      }
+
+      function fieldRow(label, current, previous) {
+        const changed = current !== previous;
+        const bgStyle = changed ? 'background:#fefce8;' : '';
+        const prevStyle = changed ? 'color:#ED1C24;font-weight:600;' : 'color:#64748b;';
+        const changedIcon = changed ? '<i class="bi bi-arrow-right text-warning mx-1" style="font-size:.75rem;"></i>' : '';
+        const currentStyle = changed ? 'text-decoration:line-through;color:#94a3b8;font-size:.8rem;' : 'color:#374151;';
+        const emDash = '<span class="text-muted">—</span>';
+        return `<tr style="${bgStyle}border-bottom:1px solid #f1f5f9;">
+          <td class="ps-3 py-2 text-muted fw-semibold" style="white-space:nowrap;font-size:.8rem;">${label}</td>
+          <td class="py-2" style="${currentStyle}">${current || emDash}</td>
+          <td class="pe-3 py-2" style="${prevStyle}">${changedIcon}${previous || emDash}</td>
+        </tr>`;
+      }
+
+      document.querySelectorAll('.restore-last-edit-btn').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          pendingMemberId = btn.dataset.memberId;
+          const memberName = btn.dataset.memberName;
+
+          // Reset modal state
+          loadingEl.style.display = 'block';
+          contentEl.style.display = 'none';
+          alertEl.style.display = 'none';
+          confirmBtn.style.display = 'none';
+          confirmBtn.disabled = false;
+          confirmBtn.innerHTML = '<i class="bi bi-clock-history me-1"></i>Restore';
+
+          document.getElementById('restoreLastEditSubtitle').textContent = memberName;
+
+          const bsModal = new bootstrap.Modal(modal);
+          bsModal.show();
+
+          try {
+            const resp = await fetch(`{% url 'api_get_member_last_edit' %}?member_id=${pendingMemberId}`);
+            const data = await resp.json();
+
+            loadingEl.style.display = 'none';
+
+            if (!data.success) {
+              showAlert(`<strong>No history found.</strong> ${data.error || 'This member has no recorded edit history yet.'}`);
+              return;
+            }
+
+            const s = data.snapshot;
+            const c = data.current;
+
+            diffBody.innerHTML = [
+              fieldRow('First Name', c.first_name, s.first_name),
+              fieldRow('Last Name', c.last_name, s.last_name),
+              fieldRow('Username', c.username, s.username),
+              fieldRow('Email', c.email, s.email),
+              fieldRow('Phone', c.phone, s.phone),
+              fieldRow('RFID Card', c.rfid_card_number, s.rfid_card_number),
+              fieldRow('Role', c.role_display || c.role, s.role_display || s.role),
+            ].join('');
+
+            dateEl.textContent = s.edited_at;
+            byEl.textContent = s.edited_by;
+
+            contentEl.style.display = 'block';
+            confirmBtn.style.display = 'inline-block';
+          } catch (err) {
+            loadingEl.style.display = 'none';
+            showAlert(`<strong>Error:</strong> ${err.message}`);
+          }
+        });
+      });
+
+      if (confirmBtn) {
+        confirmBtn.addEventListener('click', async () => {
+          if (!pendingMemberId) return;
+
+          confirmBtn.disabled = true;
+          confirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Restoring…';
+
+          try {
+            const resp = await fetch('{% url "api_restore_member_last_edit" %}', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCsrfToken(),
+              },
+              body: JSON.stringify({ member_id: pendingMemberId }),
+            });
+            const data = await resp.json();
+
+            if (data.success) {
+              showAlert(`<i class="bi bi-check-circle me-1"></i><strong>Restored!</strong> ${data.message}`, 'success');
+              confirmBtn.style.display = 'none';
+              contentEl.style.display = 'none';
+              setTimeout(() => window.location.reload(), 1500);
+            } else {
+              showAlert(`<strong>Error:</strong> ${data.error || 'Could not restore member.'}`);
+              confirmBtn.disabled = false;
+              confirmBtn.innerHTML = '<i class="bi bi-clock-history me-1"></i>Restore';
+            }
+          } catch (err) {
+            showAlert(`<strong>Error:</strong> ${err.message}`);
+            confirmBtn.disabled = false;
+            confirmBtn.innerHTML = '<i class="bi bi-clock-history me-1"></i>Restore';
+          }
+        });
+      }
+    })();
+
+    // Logout confirmation handler
+    (function() {
+      const logoutBtn = document.getElementById('logoutBtn');
+      const logoutForm = document.getElementById('logoutForm');
+      
+      if (logoutBtn && logoutForm) {
+        logoutBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          showLogoutConfirmModal();
+        });
+      }
+
+      function showLogoutConfirmModal() {
+        const modal = document.getElementById('logoutConfirmModal');
+        if (!modal) {
+          console.error('Logout confirmation modal not found');
+          // Fallback to browser confirm
+          if (confirm('Are you sure you want to logout?')) {
+            logoutForm.submit();
+          }
+          return;
+        }
+        
+        // Check if Bootstrap is available
+        if (typeof bootstrap === 'undefined') {
+          console.error('Bootstrap is not loaded');
+          // Fallback to browser confirm
+          if (confirm('Are you sure you want to logout?')) {
+            logoutForm.submit();
+          }
+          return;
+        }
+        
+        // Get or create modal instance
+        let bsModal = bootstrap.Modal.getInstance(modal);
+        if (!bsModal) {
+          bsModal = new bootstrap.Modal(modal, {
+            backdrop: true,
+            keyboard: true,
+            focus: true
+          });
+        }
+        
+        // Remove existing event listeners to prevent duplicates
+        const confirmBtn = modal.querySelector('.btn-confirm');
+        const cancelBtn = modal.querySelector('.btn-cancel');
+        
+        // Clone and replace buttons to remove old listeners
+        if (confirmBtn) {
+          const newConfirmBtn = confirmBtn.cloneNode(true);
+          confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+          newConfirmBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            bsModal.hide();
+            setTimeout(function() {
+              logoutForm.submit();
+            }, 300);
+          });
+        }
+        
+        if (cancelBtn) {
+          const newCancelBtn = cancelBtn.cloneNode(true);
+          cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+          newCancelBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            bsModal.hide();
+          });
+        }
+        
+        // Show modal
+        try {
+          bsModal.show();
+        } catch (error) {
+          console.error('Error showing modal:', error);
+          // Fallback to browser confirm
+          if (confirm('Are you sure you want to logout?')) {
+            logoutForm.submit();
+          }
+        }
+      }
+    })();
+  </script>
+
+  <!-- Reset PIN Attempts Confirmation Modal -->
+  <div class="modal fade" id="resetPinModal" tabindex="-1" aria-labelledby="resetPinModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title" id="resetPinModalLabel">
+            <i class="bi bi-arrow-counterclockwise me-2"></i>Reset PIN Attempts
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body text-center py-4">
+          <i class="bi bi-lock-fill text-danger" style="font-size:2.5rem;"></i>
+          <p class="mt-3 mb-1 fw-semibold fs-5" id="resetPinMemberName"></p>
+          <p class="text-muted" id="resetPinStatusText"></p>
+          <p class="mt-2">This will unlock the account and reset the failed attempt counter to <strong>0</strong>.</p>
+          <div id="resetPinAlert" style="display:none;" class="alert mt-2"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-danger" id="confirmResetPinBtn">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Attempts
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ---------- Reset PIN Attempts ----------
+    (function () {
+      let currentResetMemberId = null;
+
+      document.addEventListener('click', function (e) {
+        const btn = e.target.closest('.reset-pin-btn');
+        if (!btn) return;
+
+        currentResetMemberId = btn.dataset.memberId;
+        const name = btn.dataset.memberName;
+        const locked = btn.dataset.isLocked === 'true';
+        const attempts = parseInt(btn.dataset.attempts, 10);
+
+        document.getElementById('resetPinMemberName').textContent = name;
+        document.getElementById('resetPinStatusText').textContent = locked
+          ? 'Account is currently LOCKED (5 failed attempts).'
+          : `Failed attempts: ${attempts}/5`;
+
+        const alertEl = document.getElementById('resetPinAlert');
+        alertEl.style.display = 'none';
+        alertEl.textContent = '';
+
+        const modal = new bootstrap.Modal(document.getElementById('resetPinModal'));
+        modal.show();
+      });
+
+      document.getElementById('confirmResetPinBtn').addEventListener('click', function () {
+        if (!currentResetMemberId) return;
+
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Resetting…';
+
+        const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+        fetch('{% url "api_reset_pin_attempts" %}', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+          body: JSON.stringify({ member_id: currentResetMemberId }),
+        })
+          .then(r => r.json())
+          .then(data => {
+            const alertEl = document.getElementById('resetPinAlert');
+            if (data.success) {
+              alertEl.className = 'alert alert-success mt-2';
+              alertEl.textContent = data.message;
+              alertEl.style.display = 'block';
+              setTimeout(() => {
+                bootstrap.Modal.getInstance(document.getElementById('resetPinModal')).hide();
+                location.reload();
+              }, 1200);
+            } else {
+              alertEl.className = 'alert alert-danger mt-2';
+              alertEl.textContent = data.error || 'Failed to reset PIN attempts.';
+              alertEl.style.display = 'block';
+              btn.disabled = false;
+              btn.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i>Reset Attempts';
+            }
+          })
+          .catch(() => {
+            const alertEl = document.getElementById('resetPinAlert');
+            alertEl.className = 'alert alert-danger mt-2';
+            alertEl.textContent = 'Network error. Please try again.';
+            alertEl.style.display = 'block';
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-arrow-counterclockwise me-1"></i>Reset Attempts';
+          });
+      });
+    })();
+  </script>
+
+  <!-- Logout Confirmation Modal -->
+  <div class="modal fade" id="logoutConfirmModal" tabindex="-1" aria-labelledby="logoutConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="logoutConfirmModalLabel">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            Confirm Logout
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <i class="bi bi-exclamation-triangle-fill warning-icon"></i>
+          <p>Are you sure you want to logout?</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-cancel" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-confirm">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% include 'admin_panel/partials/admin_nav_footer.html' %}
+
+  {% include 'admin_panel/partials/footer.html' %}
+
+</body>
+</html>

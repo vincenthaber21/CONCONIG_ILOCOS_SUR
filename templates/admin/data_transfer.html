@@ -1,0 +1,271 @@
+{% extends "admin/base_site.html" %}
+{% load i18n static %}
+
+{% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+  <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+  &rsaquo; {{ title }}
+</div>
+{% endblock %}
+
+{% block content %}
+<style>
+  .dt-wrap { max-width: 980px; }
+  .dt-hero {
+    background: linear-gradient(135deg, #1a1a1a 0%, #333 55%, #ED1C24 160%);
+    color: #fff;
+    border-radius: 10px;
+    padding: 22px 26px;
+    margin-bottom: 22px;
+  }
+  .dt-hero h1 { margin: 0 0 8px; font-size: 1.45rem; color: #fff; }
+  .dt-hero p { margin: 0; opacity: 0.9; font-size: 0.95rem; max-width: 640px; }
+  .dt-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    margin-bottom: 22px;
+  }
+  @media (max-width: 800px) {
+    .dt-grid { grid-template-columns: 1fr; }
+  }
+  .dt-card {
+    background: var(--body-bg, #fff);
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 8px;
+    padding: 18px 20px;
+  }
+  .dt-card h2 {
+    margin: 0 0 6px;
+    font-size: 1.15rem;
+  }
+  .dt-card .hint {
+    color: var(--body-quiet-color, #666);
+    font-size: 0.88rem;
+    margin: 0 0 14px;
+  }
+  .dt-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-top: 14px;
+  }
+  .dt-btn {
+    display: inline-block;
+    border: none;
+    border-radius: 4px;
+    padding: 10px 18px;
+    font-weight: 600;
+    cursor: pointer;
+    text-decoration: none;
+    font-size: 0.92rem;
+  }
+  .dt-btn-primary { background: #ED1C24; color: #fff; }
+  .dt-btn-primary:hover { background: #d96f12; color: #fff; }
+  .dt-btn-secondary { background: #417690; color: #fff; }
+  .dt-btn-secondary:hover { background: #205067; color: #fff; }
+  .dt-btn-muted { background: #888; color: #fff; }
+  .dt-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  .dt-table th, .dt-table td {
+    border-bottom: 1px solid var(--border-color, #e5e5e5);
+    padding: 8px 6px;
+    text-align: left;
+  }
+  .dt-table th { font-weight: 600; }
+  .dt-group-title {
+    margin: 18px 0 8px;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #ED1C24;
+  }
+  .dt-badge {
+    display: inline-block;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 3px;
+    background: #eee;
+    color: #444;
+  }
+  .dt-badge-ok { background: #e8f5e9; color: #2e7d32; }
+  .dt-badge-err { background: #fdecea; color: #c62828; }
+  .dt-badge-skip { background: #f5f5f5; color: #666; }
+  .dt-results {
+    margin-top: 18px;
+    border: 1px solid var(--border-color, #ddd);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  .dt-check-all { margin-bottom: 10px; font-size: 0.9rem; }
+  .dt-format label { margin-right: 12px; font-size: 0.9rem; }
+  .dt-file { margin-top: 8px; }
+</style>
+
+<div class="dt-wrap">
+  <div class="dt-hero">
+    <h1>Export / Import all database data</h1>
+    <p>
+      Full backup of the database: products, members, <strong>purchases / transactions / revenue</strong>,
+      stock history, store profile, and <strong>media files</strong> (store logo, product images).
+      Download as a ZIP, then upload the same ZIP to restore on another machine or after a reset.
+    </p>
+    <p style="margin-top:10px;opacity:0.85;font-size:0.85rem;">
+      Total table rows currently selected:
+      <strong>{{ total_rows }}</strong>
+    </p>
+  </div>
+
+  <form method="post" enctype="multipart/form-data" id="dt-form">
+    {% csrf_token %}
+
+    <div class="dt-grid">
+      <div class="dt-card">
+        <h2>1. Export all data</h2>
+        <p class="hint">
+          Creates a ZIP with one CSV/Excel file per table, plus a <code>media/</code> folder
+          (logos and product images) and <code>manifest.json</code>.
+        </p>
+        <div class="dt-format">
+          <label><input type="radio" name="file_format" value="csv" checked> CSV</label>
+          <label><input type="radio" name="file_format" value="xlsx"> Excel (XLSX)</label>
+        </div>
+        <label style="display:block;margin-top:10px;font-size:0.9rem;">
+          <input type="checkbox" name="include_media" value="1" checked>
+          Include media files (store logo, product images, barcodes)
+        </label>
+        <div class="dt-actions">
+          <button type="submit" name="action" value="export" class="dt-btn dt-btn-primary">
+            Download full ZIP backup
+          </button>
+        </div>
+      </div>
+
+      <div class="dt-card">
+        <h2>2. Import all data</h2>
+        <p class="hint">
+          Upload a ZIP from this page to restore tables and media.
+          Prefer a dry-run first. For a real restore, <strong>uncheck Dry-run</strong>.
+        </p>
+        <div class="dt-file">
+          <input type="file" name="import_file" accept=".zip,application/zip">
+        </div>
+        <label style="display:block;margin-top:10px;font-size:0.9rem;">
+          <input type="checkbox" name="dry_run" value="1" checked>
+          Dry-run only (validate, do not save)
+        </label>
+        <label style="display:block;margin-top:6px;font-size:0.9rem;">
+          <input type="checkbox" name="restore_media" value="1" checked>
+          Restore media files (logo &amp; product images)
+        </label>
+        <div class="dt-actions">
+          <button type="submit" name="action" value="import" class="dt-btn dt-btn-secondary">
+            Import from ZIP
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="dt-card">
+      <h2>Tables included</h2>
+      <p class="hint">Uncheck any table you want to skip for this export or import.</p>
+      <div class="dt-check-all">
+        <label>
+          <input type="checkbox" id="dt-toggle-all" checked>
+          Select / deselect all
+        </label>
+      </div>
+
+      {% for group_name, rows in groups.items %}
+        <div class="dt-group-title">{{ group_name }}</div>
+        <table class="dt-table">
+          <thead>
+            <tr>
+              <th style="width:36px;"></th>
+              <th>Table</th>
+              <th>Rows</th>
+              <th>Import?</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+            <tr>
+              <td>
+                <input type="checkbox" name="datasets" value="{{ row.key }}" class="dt-ds" checked>
+              </td>
+              <td>{{ row.label }}</td>
+              <td>{{ row.count }}</td>
+              <td>
+                {% if row.importable %}
+                  <span class="dt-badge dt-badge-ok">Import + Export</span>
+                {% else %}
+                  <span class="dt-badge dt-badge-skip">Export only</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      {% endfor %}
+    </div>
+  </form>
+
+  {% if import_results %}
+  <div class="dt-results">
+    <h2 style="margin-top:0;">Import results</h2>
+    <table class="dt-table">
+      <thead>
+        <tr>
+          <th>Table</th>
+          <th>Status</th>
+          <th>New</th>
+          <th>Updated</th>
+          <th>Skipped</th>
+          <th>Errors</th>
+          <th>Message</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in import_results %}
+        <tr>
+          <td>{{ r.label }}</td>
+          <td>
+            {% if r.status == 'ok' or r.status == 'dry_run_ok' %}
+              <span class="dt-badge dt-badge-ok">{{ r.status }}</span>
+            {% elif r.status == 'error' %}
+              <span class="dt-badge dt-badge-err">error</span>
+            {% else %}
+              <span class="dt-badge dt-badge-skip">{{ r.status }}</span>
+            {% endif %}
+          </td>
+          <td>{{ r.totals.new|default:"—" }}</td>
+          <td>{{ r.totals.update|default:"—" }}</td>
+          <td>{{ r.totals.skip|default:"—" }}</td>
+          <td>{{ r.totals.error|default:"—" }}</td>
+          <td style="max-width:280px;word-break:break-word;">{{ r.message }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <p style="margin-top:18px;">
+    <a href="{% url 'admin:index' %}">&larr; Back to admin home</a>
+  </p>
+</div>
+
+<script>
+(function () {
+  var toggle = document.getElementById('dt-toggle-all');
+  if (!toggle) return;
+  toggle.addEventListener('change', function () {
+    document.querySelectorAll('.dt-ds').forEach(function (cb) {
+      cb.checked = toggle.checked;
+    });
+  });
+})();
+</script>
+{% endblock %}

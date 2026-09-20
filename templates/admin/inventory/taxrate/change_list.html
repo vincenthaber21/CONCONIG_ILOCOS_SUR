@@ -1,0 +1,57 @@
+{% extends "admin/import_export/change_list_import_export.html" %}
+{% load i18n %}
+
+{% block content %}
+<div style="margin-bottom:18px;padding:14px 18px;border-radius:6px;border:1px solid {% if tax_system_enabled %}#ED1C24{% else %}#c0392b{% endif %};background:{% if tax_system_enabled %}#f0faf3{% else %}#fdf2f2{% endif %};">
+    <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;">
+        <div>
+            <div style="font-size:1rem;font-weight:700;color:#222;margin-bottom:4px;">
+                System-wide tax calculation:
+                {% if tax_system_enabled %}
+                    <span style="color:#ED1C24;">Enabled</span>
+                {% else %}
+                    <span style="color:#c0392b;">Disabled</span>
+                {% endif %}
+            </div>
+            <div style="font-size:0.85rem;color:#555;max-width:720px;">
+                When disabled, the kiosk, receipts, and new transactions will not compute or store tax.
+                Individual tax rates below can still be enabled or disabled for when tax is turned back on.
+            </div>
+            {% if active_tax_rate %}
+            <div style="font-size:0.82rem;color:#666;margin-top:6px;">
+                Active rate used at checkout:
+                <strong>{{ active_tax_rate.name }} ({{ active_tax_rate.rate }}%)</strong>
+            </div>
+            {% elif tax_system_enabled %}
+            <div style="font-size:0.82rem;color:#c0392b;margin-top:6px;">
+                Tax is enabled but no active tax rate is configured. Enable at least one rate below.
+            </div>
+            {% endif %}
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            {% if tax_system_enabled %}
+            <form method="post" style="margin:0;">
+                {% csrf_token %}
+                <input type="hidden" name="_toggle_system_tax" value="1">
+                <input type="hidden" name="tax_system_action" value="disable">
+                <button type="submit"
+                        style="background:#c0392b;color:#fff;border:none;padding:8px 16px;border-radius:4px;font-weight:600;cursor:pointer;">
+                    Disable tax system
+                </button>
+            </form>
+            {% else %}
+            <form method="post" style="margin:0;">
+                {% csrf_token %}
+                <input type="hidden" name="_toggle_system_tax" value="1">
+                <input type="hidden" name="tax_system_action" value="enable">
+                <button type="submit"
+                        style="background:#ED1C24;color:#fff;border:none;padding:8px 16px;border-radius:4px;font-weight:600;cursor:pointer;">
+                    Enable tax system
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{{ block.super }}
+{% endblock %}

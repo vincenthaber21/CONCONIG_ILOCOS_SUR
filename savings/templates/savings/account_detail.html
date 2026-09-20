@@ -1,0 +1,1029 @@
+{% extends "savings/base_savings.html" %}
+{% load currency_filters %}
+{% block title %}{{ account.account_number }}{% endblock %}
+{% block content %}
+<div class="acct-detail">
+  <header class="acct-detail__header">
+    <div class="acct-detail__header-main">
+      <a class="acct-detail__back" href="{% url 'savings:overview' %}">
+        <i class="bi bi-arrow-left"></i> All accounts
+      </a>
+      <div class="acct-detail__title-row">
+        <h1>{{ account.member.full_name }}</h1>
+        <span class="status-pill status-pill--{{ account.status }}">{{ account.get_status_display }}</span>
+      </div>
+      <p class="acct-detail__meta">
+        <span><i class="bi bi-upc"></i> {{ account.account_number }}</span>
+        <span><i class="bi bi-piggy-bank"></i> Regular Savings</span>
+        {% if account.member.member_status %}
+        <span><i class="bi bi-person-badge"></i> {{ account.member.member_status.name }}</span>
+        {% elif account.member.membership_status %}
+        <span><i class="bi bi-person-badge"></i> {{ account.member.membership_status }}</span>
+        {% endif %}
+        <span><i class="bi bi-calendar3"></i> Opened {{ account.opened_at|date:"M j, Y" }}</span>
+        {% if account.closed_at %}
+        <span><i class="bi bi-x-circle"></i> Closed {{ account.closed_at|date:"M j, Y" }}</span>
+        {% endif %}
+      </p>
+    </div>
+  </header>
+
+  <div class="acct-detail__stats">
+    <section class="acct-balance-card">
+      <div class="acct-balance-card__label">Current balance</div>
+      <div class="acct-balance-card__amount">&#8369;{{ account.balance|currency }}</div>
+      <div class="acct-balance-card__hint">
+        {% if account.can_transact %}Available for deposit{% if account.product.allows_withdrawal %} &amp; withdrawal{% endif %}
+        {% else %}Account is {{ account.get_status_display|lower }}{% endif %}
+      </div>
+    </section>
+    <section class="card acct-policy-card">
+      <h2>Regular Savings</h2>
+      <dl class="acct-policy-card__list">
+        <div>
+          <dt>Interest</dt>
+          <dd>
+            {{ interest.annual_rate_display }} / year · monthly on opening anniversary
+          </dd>
+        </div>
+        {% if interest.last_withdrawal_at %}
+        <div>
+          <dt>Last withdrawal</dt>
+          <dd>{{ interest.last_withdrawal_at|date:"M j, Y" }}</dd>
+        </div>
+        {% endif %}
+        <div>
+          <dt>Opening min</dt>
+          <dd>&#8369;1,000.00</dd>
+        </div>
+        <div>
+          <dt>Maximum</dt>
+          <dd>&#8369;1,000,000.00</dd>
+        </div>
+        <div>
+          <dt>Term</dt>
+          <dd>{% if account.product.term_months %}{{ account.product.term_months }} months{% else %}Open-ended{% endif %}</dd>
+        </div>
+        <div>
+          <dt>Withdrawals</dt>
+          <dd>{% if account.product.allows_withdrawal %}Allowed{% else %}Not allowed{% endif %}</dd>
+        </div>
+        {% if account.maturity_date %}
+        <div>
+          <dt>Matures</dt>
+          <dd>{{ account.maturity_date|date:"M j, Y" }}</dd>
+        </div>
+        {% endif %}
+        <div>
+          <dt>Opened</dt>
+          <dd>{{ account.opened_at|date:"M j, Y" }}</dd>
+        </div>
+        <div>
+          <dt>Next interest</dt>
+          <dd>
+            {% if interest.next_credit_on %}
+            {{ interest.next_credit_on|date:"M j, Y" }}{% if interest.interest_due %} <small class="acct-rate-note">(due)</small>{% endif %}
+            {% else %}
+            —
+            {% endif %}
+          </dd>
+        </div>
+      </dl>
+      {% if account.can_transact %}
+      <p class="acct-auto-interest">
+        <i class="bi bi-percent"></i>
+        Interest is credited <strong>automatically</strong> each month on the opening anniversary
+        {% if interest.next_credit_on %}
+        (next: {{ interest.next_credit_on|date:"M j, Y" }})
+        {% endif %}.
+      </p>
+      {% endif %}
+    </section>
+  </div>
+
+  {% if account.can_transact %}
+  <section class="card acct-move-card">
+    <div class="acct-section-head">
+      <h2>Deposit or withdraw</h2>
+      <p>Choose the type first, enter the amount, then review before posting.</p>
+    </div>
+    <form method="post" action="{% url 'savings:account-move' account.pk %}" class="acct-move-form" id="savingsMoveForm" autocomplete="off" novalidate>
+      {% csrf_token %}
+      <input type="hidden" name="action" id="savingsMoveAction" value="deposit">
+
+      <div class="acct-move-type" role="radiogroup" aria-label="Transaction type">
+        <button type="button" class="acct-move-type__btn is-active" data-savings-action="deposit" id="savingsDepositTypeBtn" aria-pressed="true">
+          <span class="acct-move-type__icon" aria-hidden="true"><i class="bi bi-arrow-down-circle"></i></span>
+          <span class="acct-move-type__copy">
+            <strong>Deposit</strong>
+            <small>Add money to this account</small>
+          </span>
+        </button>
+        {% if account.product.allows_withdrawal %}
+        <button type="button" class="acct-move-type__btn acct-move-type__btn--out" data-savings-action="withdraw" id="savingsWithdrawTypeBtn" aria-pressed="false">
+          <span class="acct-move-type__icon" aria-hidden="true"><i class="bi bi-arrow-up-circle"></i></span>
+          <span class="acct-move-type__copy">
+            <strong>Withdraw</strong>
+            <small>Pay money out to the member</small>
+          </span>
+        </button>
+        {% endif %}
+      </div>
+
+      <div class="acct-move-form__row">
+        <div class="acct-move-form__field acct-move-form__field--amount">
+          <label for="{{ movement_form.amount.id_for_label }}">Amount</label>
+          <div class="acct-money acct-money--lg">
+            <span>&#8369;</span>
+            {{ movement_form.amount }}
+          </div>
+          <div class="acct-move-chips" role="group" aria-label="Common amounts">
+            <button type="button" class="acct-move-chip" data-amount="500">₱500</button>
+            <button type="button" class="acct-move-chip" data-amount="1000">₱1,000</button>
+            <button type="button" class="acct-move-chip" data-amount="5000">₱5,000</button>
+            <button type="button" class="acct-move-chip" data-amount="10000">₱10,000</button>
+          </div>
+          <small class="acct-move-error" id="savingsMoveAmountError" hidden>Enter a valid amount greater than zero.</small>
+        </div>
+        <div class="acct-move-form__field acct-move-form__field--grow">
+          <label for="{{ movement_form.notes.id_for_label }}">Notes <span class="acct-optional">(optional)</span></label>
+          {{ movement_form.notes }}
+          <small class="acct-move-hint">e.g. cash on hand, passbook update, payroll</small>
+        </div>
+      </div>
+
+      <div class="acct-move-footer">
+        <div class="acct-move-preview" id="savingsMovePreview">
+          <div class="acct-move-preview__item">
+            <span>Current</span>
+            <strong>&#8369;{{ account.balance|currency }}</strong>
+          </div>
+          <i class="bi bi-arrow-right acct-move-preview__arrow" aria-hidden="true"></i>
+          <div class="acct-move-preview__item">
+            <span id="savingsMoveAfterLabel">After deposit</span>
+            <strong id="savingsMoveAfterValue">&#8369;{{ account.balance|currency }}</strong>
+          </div>
+        </div>
+        <button type="button" class="acct-move-submit acct-move-submit--in" id="savingsMoveSubmitBtn">
+          <i class="bi bi-plus-lg"></i> Review deposit
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <div class="modal fade" id="confirmSavingsMoveModal" tabindex="-1" aria-labelledby="confirmSavingsMoveModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content acct-modal">
+        <div class="modal-header acct-modal__header" id="confirmSavingsMoveHeader">
+          <h5 class="modal-title" id="confirmSavingsMoveModalLabel">
+            <i class="bi bi-shield-check me-2"></i>Confirm transaction
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cancel"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-3">
+            Please review this transaction for
+            <strong>{{ account.member.full_name }}</strong>
+            (<span class="text-muted">({{ account.account_number }})</span>
+            before posting.
+          </p>
+          <dl class="acct-confirm-summary">
+            <div>
+              <dt>Action</dt>
+              <dd id="confirmMoveActionLabel">—</dd>
+            </div>
+            <div>
+              <dt>Amount</dt>
+              <dd id="confirmMoveAmountLabel">—</dd>
+            </div>
+            <div>
+              <dt>Current balance</dt>
+              <dd>&#8369;{{ account.balance|currency }}</dd>
+            </div>
+            <div id="confirmMoveBalanceRow" hidden>
+              <dt>Balance after</dt>
+              <dd id="confirmMoveBalanceAfter">—</dd>
+            </div>
+            <div id="confirmMoveNotesRow" hidden>
+              <dt>Notes</dt>
+              <dd id="confirmMoveNotesLabel">—</dd>
+            </div>
+          </dl>
+          <div class="form-check mt-3">
+            <input class="form-check-input" type="checkbox" id="confirmMoveAck" value="1">
+            <label class="form-check-label" for="confirmMoveAck">
+              I verified the amount and authorize posting this transaction.
+            </label>
+          </div>
+          <small class="text-danger d-block mt-2" id="confirmMoveAckError" hidden>
+            Check the box to continue.
+          </small>
+        </div>
+        <div class="modal-footer acct-modal__footer">
+          <button type="button" class="btn--secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn-loan" id="confirmSavingsMoveBtn">
+            Yes, post transaction
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <section class="card acct-ledger-card">
+    <div class="acct-section-head acct-section-head--row">
+      <div>
+        <h2>Transaction ledger</h2>
+        <p>Latest movements on this account.</p>
+      </div>
+      {% if ledger %}
+      <a class="btn--secondary" href="{% url 'savings:account-receipts-all' account.pk %}" target="_blank" rel="noopener">
+        <i class="bi bi-printer me-1"></i>Print all receipts
+      </a>
+      {% endif %}
+    </div>
+    <div class="acct-ledger-table-wrap">
+      <table class="acct-ledger-table">
+        <thead>
+          <tr>
+            <th>When</th>
+            <th>Type</th>
+            <th class="text-end">Amount</th>
+            <th class="text-end">Balance after</th>
+            <th>Reference</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for txn in ledger %}
+          <tr>
+            <td>
+              <div class="acct-ledger-when">{{ txn.created_at|date:"M j, Y" }}</div>
+              <small>{{ txn.created_at|date:"g:i A" }}</small>
+            </td>
+            <td>
+              <span class="acct-txn-type acct-txn-type--{{ txn.transaction_type }}">
+                {{ txn.get_transaction_type_display }}
+              </span>
+            </td>
+            <td class="text-end fw-semibold {% if txn.is_credit %}acct-amt--in{% else %}acct-amt--out{% endif %}">
+              {% if txn.is_credit %}+{% else %}−{% endif %}&#8369;{{ txn.amount|currency }}
+            </td>
+            <td class="text-end">&#8369;{{ txn.balance_after|currency }}</td>
+            <td><code class="acct-ref">{{ txn.reference }}</code></td>
+            <td class="text-end">
+              <a class="btn--secondary btn--sm" href="{% url 'savings:transaction-receipt' account.pk txn.pk %}" target="_blank" rel="noopener">
+                Receipt
+              </a>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="6" class="acct-ledger-empty">No movements yet.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  {% if can_close %}
+  <section class="card acct-close-card">
+    <div class="acct-close-card__body">
+      <div>
+        <h2>Close account</h2>
+        <p>
+          Withdraws the remaining balance of
+          <strong>&#8369;{{ account.balance|currency }}</strong>
+          and marks this account closed. The member will not be able to open a
+          savings account again.
+        </p>
+      </div>
+      <button type="button" class="btn-loan btn-loan--danger" data-bs-toggle="modal" data-bs-target="#closeSavingsAccountModal">
+        <i class="bi bi-x-circle me-1"></i>Close account
+      </button>
+    </div>
+  </section>
+
+  <div class="modal fade" id="closeSavingsAccountModal" tabindex="-1" aria-labelledby="closeSavingsAccountModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content acct-modal">
+        <form method="post" action="{% url 'savings:account-close' account.pk %}" id="closeSavingsAccountForm">
+          {% csrf_token %}
+          <div class="modal-header acct-modal__header">
+            <h5 class="modal-title" id="closeSavingsAccountModalLabel">
+              <i class="bi bi-exclamation-triangle me-2"></i>Close this savings account?
+            </h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cancel"></button>
+          </div>
+          <div class="modal-body">
+            <p class="mb-3">
+              You are about to close
+              <strong>{{ account.account_number }}</strong>
+              for <strong>{{ account.member.full_name }}</strong>.
+            </p>
+            <ul class="acct-modal__list">
+              <li>Withdraw remaining balance of <strong>&#8369;{{ account.balance|currency }}</strong></li>
+              <li>Savings account status → <strong>Closed</strong></li>
+              <li>Member <strong>cannot open a savings account again</strong></li>
+              <li>Optional: set member status to <strong>Resign</strong> (savings only — other services stay available)</li>
+            </ul>
+            <div class="mb-3">
+              <label class="form-label fw-semibold" for="{{ close_form.notes.id_for_label }}">{{ close_form.notes.label }}</label>
+              {{ close_form.notes }}
+            </div>
+            <div class="form-check">
+              {{ close_form.mark_member_resign }}
+              <label class="form-check-label" for="{{ close_form.mark_member_resign.id_for_label }}">
+                {{ close_form.mark_member_resign.label }}
+              </label>
+            </div>
+            {% if close_form.mark_member_resign.help_text %}
+            <small class="text-muted d-block mt-1">{{ close_form.mark_member_resign.help_text }}</small>
+            {% endif %}
+            <div class="form-check mt-3">
+              <input class="form-check-input" type="checkbox" id="confirmCloseAck" value="1">
+              <label class="form-check-label" for="confirmCloseAck">
+                I understand closing permanently bars this member from opening savings again.
+              </label>
+            </div>
+            <small class="text-danger d-block mt-2" id="confirmCloseAckError" hidden>
+              Check the box to continue.
+            </small>
+          </div>
+          <div class="modal-footer acct-modal__footer">
+            <button type="button" class="btn--secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn-loan btn-loan--danger" id="confirmCloseSavingsBtn">
+              Yes, close account
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+<style>
+  /* Desktop-first desk layout; stacks cleanly on tablet/phone */
+  .acct-detail {
+    width: 100%;
+    max-width: 1400px;
+    margin-inline: auto;
+    box-sizing: border-box;
+  }
+
+  .acct-detail__header { margin-bottom: 1.35rem; }
+  .acct-detail__back {
+    display: inline-flex; align-items: center; gap: .4rem;
+    color: #64748b; text-decoration: none; font-size: .88rem; font-weight: 500; margin-bottom: .65rem;
+  }
+  .acct-detail__back:hover { color: #334155; }
+  .acct-detail__title-row {
+    display: flex; flex-wrap: wrap; align-items: center; gap: .65rem .85rem; margin-bottom: .45rem;
+  }
+  .acct-detail__title-row h1 {
+    margin: 0;
+    font-size: clamp(1.35rem, 1.1rem + 1vw, 1.85rem);
+  }
+  .acct-detail__meta {
+    display: flex; flex-wrap: wrap; gap: .35rem .9rem; margin: 0;
+    color: #64748b; font-size: .88rem;
+  }
+  .acct-detail__meta span { display: inline-flex; align-items: center; gap: .35rem; }
+  .acct-detail__meta i { color: #94a3b8; }
+
+  .acct-detail__stats {
+    display: grid;
+    grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: stretch;
+    margin-bottom: 1.25rem;
+  }
+
+  .acct-balance-card {
+    background: var(--gradient);
+    color: #fff;
+    border-radius: 18px;
+    padding: 1.5rem 1.6rem;
+    box-shadow: 0 16px 36px rgba(237, 28, 36, .28);
+    width: 100%;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+  .acct-balance-card__label {
+    font-size: .75rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .06em; opacity: .85; margin-bottom: .45rem;
+  }
+  .acct-balance-card__amount {
+    font-size: clamp(1.75rem, 1.2rem + 1.6vw, 2.6rem);
+    font-weight: 800; line-height: 1.15; margin-bottom: .5rem;
+    font-variant-numeric: tabular-nums;
+    word-break: break-word;
+  }
+  .acct-balance-card__hint { font-size: .88rem; opacity: .92; line-height: 1.4; }
+
+  .acct-policy-card {
+    margin-bottom: 0;
+    height: 100%;
+    box-sizing: border-box;
+  }
+  .acct-policy-card h2,
+  .acct-move-card h2,
+  .acct-ledger-card h2,
+  .acct-close-card h2 {
+    font-size: 1.05rem; margin: 0 0 .2rem;
+  }
+  .acct-policy-card__list {
+    margin: .85rem 0 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 1.5rem;
+  }
+  .acct-policy-card__list > div {
+    display: flex; justify-content: space-between; gap: .75rem;
+    padding: .55rem 0; border-bottom: 1px solid #f1f5f9; font-size: .88rem;
+  }
+  .acct-policy-card__list > div:nth-last-child(-n+2) { border-bottom: none; }
+  .acct-policy-card__list dt { margin: 0; color: #64748b; font-weight: 500; }
+  .acct-policy-card__list dd { margin: 0; font-weight: 600; color: #0f172a; text-align: right; }
+  .acct-rate-note {
+    display: inline; margin-top: 0; font-weight: 500; font-size: .75rem;
+    color: #64748b;
+  }
+  .acct-rate-note--loyalty { color: #166534; }
+  .acct-auto-interest {
+    margin: .95rem 0 0;
+    padding: .7rem 1rem;
+    border-radius: 12px;
+    background: #eef2f7;
+    color: #475569;
+    font-size: .88rem;
+    display: flex;
+    align-items: flex-start;
+    gap: .5rem;
+    line-height: 1.45;
+  }
+  .acct-auto-interest i { flex-shrink: 0; margin-top: .15rem; }
+
+  .acct-section-head { margin-bottom: 1.1rem; }
+  .acct-section-head p { margin: 0; color: #64748b; font-size: .86rem; }
+  .acct-section-head--row {
+    display: flex; flex-wrap: wrap; align-items: flex-start;
+    justify-content: space-between; gap: .75rem;
+  }
+
+  .acct-move-card,
+  .acct-ledger-card,
+  .acct-close-card,
+  .acct-policy-card {
+    padding: 1.35rem 1.5rem;
+  }
+
+  .acct-move-form { display: block; }
+  .acct-move-type {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+  .acct-move-type:has(> :only-child) { grid-template-columns: 1fr; }
+  .acct-move-type__btn {
+    display: flex; align-items: center; gap: .95rem;
+    width: 100%; text-align: left;
+    padding: 1.05rem 1.2rem;
+    border: 2px solid #e2e8f0;
+    background: #fff;
+    border-radius: 14px;
+    cursor: pointer;
+    color: inherit;
+    transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+  }
+  .acct-move-type__btn:hover { border-color: #cbd5e1; background: #f8fafc; }
+  .acct-move-type__btn:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 4px rgba(15, 23, 42, .1);
+  }
+  .acct-move-type__icon {
+    width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 1.35rem;
+    background: #ecfdf3; color: #15803d;
+  }
+  .acct-move-type__btn--out .acct-move-type__icon {
+    background: #fef2f2; color: #b91c1c;
+  }
+  .acct-move-type__copy { display: flex; flex-direction: column; gap: .15rem; min-width: 0; }
+  .acct-move-type__copy strong {
+    font-size: 1.05rem; font-weight: 700; color: #0f172a; line-height: 1.2;
+  }
+  .acct-move-type__copy small {
+    color: #64748b; font-size: .84rem; line-height: 1.35;
+  }
+  .acct-move-type__btn.is-active {
+    border-color: #16a34a;
+    background: #f0fdf4;
+    box-shadow: 0 0 0 4px rgba(22, 163, 74, .12);
+  }
+  .acct-move-type__btn--out.is-active {
+    border-color: #dc2626;
+    background: #fef2f2;
+    box-shadow: 0 0 0 4px rgba(220, 38, 38, .12);
+  }
+  .acct-move-form__row {
+    display: grid;
+    grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+    gap: 1rem 1.35rem;
+    align-items: start;
+    margin-bottom: 1.15rem;
+  }
+  .acct-move-form__field label {
+    display: block; font-weight: 600; font-size: .9rem; color: #334155; margin-bottom: .4rem;
+  }
+  .acct-move-form__field--grow input { min-height: 52px; }
+  .acct-optional { font-weight: 500; color: #94a3b8; }
+  .acct-move-hint { display: block; margin-top: .4rem; color: #94a3b8; font-size: .78rem; }
+  .acct-money { position: relative; display: flex; align-items: center; }
+  .acct-money > span {
+    position: absolute; left: 14px; color: #64748b; font-weight: 700; z-index: 1;
+  }
+  .acct-money input { padding-left: 34px !important; width: 100%; min-width: 0; box-sizing: border-box; }
+  .acct-money--lg input {
+    min-height: 52px;
+    font-size: 1.25rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: .01em;
+  }
+  .acct-move-chips {
+    display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .55rem;
+  }
+  .acct-move-chip {
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: .8rem;
+    font-weight: 600;
+    color: #475569;
+    cursor: pointer;
+  }
+  .acct-move-chip:hover { background: #f8fafc; border-color: #cbd5e1; color: #0f172a; }
+  .acct-move-chip.is-active {
+    background: #0f172a; border-color: #0f172a; color: #fff;
+  }
+  .acct-move-chip:disabled {
+    opacity: .4; cursor: not-allowed;
+  }
+  .acct-move-footer {
+    display: flex; flex-wrap: wrap; align-items: center;
+    justify-content: space-between; gap: 1rem;
+    padding-top: .2rem;
+  }
+  .acct-move-preview {
+    display: flex; flex-wrap: wrap; align-items: center; gap: .85rem 1.25rem;
+    padding: .9rem 1.15rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    min-width: min(100%, 320px);
+    flex: 1 1 320px;
+  }
+  .acct-move-preview__item { display: flex; flex-direction: column; gap: .12rem; }
+  .acct-move-preview__item span {
+    font-size: .72rem; font-weight: 700; letter-spacing: .05em;
+    text-transform: uppercase; color: #64748b;
+  }
+  .acct-move-preview__item strong {
+    font-size: 1.1rem; font-weight: 800; color: #0f172a;
+    font-variant-numeric: tabular-nums;
+  }
+  .acct-move-preview__arrow { color: #94a3b8; }
+  .acct-move-preview.is-in .acct-move-preview__item:last-child strong { color: #15803d; }
+  .acct-move-preview.is-out .acct-move-preview__item:last-child strong { color: #b91c1c; }
+  .acct-move-preview.is-warn {
+    background: #fef2f2; border-color: #fecaca;
+  }
+  .acct-move-submit {
+    display: inline-flex; align-items: center; justify-content: center; gap: .45rem;
+    border: none; border-radius: 999px;
+    padding: 13px 26px;
+    font-weight: 700; font-size: .95rem;
+    color: #fff; cursor: pointer;
+    min-width: 200px;
+    white-space: nowrap;
+  }
+  .acct-move-submit--in { background: #15803d; }
+  .acct-move-submit--in:hover { background: #166534; color: #fff; }
+  .acct-move-submit--out { background: #b91c1c; }
+  .acct-move-submit--out:hover { background: #991b1b; color: #fff; }
+  .acct-move-submit:disabled { opacity: .65; cursor: not-allowed; }
+
+  @media (max-width: 1100px) {
+    .acct-detail__stats {
+      grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+    }
+    .acct-policy-card__list { grid-template-columns: 1fr; }
+    .acct-policy-card__list > div { border-bottom: 1px solid #f1f5f9; }
+    .acct-policy-card__list > div:last-child { border-bottom: none; padding-bottom: 0; }
+  }
+
+  @media (max-width: 900px) {
+    .acct-detail__stats { grid-template-columns: 1fr; }
+    .acct-balance-card { min-height: auto; }
+    .acct-move-form__row { grid-template-columns: minmax(220px, 1fr) minmax(0, 1.2fr); }
+  }
+
+  @media (max-width: 700px) {
+    .acct-detail { max-width: none; }
+    .acct-move-card,
+    .acct-ledger-card,
+    .acct-close-card,
+    .acct-policy-card {
+      padding: 1.1rem 1.15rem;
+    }
+    .acct-move-type,
+    .acct-move-form__row { grid-template-columns: 1fr; }
+    .acct-move-footer { flex-direction: column; align-items: stretch; }
+    .acct-move-submit { width: 100%; min-width: 0; }
+    .acct-move-preview { min-width: 0; }
+  }
+
+  .acct-ledger-table-wrap { overflow-x: auto; margin: 0 -.25rem; }
+  .acct-ledger-table { width: 100%; border-collapse: collapse; }
+  .acct-ledger-table th {
+    font-size: .72rem; letter-spacing: .05em; text-transform: uppercase;
+    color: #64748b; font-weight: 700; padding: 10px 12px;
+    border-bottom: 2px solid #e2e8f0; white-space: nowrap;
+  }
+  .acct-ledger-table td {
+    padding: 12px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; font-size: .9rem;
+  }
+  .acct-ledger-table tbody tr:hover { background: #f8fafc; }
+  .acct-ledger-when { font-weight: 600; color: #0f172a; }
+  .acct-ledger-table small { color: #94a3b8; }
+  .acct-ledger-empty { text-align: center; color: #64748b; padding: 2rem 12px !important; }
+  .acct-ref {
+    font-size: .78rem; background: #f1f5f9; padding: .2rem .45rem;
+    border-radius: 6px; color: #475569;
+  }
+  .btn--sm { padding: 5px 12px; font-size: .8rem; }
+  .acct-amt--in { color: #166534; }
+  .acct-amt--out { color: #b91c1c; }
+
+  .acct-txn-type {
+    display: inline-block; padding: 3px 10px; border-radius: 999px;
+    font-size: .75rem; font-weight: 600; background: #e2e8f0; color: #334155;
+  }
+  .acct-txn-type--opening,
+  .acct-txn-type--deposit,
+  .acct-txn-type--interest { background: #dcfce7; color: #166534; }
+  .acct-txn-type--withdrawal,
+  .acct-txn-type--penalty { background: #fee2e2; color: #991b1b; }
+  .acct-txn-type--adjustment { background: #e0f2fe; color: #075985; }
+
+  .acct-close-card { border-color: #fecaca; background: #fffafa; }
+  .acct-close-card__body {
+    display: flex; flex-wrap: wrap; align-items: center;
+    justify-content: space-between; gap: 1rem;
+  }
+  .acct-close-card p { margin: .25rem 0 0; color: #64748b; font-size: .86rem; max-width: 36rem; }
+  .btn-loan--danger { background: #b91c1c; }
+  .btn-loan--danger:hover { background: #991b1b; color: #fff; }
+
+  .acct-modal { border: none; border-radius: 16px; overflow: hidden; }
+  .acct-modal__header { background: #b91c1c; color: #fff; }
+  .acct-modal__header--deposit { background: #166534; }
+  .acct-modal__header--withdraw { background: #b91c1c; }
+  .acct-modal__list {
+    font-size: .88rem; color: #64748b; margin: 0 0 1rem; padding-left: 1.1rem;
+  }
+  .acct-modal__footer { background: #f8fafc; }
+  .acct-confirm-summary { margin: 0; }
+  .acct-confirm-summary > div {
+    display: flex; justify-content: space-between; gap: .75rem;
+    padding: .55rem 0; border-bottom: 1px solid #f1f5f9; font-size: .9rem;
+  }
+  .acct-confirm-summary > div:last-child { border-bottom: none; }
+  .acct-confirm-summary dt { margin: 0; color: #64748b; font-weight: 500; }
+  .acct-confirm-summary dd { margin: 0; font-weight: 700; color: #0f172a; text-align: right; }
+  .acct-move-error { display: block; color: #b91c1c; font-size: .78rem; margin-top: .35rem; }
+  .acct-money input.is-invalid { border-color: #dc2626; box-shadow: 0 0 0 3px rgba(220, 38, 38, .12); }
+  #confirmSavingsMoveBtn.btn-loan--danger { background: #b91c1c; }
+  #confirmSavingsMoveBtn.btn-loan--danger:hover { background: #991b1b; color: #fff; }
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  var currentBalance = Number('{{ account.balance|floatformat:2 }}'.replace(/,/g, ''));
+
+  function formatPeso(value) {
+    var n = Number(value);
+    if (!isFinite(n)) return '—';
+    return '₱' + n.toLocaleString('en-PH', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }
+
+  function parseAmount(raw) {
+    if (window.MoneyInput && typeof window.MoneyInput.parse === 'function') {
+      return window.MoneyInput.parse(raw);
+    }
+    if (raw == null) return NaN;
+    var cleaned = String(raw).replace(/,/g, '').replace(/₱/g, '').trim();
+    if (!cleaned) return NaN;
+    return Number(cleaned);
+  }
+
+  function formatAmountInput(value) {
+    if (window.MoneyInput && typeof window.MoneyInput.format === 'function') {
+      return window.MoneyInput.format(value, 2);
+    }
+    var n = Number(value);
+    if (!isFinite(n)) return '';
+    return n.toLocaleString('en-PH', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }
+
+  function getModal(el) {
+    if (typeof bootstrap === 'undefined' || !bootstrap.Modal) return null;
+    return bootstrap.Modal.getInstance(el) || new bootstrap.Modal(el);
+  }
+
+  /* ---- Deposit / Withdraw confirmation ---- */
+  var moveForm = document.getElementById('savingsMoveForm');
+  var moveModalEl = document.getElementById('confirmSavingsMoveModal');
+  var bsMoveModal = moveModalEl ? getModal(moveModalEl) : null;
+  if (moveForm) {
+    var amountInput = moveForm.querySelector('[name="amount"]');
+    var notesInput = moveForm.querySelector('[name="notes"]');
+    var actionInput = document.getElementById('savingsMoveAction');
+    var amountError = document.getElementById('savingsMoveAmountError');
+    var header = document.getElementById('confirmSavingsMoveHeader');
+    var title = document.getElementById('confirmSavingsMoveModalLabel');
+    var actionLabel = document.getElementById('confirmMoveActionLabel');
+    var amountLabel = document.getElementById('confirmMoveAmountLabel');
+    var balanceRow = document.getElementById('confirmMoveBalanceRow');
+    var balanceAfter = document.getElementById('confirmMoveBalanceAfter');
+    var notesRow = document.getElementById('confirmMoveNotesRow');
+    var notesLabel = document.getElementById('confirmMoveNotesLabel');
+    var ack = document.getElementById('confirmMoveAck');
+    var ackError = document.getElementById('confirmMoveAckError');
+    var confirmBtn = document.getElementById('confirmSavingsMoveBtn');
+    var submitBtn = document.getElementById('savingsMoveSubmitBtn');
+    var previewEl = document.getElementById('savingsMovePreview');
+    var afterLabel = document.getElementById('savingsMoveAfterLabel');
+    var afterValue = document.getElementById('savingsMoveAfterValue');
+    var typeButtons = moveForm.querySelectorAll('[data-savings-action]');
+    var chips = moveForm.querySelectorAll('.acct-move-chip');
+    var pendingAction = null;
+    var submitting = false;
+    var selectedAction = 'deposit';
+    var allowsWithdraw = !!document.getElementById('savingsWithdrawTypeBtn');
+
+    function currentAmount() {
+      return parseAmount(amountInput && amountInput.value);
+    }
+
+    function validateAmount() {
+      var amount = currentAmount();
+      if (!isFinite(amount) || amount <= 0) {
+        if (amountError) amountError.hidden = false;
+        if (amountInput) {
+          amountInput.focus();
+          amountInput.classList.add('is-invalid');
+        }
+        return NaN;
+      }
+      if (amountError) amountError.hidden = true;
+      if (amountInput) amountInput.classList.remove('is-invalid');
+      return amount;
+    }
+
+    function updatePreview() {
+      var amount = currentAmount();
+      var isWithdraw = selectedAction === 'withdraw';
+      var hasAmount = isFinite(amount) && amount > 0;
+      var after = hasAmount
+        ? (isWithdraw ? currentBalance - amount : currentBalance + amount)
+        : currentBalance;
+      var insufficient = isWithdraw && hasAmount && after < 0;
+
+      if (afterLabel) afterLabel.textContent = isWithdraw ? 'After withdrawal' : 'After deposit';
+      if (afterValue) {
+        afterValue.textContent = formatPeso(after) + (insufficient ? ' (insufficient)' : '');
+      }
+      if (previewEl) {
+        previewEl.classList.toggle('is-in', !isWithdraw && hasAmount);
+        previewEl.classList.toggle('is-out', isWithdraw && hasAmount && !insufficient);
+        previewEl.classList.toggle('is-warn', insufficient);
+      }
+      chips.forEach(function (chip) {
+        var chipAmt = Number(chip.getAttribute('data-amount'));
+        var overBalance = isWithdraw && isFinite(chipAmt) && chipAmt > currentBalance;
+        chip.disabled = overBalance;
+        chip.classList.toggle('is-active', hasAmount && chipAmt === amount);
+      });
+    }
+
+    function setAction(action) {
+      if (action === 'withdraw' && !allowsWithdraw) action = 'deposit';
+      selectedAction = action;
+      if (actionInput) actionInput.value = action;
+      var isWithdraw = action === 'withdraw';
+      typeButtons.forEach(function (btn) {
+        var active = btn.getAttribute('data-savings-action') === action;
+        btn.classList.toggle('is-active', active);
+        btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+      });
+      if (submitBtn) {
+        submitBtn.classList.toggle('acct-move-submit--in', !isWithdraw);
+        submitBtn.classList.toggle('acct-move-submit--out', isWithdraw);
+        submitBtn.innerHTML = isWithdraw
+          ? '<i class="bi bi-dash-lg"></i> Review withdrawal'
+          : '<i class="bi bi-plus-lg"></i> Review deposit';
+      }
+      updatePreview();
+    }
+
+    function submitMove(action) {
+      if (submitting || !actionInput) return;
+      submitting = true;
+      actionInput.value = action;
+      typeButtons.forEach(function (btn) { btn.disabled = true; });
+      chips.forEach(function (chip) { chip.disabled = true; });
+      if (submitBtn) submitBtn.disabled = true;
+      if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML =
+          '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Posting…';
+      }
+      if (window.MoneyInput && typeof window.MoneyInput.stripForm === "function") {
+        window.MoneyInput.stripForm(moveForm);
+      }
+      moveForm.submit();
+    }
+
+    function openMoveConfirm(action) {
+      var amount = validateAmount();
+      if (!isFinite(amount)) return;
+
+      pendingAction = action;
+      var isWithdraw = action === 'withdraw';
+      var after = isWithdraw ? (currentBalance - amount) : (currentBalance + amount);
+      var notes = notesInput ? String(notesInput.value || '').trim() : '';
+
+      if (!bsMoveModal || !moveModalEl) {
+        var msg =
+          (isWithdraw ? 'Withdraw ' : 'Deposit ') +
+          formatPeso(amount) +
+          ' for this savings account?\n\nBalance after: ' +
+          formatPeso(after);
+        if (window.confirm(msg)) submitMove(action);
+        return;
+      }
+
+      if (header) {
+        header.classList.toggle('acct-modal__header--deposit', !isWithdraw);
+        header.classList.toggle('acct-modal__header--withdraw', isWithdraw);
+      }
+      if (title) {
+        title.innerHTML = isWithdraw
+          ? '<i class="bi bi-dash-circle me-2"></i>Confirm withdrawal'
+          : '<i class="bi bi-plus-circle me-2"></i>Confirm deposit';
+      }
+      if (actionLabel) actionLabel.textContent = isWithdraw ? 'Withdraw' : 'Deposit';
+      if (amountLabel) {
+        amountLabel.textContent = (isWithdraw ? '−' : '+') + formatPeso(amount);
+        amountLabel.style.color = isWithdraw ? '#b91c1c' : '#166534';
+      }
+      if (balanceRow && balanceAfter) {
+        balanceRow.hidden = false;
+        balanceAfter.textContent = formatPeso(after);
+        if (isWithdraw && after < 0) {
+          balanceAfter.style.color = '#b91c1c';
+          balanceAfter.textContent += ' (insufficient)';
+        } else {
+          balanceAfter.style.color = '';
+        }
+      }
+
+      if (notesRow && notesLabel) {
+        if (notes) {
+          notesRow.hidden = false;
+          notesLabel.textContent = notes;
+        } else {
+          notesRow.hidden = true;
+          notesLabel.textContent = '—';
+        }
+      }
+
+      if (ack) ack.checked = false;
+      if (ackError) ackError.hidden = true;
+      if (confirmBtn) {
+        confirmBtn.classList.toggle('btn-loan--danger', isWithdraw);
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = isWithdraw
+          ? '<i class="bi bi-dash-lg me-1"></i>Yes, post withdrawal'
+          : '<i class="bi bi-plus-lg me-1"></i>Yes, post deposit';
+      }
+      bsMoveModal.show();
+    }
+
+    typeButtons.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        setAction(btn.getAttribute('data-savings-action'));
+        if (amountInput) amountInput.focus();
+      });
+    });
+
+    chips.forEach(function (chip) {
+      chip.addEventListener('click', function () {
+        if (chip.disabled || !amountInput) return;
+        amountInput.value = formatAmountInput(chip.getAttribute('data-amount'));
+        amountInput.dispatchEvent(new Event('input', { bubbles: true }));
+        if (amountError) amountError.hidden = true;
+        amountInput.classList.remove('is-invalid');
+        updatePreview();
+      });
+    });
+
+    if (amountInput) {
+      amountInput.addEventListener('input', function () {
+        if (amountError) amountError.hidden = true;
+        amountInput.classList.remove('is-invalid');
+        updatePreview();
+      });
+    }
+
+    if (submitBtn) {
+      submitBtn.addEventListener('click', function () {
+        openMoveConfirm(selectedAction);
+      });
+    }
+
+    if (confirmBtn) {
+      confirmBtn.addEventListener('click', function () {
+        if (submitting) return;
+        if (!ack || !ack.checked) {
+          if (ackError) ackError.hidden = false;
+          return;
+        }
+        if (ackError) ackError.hidden = true;
+        if (!pendingAction) return;
+        if (bsMoveModal) bsMoveModal.hide();
+        submitMove(pendingAction);
+      });
+    }
+
+    if (ack) {
+      ack.addEventListener('change', function () {
+        if (ack.checked && ackError) ackError.hidden = true;
+      });
+    }
+
+    /* Block native Enter-submit so every post goes through the confirm modal. */
+    moveForm.addEventListener('submit', function (e) {
+      if (!submitting) {
+        e.preventDefault();
+        openMoveConfirm(selectedAction);
+      }
+    });
+
+    setAction('deposit');
+  }
+
+  /* ---- Close account confirmation ---- */
+  var closeForm = document.getElementById('closeSavingsAccountForm');
+  var closeBtn = document.getElementById('confirmCloseSavingsBtn');
+  var closeAck = document.getElementById('confirmCloseAck');
+  var closeAckError = document.getElementById('confirmCloseAckError');
+  if (closeForm && closeBtn) {
+    closeForm.addEventListener('submit', function (e) {
+      if (closeAck && !closeAck.checked) {
+        e.preventDefault();
+        if (closeAckError) closeAckError.hidden = false;
+        return;
+      }
+      if (closeAckError) closeAckError.hidden = true;
+      closeBtn.disabled = true;
+      closeBtn.innerHTML =
+        '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Closing…';
+    });
+    if (closeAck) {
+      closeAck.addEventListener('change', function () {
+        if (closeAck.checked && closeAckError) closeAckError.hidden = true;
+      });
+    }
+  }
+})();
+</script>
+{% endblock %}

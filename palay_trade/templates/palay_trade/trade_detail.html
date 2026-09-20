@@ -1,0 +1,631 @@
+{% extends "palay_trade/base_palay.html" %}
+{% load currency_filters %}
+{% block title %}Trade {{ trade.reference }}{% endblock %}
+{% block content %}
+<style>
+  .pt-detail {
+    --pt-ink: #0f172a;
+    --pt-muted: #64748b;
+    --pt-line: #e2e8f0;
+    --pt-soft: #f8fafc;
+    --pt-buy: #166534;
+    --pt-buy-bg: #ecfdf5;
+    --pt-sell: #9a3412;
+    --pt-sell-bg: #fff7ed;
+    max-width: 920px;
+    margin: 0 auto;
+  }
+  .pt-detail__hero {
+    background: var(--gradient);
+    color: #fff;
+    border-radius: 22px;
+    padding: 1.35rem 1.5rem;
+    margin-bottom: 1.15rem;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.28);
+  }
+  .pt-detail__hero-top {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .75rem 1rem;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+  .pt-detail__back {
+    color: rgba(255,255,255,.9);
+    text-decoration: none;
+    font-size: .88rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+  }
+  .pt-detail__back:hover { color: #fff; }
+  .pt-detail__hero h1 {
+    color: #fff;
+    font-size: 1.45rem;
+    margin: .4rem 0 .25rem;
+    font-family: ui-monospace, Consolas, monospace;
+    letter-spacing: .02em;
+  }
+  .pt-detail__meta {
+    margin: 0;
+    opacity: .92;
+    font-size: .9rem;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .45rem .65rem;
+  }
+  .pt-detail__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+  }
+  .pt-detail__actions a {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    border-radius: 999px;
+    padding: .5rem 1.05rem;
+    font-weight: 700;
+    font-size: .86rem;
+    text-decoration: none;
+    border: 1px solid transparent;
+  }
+  .pt-detail__actions .btn-print {
+    background: #fff;
+    color: #b91c1c;
+  }
+  .pt-detail__actions .btn-print:hover {
+    background: #fff7f7;
+    color: #991b1b;
+  }
+  .pt-detail__actions .btn-ghost {
+    background: rgba(255,255,255,.14);
+    color: #fff;
+    border-color: rgba(255,255,255,.28);
+  }
+  .pt-detail__actions .btn-ghost:hover {
+    background: rgba(255,255,255,.22);
+    color: #fff;
+  }
+  .pt-detail__summary {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .85rem;
+    margin-bottom: 1.15rem;
+  }
+  @media (max-width: 720px) {
+    .pt-detail__summary { grid-template-columns: 1fr; }
+  }
+  .pt-stat {
+    background: #fff;
+    border: 1px solid var(--pt-line);
+    border-radius: 16px;
+    padding: 1rem 1.15rem;
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  }
+  .pt-stat__label {
+    margin: 0;
+    color: var(--pt-muted);
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+  .pt-stat__value {
+    margin: .35rem 0 0;
+    color: var(--pt-ink);
+    font-size: 1.35rem;
+    font-weight: 800;
+    line-height: 1.2;
+  }
+  .pt-stat__hint {
+    margin: .25rem 0 0;
+    color: var(--pt-muted);
+    font-size: .8rem;
+  }
+  .pt-stat--amount .pt-stat__value { color: #b91c1c; }
+  .pt-panel {
+    background: #fff;
+    border: 1px solid var(--pt-line);
+    border-radius: 18px;
+    padding: 1.25rem 1.35rem;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.07);
+    margin-bottom: 1rem;
+  }
+  .pt-panel__title {
+    margin: 0 0 1rem;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--pt-ink);
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+  .pt-panel__title i { color: #b91c1c; }
+  .pt-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .9rem 1.25rem;
+  }
+  @media (max-width: 560px) {
+    .pt-grid { grid-template-columns: 1fr; }
+  }
+  .pt-field dt {
+    margin: 0;
+    color: var(--pt-muted);
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+  .pt-field dd {
+    margin: .2rem 0 0;
+    color: var(--pt-ink);
+    font-size: .95rem;
+    font-weight: 600;
+  }
+  .pt-field dd .muted {
+    color: var(--pt-muted);
+    font-weight: 500;
+    font-size: .85rem;
+  }
+  .pt-field--full { grid-column: 1 / -1; }
+  .pt-notes {
+    margin: 0;
+    padding: .85rem 1rem;
+    background: var(--pt-soft);
+    border: 1px solid #f1f5f9;
+    border-radius: 12px;
+    color: #334155;
+    font-size: .9rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+  }
+  .pt-type-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .28rem .7rem;
+    border-radius: 999px;
+    font-size: .78rem;
+    font-weight: 700;
+  }
+  .pt-type-pill--buy { background: var(--pt-buy-bg); color: var(--pt-buy); }
+  .pt-type-pill--sell { background: var(--pt-sell-bg); color: var(--pt-sell); }
+  .pt-type-pill--on-hero {
+    background: rgba(255,255,255,.18);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,.35);
+  }
+  .pt-side {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  @media (max-width: 720px) {
+    .pt-side { grid-template-columns: 1fr; }
+  }
+  .pt-side .pt-panel { margin-bottom: 0; }
+  .pt-rate-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: .75rem;
+    padding: .55rem 0;
+    border-bottom: 1px solid #f1f5f9;
+    font-size: .9rem;
+  }
+  .pt-rate-row:last-child { border-bottom: 0; padding-bottom: 0; }
+  .pt-rate-row:first-child { padding-top: 0; }
+  .pt-rate-row span { color: var(--pt-muted); font-weight: 600; }
+  .pt-rate-row strong { color: var(--pt-ink); }
+  .stock-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: .72rem;
+    font-weight: 700;
+    margin-left: .35rem;
+  }
+  .stock-pill--low { background: #fef3c7; color: #92400e; }
+  .pt-footer-note {
+    margin: .25rem 0 0;
+    color: var(--pt-muted);
+    font-size: .82rem;
+    text-align: center;
+  }
+</style>
+
+<div class="pt-detail">
+  <section class="pt-detail__hero">
+    <div class="pt-detail__hero-top">
+      <div>
+        <a class="pt-detail__back" href="{{ back_url }}">
+          <i class="bi bi-arrow-left"></i> Back to Palay desk
+        </a>
+        <h1>{{ trade.reference }}</h1>
+        <p class="pt-detail__meta">
+          <span class="pt-type-pill pt-type-pill--on-hero">
+            {% if trade.trade_type == "buy" %}
+              <i class="bi bi-box-arrow-in-down"></i>
+            {% else %}
+              <i class="bi bi-box-arrow-up"></i>
+            {% endif %}
+            {{ trade.get_trade_type_display }}
+          </span>
+          <span class="pt-type-pill pt-type-pill--on-hero">{{ trade.get_status_display }}</span>
+          <span>{{ trade.traded_at|date:"M j, Y · g:i A" }}</span>
+        </p>
+      </div>
+      <div class="pt-detail__actions">
+        <a class="btn-print" href="{{ receipt_url }}" target="_blank" rel="noopener">
+          <i class="bi bi-printer"></i> Print receipt
+        </a>
+        <a class="btn-ghost" href="{% url 'palay_trade:trade-create' %}">
+          <i class="bi bi-plus-lg"></i> New trade
+        </a>
+        {% if trade.is_credit_open %}
+        <form method="post"
+              action="{% url 'palay_trade:credit-settle' trade.pk %}"
+              class="pc-settle-form"
+              style="display:inline;"
+              data-settle-type="ticket"
+              data-member="{{ trade.party_name|escape }}"
+              data-reference="{{ trade.reference|escape }}"
+              data-product="{{ trade.product.name|escape }}"
+              data-kg="{{ trade.net_kg|currency }}"
+              data-amount="{{ credit_outstanding|currency }}">
+          {% csrf_token %}
+          <button type="button"
+                  class="btn-ghost pc-settle-trigger"
+                  style="border:none;background:rgba(255,255,255,.14);color:#fff;border-radius:999px;padding:.5rem 1.05rem;font-weight:700;">
+            <i class="bi bi-check2-circle"></i> Mark credit paid
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  <div class="pt-detail__summary">
+    <div class="pt-stat pt-stat--amount">
+      <p class="pt-stat__label">Amount</p>
+      <p class="pt-stat__value">&#8369;{{ trade.net_amount|currency }}</p>
+      <p class="pt-stat__hint">&#8369;{{ trade.unit_price|currency }} / kg</p>
+    </div>
+    <div class="pt-stat">
+      <p class="pt-stat__label">Weight</p>
+      <p class="pt-stat__value">{{ trade.net_kg|currency }} kg</p>
+      <p class="pt-stat__hint">Net weight</p>
+    </div>
+    <div class="pt-stat">
+      <p class="pt-stat__label">
+        {% if trade.trade_type == "buy" %}Farmer{% else %}Buyer{% endif %}
+      </p>
+      <p class="pt-stat__value" style="font-size:1.1rem;">{{ trade.party_name }}</p>
+      <p class="pt-stat__hint">
+        {% if trade.member %}Cooperative member{% else %}Walk-in party{% endif %}
+      </p>
+    </div>
+  </div>
+
+  <div class="pt-panel">
+    <h2 class="pt-panel__title"><i class="bi bi-receipt"></i> Trade details</h2>
+    <dl class="pt-grid">
+      <div class="pt-field">
+        <dt>Product</dt>
+        <dd>
+          {{ trade.product.name }}
+          <span class="muted">· {{ trade.product.code }}</span>
+        </dd>
+      </div>
+      <div class="pt-field">
+        <dt>Trade type</dt>
+        <dd>
+          <span class="pt-type-pill pt-type-pill--{{ trade.trade_type }}">
+            {{ trade.get_trade_type_display }}
+          </span>
+        </dd>
+      </div>
+      <div class="pt-field">
+        <dt>Unit price</dt>
+        <dd>&#8369;{{ trade.unit_price|currency }} / kg</dd>
+      </div>
+      <div class="pt-field">
+        <dt>Payment</dt>
+        <dd>
+          {% if trade.payment_method == "credit" %}
+          <span class="status-pill status-pill--sell">Palay credit</span>
+          {% if trade.is_credit_open %}
+          <span class="muted"> · &#8369;{{ credit_outstanding|currency }} unpaid</span>
+          {% elif trade.credit_settled_at %}
+          <span class="muted"> · Settled {{ trade.credit_settled_at|date:"M j, Y" }}</span>
+          {% endif %}
+          {% else %}
+          Cash
+          {% endif %}
+        </dd>
+      </div>
+      <div class="pt-field">
+        <dt>Status</dt>
+        <dd>
+          <span class="status-pill status-pill--{{ trade.status }}">{{ trade.get_status_display }}</span>
+        </dd>
+      </div>
+      {% if trade.performed_by %}
+      <div class="pt-field">
+        <dt>Posted by</dt>
+        <dd>{{ trade.performed_by.get_full_name|default:trade.performed_by.username }}</dd>
+      </div>
+      {% endif %}
+      <div class="pt-field">
+        <dt>Date &amp; time</dt>
+        <dd>{{ trade.traded_at|date:"F j, Y · g:i A" }}</dd>
+      </div>
+      {% if trade.notes %}
+      <div class="pt-field pt-field--full">
+        <dt>Notes</dt>
+        <dd><p class="pt-notes">{{ trade.notes }}</p></dd>
+      </div>
+      {% endif %}
+    </dl>
+  </div>
+
+  <div class="pt-side">
+    <div class="pt-panel">
+      <h2 class="pt-panel__title"><i class="bi bi-box-seam"></i> Product stock</h2>
+      <div class="pt-rate-row">
+        <span>Rice stock now</span>
+        <strong>
+          {{ trade.product.stock_kg|currency }} kg
+          {% if trade.product.is_low_stock %}
+            <span class="stock-pill stock-pill--low">Low</span>
+          {% endif %}
+        </strong>
+      </div>
+      <div class="pt-rate-row">
+        <span>Buy / kg</span>
+        <strong>&#8369;{{ trade.product.buy_price_per_kg|currency }}</strong>
+      </div>
+      <div class="pt-rate-row">
+        <span>Sell / kg</span>
+        <strong>&#8369;{{ trade.product.sell_price_per_kg|currency }}</strong>
+      </div>
+    </div>
+    {% if store_profile %}
+    <div class="pt-panel">
+      <h2 class="pt-panel__title"><i class="bi bi-shop"></i> Record</h2>
+      <div class="pt-rate-row">
+        <span>Store</span>
+        <strong>{{ store_profile.store_name|default:kiosk_system_name }}</strong>
+      </div>
+      <div class="pt-rate-row">
+        <span>Reference</span>
+        <strong style="font-family:ui-monospace,Consolas,monospace;">{{ trade.reference }}</strong>
+      </div>
+      <p class="pt-footer-note mt-3 mb-0">Official palay trade ticket</p>
+    </div>
+    {% else %}
+    <div class="pt-panel">
+      <h2 class="pt-panel__title"><i class="bi bi-info-circle"></i> Record</h2>
+      <div class="pt-rate-row">
+        <span>Reference</span>
+        <strong style="font-family:ui-monospace,Consolas,monospace;">{{ trade.reference }}</strong>
+      </div>
+      <p class="pt-footer-note mt-3 mb-0">Official palay trade ticket</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{# Confirm settle utang #}
+<div class="modal fade" id="confirmPalaySettleModal" tabindex="-1" aria-labelledby="confirmPalaySettleModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content pc-settle-modal">
+      <div class="modal-header pc-settle-modal__header">
+        <h5 class="modal-title" id="confirmPalaySettleModalLabel">
+          <i class="bi bi-check2-circle me-2"></i>Settle palay utang?
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cancel"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-3" id="confirmSettleLead">
+          Review this settlement, then click <strong>Proceed</strong> to mark this ticket as paid.
+        </p>
+        <dl class="pc-settle-confirm-summary">
+          <div>
+            <dt>Member</dt>
+            <dd id="confirmSettleMember">—</dd>
+          </div>
+          <div id="confirmSettleReferenceRow">
+            <dt>Reference</dt>
+            <dd id="confirmSettleReference">—</dd>
+          </div>
+          <div id="confirmSettleProductRow">
+            <dt>Product</dt>
+            <dd id="confirmSettleProduct">—</dd>
+          </div>
+          <div id="confirmSettleTicketsRow" hidden>
+            <dt>Open tickets</dt>
+            <dd id="confirmSettleTickets">—</dd>
+          </div>
+          <div>
+            <dt>Kilos</dt>
+            <dd id="confirmSettleKg">—</dd>
+          </div>
+          <div>
+            <dt>Amount to settle</dt>
+            <dd id="confirmSettleAmount">—</dd>
+          </div>
+        </dl>
+      </div>
+      <div class="modal-footer pc-settle-modal__footer">
+        <button type="button" class="btn--secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn-loan" id="confirmPalaySettleBtn">
+          <i class="bi bi-check2-circle me-1"></i>Proceed — settle utang
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  #confirmPalaySettleModal { z-index: 10050 !important; }
+  .modal-backdrop.show { z-index: 10040 !important; }
+  .pc-settle-modal { border: none; border-radius: 16px; overflow: hidden; }
+  .pc-settle-modal__header { background: #166534; color: #fff; }
+  .pc-settle-modal__footer { background: #f8fafc; gap: .5rem; }
+  .pc-settle-confirm-summary { margin: 0; }
+  .pc-settle-confirm-summary > div {
+    display: flex; justify-content: space-between; gap: .75rem;
+    padding: .55rem 0; border-bottom: 1px solid #f1f5f9; font-size: .9rem;
+  }
+  .pc-settle-confirm-summary > div:last-child { border-bottom: none; }
+  .pc-settle-confirm-summary dt { margin: 0; color: #64748b; font-weight: 500; }
+  .pc-settle-confirm-summary dd { margin: 0; font-weight: 700; color: #0f172a; text-align: right; }
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  var pendingForm = null;
+  var pendingTrigger = null;
+  var submitting = false;
+  var confirmBtn = document.getElementById("confirmPalaySettleBtn");
+
+  function getModal(el) {
+    if (!el || typeof bootstrap === "undefined" || !bootstrap.Modal) return null;
+    return bootstrap.Modal.getInstance(el) || new bootstrap.Modal(el, {
+      backdrop: true,
+      keyboard: true,
+      focus: true,
+    });
+  }
+
+  function setText(id, text) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = text;
+  }
+
+  function setRowVisible(id, visible) {
+    var el = document.getElementById(id);
+    if (el) el.hidden = !visible;
+  }
+
+  function formatPeso(raw) {
+    var n = Number(String(raw || "").replace(/,/g, "").trim());
+    if (!isFinite(n)) return "₱" + String(raw || "0.00");
+    return "₱" + n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function openSettleConfirm(form, trigger) {
+    if (submitting || !form) return;
+    pendingForm = form;
+    pendingTrigger = trigger || null;
+
+    var settleType = form.getAttribute("data-settle-type") || "ticket";
+    var isMember = settleType === "member";
+    var member = form.getAttribute("data-member") || "—";
+    var reference = form.getAttribute("data-reference") || "—";
+    var product = form.getAttribute("data-product") || "—";
+    var tickets = form.getAttribute("data-tickets") || "—";
+    var kg = form.getAttribute("data-kg") || "—";
+    var amount = form.getAttribute("data-amount") || "0";
+
+    var title = document.getElementById("confirmPalaySettleModalLabel");
+    var lead = document.getElementById("confirmSettleLead");
+    if (title) {
+      title.innerHTML = isMember
+        ? '<i class="bi bi-check2-all me-2"></i>Settle all palay utang?'
+        : '<i class="bi bi-check2-circle me-2"></i>Mark credit paid?';
+    }
+    if (lead) {
+      lead.innerHTML = isMember
+        ? 'Review this member settlement, then click <strong>Proceed</strong> to mark all open tickets as paid.'
+        : 'Review this settlement, then click <strong>Proceed</strong> to mark this ticket as paid.';
+    }
+
+    setText("confirmSettleMember", member);
+    setText("confirmSettleReference", reference);
+    setText("confirmSettleProduct", product);
+    setText("confirmSettleTickets", tickets);
+    setText("confirmSettleKg", kg + " kg");
+    setText("confirmSettleAmount", formatPeso(amount));
+    setRowVisible("confirmSettleReferenceRow", !isMember);
+    setRowVisible("confirmSettleProductRow", !isMember);
+    setRowVisible("confirmSettleTicketsRow", isMember);
+
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.innerHTML = isMember
+        ? '<i class="bi bi-check2-all me-1"></i>Proceed — settle all'
+        : '<i class="bi bi-check2-circle me-1"></i>Proceed — mark paid';
+    }
+
+    var modalEl = document.getElementById("confirmPalaySettleModal");
+    var bsModal = getModal(modalEl);
+    if (!bsModal) {
+      var ok = window.confirm(
+        "Mark " + reference + " as paid for " + member + "?\n\n" +
+        "Amount: " + formatPeso(amount) + "\n\nClick OK to proceed."
+      );
+      if (ok) submitSettle();
+      return;
+    }
+    try {
+      bsModal.show();
+    } catch (err) {
+      if (window.confirm("Mark this palay credit as paid now?")) submitSettle();
+    }
+  }
+
+  function submitSettle() {
+    if (submitting || !pendingForm) return;
+    submitting = true;
+
+    if (pendingTrigger) {
+      pendingTrigger.disabled = true;
+      pendingTrigger.innerHTML =
+        '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+    }
+    if (confirmBtn) {
+      confirmBtn.disabled = true;
+      confirmBtn.innerHTML =
+        '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Settling…';
+    }
+
+    HTMLFormElement.prototype.submit.call(pendingForm);
+  }
+
+  function proceedFromConfirm() {
+    if (submitting) return;
+    var modalEl = document.getElementById("confirmPalaySettleModal");
+    var bsModal = getModal(modalEl);
+    if (bsModal) {
+      try { bsModal.hide(); } catch (e) {}
+    }
+    window.setTimeout(submitSettle, 120);
+  }
+
+  document.addEventListener("click", function (e) {
+    var trigger = e.target.closest(".pc-settle-trigger");
+    if (!trigger) return;
+    e.preventDefault();
+    e.stopPropagation();
+    var form = trigger.closest(".pc-settle-form");
+    openSettleConfirm(form, trigger);
+  });
+
+  if (confirmBtn) {
+    confirmBtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      proceedFromConfirm();
+    });
+  }
+})();
+</script>
+{% endblock %}

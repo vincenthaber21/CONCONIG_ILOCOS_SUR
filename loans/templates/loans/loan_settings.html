@@ -1,0 +1,235 @@
+{% extends "loans/base_loans.html" %}
+{% block title %}Loan Settings{% endblock %}
+{% block content %}
+<div class="loan-form-page loan-form-page--wide">
+  <header class="loan-form-page__header">
+    <a class="loan-form-page__back" href="{% url 'loans_overview' %}">
+      <i class="bi bi-arrow-left"></i> Loans
+    </a>
+    <h1>Loan Settings</h1>
+    <p class="subtitle">Configure grace period, membership eligibility, and committee approval rules.</p>
+  </header>
+
+  <div class="loan-form-page__layout">
+    <section class="card loan-form-page__card">
+      <form method="post" class="loan-form">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="loan-form__errors">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        <h2 class="loan-form__section">Late payment</h2>
+        <div class="loan-form__field">
+          <label for="{{ form.grace_period_days.id_for_label }}">{{ form.grace_period_days.label }}</label>
+          {{ form.grace_period_days }}
+          {% if form.grace_period_days.help_text %}<p class="helptext">{{ form.grace_period_days.help_text }}</p>{% endif %}
+          {% if form.grace_period_days.errors %}<div class="loan-form__errors">{{ form.grace_period_days.errors }}</div>{% endif %}
+        </div>
+
+        <h2 class="loan-form__section">Eligibility</h2>
+        <div class="loan-form__field">
+          <label for="{{ form.min_membership_months.id_for_label }}">{{ form.min_membership_months.label }}</label>
+          {{ form.min_membership_months }}
+          {% if form.min_membership_months.help_text %}<p class="helptext">{{ form.min_membership_months.help_text }}</p>{% endif %}
+          {% if form.min_membership_months.errors %}<div class="loan-form__errors">{{ form.min_membership_months.errors }}</div>{% endif %}
+        </div>
+
+        <h2 class="loan-form__section">Credit committee</h2>
+        <div class="loan-form__field loan-form__field--checkbox">
+          <label class="loan-form__check">
+            {{ form.committee_single_approver }}
+            <span>{{ form.committee_single_approver.label }}</span>
+          </label>
+          {% if form.committee_single_approver.help_text %}<p class="helptext">{{ form.committee_single_approver.help_text }}</p>{% endif %}
+          {% if form.committee_single_approver.errors %}<div class="loan-form__errors">{{ form.committee_single_approver.errors }}</div>{% endif %}
+        </div>
+
+        <div class="loan-form__actions">
+          <button type="submit" class="btn-loan">
+            <i class="bi bi-check-lg"></i> Save settings
+          </button>
+          <a class="btn--secondary" href="{% url 'loans_overview' %}">Cancel</a>
+        </div>
+      </form>
+    </section>
+
+    <aside class="card loan-form-page__tips">
+      <h2>How this works</h2>
+      <dl class="loan-tips">
+        <div>
+          <dt>Grace period</dt>
+          <dd>
+            After an installment due date, members still have this many days to pay
+            without late-payment interest. Late interest starts the day after the
+            grace period ends.
+          </dd>
+        </div>
+        <div>
+          <dt>Example</dt>
+          <dd>
+            Due date August 1 with 5 grace days: payment through August 6 has no
+            late interest. Late payment applies starting August 7.
+          </dd>
+        </div>
+        <div>
+          <dt>Zero days</dt>
+          <dd>
+            Set to 0 to apply late interest starting the day after the due date
+            (same as before this setting existed).
+          </dd>
+        </div>
+        <div>
+          <dt>Minimum membership</dt>
+          <dd>
+            New members cannot request a loan until they have been registered
+            for this many months. Set to 0 to allow requests immediately.
+          </dd>
+        </div>
+        <div>
+          <dt>One-person approval</dt>
+          <dd>
+            When enabled, any one admin, loan officer, staff, or credit committee
+            member can approve or reject at the committee step. Turn off to require
+            a majority of listed approvers again.
+          </dd>
+        </div>
+      </dl>
+    </aside>
+  </div>
+</div>
+
+<style>
+  .loan-form-page {
+    width: 100%;
+    max-width: 680px;
+    margin-inline: auto;
+  }
+  .loan-form-page--wide { max-width: 980px; }
+
+  .loan-form-page__header { margin-bottom: 1.25rem; }
+  .loan-form-page__header h1 { margin: 0 0 .35rem; }
+  .loan-form-page__header .subtitle { margin-bottom: 0; }
+
+  .loan-form-page__back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    color: #64748b;
+    text-decoration: none;
+    font-size: .88rem;
+    font-weight: 500;
+    margin-bottom: .65rem;
+  }
+  .loan-form-page__back:hover { color: #0f172a; }
+
+  .loan-form-page__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(240px, .85fr);
+    gap: 1.25rem;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .loan-form-page__layout { grid-template-columns: 1fr; }
+  }
+
+  .loan-form-page__card,
+  .loan-form-page__tips {
+    padding: 1.5rem 1.6rem;
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+    margin-bottom: 0;
+  }
+
+  .loan-form-page__tips h2 {
+    margin-bottom: .85rem;
+    font-size: 1rem;
+  }
+
+  .loan-form__section {
+    margin: 0 0 .85rem;
+    padding-bottom: .45rem;
+    border-bottom: 1px solid #f1f5f9;
+    color: #0f172a;
+    font-size: .95rem;
+  }
+  .loan-form__section:not(:first-of-type) { margin-top: 1.4rem; }
+
+  .loan-tips { margin: 0; }
+  .loan-tips > div {
+    padding: .7rem 0;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .loan-tips > div:last-child {
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+  .loan-tips dt {
+    margin-bottom: .2rem;
+    color: #0f172a;
+    font-size: .82rem;
+    font-weight: 700;
+  }
+  .loan-tips dd {
+    margin: 0;
+    color: #64748b;
+    font-size: .82rem;
+    line-height: 1.45;
+  }
+
+  .loan-form__field { margin-bottom: 1.1rem; }
+  .loan-form__field > label:first-child {
+    display: block;
+    margin-bottom: .4rem;
+    color: #334155;
+    font-size: .9rem;
+    font-weight: 600;
+  }
+  .loan-form__field input:not([type="checkbox"]) {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #fff;
+    font-size: .92rem;
+  }
+  .loan-form__field input:focus {
+    outline: none;
+    border-color: #E6C200;
+    box-shadow: 0 0 0 3px rgba(230, 194, 0, .15);
+  }
+  .loan-form__field--checkbox .loan-form__check {
+    display: flex;
+    align-items: flex-start;
+    gap: .55rem;
+    color: #334155;
+    font-size: .92rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .loan-form__field--checkbox .loan-form__check input {
+    margin-top: .2rem;
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+  }
+  .loan-form__field--checkbox .helptext { margin-top: .45rem; }
+
+  .loan-form__errors .errorlist {
+    margin: .35rem 0 0;
+    padding-left: 1.15rem;
+  }
+
+  .loan-form__actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .5rem;
+    margin-top: 1.35rem;
+    padding-top: 1.15rem;
+    border-top: 1px solid #f1f5f9;
+  }
+  .loan-form__actions .btn-loan,
+  .loan-form__actions .btn--secondary { margin: 0; }
+</style>
+{% endblock %}

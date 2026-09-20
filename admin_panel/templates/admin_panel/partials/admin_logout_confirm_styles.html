@@ -1,0 +1,95 @@
+<style>
+  #logoutConfirmModal { z-index: 9999 !important; }
+  #logoutConfirmModal .modal-dialog {
+    max-width: 480px;
+    margin: 10vh auto;
+    display: flex;
+    align-items: center;
+    min-height: calc(100vh - 20vh);
+  }
+  #logoutConfirmModal .modal-content {
+    border-radius: 18px;
+    border: none;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    animation: adminLogoutModalSlideIn 0.3s ease-out;
+  }
+  @keyframes adminLogoutModalSlideIn {
+    from { opacity: 0; transform: translateY(-30px) scale(0.95); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  #logoutConfirmModal .modal-backdrop {
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 9998 !important;
+  }
+  #logoutConfirmModal .modal-header {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-bottom: 2px solid #dee2e6;
+    padding: 24px 32px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  #logoutConfirmModal .modal-header .modal-title {
+    font-weight: 700;
+    font-size: 1.5rem;
+    color: #1a1a1a;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0;
+  }
+  #logoutConfirmModal .modal-header .modal-title i { color: #ED1C24; font-size: 1.8rem; }
+  #logoutConfirmModal .modal-body { padding: 32px; text-align: center; }
+  #logoutConfirmModal .modal-body .warning-icon {
+    font-size: 4rem;
+    color: #ED1C24;
+    margin-bottom: 20px;
+    display: block;
+  }
+  #logoutConfirmModal .modal-body p {
+    font-size: 1.1rem;
+    color: #495057;
+    line-height: 1.6;
+    margin: 0;
+  }
+  #logoutConfirmModal .modal-footer {
+    border-top: 2px solid #e9ecef;
+    padding: 20px 32px;
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    background: #f8f9fa;
+  }
+  #logoutConfirmModal .modal-footer .btn {
+    min-width: 120px;
+    padding: 12px 24px;
+    font-weight: 600;
+    font-size: 1rem;
+    border-radius: 8px;
+    transition: all 0.2s ease;
+  }
+  #logoutConfirmModal .modal-footer .btn-cancel {
+    background: #6c757d;
+    border: 2px solid #6c757d;
+    color: white;
+  }
+  #logoutConfirmModal .modal-footer .btn-cancel:hover {
+    background: #5a6268;
+    border-color: #5a6268;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+  }
+  #logoutConfirmModal .modal-footer .btn-confirm {
+    background: linear-gradient(135deg, #ED1C24, #C4121A);
+    border: 2px solid #ED1C24;
+    color: white;
+  }
+  #logoutConfirmModal .modal-footer .btn-confirm:hover {
+    background: linear-gradient(135deg, #C4121A, #A10F16);
+    border-color: #A10F16;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(237, 28, 36, 0.4);
+  }
+</style>

@@ -1,0 +1,858 @@
+{% extends "loans/base_loans.html" %}
+{% load currency_filters %}
+{% block title %}Loan Documentation{% endblock %}
+{% block content %}
+<div class="loan-doc-page">
+  <header class="loan-doc-page__header">
+    <a class="loan-doc-page__back" href="{% url 'loans:application-detail' application.pk %}">
+      <i class="bi bi-arrow-left"></i> Application
+    </a>
+    <div class="loan-doc-page__title-row">
+      <div>
+        <h1>Loan Documentation</h1>
+        <p class="subtitle loan-doc-page__sub">
+          {{ contract.member_name }} &middot; Ref. LPC-{{ contract.application_ref }}
+          — print a paper copy if needed, then sign on screen or upload the signed hard copy.
+        </p>
+      </div>
+      <div class="loan-doc-page__actions">
+        {% if documentation.agreement_file %}
+        <a class="btn--secondary" href="{{ documentation.agreement_file.url }}" target="_blank" rel="noopener">
+          <i class="bi bi-file-earmark-pdf"></i> Download PDF
+        </a>
+        {% endif %}
+        <button type="button" class="btn--secondary" onclick="window.print()">
+          <i class="bi bi-printer"></i> Print
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <section class="card loan-doc-page__card" id="loan-contract">
+    <div class="loan-contract__masthead">
+      <div class="loan-contract__title">Loan Payment Contract</div>
+      <div class="loan-contract__meta">
+        Ref. LPC-{{ contract.application_ref }} &middot; Issued {{ contract.issued_on|date:"M j, Y" }}
+      </div>
+    </div>
+
+    <p>
+      This Loan Payment Contract is entered into between the Cooperative (the Lender)
+      and <strong>{{ contract.member_name }}</strong> (the Borrower) for the loan product
+      <strong>{{ contract.product.name }}</strong>.
+    </p>
+
+    <ol class="loan-contract__terms">
+      <li>
+        <strong>Loan amount.</strong>
+        The Borrower applied for and, upon approval and disbursement, agrees to repay a
+        principal amount of <strong>&#8369;{{ application.amount_requested|currency }}</strong>.
+      </li>
+      <li>
+        <strong>Term.</strong>
+        The repayment term is <strong>{{ application.term_months }} month(s)</strong>,
+        payable in equal monthly installments of approximately
+        <strong>&#8369;{{ contract.monthly_payment|currency }}</strong>
+        when paid on or before each due date.
+      </li>
+      <li>
+        <strong>Purpose.</strong> {{ contract.purpose }}
+      </li>
+      <li>
+        <strong>Interest.</strong>
+        No interest is charged when an installment is paid on or before its due date.
+        Late-payment interest at monthly rate <strong>{{ contract.late_rate|floatformat:4 }}</strong>
+        (daily = monthly rate ÷ 30)
+        may apply starting from installment month
+        <strong>{{ contract.interest_start_month }}</strong>
+        if an installment remains unpaid after its due date.
+      </li>
+      <li>
+        <strong>Total if paid on time.</strong>
+        If all installments are paid on time, the Borrower shall pay a total of
+        <strong>&#8369;{{ contract.total_on_time|currency }}</strong>
+        (principal only; &#8369;0.00 interest).
+      </li>
+      <li>
+        <strong>Payment schedule.</strong>
+        The Borrower agrees to pay according to the monthly schedule below
+        (or the official amortization schedule issued upon disbursement).
+      </li>
+    </ol>
+
+    <div class="loan-contract__table-wrap">
+      <table class="loan-contract__table">
+        <thead>
+          <tr>
+            <th>Month</th>
+            <th>Due date</th>
+            <th>Principal</th>
+            <th>Pay on time</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in contract.plan.rows %}
+          <tr>
+            <td class="loan-contract__month">{{ row.month }}</td>
+            <td>{{ row.due_date|date:"M j, Y"|default:"—" }}</td>
+            <td>&#8369;{{ row.principal_due|currency }}</td>
+            <td>
+              {% if row.on_time_pay %}
+                &#8369;{{ row.on_time_pay|currency }}
+              {% else %}
+                &#8369;{{ row.total_due|currency }}
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="4" class="loan-contract__empty">No schedule available.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="2">Total (on time)</td>
+            <td>&#8369;{{ contract.plan.total_principal|currency }}</td>
+            <td>&#8369;{{ contract.total_on_time|currency }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+
+    <p style="margin-top:1rem;">
+      <strong>7. Borrower undertaking.</strong>
+      The Borrower acknowledges the loan details above and agrees to repay the loan
+      according to this contract and cooperative policy.
+    </p>
+    <p>
+      <strong>8. Signatures.</strong>
+      By signing below, the parties confirm they have read and accepted this
+      Loan Payment Contract.
+    </p>
+
+    <div class="loan-contract__signatures loan-contract__signatures--preview">
+      <div class="loan-contract__signature">
+        {% if documentation.borrower_signature %}
+        <img class="loan-contract__sig-img" src="{{ documentation.borrower_signature.url }}" alt="Borrower signature">
+        {% else %}
+        <div class="loan-contract__signature-line"></div>
+        {% endif %}
+        <div class="loan-contract__signature-role">Borrower signature / date</div>
+        <strong>{{ contract.member_name }}</strong>
+        {% if documentation.signed_by_borrower_at %}
+        <div class="loan-contract__signature-stamp">
+          <i class="bi bi-check-circle-fill"></i>
+          Recorded {{ documentation.signed_by_borrower_at|date:"M j, Y g:i A" }}
+        </div>
+        {% endif %}
+      </div>
+      <div class="loan-contract__signature">
+        {% if documentation.personnel_signature %}
+        <img class="loan-contract__sig-img" src="{{ documentation.personnel_signature.url }}" alt="Personnel signature">
+        {% else %}
+        <div class="loan-contract__signature-line"></div>
+        {% endif %}
+        <div class="loan-contract__signature-role">Authorized personnel / date</div>
+        {% if documentation.signed_by_authorized_personnel_at %}
+        <div class="loan-contract__signature-stamp">
+          <i class="bi bi-check-circle-fill"></i>
+          Recorded {{ documentation.signed_by_authorized_personnel_at|date:"M j, Y g:i A" }}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </section>
+
+  <section class="card loan-doc-page__card loan-doc-form">
+    <h2>Complete documentation</h2>
+    <p class="subtitle" style="margin-top:-.35rem;">
+      Choose how the signed contract will be recorded. Uploaded hard copies are stored
+      with this loan for security and audit.
+    </p>
+
+    <form method="post" id="signature-form" enctype="multipart/form-data">
+      {% csrf_token %}
+      {{ form.borrower_signature_data }}
+      {{ form.personnel_signature_data }}
+      {{ form.clear_borrower_signature }}
+      {{ form.clear_personnel_signature }}
+
+      {% if form.non_field_errors %}
+      <div class="loan-doc-form__errors">{{ form.non_field_errors }}</div>
+      {% endif %}
+      {% if form.signing_method.errors %}
+      <div class="loan-doc-form__errors">{{ form.signing_method.errors }}</div>
+      {% endif %}
+
+      <fieldset class="loan-sign-method">
+        <legend>Signing option</legend>
+        {% for radio in form.signing_method %}
+        <label class="loan-sign-method__option" data-method-option="{{ radio.data.value }}">
+          {{ radio.tag }}
+          <span>
+            <strong>{{ radio.choice_label }}</strong>
+            {% if radio.data.value == "DIGITAL" %}
+            <em>Draw borrower and staff signatures on this page.</em>
+            {% else %}
+            <em>Scan or photograph the signed paper contract and upload it here.</em>
+            {% endif %}
+          </span>
+        </label>
+        {% endfor %}
+      </fieldset>
+
+      <div class="loan-sign-panel" data-method-panel="HARD_COPY" hidden>
+        <div class="loan-hardcopy">
+          <div class="loan-hardcopy__intro">
+            <i class="bi bi-shield-lock"></i>
+            <div>
+              <strong>Keep the paper original on file digitally</strong>
+              <p>
+                Print the contract, collect wet-ink signatures, then upload the scan or
+                photo. The file is stored with this application and recorded in the audit trail.
+              </p>
+            </div>
+          </div>
+          <div class="loan-doc-form__field">
+            <label for="{{ form.signed_hard_copy.id_for_label }}">{{ form.signed_hard_copy.label }}</label>
+            {{ form.signed_hard_copy }}
+            {% if form.signed_hard_copy.help_text %}
+            <p class="helptext">{{ form.signed_hard_copy.help_text }}</p>
+            {% endif %}
+            {% if form.signed_hard_copy.errors %}
+            <div class="loan-doc-form__errors">{{ form.signed_hard_copy.errors }}</div>
+            {% endif %}
+          </div>
+          {% if documentation.signed_hard_copy %}
+          <div class="loan-hardcopy__existing">
+            <i class="bi bi-check-circle-fill"></i>
+            Current file:
+            <a href="{{ documentation.signed_hard_copy.url }}" target="_blank" rel="noopener">
+              {{ documentation.signed_hard_copy.name|cut:"loan_hard_copies/" }}
+            </a>
+            {% if documentation.signed_hard_copy_uploaded_at %}
+            <span>uploaded {{ documentation.signed_hard_copy_uploaded_at|date:"M j, Y g:i A" }}</span>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="loan-sign-panel" data-method-panel="DIGITAL">
+      <div class="sig-pads">
+        <div class="sig-pad" data-pad="borrower">
+          <div class="sig-pad__head">
+            <div>
+              <strong>Borrower</strong>
+              <span>{{ contract.member_name }}</span>
+            </div>
+            <button type="button" class="btn--secondary sig-pad__clear" data-clear="borrower">Clear</button>
+          </div>
+          <div class="sig-pad__canvas-wrap">
+            {% if documentation.borrower_signature %}
+            <img class="sig-pad__existing" id="borrower-existing" src="{{ documentation.borrower_signature.url }}" alt="Existing borrower signature">
+            {% endif %}
+            <canvas id="borrower-pad" width="520" height="180" aria-label="Borrower signature pad"></canvas>
+          </div>
+          <p class="helptext">Sign above the line</p>
+        </div>
+
+        <div class="sig-pad" data-pad="personnel">
+          <div class="sig-pad__head">
+            <div>
+              <strong>Authorized personnel</strong>
+              <span>Staff / officer signature</span>
+            </div>
+            <button type="button" class="btn--secondary sig-pad__clear" data-clear="personnel">Clear</button>
+          </div>
+          <div class="sig-pad__canvas-wrap">
+            {% if documentation.personnel_signature %}
+            <img class="sig-pad__existing" id="personnel-existing" src="{{ documentation.personnel_signature.url }}" alt="Existing personnel signature">
+            {% endif %}
+            <canvas id="personnel-pad" width="520" height="180" aria-label="Personnel signature pad"></canvas>
+          </div>
+          <p class="helptext">Sign above the line</p>
+        </div>
+      </div>
+      </div>
+
+      <div class="loan-doc-form__field">
+        <label for="{{ form.witnessed_by.id_for_label }}">Witnessed by</label>
+        {{ form.witnessed_by }}
+        {% if form.witnessed_by.help_text %}
+        <p class="helptext">{{ form.witnessed_by.help_text }}</p>
+        {% endif %}
+        {% if form.witnessed_by.errors %}
+        <div class="loan-doc-form__errors">{{ form.witnessed_by.errors }}</div>
+        {% endif %}
+      </div>
+
+      <label class="loan-doc-form__check loan-doc-form__regen">
+        {{ form.regenerate_contract }}
+        <span>{{ form.regenerate_contract.label }}</span>
+      </label>
+
+      <div class="loan-doc-form__actions">
+        <button type="submit" class="btn-loan" id="doc-submit-btn">
+          <i class="bi bi-pen"></i> Save signatures
+        </button>
+        <a class="btn--secondary" href="{% url 'loans:application-detail' application.pk %}">Cancel</a>
+      </div>
+    </form>
+  </section>
+</div>
+
+<style>
+  .loan-doc-page {
+    width: 100%;
+    max-width: 860px;
+    margin-inline: auto;
+  }
+
+  .loan-doc-page__header { margin-bottom: 1.25rem; }
+  .loan-doc-page__back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    color: #64748b;
+    text-decoration: none;
+    font-size: .88rem;
+    font-weight: 500;
+    margin-bottom: .65rem;
+  }
+  .loan-doc-page__back:hover { color: #0f172a; }
+  .loan-doc-page__title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .loan-doc-page__title-row h1 { margin: 0 0 .35rem; }
+  .loan-doc-page__sub { margin-bottom: 0; }
+  .loan-doc-page__actions {
+    display: flex;
+    gap: .45rem;
+    flex-wrap: wrap;
+  }
+  .loan-doc-page__actions .btn--secondary { margin: 0; }
+
+  .loan-doc-page__card {
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+    padding: 1.6rem 1.75rem;
+  }
+
+  .loan-contract__masthead {
+    text-align: center;
+    padding-bottom: 1rem;
+    margin-bottom: 1.25rem;
+    border-bottom: 2px solid #0f172a;
+  }
+  .loan-contract__title {
+    font-size: 1.15rem;
+    font-weight: 800;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    color: #0f172a;
+  }
+  .loan-contract__meta {
+    margin-top: .25rem;
+    color: #64748b;
+    font-size: .84rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+
+  .loan-contract__terms {
+    padding-left: 1.15rem;
+    color: #334155;
+    line-height: 1.6;
+  }
+  .loan-contract__terms li { margin-bottom: .45rem; }
+
+  .loan-contract__table-wrap {
+    margin-top: 1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .loan-contract__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .88rem;
+  }
+  .loan-contract__table th {
+    padding: .6rem .8rem;
+    text-align: left;
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+    color: #64748b;
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .loan-contract__table td {
+    padding: .55rem .8rem;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+  }
+  .loan-contract__table tbody tr:last-child td { border-bottom: none; }
+  .loan-contract__month { font-weight: 700; }
+  .loan-contract__empty { color: #64748b; text-align: center; padding: 1rem; }
+  .loan-contract__table tfoot td {
+    border-top: 2px solid #e2e8f0;
+    background: #f8fafc;
+    font-weight: 800;
+    color: #0f172a;
+  }
+
+  .loan-contract__signatures {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+    margin-top: 2.5rem;
+  }
+  @media (max-width: 640px) {
+    .loan-contract__signatures { grid-template-columns: 1fr; }
+  }
+  .loan-contract__signature-line {
+    border-top: 1px solid #94a3b8;
+    margin-bottom: .45rem;
+    margin-top: 2.5rem;
+  }
+  .loan-contract__sig-img {
+    display: block;
+    max-width: 100%;
+    height: 72px;
+    object-fit: contain;
+    object-position: left bottom;
+    margin-bottom: .35rem;
+  }
+  .loan-contract__signature-role {
+    color: #64748b;
+    font-size: .8rem;
+    margin-bottom: .2rem;
+  }
+  .loan-contract__signature-stamp {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    margin-top: .35rem;
+    padding: .25rem .6rem;
+    border-radius: 999px;
+    background: #dcfce7;
+    color: #166534;
+    font-size: .76rem;
+    font-weight: 600;
+  }
+
+  .loan-doc-form h2 { margin-bottom: .35rem; }
+
+  .loan-sign-method {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: .85rem 1rem 1rem;
+    margin: 1rem 0 1.15rem;
+    background: #f8fafc;
+  }
+  .loan-sign-method legend {
+    font-size: .78rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: #64748b;
+    padding: 0 .35rem;
+  }
+  .loan-sign-method__option {
+    display: flex;
+    align-items: flex-start;
+    gap: .7rem;
+    padding: .75rem .8rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #fff;
+    cursor: pointer;
+    margin-bottom: .55rem;
+  }
+  .loan-sign-method__option:last-child { margin-bottom: 0; }
+  .loan-sign-method__option input { margin-top: .2rem; accent-color: #E6C200; }
+  .loan-sign-method__option strong { display: block; color: #0f172a; font-size: .92rem; }
+  .loan-sign-method__option em {
+    display: block;
+    font-style: normal;
+    color: #64748b;
+    font-size: .8rem;
+    margin-top: .15rem;
+  }
+  .loan-sign-method__option.is-selected {
+    border-color: #E6C200;
+    box-shadow: 0 0 0 3px rgba(230, 194, 0, .12);
+  }
+  .loan-sign-panel[hidden] { display: none !important; }
+
+  .loan-hardcopy__intro {
+    display: flex;
+    gap: .75rem;
+    align-items: flex-start;
+    margin-bottom: 1rem;
+    padding: .85rem .95rem;
+    border-radius: 10px;
+    background: #ecfdf5;
+    color: #14532d;
+  }
+  .loan-hardcopy__intro i { font-size: 1.15rem; margin-top: .1rem; color: #047857; }
+  .loan-hardcopy__intro p { margin: .25rem 0 0; font-size: .86rem; color: #166534; }
+  .loan-hardcopy__existing {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem .65rem;
+    align-items: center;
+    margin-top: .35rem;
+    font-size: .84rem;
+    color: #166534;
+  }
+  .loan-hardcopy__existing a { font-weight: 600; color: #0f766e; }
+
+  .sig-pads {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+  @media (max-width: 720px) {
+    .sig-pads { grid-template-columns: 1fr; }
+  }
+
+  .sig-pad {
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: .85rem;
+    background: #f8fafc;
+  }
+  .sig-pad__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: .5rem;
+    margin-bottom: .55rem;
+  }
+  .sig-pad__head strong {
+    display: block;
+    font-size: .9rem;
+    color: #0f172a;
+  }
+  .sig-pad__head span {
+    display: block;
+    color: #64748b;
+    font-size: .78rem;
+  }
+  .sig-pad__clear {
+    margin: 0;
+    padding: 4px 10px;
+    font-size: .78rem;
+  }
+  .sig-pad__canvas-wrap {
+    position: relative;
+    background: #fff;
+    border: 1px dashed #cbd5e1;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .sig-pad__canvas-wrap::after {
+    content: "";
+    position: absolute;
+    left: 12px;
+    right: 12px;
+    bottom: 28px;
+    border-bottom: 1px solid #94a3b8;
+    pointer-events: none;
+  }
+  .sig-pad canvas {
+    display: block;
+    width: 100%;
+    height: 160px;
+    touch-action: none;
+    cursor: crosshair;
+  }
+  .sig-pad__existing {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    background: #fff;
+    pointer-events: none;
+    z-index: 1;
+  }
+  .sig-pad.has-existing canvas { opacity: 0; }
+  .sig-pad.is-drawing .sig-pad__existing { display: none; }
+  .sig-pad.is-drawing canvas { opacity: 1; }
+  .sig-pad .helptext { margin: .4rem 0 0; text-align: center; }
+
+  .loan-doc-form__field { margin-bottom: 1.1rem; }
+  .loan-doc-form__field label {
+    display: block;
+    margin-bottom: .4rem;
+    color: #334155;
+    font-size: .9rem;
+    font-weight: 600;
+  }
+  .loan-doc-form__field input,
+  .loan-doc-form__field select {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #fff;
+    font-size: .92rem;
+  }
+  .loan-doc-form__field input:focus,
+  .loan-doc-form__field select:focus {
+    outline: none;
+    border-color: #E6C200;
+    box-shadow: 0 0 0 3px rgba(230, 194, 0, .15);
+  }
+
+  .loan-doc-form__check {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    margin: 0 0 1rem;
+    color: #334155;
+    font-size: .9rem;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .loan-doc-form__check input {
+    width: 16px;
+    height: 16px;
+    margin: 0;
+    accent-color: #E6C200;
+  }
+  .loan-doc-form__regen {
+    padding: .75rem .9rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f8fafc;
+  }
+
+  .loan-doc-form__errors {
+    margin-bottom: .85rem;
+    color: #dc2626;
+    font-size: .88rem;
+  }
+  .loan-doc-form__errors .errorlist {
+    margin: .35rem 0 0;
+    padding-left: 1.15rem;
+  }
+
+  .loan-doc-form__actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .5rem;
+    margin-top: 1.25rem;
+    padding-top: 1.1rem;
+    border-top: 1px solid #f1f5f9;
+  }
+  .loan-doc-form__actions .btn-loan,
+  .loan-doc-form__actions .btn--secondary { margin: 0; }
+
+  @media print {
+    .super-nav, nav, form, .btn-loan, .btn--secondary,
+    .loan-doc-page__back, .loan-doc-page__actions, .loan-doc-form { display: none !important; }
+    body { background: #fff; }
+    .card { box-shadow: none; border: none; }
+  }
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  function createPad(canvas, options) {
+    var ctx = canvas.getContext("2d");
+    var drawing = false;
+    var dirty = false;
+    var ratio = Math.max(window.devicePixelRatio || 1, 1);
+
+    function resize() {
+      var rect = canvas.getBoundingClientRect();
+      var w = Math.max(Math.floor(rect.width), 1);
+      var h = Math.max(Math.floor(rect.height), 1);
+      var snapshot = dirty ? canvas.toDataURL("image/png") : null;
+      canvas.width = w * ratio;
+      canvas.height = h * ratio;
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      ctx.lineWidth = 2.2;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = "#0f172a";
+      if (snapshot) {
+        var img = new Image();
+        img.onload = function () {
+          ctx.drawImage(img, 0, 0, w, h);
+        };
+        img.src = snapshot;
+      }
+    }
+
+    function pos(e) {
+      var rect = canvas.getBoundingClientRect();
+      var point = e.touches && e.touches[0] ? e.touches[0] : e;
+      return {
+        x: point.clientX - rect.left,
+        y: point.clientY - rect.top
+      };
+    }
+
+    function start(e) {
+      e.preventDefault();
+      if (options && options.onStart) options.onStart();
+      drawing = true;
+      dirty = true;
+      var p = pos(e);
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+    }
+
+    function move(e) {
+      if (!drawing) return;
+      e.preventDefault();
+      var p = pos(e);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+    }
+
+    function end(e) {
+      if (!drawing) return;
+      e.preventDefault();
+      drawing = false;
+    }
+
+    canvas.addEventListener("mousedown", start);
+    canvas.addEventListener("mousemove", move);
+    canvas.addEventListener("mouseup", end);
+    canvas.addEventListener("mouseleave", end);
+    canvas.addEventListener("touchstart", start, { passive: false });
+    canvas.addEventListener("touchmove", move, { passive: false });
+    canvas.addEventListener("touchend", end, { passive: false });
+    window.addEventListener("resize", resize);
+    resize();
+
+    return {
+      isDirty: function () { return dirty; },
+      clear: function () {
+        dirty = false;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      },
+      toDataURL: function () {
+        return dirty ? canvas.toDataURL("image/png") : "";
+      }
+    };
+  }
+
+  var borrowerExisting = document.getElementById("borrower-existing");
+  var personnelExisting = document.getElementById("personnel-existing");
+  var borrowerWrap = document.querySelector('[data-pad="borrower"]');
+  var personnelWrap = document.querySelector('[data-pad="personnel"]');
+
+  if (borrowerExisting) borrowerWrap.classList.add("has-existing");
+  if (personnelExisting) personnelWrap.classList.add("has-existing");
+
+  var borrowerPad = createPad(document.getElementById("borrower-pad"), {
+    onStart: function () {
+      borrowerWrap.classList.add("is-drawing");
+      borrowerWrap.classList.remove("has-existing");
+      document.getElementById("id_clear_borrower_signature").value = borrowerExisting ? "on" : "";
+      if (borrowerExisting) borrowerExisting.style.display = "none";
+    }
+  });
+  var personnelPad = createPad(document.getElementById("personnel-pad"), {
+    onStart: function () {
+      personnelWrap.classList.add("is-drawing");
+      personnelWrap.classList.remove("has-existing");
+      document.getElementById("id_clear_personnel_signature").value = personnelExisting ? "on" : "";
+      if (personnelExisting) personnelExisting.style.display = "none";
+    }
+  });
+
+  document.querySelector('[data-clear="borrower"]').addEventListener("click", function () {
+    borrowerPad.clear();
+    borrowerWrap.classList.remove("is-drawing", "has-existing");
+    document.getElementById("id_borrower_signature_data").value = "";
+    document.getElementById("id_clear_borrower_signature").value = "on";
+    if (borrowerExisting) borrowerExisting.style.display = "none";
+  });
+
+  document.querySelector('[data-clear="personnel"]').addEventListener("click", function () {
+    personnelPad.clear();
+    personnelWrap.classList.remove("is-drawing", "has-existing");
+    document.getElementById("id_personnel_signature_data").value = "";
+    document.getElementById("id_clear_personnel_signature").value = "on";
+    if (personnelExisting) personnelExisting.style.display = "none";
+  });
+
+  var form = document.getElementById("signature-form");
+  var submitBtn = document.getElementById("doc-submit-btn");
+
+  function selectedMethod() {
+    var checked = form.querySelector('input[name="signing_method"]:checked');
+    return checked ? checked.value : "DIGITAL";
+  }
+
+  function syncMethodPanels() {
+    var method = selectedMethod();
+    form.querySelectorAll("[data-method-panel]").forEach(function (panel) {
+      panel.hidden = panel.getAttribute("data-method-panel") !== method;
+    });
+    form.querySelectorAll("[data-method-option]").forEach(function (label) {
+      label.classList.toggle("is-selected", label.getAttribute("data-method-option") === method);
+    });
+    if (submitBtn) {
+      if (method === "HARD_COPY") {
+        submitBtn.innerHTML = '<i class="bi bi-cloud-arrow-up"></i> Save signed hard copy';
+      } else {
+        submitBtn.innerHTML = '<i class="bi bi-pen"></i> Save signatures';
+      }
+    }
+  }
+
+  form.querySelectorAll('input[name="signing_method"]').forEach(function (input) {
+    input.addEventListener("change", syncMethodPanels);
+  });
+  syncMethodPanels();
+
+  form.addEventListener("submit", function (e) {
+    if (selectedMethod() === "HARD_COPY") {
+      return;
+    }
+    var borrowerData = document.getElementById("id_borrower_signature_data");
+    var personnelData = document.getElementById("id_personnel_signature_data");
+    var clearBorrower = document.getElementById("id_clear_borrower_signature").value === "on";
+    var clearPersonnel = document.getElementById("id_clear_personnel_signature").value === "on";
+
+    if (borrowerPad.isDirty()) {
+      borrowerData.value = borrowerPad.toDataURL();
+    } else if (!borrowerExisting || clearBorrower) {
+      borrowerData.value = "";
+    }
+
+    if (personnelPad.isDirty()) {
+      personnelData.value = personnelPad.toDataURL();
+    } else if (!personnelExisting || clearPersonnel) {
+      personnelData.value = "";
+    }
+
+    var hasBorrower = borrowerData.value || (borrowerExisting && !clearBorrower);
+    var hasPersonnel = personnelData.value || (personnelExisting && !clearPersonnel);
+    if (!hasBorrower || !hasPersonnel) {
+      e.preventDefault();
+      alert("Please draw both the borrower and authorized personnel signatures before saving.");
+    }
+  });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,924 @@
+{# Shared loan request UI for member portal and staff desk. #}
+{# Expects: form, product_limits_json, documents_error #}
+{# Member: blocked_products_json, display_name #}
+{# Staff:  is_staff_desk, member_blocked_products_json #}
+<style>
+  {% if is_staff_desk %}
+  .loan-request-page {
+    --muted: #64748b;
+    --muted-light: #94a3b8;
+    --border: #e2e8f0;
+    --panel: #f8fafc;
+    --radius-sm: 12px;
+    --accent: #E6C200;
+    --brand: #ED1C24;
+    --dark: #0f172a;
+    width: 100%;
+    max-width: 1600px;
+    margin-inline: auto;
+  }
+  .loan-request-page .btn-member {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    border-radius: 999px;
+    padding: .75rem 1.5rem;
+    font-weight: 700;
+    font-size: .92rem;
+    text-decoration: none;
+    border: none;
+    cursor: pointer;
+    background: var(--brand);
+    color: #fff;
+  }
+  .loan-request-page .btn-member:hover { background: #C4121A; color: #fff; }
+  .loan-request-page .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    border-radius: 999px;
+    padding: .55rem 1rem;
+    font-weight: 600;
+    font-size: .84rem;
+    text-decoration: none;
+    border: 1px solid var(--border);
+    background: #fff;
+    color: var(--dark);
+    cursor: pointer;
+  }
+  .loan-request-page .btn-ghost:hover { background: var(--panel); color: var(--dark); }
+  .loan-request-page .loans-hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+  .loan-request-page .loans-hero h1 { margin: 0 0 .35rem; font-size: 1.85rem; }
+  .loan-request-page .loans-hero .subtitle { margin: 0; color: var(--muted); font-size: 1rem; line-height: 1.5; }
+  .loan-request-page .loans-hero__eyebrow {
+    font-size: .75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--muted);
+    margin-bottom: .35rem;
+  }
+  .loan-request-page .member-card__body {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.5rem 1.75rem 1.75rem;
+    box-shadow: 0 12px 30px rgba(15, 23, 42, .06);
+  }
+  .loan-request-page .ts-wrapper { width: 100%; }
+  .loan-request-page .ts-control {
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    min-height: 46px;
+    padding: 10px 14px;
+    font-size: 1rem;
+  }
+  .loan-request-page .ts-wrapper.focus .ts-control {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(230, 194, 0, .15);
+  }
+  @media (min-width: 1100px) {
+    .loan-request-page .request-form-grid {
+      grid-template-columns: minmax(460px, 1fr) minmax(460px, 1fr);
+      gap: 2rem;
+    }
+    .loan-request-page .request-step {
+      font-size: .92rem;
+    }
+    .loan-request-page .request-step__num {
+      width: 2rem;
+      height: 2rem;
+      font-size: .85rem;
+    }
+    .loan-request-page .request-panel__title {
+      font-size: 1.05rem;
+    }
+    .loan-request-page .request-panel__body {
+      padding: 1.35rem 1.5rem 1.5rem;
+    }
+    .loan-request-page .field-label {
+      font-size: .95rem;
+    }
+    .loan-request-page .helptext,
+    .loan-request-page .loan-product-summary {
+      font-size: .92rem;
+      line-height: 1.45;
+    }
+    .loan-request-page #id_loan_product,
+    .loan-request-page #id_purpose,
+    .loan-request-page #id_amount_requested,
+    .loan-request-page #id_term_months,
+    .loan-request-page #id_interest_rate {
+      font-size: 1rem;
+      padding: .85rem 1rem;
+    }
+    .loan-request-page #id_purpose {
+      min-height: 120px;
+    }
+    .loan-request-page .loan-amount-input-wrap,
+    .loan-request-page .loan-term-input-wrap,
+    .loan-request-page .loan-interest-input-wrap,
+    .loan-request-page .loan-application-date {
+      max-width: none;
+    }
+    .loan-request-page .loan-amount-input-wrap .currency {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #ED1C24;
+    }
+    .loan-request-page .loan-amount-input-wrap input,
+    .loan-request-page .loan-amount-input-wrap #id_amount_requested {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: #ED1C24;
+      background: #fff5f5;
+      border: 2px solid #fca5a5;
+    }
+    .loan-request-page .loan-interest-input-wrap input,
+    .loan-request-page .loan-interest-input-wrap #id_interest_rate,
+    .loan-request-page .loan-term-input-wrap input,
+    .loan-request-page .loan-term-input-wrap #id_term_months {
+      font-size: 1.2rem;
+    }
+    .loan-request-page .loan-amount-available {
+      font-size: .95rem;
+    }
+    .loan-request-page .loan-amount-available span {
+      font-size: 1.15rem;
+    }
+    .loan-request-page .loan-amount-preset {
+      font-size: .88rem;
+      padding: .45rem .95rem;
+    }
+    .loan-request-page .file-upload-zone__title {
+      font-size: 1rem;
+    }
+    .loan-request-page .file-upload-zone__hint {
+      font-size: .88rem;
+      line-height: 1.45;
+    }
+    .loan-request-page .staff-member-field .ts-control {
+      min-height: 48px;
+      font-size: 1rem;
+    }
+  }
+  {% endif %}
+  .request-steps {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    margin-bottom: 1.75rem;
+    padding: 0;
+    list-style: none;
+  }
+  .request-step {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    flex: 1;
+    font-size: .82rem;
+    font-weight: 700;
+    color: var(--muted);
+    position: relative;
+  }
+  .request-step:not(:last-child)::after {
+    content: '';
+    flex: 1;
+    height: 2px;
+    background: var(--border);
+    margin: 0 .75rem 0 .65rem;
+  }
+  .request-step.is-done:not(:last-child)::after { background: #86efac; }
+  .request-step__num {
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--panel);
+    border: 2px solid var(--border);
+    font-size: .78rem;
+    flex-shrink: 0;
+  }
+  .request-step.is-active { color: var(--dark); }
+  .request-step.is-active .request-step__num {
+    background: var(--brand);
+    border-color: var(--brand);
+    color: #fff;
+  }
+  .request-step.is-done { color: #166534; }
+  .request-step.is-done .request-step__num {
+    background: #dcfce7;
+    border-color: #86efac;
+    color: #166534;
+  }
+  .request-form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.75rem;
+    align-items: start;
+  }
+  @media (max-width: 1100px) {
+    .request-form-grid { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 767.98px) {
+    .request-steps {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: .5rem;
+      margin-bottom: 1.25rem;
+    }
+    .request-step:not(:last-child)::after { display: none; }
+    .request-actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .request-actions .btn-member,
+    .request-actions .btn-ghost { width: 100%; justify-content: center; }
+    .request-note { margin-left: 0; }
+    .loan-amount-input-wrap { max-width: none; }
+    .file-upload-zone { padding: 1.1rem .9rem; }
+    .file-upload-item { flex-wrap: wrap; }
+  }
+  .request-panel {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+    overflow: hidden;
+  }
+  .request-panel__head {
+    padding: .85rem 1.15rem;
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+  .request-panel__head i { color: var(--accent); font-size: 1rem; }
+  .request-panel__title {
+    font-size: .92rem;
+    font-weight: 800;
+    margin: 0;
+    color: var(--dark);
+  }
+  .request-panel__body { padding: 1.15rem 1.25rem 1.25rem; }
+  .request-panel__body form p { margin-bottom: 1rem; }
+  .request-panel__body form p:last-child { margin-bottom: 0; }
+  .field-label {
+    display: block;
+    font-weight: 700;
+    font-size: .88rem;
+    margin-bottom: .4rem;
+    color: var(--dark);
+  }
+  .field-label .required { color: #dc2626; }
+  .loan-product-summary {
+    display: none;
+    margin: .75rem 0 0;
+    padding: .9rem 1rem;
+    border-radius: var(--radius-sm);
+    background: #fff;
+    border: 1px solid #bbf7d0;
+    font-size: .86rem;
+    color: #475569;
+  }
+  .loan-product-summary.is-visible { display: block; }
+  .loan-product-summary strong { color: #166534; font-size: .95rem; }
+  .loan-product-summary__meta {
+    margin-top: .35rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: .35rem;
+  }
+  .loan-product-summary__tag {
+    font-size: .72rem;
+    font-weight: 600;
+    color: var(--muted);
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: .18rem .55rem;
+  }
+  .loan-amount-panel {
+    margin-top: 1.15rem;
+    padding: 1rem 1.1rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: #fff;
+  }
+  .loan-amount-available {
+    font-size: .88rem;
+    font-weight: 600;
+    color: var(--muted);
+    margin: 0 0 .75rem;
+  }
+  .loan-amount-available span {
+    color: var(--accent);
+    font-weight: 800;
+    font-size: 1rem;
+  }
+  .loan-amount-presets {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .45rem;
+    margin: 0 0 .85rem;
+  }
+  .loan-amount-preset {
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--dark);
+    border-radius: 999px;
+    padding: .4rem .85rem;
+    font-size: .8rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: border-color .15s, background .15s, color .15s;
+  }
+  .loan-amount-preset:hover,
+  .loan-amount-preset.is-active {
+    border-color: var(--accent);
+    background: #ecfdf5;
+    color: #047857;
+  }
+  .loan-amount-custom-label {
+    display: block;
+    font-size: .78rem;
+    font-weight: 700;
+    color: var(--muted);
+    margin-bottom: .4rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .loan-amount-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    max-width: 280px;
+  }
+  .loan-amount-input-wrap .currency {
+    font-weight: 800;
+    font-size: 1.1rem;
+    color: var(--muted);
+  }
+  .loan-amount-input-wrap input {
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+  #id_amount_requested[readonly] {
+    background: var(--panel);
+    color: var(--muted-light);
+  }
+  #id_amount_requested.is-invalid,
+  .loan-amount-input-wrap.is-invalid #id_amount_requested {
+    border-color: #dc2626;
+    background: #fef2f2;
+  }
+  #loan-amount-error {
+    display: none;
+    margin: .45rem 0 0;
+    padding: 0;
+    list-style: none;
+    color: #dc2626;
+    font-size: .84rem;
+    font-weight: 600;
+  }
+  #loan-amount-error.is-visible { display: block; }
+  .file-upload-zone {
+    border: 2px dashed #cbd5e1;
+    border-radius: var(--radius-sm);
+    padding: 1.35rem 1.25rem;
+    text-align: center;
+    background: #fff;
+    transition: border-color .15s, background .15s;
+  }
+  .file-upload-zone:hover,
+  .file-upload-zone.is-dragover {
+    border-color: var(--accent);
+    background: #f0fdf4;
+  }
+  .file-upload-zone__icon {
+    font-size: 2rem;
+    color: var(--accent);
+    opacity: .7;
+    margin-bottom: .5rem;
+  }
+  .file-upload-zone__title {
+    font-weight: 700;
+    font-size: .92rem;
+    color: var(--dark);
+    margin-bottom: .25rem;
+  }
+  .file-upload-zone__hint {
+    font-size: .78rem;
+    color: var(--muted);
+    margin-bottom: .85rem;
+  }
+  .file-upload-browse { margin-bottom: .85rem; }
+  .file-upload-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+  }
+  .file-upload-list:empty { display: none; }
+  .file-upload-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .55rem .75rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel);
+    font-size: .82rem;
+  }
+  .file-upload-item__info {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    min-width: 0;
+  }
+  .file-upload-item__info i { color: var(--accent); flex-shrink: 0; }
+  .file-upload-item__name {
+    font-weight: 600;
+    color: var(--dark);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .file-upload-item__size {
+    color: var(--muted);
+    font-size: .74rem;
+    flex-shrink: 0;
+  }
+  .file-upload-item__remove {
+    border: none;
+    background: #fee2e2;
+    color: #b91c1c;
+    border-radius: 6px;
+    width: 1.65rem;
+    height: 1.65rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .file-upload-item__remove:hover { background: #fecaca; }
+  .file-upload-count {
+    margin-top: .65rem;
+    font-size: .78rem;
+    font-weight: 700;
+    color: #166534;
+  }
+  .file-upload-count:empty { display: none; }
+  .request-actions {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .request-actions .btn-member { padding: .75rem 1.5rem; font-size: .92rem; }
+  .request-note {
+    margin-left: auto;
+    font-size: .78rem;
+    color: var(--muted);
+  }
+  #id_loan_product, #id_purpose, #id_amount_requested, #id_term_months, #id_interest_rate {
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: .7rem .85rem;
+    font-size: .92rem;
+    background: #fff;
+    width: 100%;
+  }
+  #id_purpose { min-height: 100px; resize: vertical; }
+  .loan-interest-panel {
+    margin-top: 1rem;
+    padding: 1rem 1.1rem;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: #fff;
+  }
+  .loan-term-input-wrap,
+  .loan-interest-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: .55rem;
+    max-width: 280px;
+  }
+  .loan-term-input-wrap .unit,
+  .loan-interest-input-wrap .unit {
+    font-weight: 800;
+    font-size: 1rem;
+    color: var(--muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+    line-height: 1;
+  }
+  .loan-term-input-wrap input,
+  .loan-term-input-wrap #id_term_months,
+  .loan-interest-input-wrap input,
+  .loan-interest-input-wrap #id_interest_rate {
+    flex: 1 1 auto;
+    width: auto;
+    min-width: 0;
+    font-size: 1.05rem;
+    font-weight: 700;
+  }
+  #id_term_months.is-invalid,
+  #id_interest_rate.is-invalid {
+    border-color: #dc2626;
+    background: #fef2f2;
+  }
+  .loan-application-date {
+    margin-top: .85rem;
+    padding-top: .85rem;
+    border-top: 1px dashed var(--border);
+    max-width: 280px;
+  }
+  .loan-application-date label {
+    display: block;
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: var(--muted);
+    margin: 0 0 .25rem;
+  }
+  .loan-application-date input[type="date"] {
+    width: 100%;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: .4rem .55rem;
+    font-weight: 600;
+    font-size: .88rem;
+  }
+  .loan-application-date input[type="hidden"] {
+    display: none;
+  }
+  .staff-member-field { margin-bottom: 1.25rem; }
+  .staff-member-field.request-panel { overflow: visible; }
+  /* Hide native select only AFTER Tom Select wraps it (hiding earlier breaks layout). */
+  .staff-member-field .ts-wrapper select,
+  .staff-member-field select.ts-hidden-accessible {
+    display: none !important;
+    height: 0 !important;
+    width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    position: absolute !important;
+    pointer-events: none !important;
+    opacity: 0 !important;
+  }
+  .staff-member-field .ts-wrapper {
+    width: 100%;
+  }
+  .staff-member-field .ts-control {
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    padding: .55rem .85rem;
+    min-height: 44px;
+    background: #fff;
+    font-size: .92rem;
+    box-shadow: none;
+  }
+  .staff-member-field .ts-wrapper.single .ts-control {
+    display: flex;
+    align-items: center;
+  }
+  .staff-member-field .ts-wrapper.focus .ts-control {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(230, 194, 0, .18);
+  }
+  /* Dropdown is attached to body (dropdownParent), so style it globally. */
+  .ts-dropdown.staff-member-dropdown,
+  body > .ts-dropdown {
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    box-shadow: 0 10px 28px rgba(15, 23, 42, .12);
+    z-index: 2000;
+  }
+  body > .ts-dropdown .option {
+    padding: .55rem .85rem;
+  }
+  body > .ts-dropdown .option[data-value=""] {
+    display: none !important;
+  }
+  body > .ts-dropdown .active {
+    background: #f0fdf4;
+    color: #166534;
+  }
+  #member-loan-warning { margin-top: .75rem; }
+  .member-loan-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: .85rem;
+    padding: 1rem 1.1rem;
+    border-radius: 12px;
+    border: 2px solid #f59e0b;
+    background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%);
+    color: #78350f;
+    box-shadow: 0 8px 20px rgba(245, 158, 11, .18);
+    animation: member-loan-alert-in .35s ease-out;
+  }
+  .member-loan-alert--blocked {
+    border-color: #ef4444;
+    background: linear-gradient(180deg, #fef2f2 0%, #fee2e2 100%);
+    color: #7f1d1d;
+    box-shadow: 0 8px 20px rgba(239, 68, 68, .16);
+  }
+  .member-loan-alert__icon {
+    flex-shrink: 0;
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 999px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #f59e0b;
+    color: #fff;
+    font-size: 1.25rem;
+  }
+  .member-loan-alert--blocked .member-loan-alert__icon {
+    background: #ef4444;
+  }
+  .member-loan-alert__body { min-width: 0; flex: 1; }
+  .member-loan-alert__title {
+    margin: 0 0 .3rem;
+    font-size: .95rem;
+    font-weight: 800;
+    letter-spacing: .01em;
+    color: inherit;
+  }
+  .member-loan-alert__text {
+    margin: 0;
+    font-size: .9rem;
+    line-height: 1.5;
+    font-weight: 600;
+  }
+  .member-loan-alert__date {
+    display: inline-block;
+    margin-top: .55rem;
+    padding: .28rem .65rem;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid rgba(120, 53, 15, .25);
+    color: #92400e;
+    font-size: .82rem;
+    font-weight: 800;
+  }
+  .member-loan-alert--blocked .member-loan-alert__date {
+    border-color: rgba(127, 29, 29, .25);
+    color: #991b1b;
+  }
+  @keyframes member-loan-alert-in {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+</style>
+
+<div{% if is_staff_desk %} class="loan-request-page"{% endif %}>
+  <div class="loans-hero loans-hero--desktop">
+    <div class="loans-hero__main">
+      <div class="loans-hero__eyebrow">{{ kiosk_system_name|default:"Cooperative" }} · {% if is_staff_desk %}Staff Desk{% else %}New Application{% endif %}</div>
+      <h1>{% if is_staff_desk %}New Loan Application{% else %}Request a Loan{% endif %}</h1>
+      <p class="subtitle">
+        {% if is_staff_desk %}
+          Choose the member first, then complete the loan details.
+        {% else %}
+          Hello, {{ display_name }}. Fill in the form below to submit your loan application.
+        {% endif %}
+      </p>
+    </div>
+    <div class="loans-hero__side">
+      <div class="loans-hero__actions">
+        {% if is_staff_desk %}
+        <a class="btn-ghost" href="{% url 'loans_overview' %}">
+          <i class="bi bi-arrow-left"></i> Back to Loans
+        </a>
+        {% else %}
+        <a class="btn-ghost" href="{% url 'member_loan_list' %}">
+          <i class="bi bi-arrow-left"></i> Back to My Loans
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="member-card__body member-card__body--desktop">
+    <ol class="request-steps" aria-label="Application steps">
+      {% if is_staff_desk %}
+      <li class="request-step is-active" id="step-indicator-0">
+        <span class="request-step__num">1</span>
+        <span>Select member</span>
+      </li>
+      <li class="request-step" id="step-indicator-1">
+        <span class="request-step__num">2</span>
+        <span>Choose product</span>
+      </li>
+      <li class="request-step" id="step-indicator-2">
+        <span class="request-step__num">3</span>
+        <span>Set amount</span>
+      </li>
+      <li class="request-step" id="step-indicator-3">
+        <span class="request-step__num">4</span>
+        <span>Details &amp; submit</span>
+      </li>
+      {% else %}
+      <li class="request-step is-active" id="step-indicator-1">
+        <span class="request-step__num">1</span>
+        <span>Choose product</span>
+      </li>
+      <li class="request-step" id="step-indicator-2">
+        <span class="request-step__num">2</span>
+        <span>Set amount</span>
+      </li>
+      <li class="request-step" id="step-indicator-3">
+        <span class="request-step__num">3</span>
+        <span>Details &amp; submit</span>
+      </li>
+      {% endif %}
+    </ol>
+
+    <form method="post" enctype="multipart/form-data" novalidate id="loan-request-form">
+      {% csrf_token %}
+      {{ form.non_field_errors }}
+
+      {% if is_staff_desk and form.coop_member %}
+      <div class="staff-member-field request-panel" style="margin-bottom:1.25rem;">
+        <div class="request-panel__head">
+          <i class="bi bi-person-badge"></i>
+          <h2 class="request-panel__title">Borrower</h2>
+        </div>
+        <div class="request-panel__body">
+          <p style="margin-bottom:0;">
+            <label class="field-label" for="{{ form.coop_member.id_for_label }}">
+              Member <span class="required">*</span>
+            </label>
+            {{ form.coop_member }}
+            {{ form.coop_member.errors }}
+            <div id="member-loan-warning" class="member-loan-warning" hidden aria-live="polite"></div>
+            {% if form.coop_member.help_text %}
+            <span class="helptext">{{ form.coop_member.help_text }}</span>
+            {% endif %}
+          </p>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="request-form-grid">
+        <div class="request-panel" id="loan-product-field">
+          <div class="request-panel__head">
+            <i class="bi bi-bank2"></i>
+            <h2 class="request-panel__title">Loan product &amp; amount</h2>
+          </div>
+          <div class="request-panel__body">
+            <p>
+              <label class="field-label" for="{{ form.loan_product.id_for_label }}" id="loan-product-label">
+                Loan product <span class="required">*</span>
+              </label>
+              {{ form.loan_product }}
+              {{ form.loan_product.errors }}
+            </p>
+
+            <div id="loan-product-summary" class="loan-product-summary" aria-live="polite"></div>
+
+            <div class="loan-amount-panel">
+              <p class="loan-amount-available" id="loan-amount-available">
+                Allowed range: <span id="loan-amount-range">Select a product first</span>
+              </p>
+              <div class="loan-amount-presets" id="loan-amount-presets" hidden></div>
+              <label class="loan-amount-custom-label" for="{{ form.amount_requested.id_for_label }}">Amount requested</label>
+              <div class="loan-amount-input-wrap" id="loan-amount-input-wrap">
+                <span class="currency">&#8369;</span>
+                {{ form.amount_requested }}
+              </div>
+              <ul id="loan-amount-error" role="alert" aria-live="polite"></ul>
+              {{ form.amount_requested.errors }}
+              {% if form.amount_requested.help_text %}
+              <span class="helptext" id="loan-amount-help">{{ form.amount_requested.help_text }}</span>
+              {% endif %}
+            </div>
+
+            <div class="loan-interest-panel">
+              <label class="loan-amount-custom-label" for="{{ form.term_months.id_for_label }}">
+                Term (months) <span class="required">*</span>
+              </label>
+              <div class="loan-term-input-wrap">
+                {{ form.term_months }}
+                <span class="unit">mo.</span>
+              </div>
+              {{ form.term_months.errors }}
+              {% if form.term_months.help_text %}
+              <span class="helptext" id="loan-term-help">{{ form.term_months.help_text }}</span>
+              {% else %}
+              <span class="helptext" id="loan-term-help">Number of monthly installments. Does not change interest calculation.</span>
+              {% endif %}
+
+              <label class="loan-amount-custom-label" for="{{ form.interest_rate.id_for_label }}" style="margin-top:.9rem;">
+                Interest rate <span class="required">*</span>
+              </label>
+              <div class="loan-interest-input-wrap">
+                {{ form.interest_rate }}
+              </div>
+              {{ form.interest_rate.errors }}
+              {% if form.interest_rate.help_text %}
+              <span class="helptext" id="loan-interest-help">{{ form.interest_rate.help_text }}</span>
+              {% else %}
+              <span class="helptext" id="loan-interest-help">Monthly rate as decimal (e.g. 0.015 = 1.5%). Interest is computed at payment time from usable dates. Daily = (rate ÷ 30) × remaining principal.</span>
+              {% endif %}
+              <div class="loan-application-date" id="loan-application-date">
+                <label for="{{ form.usable_from.id_for_label }}">Application date</label>
+                {{ form.usable_from }}
+                {{ form.usable_from.errors }}
+                {{ form.usable_to }}
+                {{ form.usable_days }}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="request-panel">
+          <div class="request-panel__head">
+            <i class="bi bi-file-earmark-text"></i>
+            <h2 class="request-panel__title">Purpose &amp; documents</h2>
+          </div>
+          <div class="request-panel__body">
+            <p>
+              <label class="field-label" for="{{ form.purpose.id_for_label }}">
+                Loan purpose <span class="required">*</span>
+              </label>
+              {{ form.purpose }}
+              {{ form.purpose.errors }}
+              {% if form.purpose.help_text %}
+              <span class="helptext">{{ form.purpose.help_text }}</span>
+              {% endif %}
+            </p>
+
+            <p style="margin-bottom:0;">
+              <span class="field-label">Supporting files <span class="required">*</span></span>
+              <div class="file-upload-zone" id="file-upload-zone">
+                <div class="file-upload-zone__icon"><i class="bi bi-paperclip"></i></div>
+                <div class="file-upload-zone__title">Upload one or more supporting files</div>
+                <div class="file-upload-zone__hint">
+                  Hold Ctrl (or Cmd on Mac) to pick multiple files at once, or use the button below to add files in batches.
+                  Accepted: images (JPG, PNG, GIF, WEBP, BMP), PDF, Word, Excel, PowerPoint, CSV, TXT, and similar documents.
+                </div>
+                <button type="button" class="btn-ghost file-upload-browse" id="documents-browse">
+                  <i class="bi bi-folder2-open"></i> Select multiple files
+                </button>
+                <input type="file" id="documents-picker" multiple
+                       accept=".jpg,.jpeg,.png,.gif,.webp,.bmp,.jfif,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.rtf,.odt,.ods,.ppt,.pptx,image/*,application/pdf" hidden>
+                <input type="file" name="documents" id="documents" multiple hidden
+                       accept=".jpg,.jpeg,.png,.gif,.webp,.bmp,.jfif,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.rtf,.odt,.ods,.ppt,.pptx,image/*,application/pdf">
+                <ul class="file-upload-list" id="file-upload-list" aria-live="polite"></ul>
+                <div class="file-upload-count" id="file-upload-count"></div>
+              </div>
+              {% if documents_error %}
+              <ul class="errorlist"><li>{{ documents_error }}</li></ul>
+              {% endif %}
+              <span class="helptext">Required. Upload at least one file (ID photo, payslip, PDF, Word/Excel docs, etc.). You may attach multiple files.</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="request-actions">
+        <button type="submit" class="btn-member" id="loan-request-submit">
+          <i class="bi bi-send"></i>
+          {% if is_staff_desk %}Submit application{% else %}Submit loan request{% endif %}
+        </button>
+        {% if is_staff_desk %}
+        <a class="btn-ghost" href="{% url 'loans_overview' %}">Cancel</a>
+        <span class="request-note"><i class="bi bi-shield-check"></i> Walk-in application for the selected member</span>
+        {% else %}
+        <a class="btn-ghost" href="{% url 'member_loan_list' %}">Cancel</a>
+        <span class="request-note"><i class="bi bi-shield-check"></i> Your application will be reviewed by staff</span>
+        {% endif %}
+      </div>
+    </form>
+  </div>
+</div>
+
+{{ product_limits_json|json_script:"loan-product-limits" }}
+{% if is_staff_desk %}
+{{ member_blocked_products_json|json_script:"member-blocked-products" }}
+{{ member_waiting_json|json_script:"member-waiting" }}
+{% else %}
+{{ blocked_products_json|json_script:"member-blocked-products" }}
+{% endif %}

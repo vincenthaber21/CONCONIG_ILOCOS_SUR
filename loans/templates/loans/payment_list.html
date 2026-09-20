@@ -1,0 +1,1150 @@
+{% extends "loans/base_loans.html" %}
+{% load currency_filters %}
+{% block title %}Payment Collection{% endblock %}
+{% block content %}
+<div class="loan-pay-page">
+  <header class="loan-pay-page__header">
+    <a class="loan-pay-page__back" href="{% url 'loans:application-detail' application.pk %}">
+      <i class="bi bi-arrow-left"></i> Application
+    </a>
+    <div class="loan-pay-page__title-row">
+      <div>
+        <h1>Payment Collection</h1>
+        <p class="subtitle loan-pay-page__sub">
+          {{ application.member }} &middot; {{ application.loan_product.name }}
+        </p>
+      </div>
+      <div class="loan-pay-page__actions">
+        {% if payments %}
+        <a class="btn--secondary" href="{{ payment_receipts_all_url }}" target="_blank" rel="noopener">
+          <i class="bi bi-printer"></i> Print all ORs
+        </a>
+        {% endif %}
+        <span class="status-pill status-pill--{{ application.status|lower }}">
+          {{ application.get_status_display }}
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <div class="loan-pay-page__stats">
+    <div class="loan-pay-stat loan-pay-stat--accent">
+      <span class="loan-pay-stat__label">Balance left to pay</span>
+      <span class="loan-pay-stat__value">&#8369;{{ outstanding_balance|currency }}</span>
+    </div>
+    <div class="loan-pay-stat">
+      <span class="loan-pay-stat__label">Remaining principal</span>
+      <span class="loan-pay-stat__value">&#8369;{{ remaining_principal|currency }}</span>
+    </div>
+    <div class="loan-pay-stat">
+      <span class="loan-pay-stat__label">Loan amount</span>
+      <span class="loan-pay-stat__value">&#8369;{{ application.amount_requested|currency }}</span>
+    </div>
+    <div class="loan-pay-stat">
+      <span class="loan-pay-stat__label">Payments recorded</span>
+      <span class="loan-pay-stat__value">{{ payments|length }}</span>
+    </div>
+  </div>
+
+  <div class="loan-pay-page__grid">
+    <section class="card loan-pay-page__card">
+      <h2>Record a payment</h2>
+      <p class="subtitle loan-pay-section__sub">
+        Every payment automatically gets an Official Receipt (OR) number.
+      </p>
+
+      <form method="post" class="loan-pay-form" id="loan-pay-form" novalidate>
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="loan-pay-form__errors">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        {% if outstanding_balance <= 0 %}
+        <div class="loan-pay-form__notice">
+          This loan has no remaining balance. No further payment can be recorded.
+        </div>
+        {% else %}
+
+        <div class="loan-pay-period">
+          <div class="loan-pay-period__head">
+            <h3 class="loan-pay-period__title">Interest period</h3>
+            {% if outstanding_balance <= 0 %}
+            <p class="loan-pay-period__hint loan-pay-period__hint--free">
+              This loan has no remaining balance — no further interest will be applied.
+            </p>
+            {% else %}
+            <p class="loan-pay-period__hint">
+              Interest is based on <strong>Balance left to pay</strong> (not the original
+              loan amount). The <strong>From</strong> date is set automatically; enter the
+              <strong>To</strong> date — interest is added when you record this payment.
+            </p>
+            {% endif %}
+          </div>
+
+          <div class="loan-pay-period__row">
+            <div class="loan-pay-period__cell loan-pay-period__cell--locked">
+              <label for="{{ form.usable_from.id_for_label }}">
+                From <span class="required">*</span>
+                <span class="loan-pay-period__lock-badge" title="Cannot be edited">
+                  <i class="bi bi-lock-fill" aria-hidden="true"></i> Locked
+                </span>
+              </label>
+              {{ form.usable_from }}
+              {% if form.usable_from.errors %}
+              <div class="loan-pay-form__errors">{{ form.usable_from.errors }}</div>
+              {% endif %}
+            </div>
+            <div class="loan-pay-period__cell">
+              <label for="{{ form.usable_to.id_for_label }}">To <span class="required">*</span></label>
+              {{ form.usable_to }}
+              {% if form.usable_to.errors %}
+              <div class="loan-pay-form__errors">{{ form.usable_to.errors }}</div>
+              {% endif %}
+            </div>
+            <div class="loan-pay-period__cell loan-pay-period__cell--days">
+              <label for="{{ form.usable_days.id_for_label }}">Days</label>
+              {{ form.usable_days }}
+              {% if form.usable_days.errors %}
+              <div class="loan-pay-form__errors">{{ form.usable_days.errors }}</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div class="loan-pay-form__field loan-pay-form__field--amount">
+          <label for="{{ form.amount_paid.id_for_label }}">{{ form.amount_paid.label }}</label>
+          <div class="loan-pay-form__money">
+            <span>&#8369;</span>
+            {{ form.amount_paid }}
+          </div>
+          {% if form.amount_paid.help_text %}
+          <p class="helptext">{{ form.amount_paid.help_text }}</p>
+          {% endif %}
+          {% if form.amount_paid.errors %}
+          <div class="loan-pay-form__errors">{{ form.amount_paid.errors }}</div>
+          {% endif %}
+        </div>
+
+        <div class="loan-pay-form__pair">
+          <div class="loan-pay-form__field">
+            <label for="{{ form.payment_method.id_for_label }}">{{ form.payment_method.label }}</label>
+            {{ form.payment_method }}
+            {% if form.payment_method.errors %}
+            <div class="loan-pay-form__errors">{{ form.payment_method.errors }}</div>
+            {% endif %}
+          </div>
+
+          <div class="loan-pay-form__field">
+            <label for="{{ form.or_number.id_for_label }}">{{ form.or_number.label }}</label>
+            {{ form.or_number }}
+            {% if form.or_number.help_text %}
+            <p class="helptext">{{ form.or_number.help_text }}</p>
+            {% endif %}
+            {% if form.or_number.errors %}
+            <div class="loan-pay-form__errors">{{ form.or_number.errors }}</div>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="loan-pay-form__field">
+          <label for="{{ form.remarks.id_for_label }}">{{ form.remarks.label }}</label>
+          {{ form.remarks }}
+          {% if form.remarks.errors %}
+          <div class="loan-pay-form__errors">{{ form.remarks.errors }}</div>
+          {% endif %}
+        </div>
+
+        <div class="loan-pay-form__actions">
+          <button type="button" class="btn-loan" id="loan-pay-open-confirm">
+            <i class="bi bi-receipt"></i> Record &amp; issue OR
+          </button>
+        </div>
+        {% endif %}
+      </form>
+    </section>
+
+    <section class="card loan-pay-page__card">
+      <h2>Payment history</h2>
+      <p class="subtitle loan-pay-section__sub">Official receipts for this loan.</p>
+
+      {% if payments %}
+      <div class="loan-pay-table-wrap">
+        <table class="loan-pay-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Amount</th>
+              <th>Period</th>
+              <th>Method</th>
+              <th>OR #</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for payment in payments %}
+            <tr>
+              <td>
+                {{ payment.payment_date|date:"M j, Y" }}
+                <div class="loan-pay-table__muted">{{ payment.payment_date|date:"g:i A" }}</div>
+              </td>
+              <td class="loan-pay-table__amount">
+                &#8369;{{ payment.amount_paid|currency }}
+                {% if payment.period_interest %}
+                <div class="loan-pay-table__muted">+&#8369;{{ payment.period_interest|currency }} interest</div>
+                {% endif %}
+              </td>
+              <td>
+                {% if payment.usable_from and payment.usable_to %}
+                {{ payment.usable_from|date:"M j" }} – {{ payment.usable_to|date:"M j, Y" }}
+                <div class="loan-pay-table__muted">{{ payment.usable_days }} days</div>
+                {% else %}
+                <span class="loan-pay-table__muted">—</span>
+                {% endif %}
+              </td>
+              <td>{{ payment.get_payment_method_display }}</td>
+              <td><code class="loan-pay-table__or">{{ payment.or_number }}</code></td>
+              <td class="loan-pay-table__action">
+                <a class="btn--secondary" href="{{ payment.receipt_url }}" target="_blank" rel="noopener">
+                  View / Print
+                </a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="loan-pay-empty">
+        <i class="bi bi-receipt"></i>
+        <p>No payments recorded yet.</p>
+      </div>
+      {% endif %}
+    </section>
+  </div>
+</div>
+
+{% if outstanding_balance > 0 %}
+{# Validity / confirmation step before recording payment & issuing OR #}
+<div class="modal fade" id="loanPayConfirmModal" tabindex="-1"
+     aria-labelledby="loanPayConfirmModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content loan-pay-confirm">
+      <div class="modal-header loan-pay-confirm__header">
+        <h5 class="modal-title" id="loanPayConfirmModalLabel">
+          <i class="bi bi-shield-check"></i> Confirm payment &amp; issue OR
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p class="loan-pay-confirm__lead">
+          Review the details below. Confirming will record this payment and issue
+          an Official Receipt for <strong>{{ application.member }}</strong>.
+        </p>
+
+        <dl class="loan-pay-confirm__summary" id="loan-pay-confirm-summary">
+          <div>
+            <dt>Amount paid</dt>
+            <dd id="confirm-amount">—</dd>
+          </div>
+          <div>
+            <dt>Interest period</dt>
+            <dd id="confirm-period">—</dd>
+          </div>
+          <div>
+            <dt>Period interest</dt>
+            <dd id="confirm-interest">—</dd>
+          </div>
+          <div>
+            <dt>Balance after this payment</dt>
+            <dd id="confirm-balance-after">—</dd>
+          </div>
+          <div>
+            <dt>Payment method</dt>
+            <dd id="confirm-method">—</dd>
+          </div>
+          <div>
+            <dt>OR number</dt>
+            <dd id="confirm-or">Auto-generate</dd>
+          </div>
+          <div id="confirm-remarks-row" style="display:none;">
+            <dt>Remarks</dt>
+            <dd id="confirm-remarks">—</dd>
+          </div>
+        </dl>
+
+        <form id="loan-pay-confirm-form" class="loan-pay-confirm__form" novalidate>
+          <div class="loan-pay-confirm__check">
+            <input type="checkbox" id="loan-pay-confirm-ack" required>
+            <label for="loan-pay-confirm-ack">
+              I verified the amount, interest period, and payment method.
+              This payment is correct and ready to record.
+            </label>
+          </div>
+          <div class="loan-pay-confirm__error" id="loan-pay-confirm-error" hidden>
+            Please confirm the details before completing this transaction.
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer loan-pay-confirm__footer">
+        <button type="button" class="btn--secondary" data-bs-dismiss="modal">
+          Back to edit
+        </button>
+        <button type="button" class="btn-loan" id="loan-pay-confirm-submit">
+          <i class="bi bi-check2-circle"></i> Confirm &amp; complete
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<style>
+  .loan-pay-page {
+    width: 100%;
+    max-width: 1600px;
+    margin-inline: auto;
+  }
+
+  .loan-pay-page__header { margin-bottom: 1.25rem; }
+  .loan-pay-page__back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    color: #64748b;
+    text-decoration: none;
+    font-size: .88rem;
+    font-weight: 500;
+    margin-bottom: .65rem;
+  }
+  .loan-pay-page__back:hover { color: #0f172a; }
+
+  .loan-pay-page__title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .loan-pay-page__title-row h1 { margin: 0 0 .35rem; }
+  .loan-pay-page__sub { margin-bottom: 0; }
+  .loan-pay-page__actions {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    flex-wrap: wrap;
+  }
+  .loan-pay-page__actions .btn--secondary { margin: 0; }
+
+  .loan-pay-page__stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .85rem;
+    margin-bottom: 1.25rem;
+  }
+  @media (max-width: 1100px) {
+    .loan-pay-page__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 520px) {
+    .loan-pay-page__stats { grid-template-columns: 1fr; }
+  }
+
+  .loan-pay-stat {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: .9rem 1rem;
+  }
+  .loan-pay-stat--accent {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+  }
+  .loan-pay-stat__label {
+    display: block;
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: .3rem;
+  }
+  .loan-pay-stat--accent .loan-pay-stat__label { color: #166534; }
+  .loan-pay-stat__value {
+    display: block;
+    font-size: 1.28rem;
+    font-weight: 700;
+    color: #0f172a;
+    font-variant-numeric: tabular-nums;
+  }
+  .loan-pay-stat--accent .loan-pay-stat__value { color: #166534; }
+
+  .loan-pay-page__grid {
+    display: grid;
+    grid-template-columns: minmax(420px, 540px) minmax(0, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+  @media (min-width: 1400px) {
+    .loan-pay-page__grid {
+      grid-template-columns: minmax(480px, 580px) minmax(0, 1fr);
+    }
+  }
+  @media (max-width: 1100px) {
+    .loan-pay-page__grid { grid-template-columns: 1fr; }
+  }
+
+  .loan-pay-page__card {
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+    padding: 1.4rem 1.5rem;
+    margin-bottom: 0;
+  }
+  .loan-pay-section__sub { margin: -.15rem 0 1rem; }
+
+  .loan-pay-form__pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  @media (max-width: 640px) {
+    .loan-pay-form__pair { grid-template-columns: 1fr; }
+  }
+  .loan-pay-form__field { margin-bottom: 1rem; }
+  .loan-pay-form__field label {
+    display: block;
+    margin-bottom: .35rem;
+    color: #334155;
+    font-size: .9rem;
+    font-weight: 600;
+  }
+  .loan-pay-form__field select,
+  .loan-pay-form__field textarea,
+  .loan-pay-form__field input {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #fff;
+    font-size: .92rem;
+  }
+  .loan-pay-form__field select:focus,
+  .loan-pay-form__field textarea:focus,
+  .loan-pay-form__field input:focus {
+    outline: none;
+    border-color: #E6C200;
+    box-shadow: 0 0 0 3px rgba(230, 194, 0, .15);
+  }
+  .loan-pay-form__field textarea {
+    min-height: 72px;
+    resize: vertical;
+  }
+
+  .loan-pay-form__money {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .loan-pay-form__money > span {
+    position: absolute;
+    left: 12px;
+    color: #64748b;
+    font-weight: 600;
+    z-index: 1;
+  }
+  .loan-pay-form__money input { padding-left: 30px !important; }
+
+  .loan-pay-form__field--amount label {
+    font-size: .95rem;
+    color: #991b1b;
+  }
+  .loan-pay-form__field--amount .loan-pay-form__money > span {
+    left: 16px;
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #ED1C24;
+  }
+  .loan-pay-form__field--amount .loan-pay-form__money input {
+    padding: 16px 16px 16px 42px !important;
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #ED1C24;
+    background: #fff5f5;
+    border: 2px solid #fca5a5;
+    border-radius: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+  .loan-pay-form__field--amount .loan-pay-form__money input:focus {
+    border-color: #ED1C24;
+    box-shadow: 0 0 0 3px rgba(237, 28, 36, .15);
+  }
+  .loan-pay-form__field--amount .loan-pay-form__money input::placeholder {
+    color: #f87171;
+    opacity: 1;
+  }
+
+  .loan-pay-form__errors {
+    margin: .35rem 0 0;
+    color: #dc2626;
+    font-size: .85rem;
+  }
+  .loan-pay-form__errors .errorlist {
+    margin: 0;
+    padding-left: 1.1rem;
+  }
+  .loan-pay-form__notice {
+    margin: 0 0 1rem;
+    padding: .85rem 1rem;
+    border-radius: 10px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+    font-size: .9rem;
+    font-weight: 600;
+  }
+  .loan-pay-form__field .helptext {
+    margin: .35rem 0 0;
+    color: #64748b;
+    font-size: .82rem;
+  }
+
+  .loan-pay-form__actions {
+    margin-top: 1.15rem;
+    padding-top: 1rem;
+    border-top: 1px solid #f1f5f9;
+  }
+  .loan-pay-form__actions .btn-loan { margin: 0; }
+
+  .loan-pay-table-wrap { overflow-x: auto; }
+  .loan-pay-table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  .loan-pay-table th {
+    padding: .85rem .75rem;
+    text-align: left;
+    border-bottom: 1px solid #e2e8f0;
+    color: #64748b;
+    font-size: .75rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .loan-pay-table td {
+    padding: .95rem .75rem;
+    border-bottom: 1px solid #f1f5f9;
+    color: #334155;
+    font-size: .92rem;
+    vertical-align: middle;
+  }
+  .loan-pay-table tbody tr:last-child td { border-bottom: none; }
+  .loan-pay-table__muted {
+    color: #94a3b8;
+    font-size: .75rem;
+  }
+  .loan-pay-table__amount {
+    font-weight: 700;
+    color: #166534;
+    white-space: nowrap;
+  }
+  .loan-pay-table__or {
+    font-size: .8rem;
+    background: #f1f5f9;
+    padding: .15rem .4rem;
+    border-radius: 4px;
+  }
+  .loan-pay-table__action { text-align: right; white-space: nowrap; }
+  .loan-pay-table__action .btn--secondary {
+    margin: 0;
+    padding: 4px 10px;
+    font-size: .78rem;
+  }
+
+  .loan-pay-empty {
+    text-align: center;
+    padding: 2rem 1rem;
+    color: #64748b;
+    border: 1px dashed #cbd5e1;
+    border-radius: 10px;
+    background: #f8fafc;
+  }
+  .loan-pay-empty i {
+    font-size: 1.6rem;
+    color: #94a3b8;
+    display: block;
+    margin-bottom: .4rem;
+  }
+  .loan-pay-period {
+    margin: 0 0 1.15rem;
+    padding: 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #fff;
+    overflow: hidden;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  .loan-pay-period__head {
+    padding: .75rem 1rem;
+    border-bottom: 1px solid #e2e8f0;
+    background: #f8fafc;
+  }
+  .loan-pay-period__title {
+    margin: 0;
+    font-size: .88rem;
+    font-weight: 700;
+    color: #0f172a;
+    letter-spacing: 0;
+  }
+  .loan-pay-period__hint {
+    margin: .25rem 0 0;
+    font-size: .78rem;
+    color: #64748b;
+    line-height: 1.4;
+  }
+  .loan-pay-period__hint--free {
+    color: #166534;
+    font-weight: 600;
+  }
+  .loan-pay-period__row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 110px;
+    gap: .75rem;
+    align-items: end;
+    padding: 1rem;
+    box-sizing: border-box;
+  }
+  .loan-pay-period__cell {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .loan-pay-period__cell--days {
+    max-width: 110px;
+  }
+  .loan-pay-period__cell label {
+    display: block;
+    margin: 0 0 .35rem;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .03em;
+    text-transform: uppercase;
+    color: #64748b;
+  }
+  .loan-pay-period__cell label .required {
+    color: #dc2626;
+  }
+  .loan-pay-period__cell input[type="date"],
+  .loan-pay-period__cell input[type="number"],
+  .loan-pay-period__cell input.js-money-input,
+  .loan-pay-period input {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    height: 42px;
+    padding: 0 .7rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px !important;
+    background: #fff;
+    font-size: .9rem;
+    font-weight: 600;
+    color: #0f172a;
+    line-height: normal;
+  }
+  .loan-pay-period__cell input[type="date"] {
+    font-variant-numeric: tabular-nums;
+  }
+  .loan-pay-period__cell input:focus {
+    outline: none;
+    border-color: #E6C200;
+    box-shadow: 0 0 0 3px rgba(230, 194, 0, .15);
+  }
+  .loan-pay-period__cell--days input {
+    text-align: center;
+    font-weight: 700;
+    background: #f8fafc;
+    color: #334155;
+    -moz-appearance: textfield;
+    appearance: textfield;
+  }
+  .loan-pay-period__cell--days input::-webkit-outer-spin-button,
+  .loan-pay-period__cell--days input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  .loan-pay-period__cell--locked input[type="date"] {
+    background: #f1f5f9;
+    color: #475569;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+  .loan-pay-period__lock-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .2rem;
+    margin-left: .35rem;
+    padding: .1rem .4rem;
+    border-radius: 999px;
+    background: #e2e8f0;
+    color: #64748b;
+    font-size: .68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    vertical-align: middle;
+  }
+  .loan-pay-period__stats {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    border-top: 1px solid #e2e8f0;
+    background: #f8fafc;
+  }
+  .loan-pay-period__stat {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .65rem 1rem;
+    border-bottom: 1px solid #e2e8f0;
+    min-width: 0;
+  }
+  .loan-pay-period__stat:last-child {
+    border-bottom: none;
+  }
+  .loan-pay-period__stat-label {
+    flex: 0 1 auto;
+    margin: 0;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    white-space: nowrap;
+  }
+  .loan-pay-period__stat-value {
+    flex: 1 1 auto;
+    margin: 0;
+    text-align: right;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #0f172a;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+  .loan-pay-period__stat--total {
+    background: #f0fdf4;
+    padding: .8rem 1rem;
+  }
+  .loan-pay-period__stat--total .loan-pay-period__stat-label {
+    color: #166534;
+  }
+  .loan-pay-period__stat--total .loan-pay-period__stat-value {
+    color: #166534;
+    font-size: 1.05rem;
+  }
+  @media (max-width: 640px) {
+    .loan-pay-period__row {
+      grid-template-columns: 1fr;
+    }
+    .loan-pay-period__cell--days {
+      max-width: 110px;
+    }
+  }
+
+  .loan-pay-empty p { margin: 0; }
+
+  .loan-pay-confirm__header {
+    background: linear-gradient(135deg, #ED1C24 0%, #C4121A 40%, #8B0E14 100%);
+    color: #fff;
+    border-bottom: none;
+  }
+  .loan-pay-confirm__header .modal-title {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    font-weight: 700;
+    font-size: 1.05rem;
+  }
+  .loan-pay-confirm__lead {
+    margin: 0 0 1rem;
+    color: #475569;
+    font-size: .9rem;
+    line-height: 1.45;
+  }
+  .loan-pay-confirm__summary {
+    margin: 0 0 1.15rem;
+    padding: 0;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #f8fafc;
+  }
+  .loan-pay-confirm__summary > div {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .65rem .9rem;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .loan-pay-confirm__summary > div:last-child { border-bottom: none; }
+  .loan-pay-confirm__summary dt {
+    margin: 0;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: #94a3b8;
+  }
+  .loan-pay-confirm__summary dd {
+    margin: 0;
+    text-align: right;
+    font-size: .92rem;
+    font-weight: 700;
+    color: #0f172a;
+    font-variant-numeric: tabular-nums;
+  }
+  .loan-pay-confirm__check {
+    display: flex;
+    align-items: flex-start;
+    gap: .65rem;
+    padding: .85rem 1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #fff;
+  }
+  .loan-pay-confirm__check input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin-top: .15rem;
+    flex-shrink: 0;
+    accent-color: #ED1C24;
+    cursor: pointer;
+  }
+  .loan-pay-confirm__check label {
+    margin: 0;
+    font-size: .88rem;
+    font-weight: 500;
+    color: #334155;
+    line-height: 1.4;
+    cursor: pointer;
+  }
+  .loan-pay-confirm__error {
+    margin-top: .65rem;
+    color: #dc2626;
+    font-size: .85rem;
+    font-weight: 600;
+  }
+  .loan-pay-confirm__footer {
+    border-top: 1px solid #f1f5f9;
+    gap: .5rem;
+  }
+  .loan-pay-confirm__footer .btn-loan,
+  .loan-pay-confirm__footer .btn--secondary {
+    margin: 0;
+  }
+  .loan-pay-confirm__footer .btn-loan:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+  }
+</style>
+<script>
+(function () {
+  var outstanding = Number("{{ outstanding_balance|stringformat:'.2f' }}");
+  var rate = Number("{{ interest_rate|default_if_none:'0'|stringformat:'.6f' }}");
+  var fromInput = document.getElementById("pay-usable-from");
+  var toInput = document.getElementById("pay-usable-to");
+  var daysInput = document.getElementById("pay-usable-days");
+  var perDayEl = document.getElementById("pay-interest-per-day");
+  var interestEl = document.getElementById("pay-interest-total");
+  var balanceEl = document.getElementById("pay-current-balance");
+  var amountInput = document.getElementById("{{ form.amount_paid.id_for_label }}");
+  var methodInput = document.getElementById("{{ form.payment_method.id_for_label }}");
+  var orInput = document.getElementById("{{ form.or_number.id_for_label }}");
+  var remarksInput = document.getElementById("{{ form.remarks.id_for_label }}");
+  var payForm = document.getElementById("loan-pay-form");
+  var openBtn = document.getElementById("loan-pay-open-confirm");
+  var confirmModalEl = document.getElementById("loanPayConfirmModal");
+  var confirmAck = document.getElementById("loan-pay-confirm-ack");
+  var confirmError = document.getElementById("loan-pay-confirm-error");
+  var confirmSubmit = document.getElementById("loan-pay-confirm-submit");
+  var previewInterest = 0;
+  var previewBalance = outstanding;
+  var allowSubmit = false;
+  if (!fromInput || !toInput || !daysInput) return;
+
+  function peso(n) {
+    var rounded = Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+    return "\u20B1" + rounded.toLocaleString("en-PH", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }
+
+  function parseMoney(raw) {
+    if (window.MoneyInput && typeof window.MoneyInput.parse === "function") {
+      return window.MoneyInput.parse(raw);
+    }
+    var n = Number(String(raw == null ? "" : raw).replace(/,/g, "").trim());
+    return isFinite(n) ? n : NaN;
+  }
+
+  function formatMoneyInput(value) {
+    if (window.MoneyInput && typeof window.MoneyInput.format === "function") {
+      return window.MoneyInput.format(value, 2);
+    }
+    var n = Number(value);
+    if (!isFinite(n)) return "";
+    return n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function parseDateInput(value) {
+    if (!value) return null;
+    var parts = String(value).split("-");
+    if (parts.length !== 3) return null;
+    var y = Number(parts[0]);
+    var m = Number(parts[1]);
+    var d = Number(parts[2]);
+    if (!isFinite(y) || !isFinite(m) || !isFinite(d)) return null;
+    var date = new Date(y, m - 1, d);
+    if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) {
+      return null;
+    }
+    return date;
+  }
+
+  function formatDateLabel(value) {
+    var date = parseDateInput(value);
+    if (!date) return value || "—";
+    return date.toLocaleDateString("en-PH", {
+      month: "short",
+      day: "numeric",
+      year: "numeric"
+    });
+  }
+
+  function daysBetween(fromValue, toValue) {
+    var from = parseDateInput(fromValue);
+    var to = parseDateInput(toValue);
+    if (!from || !to) return NaN;
+    return Math.round((to - from) / 86400000);
+  }
+
+  function computeInterest(days) {
+    var interestBase = outstanding > 0 ? outstanding : 0;
+    var perDay = (rate / 30) * interestBase;
+    var interest = 0;
+    if (interestBase > 0 && days > 0 && rate > 0) {
+      var basePlusInterest = Math.round(interestBase + perDay * days);
+      interest = Math.round((basePlusInterest - interestBase) * 100) / 100;
+    }
+    return {
+      perDay: Math.round(perDay * 100) / 100,
+      interest: interest,
+      balance: Math.round((outstanding + interest) * 100) / 100
+    };
+  }
+
+  function clearFieldValidity() {
+    [amountInput, fromInput, toInput, methodInput].forEach(function (el) {
+      if (el && el.setCustomValidity) el.setCustomValidity("");
+    });
+  }
+
+  function validatePayForm() {
+    clearFieldValidity();
+    if (!payForm) return false;
+
+    if (amountInput) {
+      var amount = parseMoney(amountInput.value);
+      if (!isFinite(amount) || amount <= 0) {
+        amountInput.setCustomValidity("Enter a valid amount greater than zero.");
+      } else if (amount > previewBalance + 0.001) {
+        amountInput.setCustomValidity(
+          "Amount cannot exceed " + peso(previewBalance) + " (balance + period interest)."
+        );
+      }
+    }
+
+    var days = daysBetween(fromInput.value, toInput.value);
+    if (!fromInput.value) {
+      fromInput.setCustomValidity("Select the interest period start date.");
+    }
+    if (!toInput.value) {
+      toInput.setCustomValidity("Select the interest period end date.");
+    } else if (!isFinite(days) || days < 0) {
+      toInput.setCustomValidity("To date must be on or after From date.");
+    }
+
+    if (methodInput && !methodInput.value) {
+      methodInput.setCustomValidity("Select a payment method.");
+    }
+
+    if (!payForm.checkValidity()) {
+      payForm.reportValidity();
+      return false;
+    }
+    return true;
+  }
+
+  function fillConfirmSummary() {
+    var amount = parseMoney(amountInput && amountInput.value);
+    var days = daysBetween(fromInput.value, toInput.value);
+    var computed = computeInterest(days);
+    var methodLabel = "—";
+    if (methodInput && methodInput.selectedIndex >= 0) {
+      methodLabel = methodInput.options[methodInput.selectedIndex].text || methodInput.value;
+    }
+    var orValue = (orInput && orInput.value || "").trim();
+    var remarks = (remarksInput && remarksInput.value || "").trim();
+    var balanceAfter = Math.max(0, Math.round((computed.balance - amount) * 100) / 100);
+
+    var amountEl = document.getElementById("confirm-amount");
+    var periodEl = document.getElementById("confirm-period");
+    var interestConfirmEl = document.getElementById("confirm-interest");
+    var balanceAfterEl = document.getElementById("confirm-balance-after");
+    var methodEl = document.getElementById("confirm-method");
+    var orEl = document.getElementById("confirm-or");
+    var remarksEl = document.getElementById("confirm-remarks");
+    var remarksRow = document.getElementById("confirm-remarks-row");
+
+    if (amountEl) amountEl.textContent = peso(amount);
+    if (periodEl) {
+      periodEl.textContent =
+        formatDateLabel(fromInput.value) +
+        " – " +
+        formatDateLabel(toInput.value) +
+        " (" + days + " days)";
+    }
+    if (interestConfirmEl) interestConfirmEl.textContent = peso(computed.interest);
+    if (balanceAfterEl) balanceAfterEl.textContent = peso(balanceAfter);
+    if (methodEl) methodEl.textContent = methodLabel;
+    if (orEl) orEl.textContent = orValue || "Auto-generate on save";
+    if (remarksRow && remarksEl) {
+      if (remarks) {
+        remarksRow.style.display = "";
+        remarksEl.textContent = remarks;
+      } else {
+        remarksRow.style.display = "none";
+        remarksEl.textContent = "—";
+      }
+    }
+  }
+
+  function openConfirmModal() {
+    if (!validatePayForm()) return;
+    fillConfirmSummary();
+    if (confirmAck) confirmAck.checked = false;
+    if (confirmError) confirmError.hidden = true;
+    if (confirmSubmit) confirmSubmit.disabled = false;
+    if (confirmModalEl && window.bootstrap && bootstrap.Modal) {
+      bootstrap.Modal.getOrCreateInstance(confirmModalEl).show();
+    }
+  }
+
+  function completeTransaction() {
+    if (!confirmAck || !confirmAck.checked) {
+      if (confirmError) confirmError.hidden = false;
+      if (confirmAck) {
+        confirmAck.focus();
+        confirmAck.setCustomValidity("Please confirm the payment details.");
+        confirmAck.reportValidity();
+        confirmAck.setCustomValidity("");
+      }
+      return;
+    }
+    if (confirmError) confirmError.hidden = true;
+    if (!validatePayForm()) {
+      if (confirmModalEl && window.bootstrap && bootstrap.Modal) {
+        bootstrap.Modal.getOrCreateInstance(confirmModalEl).hide();
+      }
+      return;
+    }
+    if (confirmSubmit) {
+      confirmSubmit.disabled = true;
+      confirmSubmit.innerHTML =
+        '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Recording…';
+    }
+    allowSubmit = true;
+    if (payForm) {
+      if (window.MoneyInput && typeof window.MoneyInput.stripForm === "function") {
+        window.MoneyInput.stripForm(payForm);
+      }
+      payForm.submit();
+    }
+  }
+
+  function updatePreview() {
+    var days = daysBetween(fromInput.value, toInput.value);
+    if (!isFinite(days) || days < 0) {
+      daysInput.value = "";
+      previewInterest = 0;
+      previewBalance = outstanding;
+      if (perDayEl) perDayEl.textContent = "—";
+      if (interestEl) interestEl.textContent = "—";
+      if (balanceEl) balanceEl.textContent = peso(outstanding);
+      return;
+    }
+    daysInput.value = String(days);
+
+    // Interest on balance left to pay (outstanding), not original loan amount.
+    var computed = computeInterest(days);
+    previewInterest = computed.interest;
+    previewBalance = computed.balance;
+    if (perDayEl) perDayEl.textContent = peso(computed.perDay);
+    if (interestEl) interestEl.textContent = peso(computed.interest);
+    if (balanceEl) balanceEl.textContent = peso(computed.balance);
+    if (amountInput && !amountInput.disabled) {
+      var maxPay = computed.balance;
+      amountInput.max = String(maxPay);
+      // Keep amount at what staff typed (default 0.00); only refresh the max cap.
+      if (!amountInput.dataset.userEdited && (amountInput.value === "" || amountInput.value == null)) {
+        amountInput.value = formatMoneyInput(0);
+      }
+    }
+  }
+
+  fromInput.addEventListener("change", updatePreview);
+  fromInput.addEventListener("input", updatePreview);
+  toInput.addEventListener("change", updatePreview);
+  toInput.addEventListener("input", updatePreview);
+  if (amountInput) {
+    amountInput.addEventListener("input", function () {
+      amountInput.dataset.userEdited = "1";
+      amountInput.setCustomValidity("");
+    });
+  }
+  if (fromInput) {
+    fromInput.addEventListener("change", function () { fromInput.setCustomValidity(""); });
+  }
+  if (toInput) {
+    toInput.addEventListener("change", function () { toInput.setCustomValidity(""); });
+  }
+  if (methodInput) {
+    methodInput.addEventListener("change", function () { methodInput.setCustomValidity(""); });
+  }
+  if (openBtn) {
+    openBtn.addEventListener("click", openConfirmModal);
+  }
+  if (payForm) {
+    payForm.addEventListener("submit", function (event) {
+      if (allowSubmit) return;
+      event.preventDefault();
+      openConfirmModal();
+    });
+  }
+  if (confirmSubmit) {
+    confirmSubmit.addEventListener("click", completeTransaction);
+  }
+  if (confirmAck) {
+    confirmAck.addEventListener("change", function () {
+      if (confirmAck.checked && confirmError) confirmError.hidden = true;
+    });
+  }
+  updatePreview();
+})();
+</script>
+{% endblock %}

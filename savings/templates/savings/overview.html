@@ -1,0 +1,302 @@
+{% extends "savings/base_savings.html" %}
+{% load currency_filters %}
+{% block title %}Member Savings{% endblock %}
+{% block content %}
+<style>
+  .hero-card {
+    background: var(--gradient); color: #fff; border-radius: 24px; padding: 32px;
+    box-shadow: 0 25px 55px rgba(15,23,42,0.35);
+  }
+  .stat-card {
+    background: #fff; border-radius: 18px; padding: 20px;
+    box-shadow: 0 12px 30px rgba(15,23,42,0.08); height: 100%;
+  }
+  .stat-icon {
+    width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center;
+    justify-content: center; color: #fff; font-size: 1.3rem; flex-shrink: 0;
+  }
+  .loans-panel {
+    background: #fff; border-radius: 18px; padding: 22px;
+    box-shadow: 0 12px 30px rgba(15,23,42,0.08); border: 1px solid #e2e8f0;
+  }
+  .loans-table { width: 100%; border-collapse: collapse; }
+  .loans-table th {
+    font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase;
+    color: #64748b; font-weight: 700; padding: 10px 12px; border-bottom: 2px solid #e2e8f0;
+  }
+  .loans-table td {
+    padding: 14px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; font-size: 0.92rem;
+  }
+  .filter-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .filter-bar .form-control, .filter-bar .form-select {
+    border-radius: 999px; border: 1px solid #cbd5e1; padding: 8px 16px; min-height: 42px;
+  }
+  .filter-bar .form-control { min-width: 220px; flex: 1; }
+  .member-cell { display: flex; flex-direction: column; gap: 2px; }
+  .member-cell small { color: #64748b; font-size: 0.78rem; }
+  .savings-actions { text-align: right; white-space: nowrap; }
+  .savings-actions .btn--danger {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-weight: 600;
+    font-size: .82rem;
+    border: 1px solid #fecaca;
+    background: #fff;
+    color: #b91c1c;
+    cursor: pointer;
+    margin-left: 4px;
+  }
+  .savings-actions .btn--danger:hover {
+    background: #fef2f2;
+    color: #991b1b;
+    border-color: #f87171;
+  }
+  .savings-actions .btn--danger:disabled {
+    opacity: .65;
+    cursor: not-allowed;
+  }
+  .export-bar {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;
+    padding: 14px 16px; border-radius: 14px; background: #f8fafc; border: 1px solid #e2e8f0;
+  }
+  .export-bar label {
+    display: block; font-size: .75rem; font-weight: 700; letter-spacing: .04em;
+    text-transform: uppercase; color: #64748b; margin-bottom: .3rem;
+  }
+  .export-bar .form-control {
+    border-radius: 999px; border: 1px solid #cbd5e1; padding: 8px 14px; min-height: 42px;
+    min-width: 150px;
+  }
+  .export-bar .export-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+</style>
+
+<section class="hero-card mb-4">
+  <div class="d-flex justify-content-between flex-wrap gap-3 align-items-start">
+    <div>
+      <p class="mb-1 text-uppercase small fw-semibold" style="letter-spacing:.12em;opacity:.85;">Member savings</p>
+      <h1 class="text-white mb-2">Savings desk</h1>
+      <p class="mb-0" style="opacity:.92;max-width:42rem;">
+        Regular Savings for members — {{ savings_policy.annual_rate_display }} / year.
+      </p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <a class="btn btn-light rounded-pill px-4 fw-semibold" href="{% url 'savings:product-list' %}">
+        <i class="bi bi-piggy-bank me-1"></i>Regular Savings
+      </a>
+      <a class="btn btn-dark rounded-pill px-4 fw-semibold" href="{% url 'savings:account-open' %}">
+        <i class="bi bi-plus-lg me-1"></i>Open account
+      </a>
+    </div>
+  </div>
+</section>
+
+<section class="row g-3 mb-4">
+  <div class="col-xl-3 col-md-6">
+    <div class="stat-card">
+      <div class="d-flex align-items-center gap-3">
+        <div class="stat-icon" style="background:#FFF200;color:#111;"><i class="bi bi-wallet2"></i></div>
+        <div>
+          <div class="text-muted small text-uppercase fw-semibold">Active accounts</div>
+          <h3 class="mb-0 fw-bold">{{ active_count }}</h3>
+          <small class="text-muted">{{ account_count }} total accounts</small>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="stat-card">
+      <div class="d-flex align-items-center gap-3">
+        <div class="stat-icon" style="background:#0ea5e9;"><i class="bi bi-cash-stack"></i></div>
+        <div>
+          <div class="text-muted small text-uppercase fw-semibold">Total deposits</div>
+          <h3 class="mb-0 fw-bold">&#8369;{{ total_balance|currency }}</h3>
+          <small class="text-muted">Active account balances</small>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="stat-card">
+      <div class="d-flex align-items-center gap-3">
+        <div class="stat-icon" style="background:#ED1C24;"><i class="bi bi-list-check"></i></div>
+        <div>
+          <div class="text-muted small text-uppercase fw-semibold">Products</div>
+          <h3 class="mb-0 fw-bold">{{ product_count }}</h3>
+          <small class="text-muted">Active savings features</small>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="loans-panel">
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+    <h2 class="h5 fw-bold mb-0 text-dark">
+      <i class="bi bi-people-fill me-2 text-success"></i>Member savings accounts
+    </h2>
+  </div>
+
+  <form method="get" action="{% url 'savings:interest-export' %}" class="export-bar mb-3" id="savingsInterestExportForm">
+    <div>
+      <label for="exportDateFrom">From date</label>
+      <input type="date" class="form-control" id="exportDateFrom" name="date_from" value="{{ export_date_from }}" required>
+    </div>
+    <div>
+      <label for="exportDateTo">To date</label>
+      <input type="date" class="form-control" id="exportDateTo" name="date_to" value="{{ export_date_to }}" required>
+    </div>
+    <div class="export-actions">
+      <button type="submit" name="format" value="excel" class="btn btn-outline-success rounded-pill px-3">
+        <i class="bi bi-file-earmark-excel me-1"></i>Excel
+      </button>
+      <button type="submit" name="format" value="pdf" class="btn btn-outline-danger rounded-pill px-3">
+        <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+      </button>
+    </div>
+    <div class="w-100">
+      <small class="text-muted">
+        Download all members’ interest rates and interest credited for the selected dates
+        ({{ savings_policy.annual_rate_display }} / year).
+      </small>
+    </div>
+  </form>
+
+  <form method="get" class="filter-bar mb-3">
+    <input type="hidden" name="date_from" value="{{ export_date_from }}">
+    <input type="hidden" name="date_to" value="{{ export_date_to }}">
+    <input type="search" name="search" class="form-control" placeholder="Search member, account, or product…" value="{{ search_query }}">
+    <select name="status" class="form-select" style="max-width: 220px;">
+      {% for value, label in status_choices %}
+      <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-success rounded-pill px-4">
+      <i class="bi bi-funnel me-1"></i>Filter
+    </button>
+  </form>
+  <div class="table-responsive">
+    <table class="loans-table">
+      <thead>
+        <tr>
+          <th>Member</th>
+          <th>Account</th>
+          <th>Product</th>
+          <th>Balance</th>
+          <th>Status</th>
+          <th>Opened</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for account in accounts %}
+        <tr>
+          <td>
+            <a href="{% url 'savings:account-detail' account.pk %}" class="text-decoration-none text-dark">
+              <div class="member-cell">
+                <strong>{{ account.member.full_name }}</strong>
+                <small>{{ account.member.username|default:account.member.email|default:"—" }}</small>
+              </div>
+            </a>
+          </td>
+          <td><code>{{ account.account_number }}</code></td>
+          <td>{{ account.product.name }}</td>
+          <td>&#8369;{{ account.balance|currency }}</td>
+          <td><span class="status-pill status-pill--{{ account.status }}">{{ account.get_status_display }}</span></td>
+          <td>{{ account.opened_at|date:"M j, Y" }}</td>
+          <td class="savings-actions">
+            <a class="btn--secondary" href="{% url 'savings:account-detail' account.pk %}">
+              Open <i class="bi bi-chevron-right"></i>
+            </a>
+            {% if is_admin_user %}
+            <button type="button"
+                    class="btn--danger delete-savings-account-btn"
+                    data-delete-url="{% url 'savings:account-delete' account.pk %}"
+                    data-account-number="{{ account.account_number|escapejs }}"
+                    data-member-name="{{ account.member.full_name|escapejs }}"
+                    title="Delete this savings account permanently">
+              <i class="bi bi-trash"></i> Delete
+            </button>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="7" class="text-center text-muted py-5">
+            No savings accounts yet.
+            <a href="{% url 'savings:account-open' %}">Open the first account</a>
+            after you <a href="{% url 'savings:product-create' %}">define a savings product</a>.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if page_obj.has_other_pages %}
+  <p class="mt-3 mb-0">
+    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&search={{ search_query }}&status={{ status_filter }}">&laquo; Prev</a>{% endif %}
+    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&search={{ search_query }}&status={{ status_filter }}">Next &raquo;</a>{% endif %}
+  </p>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block extra_scripts %}
+{% if is_admin_user %}
+<script>
+(function () {
+  function getCsrfToken() {
+    const token = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+    if (token) return token;
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+      const [key, value] = cookie.trim().split('=');
+      if (key === 'csrftoken') return value;
+    }
+    return '';
+  }
+
+  document.addEventListener('click', function (e) {
+    const btn = e.target.closest('.delete-savings-account-btn');
+    if (!btn) return;
+    e.preventDefault();
+    const url = btn.getAttribute('data-delete-url');
+    const accountNumber = btn.getAttribute('data-account-number') || 'this account';
+    const memberName = btn.getAttribute('data-member-name') || 'this member';
+    if (!url) return;
+    if (!window.confirm(
+      `Delete savings account ${accountNumber} for "${memberName}" permanently?\n\nLedger history for this account will also be removed. This cannot be undone and will be recorded in the audit trail.`
+    )) {
+      return;
+    }
+    btn.disabled = true;
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCsrfToken(),
+        'Accept': 'application/json',
+      },
+      credentials: 'same-origin',
+    })
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        return { ok: res.ok, data };
+      })
+      .then(({ ok, data }) => {
+        if (ok && data.success) {
+          window.location.reload();
+        } else {
+          alert(data?.error || 'Could not delete savings account.');
+          btn.disabled = false;
+        }
+      })
+      .catch(() => {
+        alert('Server error while deleting savings account.');
+        btn.disabled = false;
+      });
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

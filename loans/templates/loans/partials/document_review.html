@@ -1,0 +1,83 @@
+{# Expects: documents (list of {obj, filename, kind, url}) #}
+<div class="doc-review" id="doc-review">
+  {% if documents %}
+  <div class="doc-review__layout">
+    <aside class="doc-review__list" role="list">
+      {% for doc in documents %}
+      <button type="button"
+              class="doc-review__item{% if forloop.first %} is-active{% endif %}"
+              role="listitem"
+              data-doc-index="{{ forloop.counter0 }}"
+              data-doc-url="{{ doc.url }}"
+              data-doc-kind="{{ doc.kind }}"
+              data-doc-name="{{ doc.filename }}"
+              data-doc-type="{{ doc.obj.document_type }}"
+              data-doc-date="{{ doc.obj.uploaded_at|date:'Y-m-d H:i' }}"
+              data-doc-verified="{% if doc.obj.is_verified %}1{% else %}0{% endif %}">
+        <span class="doc-review__thumb">
+          {% if doc.kind == "image" and doc.url %}
+          <img src="{{ doc.url }}" alt="" loading="lazy">
+          {% elif doc.kind == "pdf" %}
+          <i class="bi bi-file-earmark-pdf-fill" aria-hidden="true"></i>
+          {% else %}
+          <i class="bi bi-file-earmark-fill" aria-hidden="true"></i>
+          {% endif %}
+        </span>
+        <span class="doc-review__meta">
+          <span class="doc-review__name">{{ doc.obj.document_type }}</span>
+          <span class="doc-review__sub">
+            {{ doc.obj.uploaded_at|date:"M j, Y H:i" }}
+            {% if doc.obj.is_verified %}
+            <span class="doc-review__badge">Verified</span>
+            {% endif %}
+          </span>
+        </span>
+      </button>
+      {% endfor %}
+    </aside>
+
+    <div class="doc-review__viewer">
+      <div class="doc-review__toolbar">
+        <div class="doc-review__toolbar-info">
+          <strong id="doc-preview-title">{{ documents.0.obj.document_type }}</strong>
+          <span id="doc-preview-sub" class="doc-review__sub">
+            {{ documents.0.filename }} &middot; {{ documents.0.obj.uploaded_at|date:"M j, Y H:i" }}
+          </span>
+        </div>
+        <div class="doc-review__toolbar-actions">
+          <a id="doc-open-tab" class="btn--secondary" href="{{ documents.0.url }}" target="_blank" rel="noopener">
+            <i class="bi bi-box-arrow-up-right"></i> Open
+          </a>
+          <a id="doc-download" class="btn--secondary" href="{{ documents.0.url }}" download>
+            <i class="bi bi-download"></i> Download
+          </a>
+        </div>
+      </div>
+
+      <div class="doc-review__stage" id="doc-preview-stage">
+        {% with first=documents.0 %}
+          {% if first.kind == "image" and first.url %}
+          <img id="doc-preview-image" class="doc-review__image" src="{{ first.url }}" alt="{{ first.obj.document_type }}">
+          <iframe id="doc-preview-pdf" class="doc-review__pdf" title="PDF preview" hidden></iframe>
+          <div id="doc-preview-fallback" class="doc-review__fallback" hidden></div>
+          {% elif first.kind == "pdf" and first.url %}
+          <img id="doc-preview-image" class="doc-review__image" alt="" hidden>
+          <iframe id="doc-preview-pdf" class="doc-review__pdf" src="{{ first.url }}#toolbar=1&navpanes=0" title="PDF preview"></iframe>
+          <div id="doc-preview-fallback" class="doc-review__fallback" hidden></div>
+          {% else %}
+          <img id="doc-preview-image" class="doc-review__image" alt="" hidden>
+          <iframe id="doc-preview-pdf" class="doc-review__pdf" title="PDF preview" hidden></iframe>
+          <div id="doc-preview-fallback" class="doc-review__fallback">
+            <i class="bi bi-file-earmark" aria-hidden="true"></i>
+            <p>Preview not available for this file type.</p>
+            <a class="btn-loan" href="{{ first.url }}" target="_blank" rel="noopener">Open file</a>
+          </div>
+          {% endif %}
+        {% endwith %}
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <p class="doc-review__empty">No supporting documents uploaded for this application.</p>
+  {% endif %}
+</div>

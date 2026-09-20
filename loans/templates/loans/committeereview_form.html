@@ -1,0 +1,720 @@
+{% extends "loans/base_loans.html" %}
+{% load currency_filters %}
+{% block title %}Committee Review{% endblock %}
+{% block content %}
+{% with investigation=application.credit_investigation %}
+<div class="loan-committee-page">
+  <header class="loan-committee-page__header">
+    <a class="loan-committee-page__back" href="{% url 'loans:application-detail' application.pk %}">
+      <i class="bi bi-arrow-left"></i> Application
+    </a>
+    <div class="loan-committee-page__title-row">
+      <div>
+        <h1>Credit Committee Review</h1>
+        <p class="subtitle loan-committee-page__sub">
+          {{ application.member.get_full_name|default:application.member.username }}
+          &middot; {{ application.loan_product.name }}
+        </p>
+      </div>
+      <span class="status-pill status-pill--{{ application.status|lower }}">
+        {{ application.get_status_display }}
+      </span>
+    </div>
+  </header>
+
+  <div class="loan-committee-page__stats">
+    <div class="loan-committee-stat">
+      <span class="loan-committee-stat__label">Amount</span>
+      <span class="loan-committee-stat__value">&#8369;{{ application.amount_requested|currency }}</span>
+    </div>
+    <div class="loan-committee-stat">
+      <span class="loan-committee-stat__label">Term</span>
+      <span class="loan-committee-stat__value">{{ application.term_months }} mo</span>
+    </div>
+    {% if investigation %}
+    <div class="loan-committee-stat">
+      <span class="loan-committee-stat__label">Payment score</span>
+      <span class="loan-committee-stat__value">{{ investigation.repayment_capacity_score }}</span>
+    </div>
+    <div class="loan-committee-stat">
+      <span class="loan-committee-stat__label">Investigator recommendation</span>
+      <span class="loan-committee-stat__value loan-committee-stat__value--sm">
+        {% if investigation.recommendation == "RECOMMEND_APPROVE" %}
+          <span class="status-pill status-pill--approved">Recommend approve</span>
+        {% else %}
+          <span class="status-pill status-pill--rejected">Recommend deny</span>
+        {% endif %}
+      </span>
+    </div>
+    {% else %}
+    <div class="loan-committee-stat">
+      <span class="loan-committee-stat__label">Submitted</span>
+      <span class="loan-committee-stat__value loan-committee-stat__value--sm">
+        {{ application.submitted_at|date:"M j, Y"|default:"—" }}
+      </span>
+    </div>
+    <div class="loan-committee-stat">
+      <span class="loan-committee-stat__label">Purpose</span>
+      <span class="loan-committee-stat__value loan-committee-stat__value--sm">
+        {{ application.purpose|truncatewords:8|default:"—" }}
+      </span>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if investigation %}
+  <section class="card loan-committee-page__card">
+    <h2><i class="bi bi-clipboard-data"></i> Credit investigation summary</h2>
+    <p class="subtitle loan-committee-section__sub">
+      Review the investigator's findings before making your committee decision.
+    </p>
+    <dl class="loan-committee-summary">
+      <div>
+        <dt>Payment score</dt>
+        <dd>{{ investigation.repayment_capacity_score }}</dd>
+      </div>
+      <div>
+        <dt>Recommendation</dt>
+        <dd>{{ investigation.get_recommendation_display }}</dd>
+      </div>
+      <div>
+        <dt>Evaluated</dt>
+        <dd>{{ investigation.evaluated_at|date:"M j, Y H:i"|default:"—" }}</dd>
+      </div>
+      <div class="loan-committee-summary__full">
+        <dt>Loan purpose assessment</dt>
+        <dd>{{ investigation.loan_purpose_assessment|default:"—" }}</dd>
+      </div>
+      {% if investigation.remarks %}
+      <div class="loan-committee-summary__full">
+        <dt>Investigator remarks</dt>
+        <dd>{{ investigation.remarks }}</dd>
+      </div>
+      {% endif %}
+    </dl>
+  </section>
+  {% endif %}
+
+  <section class="card loan-committee-page__card">
+    <h2><i class="bi bi-shield-lock"></i> Required approvals</h2>
+    <p class="subtitle loan-committee-section__sub">
+      {% if committee_approval.single_approver %}
+      The loan moves to <strong>Approved</strong> when <strong>one</strong> authorized approver
+      (admin, loan officer, staff, or credit committee) records approval and membership maturity is met.
+      {% else %}
+      The loan moves to <strong>Approved</strong> when a <strong>majority</strong> of listed approvers
+      (admins, loan officers, staff, and credit committee) have recorded approval and membership maturity is met.
+      {% if committee_approval.total_required %}
+      Majority requires at least <strong>{{ committee_approval.votes_needed }}</strong> of
+      <strong>{{ committee_approval.total_required }}</strong> approvers.
+      {% endif %}
+      {% endif %}
+    </p>
+
+    <div class="loan-committee-maturity{% if not committee_approval.maturity_met %} loan-committee-maturity--blocked{% endif %}">
+      <p class="loan-committee-maturity__title">
+        <i class="bi bi-shield-check"></i> Applicant membership maturity
+      </p>
+      {% if committee_approval.maturity_met %}
+      <p class="loan-committee-maturity__ok">
+        <i class="bi bi-check-circle-fill"></i>
+        Applicant meets the required
+        {% if membership_maturity.required_months %}
+        {{ membership_maturity.required_months }}-month
+        {% endif %}
+        waiting period. Approvals may proceed.
+      </p>
+      {% if membership_maturity.joined_on %}
+      <p class="loan-committee-maturity__meta">
+        Registered {{ membership_maturity.joined_on|date:"M j, Y" }}
+        {% if membership_maturity.eligible_on %}
+        &middot; eligible since {{ membership_maturity.eligible_on|date:"M j, Y" }}
+        {% endif %}
+      </p>
+      {% endif %}
+      {% else %}
+      <p class="loan-committee-maturity__block">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        {{ membership_maturity.message|default:"Approval is blocked until the applicant completes the required membership waiting period." }}
+      </p>
+      <p class="loan-committee-maturity__meta">
+        Approvals stay disabled until membership maturity is satisfied.
+      </p>
+      {% endif %}
+    </div>
+
+    <div class="loan-committee-progress">
+      <div class="loan-committee-progress__head">
+        <strong>Approval progress</strong>
+        <span>
+          {% if committee_approval.single_approver %}
+          {{ committee_approval.total_approved }}/{{ committee_approval.votes_needed }} recorded
+          {% else %}
+          {{ committee_approval.total_approved }}/{{ committee_approval.total_required }} recorded
+          {% if committee_approval.total_required %}
+          &middot; {{ committee_approval.votes_needed }} needed for majority
+          {% endif %}
+          {% endif %}
+        </span>
+      </div>
+      {% if committee_approval.single_approver and committee_approval.votes_needed %}
+      <div class="loan-committee-progress__bar">
+        <div class="loan-committee-progress__fill{% if committee_approval.majority_reached %} loan-committee-progress__fill--majority{% endif %}" style="width:{% widthratio committee_approval.total_approved committee_approval.votes_needed 100 %}%;"></div>
+      </div>
+      {% elif committee_approval.total_required %}
+      <div class="loan-committee-progress__bar">
+        <div class="loan-committee-progress__fill{% if committee_approval.majority_reached %} loan-committee-progress__fill--majority{% endif %}" style="width:{% widthratio committee_approval.total_approved committee_approval.total_required 100 %}%;"></div>
+      </div>
+      {% endif %}
+    </div>
+
+    {% if not committee_approval.single_approver %}
+    <div class="loan-committee-approver-table-wrap">
+      <table class="loan-committee-approver-table">
+        <thead>
+          <tr>
+            <th>Member</th>
+            <th>Role</th>
+            <th>Login</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in committee_approval.all_approvers %}
+          <tr class="{% if item.is_current_user %}is-current-user{% endif %}{% if item.approved %} is-approved{% elif item.rejected %} is-rejected{% endif %}">
+            <td>
+              <strong>{{ item.name }}</strong>
+              {% if item.is_current_user %}<span class="loan-committee-you-badge">You</span>{% endif %}
+            </td>
+            <td>{{ item.group_label }}</td>
+            <td>{{ item.username|default:"—" }}</td>
+            <td>
+              {% if item.approved %}
+              <span class="loan-committee-status loan-committee-status--approved"><i class="bi bi-check-circle-fill"></i> Approved</span>
+              {% elif item.rejected %}
+              <span class="loan-committee-status loan-committee-status--rejected"><i class="bi bi-x-circle-fill"></i> Rejected</span>
+              {% else %}
+              <span class="loan-committee-status loan-committee-status--pending"><i class="bi bi-hourglass-split"></i> Pending</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="4" class="loan-committee-empty">
+              No admin, loan officer, staff, or committee accounts with login are configured to approve loans.
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    {% if committee_approval.can_proceed %}
+    <div class="loan-committee-ready loan-committee-ready--action">
+      <p>
+        <i class="bi bi-check2-circle"></i>
+        {% if committee_approval.single_approver %}
+        <strong>Approval threshold met</strong> ({{ committee_approval.total_approved }}/{{ committee_approval.votes_needed }} needed)
+        {% else %}
+        <strong>Majority reached</strong> ({{ committee_approval.total_approved }}/{{ committee_approval.total_required }})
+        {% endif %}
+        and membership maturity is satisfied. You may proceed to the next pipeline step.
+      </p>
+      {% if committee_approval.user_can_vote %}
+      <form method="post" class="loan-committee-proceed-form">
+        {% csrf_token %}
+        <button type="submit" name="action" value="proceed" class="btn-loan">
+          <i class="bi bi-arrow-right-circle"></i> Proceed to next step
+        </button>
+      </form>
+      {% endif %}
+    </div>
+    {% elif committee_approval.single_approver and not committee_approval.majority_reached %}
+    <div class="loan-committee-waiting">
+      <p class="loan-committee-waiting__lead">
+        <i class="bi bi-info-circle"></i>
+        Need one authorized approval to proceed.
+      </p>
+    </div>
+    {% elif committee_approval.pending_approvers and not committee_approval.majority_reached %}
+    <div class="loan-committee-waiting">
+      <p class="loan-committee-waiting__lead">
+        <i class="bi bi-info-circle"></i>
+        Need {{ committee_approval.votes_needed }} approvals for majority.
+      </p>
+      <span class="loan-committee-waiting__label">Still waiting for</span>
+      <ul class="loan-committee-waiting__names">
+        {% for item in committee_approval.pending_approvers %}
+        <li>
+          <strong>{{ item.name }}</strong>
+          {% if item.role %}<span>{{ item.role }}</span>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% elif committee_approval.pending_approvers and not committee_approval.single_approver %}
+    <div class="loan-committee-waiting loan-committee-waiting--muted">
+      <p class="loan-committee-waiting__lead">
+        <i class="bi bi-info-circle"></i>
+        Majority reached. Optional votes still pending.
+      </p>
+      <span class="loan-committee-waiting__label">Pending from</span>
+      <ul class="loan-committee-waiting__names">
+        {% for item in committee_approval.pending_approvers %}
+        <li>
+          <strong>{{ item.name }}</strong>
+          {% if item.role %}<span>{{ item.role }}</span>{% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% if committee_approval.user_vote %}
+    <p class="loan-committee-user-vote">
+      You already recorded:
+      <strong>{% if committee_approval.user_vote.vote == "APPROVE" %}Approval{% else %}Rejection{% endif %}</strong>.
+    </p>
+    {% endif %}
+  </section>
+
+  <section class="card loan-committee-page__card">
+    <h2><i class="bi bi-people"></i> Your review</h2>
+    <p class="subtitle loan-committee-section__sub">
+      {% if committee_approval.user_can_approve_now %}
+      Membership maturity is satisfied. You may record your approval below.
+      {% elif committee_approval.user_can_vote and not committee_approval.maturity_met %}
+      You are an authorized approver, but approval is blocked until the applicant meets membership maturity.
+      {% elif committee_approval.user_can_vote %}
+      You have already recorded your decision for this application.
+      {% else %}
+      Only admins, loan officers, staff, and credit committee members may cast votes on this page.
+      {% endif %}
+    </p>
+
+    <form method="post" class="loan-committee-form">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+      <div class="loan-committee-form__errors">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      <div class="loan-committee-form__field">
+        <label for="id_remarks">Remarks</label>
+        <textarea name="remarks" id="id_remarks" rows="4" placeholder="Optional notes for this committee decision…">{{ form.remarks.value|default:'' }}</textarea>
+        <p class="helptext">Optional. Record conditions, concerns, or reasons for your decision.</p>
+        {% if form.remarks.errors %}
+        <div class="loan-committee-form__errors">{{ form.remarks.errors }}</div>
+        {% endif %}
+      </div>
+
+      <div class="loan-committee-form__actions">
+        {% if committee_approval.user_can_vote %}
+        <button type="submit" name="action" value="approve" class="btn-loan"{% if not committee_approval.user_can_approve_now %} disabled{% if not committee_approval.maturity_met %} title="Blocked until applicant membership maturity is met"{% elif committee_approval.user_vote and committee_approval.user_vote.vote == "APPROVE" %} title="You already approved"{% else %} title="Approval unavailable"{% endif %}{% endif %}>
+          <i class="bi bi-check2-circle"></i> Record my approval
+        </button>
+        <button type="submit" name="action" value="reject" class="btn--danger"{% if committee_approval.user_vote and committee_approval.user_vote.vote == "REJECT" %} disabled title="You already rejected"{% endif %}>
+          <i class="bi bi-x-circle"></i> Record my rejection
+        </button>
+        {% endif %}
+        <a class="btn--secondary" href="{% url 'loans:application-detail' application.pk %}">Cancel</a>
+      </div>
+    </form>
+  </section>
+</div>
+{% endwith %}
+
+<style>
+  .loan-committee-page {
+    width: 100%;
+    max-width: 980px;
+    margin-inline: auto;
+  }
+
+  .loan-committee-page__header { margin-bottom: 1.25rem; }
+  .loan-committee-page__back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    color: #64748b;
+    text-decoration: none;
+    font-size: .88rem;
+    font-weight: 600;
+    margin-bottom: .65rem;
+  }
+  .loan-committee-page__back:hover { color: #0f172a; }
+
+  .loan-committee-page__title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .loan-committee-page__title-row h1 { margin: 0 0 .35rem; }
+  .loan-committee-page__sub { margin-bottom: 0; }
+
+  .loan-committee-page__stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .75rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .loan-committee-stat {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: .9rem 1rem;
+  }
+  .loan-committee-stat__label {
+    display: block;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: .3rem;
+  }
+  .loan-committee-stat__value {
+    display: block;
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #0f172a;
+  }
+  .loan-committee-stat__value--sm { font-size: .92rem; font-weight: 700; }
+
+  .loan-committee-page__card {
+    border-radius: 14px;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, .05);
+    padding: 1.4rem 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .loan-committee-page__card h2 {
+    margin: 0 0 .35rem;
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+  }
+  .loan-committee-page__card h2 i { color: #E6C200; }
+  .loan-committee-section__sub { margin: 0 0 1rem; }
+
+  .loan-committee-summary {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: .85rem 1.25rem;
+    margin: 0;
+    padding: 1rem 1.1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #f8fafc;
+  }
+  .loan-committee-summary dt {
+    color: #64748b;
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin: 0;
+  }
+  .loan-committee-summary dd {
+    margin: .25rem 0 0;
+    font-weight: 700;
+    font-size: .92rem;
+    color: #0f172a;
+  }
+  .loan-committee-summary__full {
+    grid-column: 1 / -1;
+  }
+  .loan-committee-summary__full dd {
+    font-weight: 500;
+    line-height: 1.5;
+  }
+
+  .loan-committee-maturity {
+    padding: .9rem 1rem;
+    margin-bottom: 1.15rem;
+    border-radius: 12px;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+  }
+  .loan-committee-maturity--blocked {
+    background: #fef2f2;
+    border-color: #fecaca;
+  }
+  .loan-committee-maturity__title {
+    margin: 0 0 .35rem;
+    font-weight: 800;
+    font-size: .88rem;
+    color: #166534;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .loan-committee-maturity--blocked .loan-committee-maturity__title { color: #991b1b; }
+  .loan-committee-maturity__ok,
+  .loan-committee-maturity__block {
+    margin: 0;
+    font-size: .86rem;
+    line-height: 1.45;
+    color: #166534;
+  }
+  .loan-committee-maturity__block { color: #991b1b; }
+  .loan-committee-maturity__meta {
+    margin: .45rem 0 0;
+    font-size: .82rem;
+    color: #64748b;
+  }
+
+  .loan-committee-progress {
+    margin-bottom: 1rem;
+    padding: .85rem 1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    background: #f8fafc;
+  }
+  .loan-committee-progress__head {
+    display: flex;
+    justify-content: space-between;
+    gap: .75rem;
+    margin-bottom: .55rem;
+    font-size: .88rem;
+  }
+  .loan-committee-progress__bar {
+    height: 10px;
+    border-radius: 999px;
+    background: #e2e8f0;
+    overflow: hidden;
+  }
+  .loan-committee-progress__fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ED1C24, #C4121A);
+    border-radius: 999px;
+  }
+  .loan-committee-progress__fill--majority {
+    background: linear-gradient(90deg, #059669, #10b981);
+    box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.35);
+  }
+
+  .loan-committee-approver-table-wrap {
+    overflow-x: auto;
+    margin-bottom: 1rem;
+  }
+  .loan-committee-approver-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .88rem;
+  }
+  .loan-committee-approver-table th,
+  .loan-committee-approver-table td {
+    padding: .7rem .85rem;
+    border-bottom: 1px solid #e2e8f0;
+    text-align: left;
+    vertical-align: middle;
+  }
+  .loan-committee-approver-table th {
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #64748b;
+    background: #f8fafc;
+  }
+  .loan-committee-approver-table tr.is-current-user {
+    background: #eff6ff;
+  }
+  .loan-committee-approver-table tr.is-approved td {
+    background: #f0fdf4;
+  }
+  .loan-committee-approver-table tr.is-rejected td {
+    background: #fef2f2;
+  }
+  .loan-committee-you-badge {
+    display: inline-block;
+    margin-left: .4rem;
+    padding: .1rem .45rem;
+    border-radius: 999px;
+    background: #dbeafe;
+    color: #1d4ed8;
+    font-size: .68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .loan-committee-status {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    font-weight: 700;
+    font-size: .82rem;
+  }
+  .loan-committee-status--approved { color: #166534; }
+  .loan-committee-status--rejected { color: #991b1b; }
+  .loan-committee-status--pending { color: #92400e; }
+  .loan-committee-empty {
+    color: #94a3b8;
+    font-style: italic;
+    text-align: center;
+  }
+  .loan-committee-waiting,
+  .loan-committee-ready {
+    margin: 0 0 .85rem;
+    padding: .75rem .9rem;
+    border-radius: 10px;
+    font-size: .86rem;
+    line-height: 1.45;
+  }
+  .loan-committee-waiting {
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    color: #92400e;
+  }
+  .loan-committee-waiting__lead {
+    margin: 0 0 .55rem;
+    font-size: .86rem;
+    line-height: 1.45;
+  }
+  .loan-committee-waiting__label {
+    display: block;
+    margin-bottom: .35rem;
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #b45309;
+  }
+  .loan-committee-waiting__names {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: .35rem;
+  }
+  .loan-committee-waiting__names li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .35rem .55rem;
+    padding: .4rem .65rem;
+    background: #fff;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+  }
+  .loan-committee-waiting__names strong {
+    font-size: .86rem;
+    color: #92400e;
+  }
+  .loan-committee-waiting__names span {
+    font-size: .72rem;
+    font-weight: 600;
+    color: #64748b;
+    background: #f1f5f9;
+    border-radius: 999px;
+    padding: .1rem .5rem;
+  }
+  .loan-committee-ready {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+  }
+  .loan-committee-ready--action {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: .85rem;
+    margin-bottom: .85rem;
+    padding: .85rem 1rem;
+    border-radius: 10px;
+    font-size: .86rem;
+    line-height: 1.45;
+  }
+  .loan-committee-ready--action p { margin: 0; }
+  .loan-committee-proceed-form { margin: 0; }
+  .loan-committee-waiting--muted {
+    background: #f8fafc;
+    border-color: #e2e8f0;
+    color: #64748b;
+  }
+  .loan-committee-waiting--muted .loan-committee-waiting__label {
+    color: #64748b;
+  }
+  .loan-committee-waiting--muted .loan-committee-waiting__names li {
+    border-color: #e2e8f0;
+  }
+  .loan-committee-waiting--muted .loan-committee-waiting__names strong {
+    color: #334155;
+  }
+  .loan-committee-user-vote {
+    margin: 0;
+    padding: .65rem .85rem;
+    border-radius: 8px;
+    background: #eff6ff;
+    color: #1e40af;
+    font-size: .86rem;
+  }
+  .btn-loan:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+  }
+
+  .loan-committee-form__field { margin-bottom: 1.15rem; }
+  .loan-committee-form__field label {
+    display: block;
+    margin-bottom: .4rem;
+    color: #334155;
+    font-size: .9rem;
+    font-weight: 700;
+  }
+  .loan-committee-form__field textarea {
+    width: 100%;
+    min-height: 110px;
+    padding: 10px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #fff;
+    font-size: .92rem;
+    resize: vertical;
+  }
+  .loan-committee-form__field textarea:focus {
+    outline: none;
+    border-color: #E6C200;
+    box-shadow: 0 0 0 3px rgba(230, 194, 0, .15);
+  }
+
+  .loan-committee-form__errors {
+    margin-bottom: .75rem;
+    color: #dc2626;
+    font-size: .88rem;
+  }
+
+  .loan-committee-form__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .65rem;
+    align-items: center;
+    padding-top: .5rem;
+    border-top: 1px solid #e2e8f0;
+    margin-top: .5rem;
+  }
+  .loan-committee-form__actions .btn-loan,
+  .loan-committee-form__actions .btn--secondary,
+  .loan-committee-form__actions .btn--danger { margin: 0; }
+
+  .btn--danger {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    border-radius: 999px;
+    padding: 8px 18px;
+    font-weight: 600;
+    font-size: .88rem;
+    text-decoration: none;
+    border: 1px solid #fecaca;
+    background: #fee2e2;
+    color: #991b1b;
+    cursor: pointer;
+  }
+  .btn--danger:hover { background: #fecaca; color: #7f1d1d; }
+</style>
+{% endblock %}

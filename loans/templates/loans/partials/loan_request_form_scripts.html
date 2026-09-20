@@ -1,0 +1,872 @@
+{# Shared loan request form scripts (member + staff desk). #}
+<script>
+(function () {
+  var isStaffDesk = {{ is_staff_desk|yesno:"true,false" }};
+  var form = document.getElementById("loan-request-form");
+  var btn = document.getElementById("loan-request-submit");
+  var docs = document.getElementById("documents");
+  var docsPicker = document.getElementById("documents-picker");
+  var docsBrowse = document.getElementById("documents-browse");
+  var fileZone = document.getElementById("file-upload-zone");
+  var fileList = document.getElementById("file-upload-list");
+  var fileCount = document.getElementById("file-upload-count");
+  var selectedFiles = [];
+  var purpose = document.getElementById("{{ form.purpose.id_for_label }}");
+  var productSelect = document.getElementById("{{ form.loan_product.id_for_label }}");
+  var amountInput = document.getElementById("{{ form.amount_requested.id_for_label }}");
+  var interestInput = document.getElementById("{{ form.interest_rate.id_for_label }}");
+  var termInput = document.getElementById("{{ form.term_months.id_for_label }}");
+  var amountRange = document.getElementById("loan-amount-range");
+  var amountHelp = document.getElementById("loan-amount-help");
+  var interestHelp = document.getElementById("loan-interest-help");
+  var termHelp = document.getElementById("loan-term-help");
+  var usableFromInput = document.getElementById("loan-usable-from");
+  var usableToInput = document.getElementById("loan-usable-to");
+  var usableDaysInput = document.getElementById("loan-usable-days");
+  var amountPresets = document.getElementById("loan-amount-presets");
+  var productSummary = document.getElementById("loan-product-summary");
+  var amountError = document.getElementById("loan-amount-error");
+  var amountInputWrap = document.getElementById("loan-amount-input-wrap");
+  var step0 = document.getElementById("step-indicator-0");
+  var step1 = document.getElementById("step-indicator-1");
+  var step2 = document.getElementById("step-indicator-2");
+  var step3 = document.getElementById("step-indicator-3");
+  var limitsNode = document.getElementById("loan-product-limits");
+  var blockedNode = document.getElementById("member-blocked-products");
+  var waitingNode = document.getElementById("member-waiting");
+  var memberSelect = document.getElementById("id_coop_member");
+  var memberLoanWarning = document.getElementById("member-loan-warning");
+  var loanProductField = document.getElementById("loan-product-field");
+  var requestFormGrid = document.querySelector(".request-form-grid");
+  var requestActions = document.querySelector(".request-actions");
+  if (!form || !btn || !productSelect || !amountInput) return;
+
+  var memberTomSelect = null;
+  if (isStaffDesk && memberSelect && window.TomSelect) {
+    // Blank empty-option text so Tom Select shows placeholder, not a duplicate label.
+    Array.from(memberSelect.options).forEach(function (opt) {
+      if (!opt.value) opt.textContent = "";
+    });
+    memberTomSelect = new TomSelect(memberSelect, {
+      allowEmptyOption: true,
+      placeholder: "Search member name or username...",
+      maxOptions: 200,
+      dropdownParent: "body",
+      create: false,
+      sortField: { field: "text", direction: "asc" },
+      render: {
+        option: function (data, escape) {
+          if (!data.value) return null;
+          return "<div class=\"option\">" + escape(data.text) + "</div>";
+        },
+        item: function (data, escape) {
+          if (!data.value) {
+            return "<div class=\"item placeholder\"></div>";
+          }
+          return "<div class=\"item\">" + escape(data.text) + "</div>";
+        },
+      },
+      onInitialize: function () {
+        var sel = this.input;
+        if (!sel) return;
+        sel.classList.add("ts-hidden-accessible");
+        sel.style.setProperty("display", "none", "important");
+        sel.setAttribute("aria-hidden", "true");
+        sel.tabIndex = -1;
+      },
+      onDropdownOpen: function () {
+        var root = this.dropdown_content;
+        if (!root) return;
+        var blank = root.querySelector('[data-value=""]');
+        if (blank) blank.style.display = "none";
+      },
+    });
+    if (memberTomSelect.options[""]) {
+      memberTomSelect.removeOption("");
+    }
+    memberTomSelect.clear(true);
+  }
+
+  var productLimits = {};
+  var blockedPayload = isStaffDesk ? {} : [];
+  var waitingPayload = {};
+  if (limitsNode && limitsNode.textContent) {
+    try { productLimits = JSON.parse(limitsNode.textContent); } catch (e) { productLimits = {}; }
+  }
+  if (blockedNode && blockedNode.textContent) {
+    try { blockedPayload = JSON.parse(blockedNode.textContent); } catch (e) {
+      blockedPayload = isStaffDesk ? {} : [];
+    }
+  }
+  if (waitingNode && waitingNode.textContent) {
+    try { waitingPayload = JSON.parse(waitingNode.textContent); } catch (e) { waitingPayload = {}; }
+  }
+
+  Array.from(productSelect.options).forEach(function (option) {
+    if (option.value) {
+      option.dataset.originalLabel = option.textContent;
+    }
+  });
+
+  function escapeHtml(value) {
+    return String(value == null ? "" : value)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function currentBlockedProducts() {
+    if (!isStaffDesk) {
+      return Array.isArray(blockedPayload) ? blockedPayload : [];
+    }
+    var memberId = memberSelect ? memberSelect.value : "";
+    return blockedPayload[memberId] || [];
+  }
+
+  function currentMemberWaiting() {
+    if (!isStaffDesk || !memberSelect || !memberSelect.value) return null;
+    return waitingPayload[memberSelect.value] || null;
+  }
+
+  function renderMemberAlert(options) {
+    if (!memberLoanWarning) return;
+    var variant = options.variant === "blocked" ? "blocked" : "waiting";
+    var icon = variant === "blocked" ? "bi-x-octagon-fill" : "bi-hourglass-split";
+    var title = options.title || (variant === "blocked" ? "Cannot apply" : "Membership waiting period");
+    var html =
+      "<div class=\"member-loan-alert" + (variant === "blocked" ? " member-loan-alert--blocked" : "") + "\" role=\"alert\">" +
+        "<div class=\"member-loan-alert__icon\" aria-hidden=\"true\"><i class=\"bi " + icon + "\"></i></div>" +
+        "<div class=\"member-loan-alert__body\">" +
+          "<p class=\"member-loan-alert__title\">" + escapeHtml(title) + "</p>" +
+          "<p class=\"member-loan-alert__text\">" + escapeHtml(options.message || "") + "</p>";
+    if (options.eligibleOn) {
+      html +=
+        "<span class=\"member-loan-alert__date\">" +
+          "<i class=\"bi bi-calendar-event\"></i> Apply starting " +
+          escapeHtml(options.eligibleOn) +
+        "</span>";
+    }
+    html += "</div></div>";
+    memberLoanWarning.hidden = false;
+    memberLoanWarning.innerHTML = html;
+  }
+
+  function setLoanFormLocked(locked) {
+    if (requestFormGrid) requestFormGrid.hidden = !!locked;
+    if (requestActions) requestActions.hidden = !!locked;
+    btn.disabled = !!locked;
+  }
+
+  function applyBlockedProducts() {
+    var waiting = currentMemberWaiting();
+    var blockedProducts = currentBlockedProducts();
+    var blockedByProductId = {};
+    blockedProducts.forEach(function (item) {
+      blockedByProductId[item.product_id] = item;
+    });
+
+    Array.from(productSelect.options).forEach(function (option) {
+      option.disabled = false;
+      if (option.dataset.originalLabel) {
+        option.textContent = option.dataset.originalLabel;
+      }
+      if (!option.value) return;
+      var blocked = blockedByProductId[option.value];
+      if (blocked) {
+        option.disabled = true;
+        option.textContent = (option.dataset.originalLabel || option.textContent)
+          + " (ongoing: " + blocked.status + ")";
+      }
+    });
+
+    if (productSelect.value && blockedByProductId[productSelect.value]) {
+      productSelect.value = "";
+      clearProductSelection();
+    }
+
+    if (!isStaffDesk) return;
+
+    var availableCount = Array.from(productSelect.options).filter(function (option) {
+      return option.value && !option.disabled;
+    }).length;
+
+    if (memberLoanWarning) {
+      memberLoanWarning.hidden = true;
+      memberLoanWarning.innerHTML = "";
+    }
+    productSelect.disabled = false;
+    if (loanProductField) loanProductField.hidden = false;
+    setLoanFormLocked(false);
+
+    if (waiting) {
+      clearProductSelection();
+      productSelect.disabled = true;
+      amountInput.readOnly = true;
+      if (loanProductField) loanProductField.hidden = true;
+      setLoanFormLocked(true);
+      renderMemberAlert({
+        variant: "waiting",
+        title: "New member — loan request blocked",
+        message: waiting.message,
+        eligibleOn: waiting.eligible_on_display || "",
+      });
+      return;
+    }
+
+    if (blockedProducts.length > 0 && memberLoanWarning && availableCount > 0) {
+      var blockedNames = blockedProducts.map(function (item) {
+        return item.product_name + " (" + item.status + ")";
+      }).join(", ");
+      renderMemberAlert({
+        variant: "waiting",
+        title: "Some products unavailable",
+        message: "Ongoing loan for: " + blockedNames + ". Other loan products can still be selected.",
+      });
+    }
+
+    if (availableCount === 0 && blockedProducts.length > 0) {
+      clearProductSelection();
+      productSelect.disabled = true;
+      amountInput.readOnly = true;
+      if (loanProductField) loanProductField.hidden = true;
+      setLoanFormLocked(true);
+      renderMemberAlert({
+        variant: "blocked",
+        title: "All loan products blocked",
+        message: "This member already has ongoing loans for all available loan products.",
+      });
+    }
+  }
+
+  function peso(value) {
+    var num = Number(value);
+    if (!isFinite(num)) return "\u20B10.00";
+    return "\u20B1" + num.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function parseMoney(raw) {
+    if (window.MoneyInput && typeof window.MoneyInput.parse === "function") {
+      return window.MoneyInput.parse(raw);
+    }
+    var n = Number(String(raw == null ? "" : raw).replace(/,/g, "").trim());
+    return isFinite(n) ? n : NaN;
+  }
+
+  function formatMoneyInput(value) {
+    if (window.MoneyInput && typeof window.MoneyInput.format === "function") {
+      return window.MoneyInput.format(value, 2);
+    }
+    var n = Number(value);
+    if (!isFinite(n)) return "";
+    return n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function updateSteps() {
+    var hasMember = !isStaffDesk || (memberSelect && !!memberSelect.value);
+    var hasProduct = !!productSelect.value;
+    var hasAmount = hasProduct && amountInput.value.trim() !== "" && !amountInput.classList.contains("is-invalid");
+    var hasPurpose = purpose && purpose.value.trim().length > 0;
+    var hasDocs = selectedFiles.length > 0;
+
+    if (step0) {
+      step0.classList.toggle("is-active", !hasMember);
+      step0.classList.toggle("is-done", hasMember);
+    }
+    if (step1) {
+      step1.classList.toggle("is-active", hasMember && !hasProduct);
+      step1.classList.toggle("is-done", hasProduct);
+    }
+    if (step2) {
+      step2.classList.toggle("is-active", hasProduct && !hasAmount);
+      step2.classList.toggle("is-done", hasAmount);
+    }
+    if (step3) {
+      step3.classList.toggle("is-active", hasAmount && (!hasPurpose || !hasDocs));
+      step3.classList.toggle("is-done", hasPurpose && hasDocs);
+    }
+  }
+
+  var imageExtensions = [".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".jfif"];
+  var documentExtensions = [
+    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".csv", ".txt", ".rtf",
+    ".odt", ".ods", ".ppt", ".pptx"
+  ];
+  var allowedExtensions = imageExtensions.concat(documentExtensions);
+
+  function isImageFile(file) {
+    if (!file) return false;
+    if (file.type && file.type.indexOf("image/") === 0) return true;
+    var name = (file.name || "").toLowerCase();
+    return imageExtensions.some(function (ext) { return name.endsWith(ext); });
+  }
+
+  function isAllowedSupportingFile(file) {
+    if (!file) return false;
+    if (isImageFile(file)) return true;
+    var type = (file.type || "").toLowerCase();
+    if (
+      type === "application/pdf" ||
+      type === "application/msword" ||
+      type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
+      type === "application/vnd.ms-excel" ||
+      type === "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" ||
+      type === "application/vnd.ms-powerpoint" ||
+      type === "application/vnd.openxmlformats-officedocument.presentationml.presentation" ||
+      type === "application/rtf" ||
+      type === "text/plain" ||
+      type === "text/csv" ||
+      type === "text/rtf"
+    ) {
+      return true;
+    }
+    var name = (file.name || "").toLowerCase();
+    return allowedExtensions.some(function (ext) { return name.endsWith(ext); });
+  }
+
+  function fileIconClass(file) {
+    var name = (file && file.name ? file.name : "").toLowerCase();
+    if (isImageFile(file)) return "bi-file-earmark-image";
+    if (name.endsWith(".pdf") || (file.type || "") === "application/pdf") return "bi-file-earmark-pdf";
+    if (name.endsWith(".doc") || name.endsWith(".docx") || name.endsWith(".odt") || name.endsWith(".rtf")) {
+      return "bi-file-earmark-word";
+    }
+    if (name.endsWith(".xls") || name.endsWith(".xlsx") || name.endsWith(".csv") || name.endsWith(".ods")) {
+      return "bi-file-earmark-excel";
+    }
+    if (name.endsWith(".ppt") || name.endsWith(".pptx")) return "bi-file-earmark-ppt";
+    return "bi-file-earmark-text";
+  }
+
+  function fileKey(file) {
+    return [file.name, file.size, file.lastModified].join("|");
+  }
+
+  function formatFileSize(bytes) {
+    if (!bytes) return "0 B";
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+  }
+
+  function syncDocumentsInput() {
+    if (!docs) return;
+    var dt = new DataTransfer();
+    selectedFiles.forEach(function (file) { dt.items.add(file); });
+    docs.files = dt.files;
+  }
+
+  function renderFileList() {
+    if (!fileList) return;
+    fileList.innerHTML = "";
+    selectedFiles.forEach(function (file, index) {
+      var item = document.createElement("li");
+      item.className = "file-upload-item";
+      item.innerHTML =
+        '<div class="file-upload-item__info">' +
+          '<i class="bi ' + fileIconClass(file) + '"></i>' +
+          '<span class="file-upload-item__name" title="' + file.name.replace(/"/g, "&quot;") + '">' + file.name + "</span>" +
+          '<span class="file-upload-item__size">' + formatFileSize(file.size) + "</span>" +
+        "</div>" +
+        '<button type="button" class="file-upload-item__remove" aria-label="Remove ' + file.name.replace(/"/g, "&quot;") + '">' +
+          '<i class="bi bi-x-lg"></i>' +
+        "</button>";
+      item.querySelector(".file-upload-item__remove").addEventListener("click", (function (idx) {
+        return function () {
+          selectedFiles.splice(idx, 1);
+          syncDocumentsInput();
+          renderFileList();
+          updateSteps();
+        };
+      })(index));
+      fileList.appendChild(item);
+    });
+    if (fileCount) {
+      fileCount.textContent = selectedFiles.length
+        ? selectedFiles.length + " file" + (selectedFiles.length === 1 ? "" : "s") + " selected"
+        : "";
+    }
+    if (docsBrowse) {
+      docsBrowse.innerHTML = selectedFiles.length
+        ? '<i class="bi bi-plus-lg"></i> Add more files'
+        : '<i class="bi bi-folder2-open"></i> Select multiple files';
+    }
+  }
+
+  function addFiles(fileListLike) {
+    if (!fileListLike || !fileListLike.length) return;
+    var existing = {};
+    selectedFiles.forEach(function (file) { existing[fileKey(file)] = true; });
+    var rejected = 0;
+    Array.prototype.forEach.call(fileListLike, function (file) {
+      if (!isAllowedSupportingFile(file)) { rejected += 1; return; }
+      var key = fileKey(file);
+      if (existing[key]) return;
+      existing[key] = true;
+      selectedFiles.push(file);
+    });
+    syncDocumentsInput();
+    renderFileList();
+    updateSteps();
+    if (docs) docs.setCustomValidity("");
+    if (rejected > 0) {
+      alert("Some files were skipped. Accepted: images, PDF, Word, Excel, PowerPoint, CSV, TXT, and similar documents.");
+    }
+  }
+
+  if (docsBrowse && docsPicker) {
+    docsBrowse.addEventListener("click", function () { docsPicker.click(); });
+    docsPicker.addEventListener("change", function () {
+      addFiles(docsPicker.files);
+      docsPicker.value = "";
+    });
+  }
+
+  if (fileZone) {
+    ["dragenter", "dragover"].forEach(function (evt) {
+      fileZone.addEventListener(evt, function (e) {
+        e.preventDefault();
+        fileZone.classList.add("is-dragover");
+      });
+    });
+    ["dragleave", "drop"].forEach(function (evt) {
+      fileZone.addEventListener(evt, function (e) {
+        e.preventDefault();
+        fileZone.classList.remove("is-dragover");
+        if (evt === "drop" && e.dataTransfer && e.dataTransfer.files) {
+          addFiles(e.dataTransfer.files);
+        }
+      });
+    });
+  }
+
+  function buildPresetAmounts(minValue, maxValue) {
+    var min = Number(minValue);
+    var max = Number(maxValue);
+    if (!isFinite(min) || !isFinite(max)) return [];
+    if (min >= max) return [min];
+    var span = max - min;
+    var raw = [min, min + span * 0.25, min + span * 0.5, min + span * 0.75, max];
+    var seen = {};
+    var amounts = [];
+    raw.forEach(function (value) {
+      var rounded = Math.round(value * 100) / 100;
+      var key = rounded.toFixed(2);
+      if (!seen[key]) {
+        seen[key] = true;
+        amounts.push(rounded);
+      }
+    });
+    return amounts.sort(function (a, b) { return a - b; });
+  }
+
+  function setActivePreset(value) {
+    if (!amountPresets) return;
+    var parsed = value === "" ? null : parseMoney(value);
+    var target = parsed == null || !isFinite(parsed) ? null : parsed.toFixed(2);
+    amountPresets.querySelectorAll(".loan-amount-preset").forEach(function (btnEl) {
+      var matches = target !== null && Number(btnEl.dataset.amount).toFixed(2) === target;
+      btnEl.classList.toggle("is-active", matches);
+    });
+  }
+
+  function clearAmountError() {
+    if (amountError) {
+      amountError.textContent = "";
+      amountError.classList.remove("is-visible");
+    }
+    amountInput.classList.remove("is-invalid");
+    if (amountInputWrap) amountInputWrap.classList.remove("is-invalid");
+    amountInput.setCustomValidity("");
+    updateSteps();
+  }
+
+  function showAmountError(message) {
+    if (amountError) {
+      amountError.textContent = message;
+      amountError.classList.add("is-visible");
+    }
+    amountInput.classList.add("is-invalid");
+    if (amountInputWrap) amountInputWrap.classList.add("is-invalid");
+    amountInput.setCustomValidity(message);
+    updateSteps();
+  }
+
+  function getSelectedProductInfo() {
+    var productId = productSelect.value;
+    if (!productId) return null;
+    return productLimits[productId] || null;
+  }
+
+  function checkAmountLive(showMessage) {
+    var info = getSelectedProductInfo();
+    if (!info) {
+      clearAmountError();
+      return true;
+    }
+    var amount = parseMoney(amountInput.value);
+    var minAmount = Number(info.min_amount);
+    var maxAmount = Number(info.max_amount);
+    if (amountInput.value.trim() === "" || !isFinite(amount) || amount <= 0) {
+      if (showMessage) {
+        showAmountError("Please enter the amount you want to request.");
+      } else {
+        clearAmountError();
+      }
+      return false;
+    }
+    if (amount > maxAmount) {
+      showAmountError("Amount is too high. Maximum for " + info.name + " is " + peso(maxAmount) + ".");
+      return false;
+    }
+    if (amount < minAmount) {
+      showAmountError("Amount is too low. Minimum for " + info.name + " is " + peso(minAmount) + ".");
+      return false;
+    }
+    clearAmountError();
+    return true;
+  }
+
+  function clearProductSelection() {
+    amountInput.value = "";
+    amountInput.readOnly = true;
+    amountInput.removeAttribute("min");
+    amountInput.removeAttribute("max");
+    amountInput.placeholder = "Select a loan product first";
+    if (interestInput) {
+      interestInput.readOnly = false;
+      interestInput.removeAttribute("readonly");
+      interestInput.placeholder = "e.g. 0.015";
+      interestInput.classList.remove("is-invalid");
+      interestInput.setCustomValidity("");
+    }
+    if (termInput) {
+      termInput.readOnly = false;
+      termInput.removeAttribute("readonly");
+      termInput.placeholder = "e.g. 12";
+      termInput.value = "";
+      termInput.classList.remove("is-invalid");
+      termInput.setCustomValidity("");
+    }
+    if (amountRange) amountRange.textContent = "Select a product first";
+    if (amountHelp) {
+      amountHelp.textContent = "Choose a loan product first. You can only request an amount within that product's allowed range.";
+    }
+    if (termHelp) {
+      termHelp.textContent = "How many months to repay. This only sets the installment count — it does not change interest calculation.";
+    }
+    if (interestHelp) {
+      interestHelp.textContent = "Monthly rate as a decimal (e.g. 0.015 = 1.5%). Interest is computed at payment time from usable dates. Daily = (rate ÷ 30) × remaining principal. Prefills from the loan product.";
+    }
+    if (amountPresets) {
+      amountPresets.hidden = true;
+      amountPresets.innerHTML = "";
+    }
+    if (productSummary) {
+      productSummary.classList.remove("is-visible");
+      productSummary.innerHTML = "";
+    }
+    clearAmountError();
+    updateSteps();
+  }
+
+  function applyProductSelection(productId, keepAmount) {
+    var info = productLimits[productId];
+    if (!info) {
+      clearProductSelection();
+      return;
+    }
+    var minAmount = Number(info.min_amount);
+    var maxAmount = Number(info.max_amount);
+    var defaultRate = Number(info.interest_rate);
+    var defaultTerm = parseInt(info.term_months, 10) || 12;
+    amountInput.readOnly = false;
+    amountInput.min = String(minAmount);
+    amountInput.max = String(maxAmount);
+    amountInput.step = "0.01";
+    amountInput.placeholder = "Enter amount from " + peso(minAmount) + " to " + peso(maxAmount);
+    if (termInput) {
+      termInput.readOnly = false;
+      termInput.removeAttribute("readonly");
+      termInput.min = "1";
+      termInput.step = "1";
+      termInput.placeholder = "e.g. " + defaultTerm;
+      if (!keepAmount || termInput.value === "") {
+        termInput.value = String(defaultTerm);
+      }
+      termInput.classList.remove("is-invalid");
+      termInput.setCustomValidity("");
+    }
+    if (interestInput) {
+      interestInput.readOnly = false;
+      interestInput.removeAttribute("readonly");
+      interestInput.min = "0";
+      interestInput.step = "0.001";
+      interestInput.placeholder = "e.g. " + defaultRate.toFixed(3);
+      if (!keepAmount || interestInput.value === "") {
+        interestInput.value = defaultRate.toFixed(3);
+      }
+      interestInput.classList.remove("is-invalid");
+      interestInput.setCustomValidity("");
+    }
+    if (amountRange) amountRange.textContent = peso(minAmount) + " \u2013 " + peso(maxAmount);
+    if (amountHelp) {
+      amountHelp.textContent = "Tap a suggested amount below or type your own.";
+    }
+    if (termHelp) {
+      termHelp.textContent =
+        "How many months to repay (product default " + defaultTerm + " mo.). Sets installment count only — does not change interest calculation.";
+    }
+    if (interestHelp) {
+      interestHelp.textContent =
+        "Monthly rate as a decimal (e.g. 0.015 = 1.5%). Interest is computed at payment time from usable dates. Daily interest = (rate ÷ 30) × remaining principal.";
+    }
+    if (productSummary) {
+      var termLabel = defaultTerm + " mo. term";
+      productSummary.innerHTML =
+        "<strong>" + info.name + "</strong>" +
+        "<div class=\"loan-product-summary__meta\">" +
+        "<span class=\"loan-product-summary__tag\">Default " + termLabel + "</span>" +
+        "<span class=\"loan-product-summary__tag\">From month " + info.interest_start_month + "</span>" +
+        "<span class=\"loan-product-summary__tag\">Set interest rate below</span>" +
+        "</div>";
+      productSummary.classList.add("is-visible");
+    }
+    if (amountPresets) {
+      var presets = buildPresetAmounts(minAmount, maxAmount);
+      amountPresets.innerHTML = "";
+      presets.forEach(function (amount) {
+        var button = document.createElement("button");
+        button.type = "button";
+        button.className = "loan-amount-preset";
+        button.dataset.amount = String(amount);
+        button.textContent = peso(amount);
+        button.addEventListener("click", function () {
+          amountInput.value = formatMoneyInput(amount);
+          clearAmountError();
+          setActivePreset(amountInput.value);
+        });
+        amountPresets.appendChild(button);
+      });
+      amountPresets.hidden = presets.length === 0;
+    }
+    if (!keepAmount || amountInput.value === "") {
+      amountInput.value = formatMoneyInput(minAmount);
+    }
+    setActivePreset(amountInput.value);
+    checkAmountLive(false);
+    updateSteps();
+  }
+
+  function formatDateInput(date) {
+    var y = date.getFullYear();
+    var m = String(date.getMonth() + 1).padStart(2, "0");
+    var d = String(date.getDate()).padStart(2, "0");
+    return y + "-" + m + "-" + d;
+  }
+
+  function parseDateInput(value) {
+    if (!value) return null;
+    var parts = String(value).split("-");
+    if (parts.length !== 3) return null;
+    var y = Number(parts[0]);
+    var m = Number(parts[1]);
+    var d = Number(parts[2]);
+    if (!isFinite(y) || !isFinite(m) || !isFinite(d)) return null;
+    var date = new Date(y, m - 1, d);
+    if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) {
+      return null;
+    }
+    return date;
+  }
+
+  /** usable_days = one calendar month from application date (hidden; shown on payments). */
+  function addOneMonth(date) {
+    var year = date.getFullYear();
+    var month = date.getMonth() + 1;
+    var day = date.getDate();
+    var next = new Date(year, month, 1);
+    var lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+    return new Date(next.getFullYear(), next.getMonth(), Math.min(day, lastDay));
+  }
+
+  function daysBetween(fromValue, toValue) {
+    var from = parseDateInput(fromValue);
+    var to = parseDateInput(toValue);
+    if (!from || !to) return NaN;
+    return Math.round((to - from) / 86400000);
+  }
+
+  function syncEndDateFromApplicationDate() {
+    if (!usableFromInput) return;
+    var from = parseDateInput(usableFromInput.value);
+    if (!from) {
+      if (usableToInput) usableToInput.value = "";
+      if (usableDaysInput) usableDaysInput.value = "";
+      return;
+    }
+    var to = addOneMonth(from);
+    var toValue = formatDateInput(to);
+    if (usableToInput) usableToInput.value = toValue;
+    var days = daysBetween(usableFromInput.value, toValue);
+    if (usableDaysInput) {
+      usableDaysInput.value = isFinite(days) && days >= 0 ? String(days) : "";
+    }
+  }
+
+  function defaultApplicationDate() {
+    var now = new Date();
+    return formatDateInput(new Date(now.getFullYear(), now.getMonth(), 1));
+  }
+
+  if (usableFromInput && !usableFromInput.value) {
+    usableFromInput.value = defaultApplicationDate();
+  }
+  syncEndDateFromApplicationDate();
+
+  function validatePurpose() {
+    if (!purpose) return true;
+    if (!purpose.value.trim()) {
+      purpose.setCustomValidity("Please enter the loan purpose.");
+      purpose.reportValidity();
+      return false;
+    }
+    purpose.setCustomValidity("");
+    return true;
+  }
+
+  function validateInterestRate() {
+    if (!interestInput) return true;
+    var rate = Number(interestInput.value);
+    if (interestInput.value.trim() === "" || !isFinite(rate) || rate < 0) {
+      interestInput.classList.add("is-invalid");
+      interestInput.setCustomValidity("Enter a valid interest rate (0 or higher).");
+      interestInput.reportValidity();
+      return false;
+    }
+    interestInput.classList.remove("is-invalid");
+    interestInput.setCustomValidity("");
+    return true;
+  }
+
+  function validateTermMonths() {
+    if (!termInput) return true;
+    var term = parseInt(termInput.value, 10);
+    if (termInput.value.trim() === "" || !isFinite(term) || term < 1) {
+      termInput.classList.add("is-invalid");
+      termInput.setCustomValidity("Enter a term of at least 1 month.");
+      termInput.reportValidity();
+      return false;
+    }
+    termInput.classList.remove("is-invalid");
+    termInput.setCustomValidity("");
+    return true;
+  }
+
+  function validateAmount() {
+    if (isStaffDesk && memberSelect && !memberSelect.value) {
+      memberSelect.setCustomValidity("Please select a member.");
+      memberSelect.reportValidity();
+      return false;
+    }
+    if (memberSelect) memberSelect.setCustomValidity("");
+    var productId = productSelect.value;
+    if (!productId) {
+      productSelect.setCustomValidity("Please select a loan product.");
+      productSelect.reportValidity();
+      return false;
+    }
+    productSelect.setCustomValidity("");
+    if (!checkAmountLive(true)) {
+      amountInput.reportValidity();
+      return false;
+    }
+    if (!validateTermMonths()) {
+      return false;
+    }
+    if (!validateInterestRate()) {
+      return false;
+    }
+    return true;
+  }
+
+  function syncAfterMemberOrBlockChange() {
+    applyBlockedProducts();
+    if (productSelect.value && !productSelect.disabled) {
+      applyProductSelection(productSelect.value, true);
+    } else if (!productSelect.value) {
+      clearProductSelection();
+    }
+    updateSteps();
+  }
+
+  productSelect.addEventListener("change", function () {
+    if (productSelect.value) {
+      applyProductSelection(productSelect.value, false);
+    } else {
+      clearProductSelection();
+    }
+  });
+
+  amountInput.addEventListener("input", function () {
+    setActivePreset(amountInput.value);
+    checkAmountLive(true);
+  });
+  amountInput.addEventListener("blur", function () { checkAmountLive(true); });
+
+  if (termInput) {
+    termInput.addEventListener("input", function () {
+      termInput.classList.remove("is-invalid");
+      termInput.setCustomValidity("");
+      updateSteps();
+    });
+  }
+
+  if (interestInput) {
+    interestInput.addEventListener("input", function () {
+      interestInput.classList.remove("is-invalid");
+      interestInput.setCustomValidity("");
+      updateSteps();
+    });
+  }
+
+  if (usableFromInput) {
+    usableFromInput.addEventListener("change", syncEndDateFromApplicationDate);
+    usableFromInput.addEventListener("input", syncEndDateFromApplicationDate);
+  }
+
+  if (purpose) {
+    purpose.addEventListener("input", function () {
+      purpose.setCustomValidity("");
+      updateSteps();
+    });
+  }
+
+  if (memberTomSelect) {
+    memberTomSelect.on("change", syncAfterMemberOrBlockChange);
+  } else if (memberSelect) {
+    memberSelect.addEventListener("change", syncAfterMemberOrBlockChange);
+  }
+
+  form.addEventListener("submit", function (e) {
+    if (!validatePurpose() || !validateAmount()) {
+      e.preventDefault();
+      return;
+    }
+    if (selectedFiles.length === 0) {
+      e.preventDefault();
+      alert("Please upload at least one supporting file.");
+      return;
+    }
+    syncDocumentsInput();
+    if (btn.disabled) {
+      e.preventDefault();
+      return;
+    }
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Submitting\u2026';
+  });
+
+  syncAfterMemberOrBlockChange();
+})();
+</script>

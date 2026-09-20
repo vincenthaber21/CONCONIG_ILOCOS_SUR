@@ -1,0 +1,46 @@
+{# Shared Loans dropdown items. Used by the standalone Loans pill and Other Services > Loans. #}
+<li><h6 class="dropdown-header">Loans</h6></li>
+<li>
+  <a class="dropdown-item" href="{% url 'loans_overview' %}">
+    {% if pending_loan_request_count %}<span class="admin-nav-loan-badge admin-nav-loan-badge--menu">{{ pending_loan_request_count }}</span>{% endif %}
+    <i class="bi bi-speedometer2 me-2"></i>Loans Overview
+    <small>Member loans, KPIs and pipeline shortcuts</small>
+  </a>
+</li>
+<li>
+  <a class="dropdown-item" href="{% url 'loans:application-list' %}">
+    {% if pending_loan_request_count %}<span class="admin-nav-loan-badge admin-nav-loan-badge--menu">{{ pending_loan_request_count }}</span>{% endif %}
+    <i class="bi bi-list-ul me-2"></i>All Applications
+    <small>Every application with status and details</small>
+  </a>
+</li>
+{% if not is_committee_only %}
+<li>
+  <a class="dropdown-item" href="{% url 'loans:application-create' %}">
+    <i class="bi bi-file-earmark-plus me-2"></i>New Application
+    <small>Start a formal loan application</small>
+  </a>
+</li>
+<li><hr class="dropdown-divider my-1"></li>
+<li><h6 class="dropdown-header">Loan Products</h6></li>
+<li>
+  <a class="dropdown-item dropdown-item-product" href="{% url 'loans:product-list' %}">
+    <i class="bi bi-box-seam me-2"></i>All Loan Products
+    <small>Rates, amount ranges and requirements</small>
+  </a>
+</li>
+<li>
+  <a class="dropdown-item dropdown-item-product" href="{% url 'loans:product-create' %}">
+    <i class="bi bi-plus-circle me-2"></i>Add Loan Product
+    <small>Create a new loan offering for members</small>
+  </a>
+</li>
+<li><hr class="dropdown-divider my-1"></li>
+<li><h6 class="dropdown-header">Settings</h6></li>
+<li>
+  <a class="dropdown-item" href="{% url 'loan_settings' %}">
+    <i class="bi bi-sliders me-2"></i>Loan Settings
+    <small>Grace period and membership eligibility</small>
+  </a>
+</li>
+{% endif %}

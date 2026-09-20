@@ -1,0 +1,732 @@
+{% extends "palay_trade/base_palay.html" %}
+{% load currency_filters %}
+{% block title %}Palay Credit Overview{% endblock %}
+{% block content %}
+<style>
+  .pc-ov {
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  .pc-ov__hero {
+    background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 55%, #6d28d9 100%);
+    color: #fff; border-radius: 24px; padding: 32px;
+    box-shadow: 0 25px 55px rgba(91, 33, 182, 0.28); margin-bottom: 1.25rem;
+  }
+  .pc-ov__hero h1 { color: #fff; font-size: 1.75rem; margin-bottom: .35rem; }
+  .pc-ov__hero p { margin: 0; opacity: .92; max-width: 42rem; }
+  .pc-ov__hero .pc-hero-back {
+    color: rgba(255,255,255,.9); text-decoration: none; font-size: .88rem; font-weight: 600;
+    display: inline-flex; align-items: center; gap: .35rem; margin-bottom: .5rem;
+  }
+  .pc-ov__hero .pc-hero-back:hover { color: #fff; }
+  .stat-card {
+    background: #fff; border-radius: 18px; padding: 20px;
+    box-shadow: 0 12px 30px rgba(15,23,42,0.08); height: 100%;
+  }
+  .stat-icon {
+    width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center;
+    justify-content: center; color: #fff; font-size: 1.3rem; flex-shrink: 0;
+  }
+  .loans-panel {
+    background: #fff; border-radius: 18px; padding: 22px;
+    box-shadow: 0 12px 30px rgba(15,23,42,0.08); border: 1px solid #e2e8f0;
+  }
+  .pc-ov__toolbar {
+    display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between;
+    gap: 1rem; margin-bottom: 1.25rem;
+  }
+  .pc-tabs { display: flex; flex-wrap: wrap; gap: .5rem; }
+  .pc-tabs a {
+    border-radius: 999px; padding: .5rem 1.1rem; font-size: .88rem; font-weight: 700;
+    text-decoration: none; border: 1px solid #e2e8f0; color: #475569; background: #f8fafc;
+    white-space: nowrap;
+  }
+  .pc-tabs a.is-active {
+    background: #7c3aed; border-color: #7c3aed; color: #fff;
+  }
+  .filter-bar {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center; flex: 1;
+    justify-content: flex-end; min-width: 280px;
+  }
+  .filter-bar .form-control {
+    border-radius: 999px; border: 1px solid #cbd5e1; padding: 8px 16px;
+    min-height: 42px; min-width: 260px; flex: 1; max-width: 360px;
+  }
+  .filter-bar .btn-loan {
+    background: #7c3aed; border-color: #7c3aed; min-height: 42px; padding-inline: 1.25rem;
+  }
+  .filter-bar .btn-loan:hover { background: #6d28d9; border-color: #6d28d9; }
+  .search-badge {
+    display: inline-flex; align-items: center; gap: .35rem;
+    padding: .45rem .9rem; border-radius: 999px; font-size: .8rem; font-weight: 600;
+    background: #ede9fe; color: #5b21b6; border: 1px solid #c4b5fd;
+  }
+  .pc-table { width: 100%; border-collapse: collapse; font-size: .92rem; }
+  .pc-table th {
+    font-size: .75rem; text-transform: uppercase; letter-spacing: .06em;
+    color: #64748b; font-weight: 700; padding: 10px 14px; border-bottom: 2px solid #e2e8f0;
+    white-space: nowrap;
+  }
+  .pc-table td {
+    padding: 14px; border-bottom: 1px solid #f1f5f9; vertical-align: middle;
+  }
+  .pc-table tbody tr:hover { background: #f8fafc; }
+  .pc-table .col-num { text-align: right; font-variant-numeric: tabular-nums; }
+  .pc-table th.col-num { text-align: right; }
+  .member-cell { display: flex; flex-direction: column; gap: 2px; }
+  .member-cell strong { font-weight: 700; }
+  .member-cell small { color: #64748b; font-size: .78rem; }
+  .pc-outstanding { color: #7c3aed; font-weight: 800; }
+  .pc-settled { color: #166534; font-weight: 700; }
+  .pc-credit-actions {
+    white-space: nowrap; text-align: right;
+  }
+  .pc-credit-actions__group {
+    display: inline-flex; flex-wrap: wrap; align-items: center;
+    justify-content: flex-end; gap: .4rem;
+  }
+  .btn-settle {
+    display: inline-flex; align-items: center; gap: .3rem;
+    border-radius: 999px; padding: .4rem .9rem; font-size: .8rem; font-weight: 700;
+    border: 1px solid #bbf7d0; background: #ecfdf5; color: #166534; cursor: pointer;
+    text-decoration: none; line-height: 1.2;
+  }
+  .btn-settle:hover { background: #dcfce7; color: #166534; }
+  .btn-settle--all { border-color: #c4b5fd; background: #ede9fe; color: #5b21b6; }
+  .btn-settle--all:hover { background: #ddd6fe; color: #5b21b6; }
+  .btn-settle--view { border-color: #bfdbfe; background: #eff6ff; color: #1d4ed8; }
+  .btn-settle--view:hover { background: #dbeafe; color: #1e40af; }
+  .pc-partial-badge {
+    display: inline-block; font-size: .68rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .04em; padding: .15rem .45rem; border-radius: 999px;
+    background: #fef3c7; color: #92400e; margin-left: .35rem; vertical-align: middle;
+  }
+  .pc-paid { color: #64748b; font-size: .88rem; }
+  .pc-ref-link { font-weight: 600; color: #5b21b6; text-decoration: none; }
+  .pc-ref-link:hover { color: #7c3aed; text-decoration: underline; }
+  @media (max-width: 768px) {
+    .pc-ov { max-width: none; }
+    .pc-ov__hero { padding: 1.35rem; }
+    .pc-ov__hero h1 { font-size: 1.35rem; }
+    .filter-bar .form-control { min-width: 0; max-width: none; }
+    .pc-ov__toolbar { flex-direction: column; align-items: stretch; }
+    .filter-bar { justify-content: stretch; }
+  }
+</style>
+
+<div class="pc-ov">
+  <section class="pc-ov__hero">
+    <div class="d-flex justify-content-between flex-wrap gap-3 align-items-start">
+      <div>
+        <a class="pc-hero-back" href="{% url 'palay_trade:overview' %}"><i class="bi bi-arrow-left"></i> Palay desk</a>
+        <p class="mb-1 text-uppercase small fw-semibold" style="letter-spacing:.12em;opacity:.85;">Palay credit</p>
+        <h1 class="text-white mb-2">Palay credit overview</h1>
+        <p>See which members have rice utang, open tickets, partial payments, and recent palay credit settlements.</p>
+      </div>
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+        <a class="btn btn-light rounded-pill px-4 fw-semibold" href="{% url 'palay_trade:credit-desk' %}">
+          <i class="bi bi-plus-lg me-1"></i>Post utang
+        </a>
+        <a class="btn btn-outline-light rounded-pill px-4 fw-semibold" href="{% url 'palay_trade:credit-settings' %}">
+          <i class="bi bi-sliders me-1"></i>Configure
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <section class="row g-3 mb-4">
+    <div class="col-xl-3 col-md-6">
+      <div class="stat-card">
+        <div class="d-flex align-items-center gap-3">
+          <div class="stat-icon" style="background:#7c3aed;"><i class="bi bi-people"></i></div>
+          <div>
+            <div class="text-muted small text-uppercase fw-semibold">Members with utang</div>
+            <h3 class="mb-0 fw-bold">{{ stats.member_count }}</h3>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="stat-card">
+        <div class="d-flex align-items-center gap-3">
+          <div class="stat-icon" style="background:#0ea5e9;"><i class="bi bi-receipt"></i></div>
+          <div>
+            <div class="text-muted small text-uppercase fw-semibold">Open tickets</div>
+            <h3 class="mb-0 fw-bold">{{ stats.ticket_count }}</h3>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="stat-card">
+        <div class="d-flex align-items-center gap-3">
+          <div class="stat-icon" style="background:#E6C200;color:#111;"><i class="bi bi-box-seam"></i></div>
+          <div>
+            <div class="text-muted small text-uppercase fw-semibold">Total kilos utang</div>
+            <h3 class="mb-0 fw-bold">{{ stats.total_kg|currency }} kg</h3>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-xl-3 col-md-6">
+      <div class="stat-card">
+        <div class="d-flex align-items-center gap-3">
+          <div class="stat-icon" style="background:#5b21b6;"><i class="bi bi-cash-stack"></i></div>
+          <div>
+            <div class="text-muted small text-uppercase fw-semibold">Total outstanding</div>
+            <h3 class="mb-0 fw-bold" style="color:#7c3aed;">&#8369;{{ stats.total_outstanding|currency }}</h3>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="loans-panel">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+      <div>
+        <h2 class="h5 fw-bold mb-0 text-dark">
+          <i class="bi bi-credit-card me-2" style="color:#7c3aed;"></i>
+          {% if view_tab == 'members' %}Utang by member
+          {% elif view_tab == 'open' %}Open credit tickets
+          {% else %}Recently settled{% endif %}
+        </h2>
+        <small class="text-muted">
+          {% if search_query %}Filtered results for &ldquo;{{ search_query }}&rdquo;
+          {% elif view_tab == 'members' %}Members with open palay credit balances
+          {% elif view_tab == 'open' %}Individual tickets still owing
+          {% else %}Last 50 settled tickets{% endif %}
+        </small>
+      </div>
+      {% if search_query %}
+      <span class="search-badge"><i class="bi bi-search"></i> {{ search_query }}</span>
+      {% endif %}
+    </div>
+
+    <div class="pc-ov__toolbar">
+      <div class="pc-tabs">
+        <a href="?tab=members{% if search_query %}&amp;search={{ search_query|urlencode }}{% endif %}"
+           class="{% if view_tab == 'members' %}is-active{% endif %}">By member</a>
+        <a href="?tab=open{% if search_query %}&amp;search={{ search_query|urlencode }}{% endif %}"
+           class="{% if view_tab == 'open' %}is-active{% endif %}">Open tickets</a>
+        <a href="?tab=settled{% if search_query %}&amp;search={{ search_query|urlencode }}{% endif %}"
+           class="{% if view_tab == 'settled' %}is-active{% endif %}">Recently settled</a>
+      </div>
+      <form method="get" class="filter-bar" id="pcCreditSearchForm">
+        <input type="hidden" name="tab" value="{{ view_tab }}">
+        <input class="form-control" type="search" name="search" value="{{ search_query }}"
+               placeholder="Search member or reference…" aria-label="Search member or reference">
+        <button type="submit" class="btn-loan"><i class="bi bi-search me-1"></i>Search</button>
+        {% if search_query %}
+        <a class="btn--secondary" href="?tab={{ view_tab }}">Clear</a>
+        {% endif %}
+      </form>
+    </div>
+
+    {% if view_tab == 'members' %}
+    <div class="table-responsive">
+      <table class="pc-table">
+        <thead>
+          <tr>
+            <th>Member</th>
+            <th>Open tickets</th>
+            <th class="col-num">Total kg</th>
+            <th class="col-num">Utang balance</th>
+            <th class="col-num">Paid</th>
+            <th class="pc-credit-actions">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in member_rows %}
+          <tr>
+            <td>
+              <div class="member-cell">
+                <strong>{{ row.party_name }}</strong>
+                {% if row.member and row.member.username %}
+                <small>{{ row.member.username }}</small>
+                {% endif %}
+              </div>
+            </td>
+            <td class="col-num">{{ row.ticket_count }}</td>
+            <td class="col-num">{{ row.total_kg|currency }} kg</td>
+            <td class="col-num pc-outstanding">&#8369;{{ row.total_outstanding|currency }}</td>
+            <td class="col-num pc-paid">
+              {% if row.total_paid > 0 %}
+              &#8369;{{ row.total_paid|currency }}
+              {% if row.total_outstanding > 0 %}<span class="pc-partial-badge">Partial</span>{% endif %}
+              {% else %}—{% endif %}
+            </td>
+            <td class="pc-credit-actions">
+              <div class="pc-credit-actions__group">
+              {% if row.member_id %}
+              <form method="post"
+                    action="{% url 'palay_trade:credit-settle-member' row.member_id %}"
+                    class="pc-settle-form"
+                    style="display:inline;"
+                    data-settle-type="member"
+                    data-member="{{ row.party_name|escape }}"
+                    data-tickets="{{ row.ticket_count }}"
+                    data-kg="{{ row.total_kg|currency }}"
+                    data-amount="{{ row.total_outstanding|currency }}"
+                    data-paid="{{ row.total_paid|currency }}"
+                    data-outstanding="{{ row.total_outstanding|currency }}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ overview_url }}?tab=members{% if search_query %}&amp;search={{ search_query|urlencode }}{% endif %}">
+                <input type="hidden" name="amount" class="pc-settle-amount-input" value="">
+                <button type="button" class="btn-settle btn-settle--all pc-settle-trigger">
+                  <i class="bi bi-cash-coin"></i> Pay
+                </button>
+              </form>
+              {% endif %}
+              <a href="?tab=open&amp;search={{ row.party_name|urlencode }}" class="btn-settle btn-settle--view">
+                <i class="bi bi-eye"></i> View tickets
+              </a>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="6" class="text-center text-muted py-5">No members with open palay credit.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% elif view_tab == 'open' %}
+    <div class="table-responsive">
+      <table class="pc-table">
+        <thead>
+          <tr>
+            <th>Reference</th>
+            <th>Member</th>
+            <th>Product</th>
+            <th class="col-num">Kg</th>
+            <th class="col-num">Utang</th>
+            <th class="col-num">Paid</th>
+            <th>Date</th>
+            <th class="pc-credit-actions">Pay</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for trade in open_trades %}
+          <tr>
+            <td><a class="pc-ref-link" href="{% url 'palay_trade:trade-detail' trade.pk %}">{{ trade.reference }}</a></td>
+            <td>
+              <div class="member-cell">
+                <strong>{{ trade.party_name }}</strong>
+              </div>
+            </td>
+            <td>{{ trade.product.name }}</td>
+            <td class="col-num">{{ trade.net_kg|currency }}</td>
+            <td class="col-num pc-outstanding">
+              &#8369;{{ trade.outstanding|currency }}
+              {% if trade.credit_amount_paid > 0 and trade.outstanding > 0 %}
+              <span class="pc-partial-badge">Partial</span>
+              {% endif %}
+            </td>
+            <td class="col-num pc-paid">
+              {% if trade.credit_amount_paid > 0 %}
+              &#8369;{{ trade.credit_amount_paid|currency }}
+              {% else %}—{% endif %}
+            </td>
+            <td>{{ trade.traded_at|date:"M j, Y" }}</td>
+            <td class="pc-credit-actions">
+              <div class="pc-credit-actions__group">
+              <form method="post"
+                    action="{% url 'palay_trade:credit-settle' trade.pk %}"
+                    class="pc-settle-form"
+                    style="display:inline;"
+                    data-settle-type="ticket"
+                    data-member="{{ trade.party_name|escape }}"
+                    data-reference="{{ trade.reference|escape }}"
+                    data-product="{{ trade.product.name|escape }}"
+                    data-kg="{{ trade.net_kg|currency }}"
+                    data-amount="{{ trade.outstanding|currency }}"
+                    data-paid="{{ trade.credit_amount_paid|currency }}"
+                    data-total="{{ trade.net_amount|currency }}"
+                    data-outstanding="{{ trade.outstanding|currency }}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ overview_url }}?tab=open{% if search_query %}&amp;search={{ search_query|urlencode }}{% endif %}">
+                <input type="hidden" name="amount" class="pc-settle-amount-input" value="">
+                <button type="button" class="btn-settle pc-settle-trigger">
+                  <i class="bi bi-cash-coin"></i> Pay
+                </button>
+              </form>
+              </div>
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="8" class="text-center text-muted py-5">No open palay credit tickets.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+
+    {% else %}
+    <div class="table-responsive">
+      <table class="pc-table">
+        <thead>
+          <tr>
+            <th>Reference</th>
+            <th>Member</th>
+            <th>Product</th>
+            <th class="col-num">Kg</th>
+            <th class="col-num">Amount</th>
+            <th>Settled</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for trade in settled_trades %}
+          <tr>
+            <td><a class="pc-ref-link" href="{% url 'palay_trade:trade-detail' trade.pk %}">{{ trade.reference }}</a></td>
+            <td>
+              <div class="member-cell"><strong>{{ trade.party_name }}</strong></div>
+            </td>
+            <td>{{ trade.product.name }}</td>
+            <td class="col-num">{{ trade.net_kg|currency }}</td>
+            <td class="col-num pc-settled">&#8369;{{ trade.net_amount|currency }}</td>
+            <td>{{ trade.credit_settled_at|date:"M j, Y g:i A" }}</td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="6" class="text-center text-muted py-5">No settled palay credit tickets yet.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </section>
+</div>
+
+{# Pay / partial pay palay utang #}
+<div class="modal fade" id="confirmPalaySettleModal" tabindex="-1" aria-labelledby="confirmPalaySettleModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content pc-settle-modal">
+      <div class="modal-header pc-settle-modal__header">
+        <h5 class="modal-title" id="confirmPalaySettleModalLabel">
+          <i class="bi bi-cash-coin me-2"></i>Pay palay utang
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cancel"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-3" id="confirmSettleLead">
+          Enter the payment amount. Leave at the full balance to pay off completely, or enter a smaller amount for a partial payment.
+        </p>
+        <dl class="pc-settle-confirm-summary">
+          <div>
+            <dt>Member</dt>
+            <dd id="confirmSettleMember">—</dd>
+          </div>
+          <div id="confirmSettleReferenceRow">
+            <dt>Reference</dt>
+            <dd id="confirmSettleReference">—</dd>
+          </div>
+          <div id="confirmSettleProductRow">
+            <dt>Product</dt>
+            <dd id="confirmSettleProduct">—</dd>
+          </div>
+          <div id="confirmSettleTicketsRow" hidden>
+            <dt>Open tickets</dt>
+            <dd id="confirmSettleTickets">—</dd>
+          </div>
+          <div id="confirmSettleTotalRow" hidden>
+            <dt>Ticket total</dt>
+            <dd id="confirmSettleTotal">—</dd>
+          </div>
+          <div>
+            <dt>Kilos</dt>
+            <dd id="confirmSettleKg">—</dd>
+          </div>
+          <div id="confirmSettlePaidRow" hidden>
+            <dt>Already paid</dt>
+            <dd id="confirmSettlePaid">—</dd>
+          </div>
+          <div>
+            <dt>Outstanding balance</dt>
+            <dd id="confirmSettleOutstanding">—</dd>
+          </div>
+        </dl>
+
+        <div class="pc-pay-amount-field mt-3">
+          <label class="form-label fw-semibold" for="confirmSettleAmountInput">Amount to pay</label>
+          <div class="input-group">
+            <span class="input-group-text">&#8369;</span>
+            <input type="number" class="form-control" id="confirmSettleAmountInput"
+                   min="0.01" step="0.01" inputmode="decimal" required>
+          </div>
+          <div class="d-flex flex-wrap gap-2 mt-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary pc-pay-quick" data-fraction="1">Pay full</button>
+            <button type="button" class="btn btn-sm btn-outline-secondary pc-pay-quick" data-fraction="0.5">Pay half</button>
+          </div>
+          <div id="confirmSettleAmountError" class="text-danger small mt-2" style="display:none;" role="alert"></div>
+          <p class="small text-muted mt-2 mb-0" id="confirmSettleRemainder"></p>
+        </div>
+      </div>
+      <div class="modal-footer pc-settle-modal__footer">
+        <button type="button" class="btn--secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn-loan" id="confirmPalaySettleBtn">
+          <i class="bi bi-cash-coin me-1"></i>Confirm payment
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  #confirmPalaySettleModal { z-index: 10050 !important; }
+  .modal-backdrop.show { z-index: 10040 !important; }
+  .pc-settle-modal { border: none; border-radius: 16px; overflow: hidden; }
+  .pc-settle-modal__header { background: #166534; color: #fff; }
+  .pc-settle-modal__footer { background: #f8fafc; gap: .5rem; }
+  .pc-settle-confirm-summary { margin: 0; }
+  .pc-settle-confirm-summary > div {
+    display: flex; justify-content: space-between; gap: .75rem;
+    padding: .55rem 0; border-bottom: 1px solid #f1f5f9; font-size: .9rem;
+  }
+  .pc-settle-confirm-summary > div:last-child { border-bottom: none; }
+  .pc-settle-confirm-summary dt { margin: 0; color: #64748b; font-weight: 500; }
+  .pc-settle-confirm-summary dd { margin: 0; font-weight: 700; color: #0f172a; text-align: right; }
+  .pc-pay-amount-field .input-group-text { font-weight: 700; }
+  #confirmSettleAmountInput { font-weight: 700; font-size: 1.05rem; }
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  var pendingForm = null;
+  var pendingTrigger = null;
+  var submitting = false;
+  var outstandingValue = 0;
+  var confirmBtn = document.getElementById("confirmPalaySettleBtn");
+  var amountInput = document.getElementById("confirmSettleAmountInput");
+  var amountError = document.getElementById("confirmSettleAmountError");
+  var remainderEl = document.getElementById("confirmSettleRemainder");
+
+  function getModal(el) {
+    if (!el || typeof bootstrap === "undefined" || !bootstrap.Modal) return null;
+    return bootstrap.Modal.getInstance(el) || new bootstrap.Modal(el, {
+      backdrop: true,
+      keyboard: true,
+      focus: true,
+    });
+  }
+
+  function setText(id, text) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = text;
+  }
+
+  function setRowVisible(id, visible) {
+    var el = document.getElementById(id);
+    if (el) el.hidden = !visible;
+  }
+
+  function parseMoney(raw) {
+    var n = Number(String(raw || "").replace(/,/g, "").trim());
+    return isFinite(n) ? n : 0;
+  }
+
+  function formatPeso(n) {
+    return "₱" + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function showAmountError(msg) {
+    if (!amountError) return;
+    if (msg) {
+      amountError.textContent = msg;
+      amountError.style.display = "block";
+    } else {
+      amountError.textContent = "";
+      amountError.style.display = "none";
+    }
+  }
+
+  function updateRemainderPreview() {
+    if (!amountInput || !remainderEl) return;
+    var pay = parseMoney(amountInput.value);
+    var remaining = Math.max(outstandingValue - pay, 0);
+    if (pay <= 0) {
+      remainderEl.textContent = "";
+      return;
+    }
+    if (remaining <= 0.009) {
+      remainderEl.textContent = "This payment will fully settle the balance.";
+    } else {
+      remainderEl.textContent = "After payment, remaining balance: " + formatPeso(remaining);
+    }
+  }
+
+  function validateAmount() {
+    var pay = parseMoney(amountInput ? amountInput.value : 0);
+    if (pay <= 0) {
+      showAmountError("Enter a payment amount greater than zero.");
+      return false;
+    }
+    if (pay > outstandingValue + 0.001) {
+      showAmountError("Payment cannot exceed outstanding balance (" + formatPeso(outstandingValue) + ").");
+      return false;
+    }
+    showAmountError("");
+    return true;
+  }
+
+  function openSettleConfirm(form, trigger) {
+    if (submitting || !form) return;
+    pendingForm = form;
+    pendingTrigger = trigger || null;
+
+    var settleType = form.getAttribute("data-settle-type") || "ticket";
+    var isMember = settleType === "member";
+    var member = form.getAttribute("data-member") || "—";
+    var reference = form.getAttribute("data-reference") || "—";
+    var product = form.getAttribute("data-product") || "—";
+    var tickets = form.getAttribute("data-tickets") || "—";
+    var kg = form.getAttribute("data-kg") || "—";
+    var paid = parseMoney(form.getAttribute("data-paid"));
+    var total = parseMoney(form.getAttribute("data-total"));
+    outstandingValue = parseMoney(form.getAttribute("data-outstanding") || form.getAttribute("data-amount"));
+
+    var title = document.getElementById("confirmPalaySettleModalLabel");
+    var lead = document.getElementById("confirmSettleLead");
+    if (title) {
+      title.innerHTML = isMember
+        ? '<i class="bi bi-cash-coin me-2"></i>Pay member palay utang'
+        : '<i class="bi bi-cash-coin me-2"></i>Pay palay utang';
+    }
+    if (lead) {
+      lead.textContent = isMember
+        ? "Enter payment amount. Partial payments apply to oldest tickets first. Pay the full outstanding balance to settle all tickets."
+        : "Enter payment amount. Pay the full outstanding balance to close this ticket, or a smaller amount for a partial payment.";
+    }
+
+    setText("confirmSettleMember", member);
+    setText("confirmSettleReference", reference);
+    setText("confirmSettleProduct", product);
+    setText("confirmSettleTickets", tickets);
+    setText("confirmSettleKg", kg + " kg");
+    setText("confirmSettlePaid", formatPeso(paid));
+    setText("confirmSettleOutstanding", formatPeso(outstandingValue));
+    setText("confirmSettleTotal", formatPeso(total));
+    setRowVisible("confirmSettleReferenceRow", !isMember);
+    setRowVisible("confirmSettleProductRow", !isMember);
+    setRowVisible("confirmSettleTicketsRow", isMember);
+    setRowVisible("confirmSettlePaidRow", paid > 0);
+    setRowVisible("confirmSettleTotalRow", !isMember && total > 0);
+
+    if (amountInput) {
+      amountInput.value = outstandingValue.toFixed(2);
+      amountInput.max = outstandingValue.toFixed(2);
+    }
+    showAmountError("");
+    updateRemainderPreview();
+
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.innerHTML = '<i class="bi bi-cash-coin me-1"></i>Confirm payment';
+    }
+
+    var modalEl = document.getElementById("confirmPalaySettleModal");
+    var bsModal = getModal(modalEl);
+    if (!bsModal) {
+      var entered = window.prompt(
+        "Enter payment amount (max " + formatPeso(outstandingValue) + "):",
+        outstandingValue.toFixed(2)
+      );
+      if (entered === null) return;
+      if (amountInput) amountInput.value = entered;
+      if (validateAmount()) submitSettle();
+      return;
+    }
+    try {
+      bsModal.show();
+      window.setTimeout(function () {
+        if (amountInput) amountInput.focus();
+      }, 200);
+    } catch (err) {
+      if (window.confirm("Record this palay credit payment now?")) submitSettle();
+    }
+  }
+
+  function submitSettle() {
+    if (submitting || !pendingForm) return;
+    if (!validateAmount()) return;
+
+    var pay = parseMoney(amountInput ? amountInput.value : outstandingValue);
+    var hiddenAmount = pendingForm.querySelector(".pc-settle-amount-input");
+    if (hiddenAmount) {
+      hiddenAmount.value = pay.toFixed(2);
+    }
+
+    submitting = true;
+
+    if (pendingTrigger) {
+      pendingTrigger.disabled = true;
+      pendingTrigger.innerHTML =
+        '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>';
+    }
+    if (confirmBtn) {
+      confirmBtn.disabled = true;
+      confirmBtn.innerHTML =
+        '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Processing…';
+    }
+
+    HTMLFormElement.prototype.submit.call(pendingForm);
+  }
+
+  function proceedFromConfirm() {
+    if (submitting) return;
+    if (!validateAmount()) return;
+    var modalEl = document.getElementById("confirmPalaySettleModal");
+    var bsModal = getModal(modalEl);
+    if (bsModal) {
+      try { bsModal.hide(); } catch (e) {}
+    }
+    window.setTimeout(submitSettle, 120);
+  }
+
+  document.addEventListener("click", function (e) {
+    var trigger = e.target.closest(".pc-settle-trigger");
+    if (!trigger) return;
+    e.preventDefault();
+    e.stopPropagation();
+    var form = trigger.closest(".pc-settle-form");
+    openSettleConfirm(form, trigger);
+  });
+
+  document.addEventListener("click", function (e) {
+    var quick = e.target.closest(".pc-pay-quick");
+    if (!quick || !amountInput) return;
+    e.preventDefault();
+    var fraction = parseFloat(quick.getAttribute("data-fraction") || "1");
+    var pay = outstandingValue * fraction;
+    if (fraction < 1) {
+      pay = Math.floor(pay * 100) / 100;
+      if (pay < 0.01 && outstandingValue > 0) pay = Math.min(0.01, outstandingValue);
+    }
+    amountInput.value = Math.min(pay, outstandingValue).toFixed(2);
+    updateRemainderPreview();
+    showAmountError("");
+  });
+
+  if (amountInput) {
+    amountInput.addEventListener("input", function () {
+      updateRemainderPreview();
+      showAmountError("");
+    });
+  }
+
+  if (confirmBtn) {
+    confirmBtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      proceedFromConfirm();
+    });
+  }
+})();
+</script>
+{% endblock %}

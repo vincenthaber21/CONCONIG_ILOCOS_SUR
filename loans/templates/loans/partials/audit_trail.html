@@ -1,0 +1,55 @@
+{% if audit_logs %}
+<section class="card loan-detail__section loan-audit-trail" id="loan-audit-trail">
+  <div class="loan-section__head">
+    <div>
+      <h2><i class="bi bi-shield-lock"></i> Audit trail</h2>
+      <p class="subtitle loan-section__sub">
+        Immutable history for this application — who did what, when, and from where.
+        Records cannot be edited or deleted.
+      </p>
+    </div>
+    <span class="status-pill">{{ audit_logs|length }} event{{ audit_logs|length|pluralize }}</span>
+  </div>
+
+  <div class="loan-audit-trail__list">
+    {% for entry in audit_logs %}
+    <article class="loan-audit-entry">
+      <div class="loan-audit-entry__marker" aria-hidden="true"></div>
+      <div class="loan-audit-entry__body">
+        <header class="loan-audit-entry__head">
+          <span class="loan-audit-entry__action">{{ entry.get_action_display }}</span>
+          <time class="loan-audit-entry__time" datetime="{{ entry.created_at|date:'c' }}">
+            {{ entry.created_at|date:"M j, Y g:i A" }}
+          </time>
+        </header>
+        <p class="loan-audit-entry__desc">{{ entry.description }}</p>
+        <div class="loan-audit-entry__meta">
+          <span><i class="bi bi-person"></i> {{ entry.actor_label }}</span>
+          {% if entry.ip_address %}
+          <span><i class="bi bi-globe2"></i> {{ entry.ip_address }}</span>
+          {% endif %}
+        </div>
+        {% if entry.metadata %}
+        <details class="loan-audit-entry__details">
+          <summary>Details</summary>
+          <dl class="loan-audit-entry__kv">
+            {% for key, value in entry.metadata.items %}
+            <dt>{{ key|title }}</dt>
+            <dd>{{ value }}</dd>
+            {% endfor %}
+          </dl>
+        </details>
+        {% endif %}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</section>
+{% elif is_loan_staff %}
+<section class="card loan-detail__section loan-audit-trail loan-audit-trail--empty">
+  <h2><i class="bi bi-shield-lock"></i> Audit trail</h2>
+  <p class="subtitle" style="margin:0;">
+    No audit events recorded yet. Actions on this application will appear here automatically.
+  </p>
+</section>
+{% endif %}

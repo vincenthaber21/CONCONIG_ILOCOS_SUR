@@ -1,0 +1,109 @@
+        @media print {
+            @page {
+                size: {{ receipt_page_size|default:"57mm auto" }};
+                margin: {{ receipt_page_margin|default:"0" }};
+            }
+            html, body {
+                background: #fff !important;
+                margin: 0 auto !important;
+                padding: 0 !important;
+                width: {{ receipt_paper_width|default:"57mm" }} !important;
+                max-width: {{ receipt_paper_width|default:"57mm" }} !important;
+                overflow: hidden;
+            }
+            .toolbar,
+            .action-bar,
+            .no-print { display: none !important; }
+            .page-wrapper {
+                padding: 0 !important;
+                margin: 0 auto !important;
+                gap: 0;
+                width: {{ receipt_paper_width|default:"57mm" }} !important;
+                max-width: {{ receipt_paper_width|default:"57mm" }} !important;
+            }
+            .copies-grid {
+                flex-direction: column;
+                gap: 0;
+                margin: 0 auto;
+                padding: 0;
+                width: 100%;
+            }
+            .tear-separator { margin: 3.5mm 0; }
+            .receipt-card {
+                width: 100% !important;
+                max-width: 100% !important;
+                min-width: 0 !important;
+                margin: 0 auto !important;
+                border-radius: 0;
+                box-shadow: none;
+                border: none;
+                page-break-inside: avoid;
+                box-sizing: border-box;
+                overflow: hidden;
+            }
+            .receipt-card::before { display: none; }
+            .receipt-card .rc-header,
+            .receipt-card .rc-body,
+            .receipt-card .rc-footer,
+            .receipt-card .copy-badge,
+            .receipt-card .receipt-type-strip {
+                padding-left: 3.5mm !important;
+                padding-right: 3.5mm !important;
+            }
+            .receipt-card .rc-header { padding-top: 3.5mm !important; }
+            .receipt-card .rc-footer { padding-bottom: 3.5mm !important; }
+            .receipt-card .items-table {
+                width: 100% !important;
+                table-layout: fixed !important;
+            }
+            .receipt-card .items-table th:nth-child(1),
+            .receipt-card .items-table td:nth-child(1) {
+                width: 52%;
+                word-wrap: break-word;
+                overflow-wrap: anywhere;
+                white-space: normal !important;
+            }
+            .receipt-card .items-table th:nth-child(2),
+            .receipt-card .items-table td:nth-child(2) { width: 16%; }
+            .receipt-card .items-table th:nth-child(3),
+            .receipt-card .items-table td:nth-child(3) { width: 28%; }
+            .receipt-card .items-table th:nth-child(2),
+            .receipt-card .items-table td:nth-child(2),
+            .receipt-card .items-table th:nth-child(3),
+            .receipt-card .items-table td:nth-child(3) {
+                text-align: center !important;
+            }
+            .receipt-card .info-value,
+            .receipt-card .info-label {
+                word-wrap: break-word;
+                overflow-wrap: anywhere;
+            }
+            .receipt-card .barcode-wrap {
+                max-width: 100%;
+            }
+            .receipt-card .barcode-wrap svg {
+                max-width: 100%;
+                height: auto;
+            }
+            .receipt-wrap {
+                width: 100% !important;
+                max-width: 100% !important;
+                margin: 0 auto !important;
+                padding: 3.5mm !important;
+                box-shadow: none !important;
+                box-sizing: border-box;
+            }
+            .receipt-wrap .line-item span:first-child {
+                max-width: 65%;
+                word-wrap: break-word;
+                overflow-wrap: anywhere;
+            }
+            .receipt-card .rc-store-icon {
+                width: 56px !important;
+                height: 56px !important;
+            }
+            .receipt-wrap .receipt-store-logo img {
+                max-width: 92% !important;
+                max-height: 72px !important;
+            }
+        }

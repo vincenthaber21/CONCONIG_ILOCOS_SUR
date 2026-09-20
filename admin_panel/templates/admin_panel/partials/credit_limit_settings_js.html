@@ -1,0 +1,257 @@
+<script>
+(function () {
+  const modalEl = document.getElementById('creditLimitSettingsModal');
+  const form = document.getElementById('creditLimitSettingsForm');
+  if (!modalEl || !form) return;
+
+  const maxInput = document.getElementById('creditLimitMaxInput');
+  const statusHint = document.getElementById('creditLimitStatusHint');
+  const loadAlert = document.getElementById('creditLimitLoadAlert');
+  const formAlert = document.getElementById('creditLimitFormAlert');
+  const saveBtn = document.getElementById('creditLimitSaveBtn');
+  const pinBoxes = Array.from(document.querySelectorAll('.credit-limit-pin-box'));
+
+  const apiUrl = '{% url "api_kiosk_credit_limit" %}';
+
+  function getCsrf() {
+    const fromContext = '{{ csrf_token|escapejs }}';
+    if (fromContext) return fromContext;
+    const hidden = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (hidden && hidden.value) return hidden.value;
+    const m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+
+  function parseJsonResponse(r) {
+    return r.text().then(function (text) {
+      try {
+        return { ok: r.ok, status: r.status, data: JSON.parse(text) };
+      } catch (e) {
+        var message = 'Unexpected server response. Please refresh the page and try again.';
+        if (r.status === 403) {
+          message = 'Security check failed or your session expired. Refresh the page and try again.';
+        } else if (r.status === 401 || (r.redirected && r.url && r.url.indexOf('login') >= 0)) {
+          message = 'Your session expired. Please log in again.';
+        } else if (r.status === 404) {
+          message = 'Credit limit API is unavailable. Restart the server and try again.';
+        }
+        throw new Error(message);
+      }
+    });
+  }
+
+  function showFormAlert(message, type) {
+    if (!formAlert) return;
+    type = type || 'danger';
+    formAlert.className = 'alert alert-' + type + ' alert-dismissible fade show mt-2';
+    formAlert.innerHTML =
+      message +
+      '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+    formAlert.style.display = 'block';
+  }
+
+  function hideFormAlert() {
+    if (formAlert) formAlert.style.display = 'none';
+  }
+
+  function setLoading(loading) {
+    if (maxInput) maxInput.disabled = loading;
+    pinBoxes.forEach(function (b) { b.disabled = loading; });
+    if (saveBtn) saveBtn.disabled = loading;
+  }
+
+  function getPin() {
+    return pinBoxes.map(function (b) { return (b.value || '').trim(); }).join('');
+  }
+
+  function clearPin() {
+    pinBoxes.forEach(function (b) { b.value = ''; });
+    if (pinBoxes[0]) pinBoxes[0].focus();
+  }
+
+  function formatMoney(n) {
+    const v = parseFloat(n);
+    if (isNaN(v)) return '₱0.00';
+    return '₱' + v.toFixed(2);
+  }
+
+  function updateStatusHint(value) {
+    if (!statusHint) return;
+    const v = parseFloat(value);
+    if (isNaN(v) || v <= 0) {
+      statusHint.textContent = 'No credit limit — members can accumulate unlimited utang at the kiosk.';
+      statusHint.className = 'form-text text-warning';
+    } else {
+      statusHint.textContent = 'Kiosk will block new credit sales when outstanding utang reaches ' + formatMoney(v) + '.';
+      statusHint.className = 'form-text text-muted';
+    }
+  }
+
+  function wirePinBoxes() {
+    pinBoxes.forEach(function (box, idx) {
+      box.addEventListener('input', function () {
+        box.value = (box.value || '').replace(/\D/g, '').slice(0, 1);
+        if (box.value && idx < pinBoxes.length - 1) pinBoxes[idx + 1].focus();
+      });
+      box.addEventListener('keydown', function (e) {
+        if (e.key === 'Backspace' && !box.value && idx > 0) {
+          pinBoxes[idx - 1].focus();
+        }
+      });
+      box.addEventListener('paste', function (e) {
+        e.preventDefault();
+        const digits = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 4);
+        digits.split('').forEach(function (d, i) {
+          if (pinBoxes[i]) pinBoxes[i].value = d;
+        });
+        if (pinBoxes[Math.min(digits.length, 3)]) {
+          pinBoxes[Math.min(digits.length, 3)].focus();
+        }
+      });
+    });
+  }
+
+  function loadSettings() {
+    hideFormAlert();
+    if (loadAlert) {
+      loadAlert.className = 'alert alert-secondary py-2 small mb-3';
+      loadAlert.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Loading current settings…';
+      loadAlert.style.display = 'block';
+    }
+    setLoading(true);
+
+    fetch(apiUrl, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      credentials: 'same-origin',
+    })
+      .then(parseJsonResponse)
+      .then(function (res) {
+        if (!res.ok || !res.data.success) {
+          throw new Error((res.data && res.data.error) || 'Could not load settings');
+        }
+        const limit = res.data.member_max_credit;
+        if (maxInput) maxInput.value = limit;
+        updateStatusHint(limit);
+        if (loadAlert) loadAlert.style.display = 'none';
+        setLoading(false);
+        if (maxInput) maxInput.disabled = false;
+        pinBoxes.forEach(function (b) { b.disabled = false; });
+        if (saveBtn) saveBtn.disabled = false;
+        if (maxInput) maxInput.focus();
+      })
+      .catch(function (err) {
+        if (loadAlert) {
+          loadAlert.className = 'alert alert-danger py-2 small mb-3';
+          loadAlert.textContent = err.message || 'Failed to load settings';
+        }
+        setLoading(true);
+      });
+  }
+
+  if (maxInput) {
+    maxInput.addEventListener('input', function () {
+      updateStatusHint(maxInput.value);
+    });
+  }
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    hideFormAlert();
+
+    const raw = (maxInput && maxInput.value !== '') ? maxInput.value : '0';
+    const amount = parseFloat(raw);
+    if (isNaN(amount) || amount < 0) {
+      showFormAlert('Enter a valid amount (0 or greater).', 'warning');
+      return;
+    }
+
+    const pin = getPin();
+    if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
+      showFormAlert('Enter a valid 4-digit Admin PIN.', 'warning');
+      return;
+    }
+
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving…';
+    }
+
+    fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrf(),
+        'Accept': 'application/json',
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        member_max_credit: amount.toFixed(2),
+        admin_pin: pin,
+      }),
+    })
+      .then(parseJsonResponse)
+      .then(function (res) {
+        if (!res.ok || !res.data.success) {
+          throw new Error((res.data && res.data.error) || 'Save failed');
+        }
+        showFormAlert(
+          '<i class="bi bi-check-circle me-1"></i>Saved. New limit: <strong>' +
+            (res.data.credit_limit_enabled ? formatMoney(res.data.member_max_credit) : 'No limit') +
+            '</strong>.',
+          'success'
+        );
+        if (maxInput) maxInput.value = res.data.member_max_credit;
+        updateStatusHint(res.data.member_max_credit);
+        clearPin();
+        document.dispatchEvent(new CustomEvent('creditLimitUpdated', {
+          detail: { member_max_credit: res.data.member_max_credit, credit_limit_enabled: res.data.credit_limit_enabled },
+        }));
+        setTimeout(function () {
+          if (typeof bootstrap !== 'undefined') {
+            const inst = bootstrap.Modal.getInstance(modalEl);
+            if (inst) inst.hide();
+          }
+        }, 1200);
+      })
+      .catch(function (err) {
+        showFormAlert(err.message || 'Could not save settings.', 'danger');
+        clearPin();
+      })
+      .finally(function () {
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Save Settings';
+        }
+      });
+  });
+
+  modalEl.addEventListener('show.bs.modal', function () {
+    clearPin();
+    hideFormAlert();
+    loadSettings();
+  });
+
+  modalEl.addEventListener('hidden.bs.modal', function () {
+    clearPin();
+    hideFormAlert();
+    if (loadAlert) {
+      loadAlert.style.display = 'block';
+      loadAlert.className = 'alert alert-secondary py-2 small mb-3';
+      loadAlert.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Loading current settings…';
+    }
+    setLoading(true);
+  });
+
+  document.querySelectorAll('[data-open-credit-limit-modal]').forEach(function (el) {
+    el.addEventListener('click', function (e) {
+      e.preventDefault();
+      if (typeof bootstrap !== 'undefined') {
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+      }
+    });
+  });
+
+  wirePinBoxes();
+})();
+</script>

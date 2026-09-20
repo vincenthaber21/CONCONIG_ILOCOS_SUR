@@ -1,0 +1,1372 @@
+<!DOCTYPE html>
+<html lang="en">
+{% load static %}
+{% load currency_filters %}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Login | {{ kiosk_system_name }}</title>
+    {% include "partials/bootstrap_head.html" %}
+    {% include "partials/inter_font.html" %}
+    <style>
+
+        :root {
+            --dark: #0f172a;
+            --brand: #ED1C24;
+            --accent: #E6C200;
+            --brand-rgb: 237 28 36;
+            --accent-rgb: 230 194 0;
+            --muted: #64748b;
+            --panel: #ffffff;
+            --gradient: linear-gradient(135deg, #ED1C24 0%, #FF4D54 45%, #C4121A 100%);
+            --gradient-light: linear-gradient(135deg, rgba(237,28,36,0.12) 0%, rgba(196,18,26,0.1) 50%, rgba(237,28,36,0.08) 100%);
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(
+                135deg,
+                rgb(var(--brand-rgb) / 0.12) 0%,
+                #FEF7D5 25%,
+                #f8fafc 50%,
+                rgb(var(--brand-rgb) / 0.08) 75%,
+                #fff4e6 100%
+            );
+            background-size: 400% 400%;
+            animation: gradientShift 15s ease infinite;
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        @keyframes gradientShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* Animated background pattern */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                radial-gradient(circle at 20% 50%, rgb(var(--brand-rgb) / 0.14) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(196, 18, 26, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 40% 20%, rgb(var(--brand-rgb) / 0.1) 0%, transparent 50%);
+            animation: patternMove 20s ease-in-out infinite;
+            pointer-events: none;
+        }
+
+        @keyframes patternMove {
+            0%, 100% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(-20px, -20px) scale(1.1); }
+        }
+
+        .login-container {
+            width: 100%;
+            max-width: 440px;
+            padding: 24px;
+            position: relative;
+            z-index: 1;
+            animation: fadeInUp 0.6s ease-out;
+        }
+
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .login-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 28px;
+            padding: 48px 40px;
+            box-shadow: 
+                0 25px 50px -12px rgba(0, 0, 0, 0.15),
+                0 0 0 1px rgba(255, 255, 255, 0.5) inset,
+                0 1px 0 rgba(255, 255, 255, 0.8) inset;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .login-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: var(--gradient-light);
+            border-radius: 50%;
+            opacity: 0.3;
+            animation: rotate 20s linear infinite;
+        }
+
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .login-card > * {
+            position: relative;
+            z-index: 1;
+        }
+
+        .login-header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .login-header .icon-wrapper {
+            width: 100%;
+            max-width: 360px;
+            min-height: 100px;
+            height: auto;
+            padding: 0;
+            background: transparent;
+            border-radius: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 28px;
+            font-size: 2.75rem;
+            color: white;
+            box-shadow: none;
+            border: none;
+            position: relative;
+            transition: none;
+            animation: none;
+            overflow: visible;
+        }
+
+        .login-header .icon-wrapper::before {
+            content: none;
+        }
+
+        @keyframes iconFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+
+        .login-header .icon-wrapper::after {
+            content: none;
+        }
+
+        .login-header .icon-wrapper:hover {
+            transform: none;
+            box-shadow: none;
+        }
+
+        .login-header .icon-wrapper img {
+            display: block;
+            width: auto;
+            max-width: 100%;
+            height: auto;
+            max-height: 156px;
+            object-fit: contain;
+            object-position: center;
+            padding: 0;
+            border-radius: 0;
+            filter: none;
+            transition: none;
+            image-rendering: auto;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        .login-header .icon-wrapper:hover img {
+            filter: none;
+        }
+
+        .login-header .icon-wrapper i {
+            background: linear-gradient(135deg, #ED1C24 0%, #FF4D54 45%, #C4121A 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .login-header h1 {
+            font-size: 2rem;
+            font-weight: 800;
+            color: var(--dark);
+            margin-bottom: 10px;
+            letter-spacing: -0.02em;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .login-header p {
+            color: var(--muted);
+            font-size: 1rem;
+            font-weight: 400;
+            letter-spacing: 0.01em;
+        }
+
+        .form-group {
+            margin-bottom: 24px;
+        }
+
+        .form-label {
+            font-weight: 600;
+            color: var(--dark);
+            font-size: 0.875rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            letter-spacing: 0.01em;
+        }
+
+        .form-label i {
+            margin-right: 8px;
+            font-size: 1rem;
+            color: var(--brand);
+        }
+
+        .form-control {
+            border: 2px solid #e2e8f0;
+            border-radius: 14px;
+            padding: 14px 18px;
+            font-size: 0.95rem;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            background: #ffffff;
+            color: var(--dark);
+            font-weight: 500;
+        }
+
+        .form-control::placeholder {
+            color: #cbd5e1;
+            font-weight: 400;
+        }
+
+        .form-control:focus {
+            border-color: var(--brand);
+            box-shadow: 
+                0 0 0 4px rgb(var(--brand-rgb) / 0.12),
+                0 4px 12px rgb(var(--brand-rgb) / 0.2);
+            outline: none;
+            transform: translateY(-1px);
+        }
+
+        .form-control:hover:not(:focus) {
+            border-color: #cbd5e1;
+        }
+
+        .input-group-icon {
+            position: relative;
+        }
+
+        .input-group-icon i {
+            position: absolute;
+            left: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--muted);
+            z-index: 10;
+            font-size: 1.1rem;
+            transition: color 0.3s ease;
+        }
+
+        .input-group-icon .form-control:focus + i,
+        .input-group-icon:has(.form-control:focus) i {
+            color: var(--brand);
+        }
+
+        .input-group-icon .form-control {
+            padding-left: 50px;
+        }
+
+        .btn-login {
+            background: var(--gradient);
+            border: none;
+            border-radius: 14px;
+            padding: 16px;
+            font-weight: 600;
+            font-size: 1rem;
+            color: white;
+            width: 100%;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-top: 8px;
+            box-shadow: 
+                0 4px 14px rgb(var(--brand-rgb) / 0.35),
+                0 0 0 0 rgb(var(--brand-rgb) / 0.45);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-login::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn-login:hover::before {
+            left: 100%;
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            box-shadow: 
+                0 8px 20px rgb(var(--brand-rgb) / 0.42),
+                0 0 0 4px rgb(var(--brand-rgb) / 0.12);
+            color: white;
+        }
+
+        .btn-login:active {
+            transform: translateY(0);
+            box-shadow: 
+                0 2px 8px rgb(var(--brand-rgb) / 0.35),
+                0 0 0 2px rgb(var(--brand-rgb) / 0.12);
+        }
+
+        .alert {
+            border-radius: 14px;
+            border: none;
+            padding: 14px 18px;
+            margin-bottom: 24px;
+            box-shadow: var(--shadow-md);
+            backdrop-filter: blur(10px);
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .back-link {
+            text-align: center;
+            margin-top: 28px;
+        }
+
+        .back-link a {
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            font-weight: 500;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .back-link a:hover {
+            color: var(--brand);
+            transform: translateX(-2px);
+        }
+
+        .divider {
+            display: flex;
+            align-items: center;
+            text-align: center;
+            margin: 28px 0;
+        }
+
+        .divider::before,
+        .divider::after {
+            content: '';
+            flex: 1;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .divider span {
+            padding: 0 18px;
+            color: var(--muted);
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .rfid-section {
+            margin-bottom: 28px;
+        }
+
+        .rfid-status {
+            margin-top: 10px;
+            font-size: 0.875rem;
+            min-height: 22px;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding-left: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .rfid-status::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            display: inline-block;
+            transition: all 0.3s ease;
+        }
+
+        .rfid-status.scanning {
+            color: var(--brand);
+        }
+
+        .rfid-status.scanning::before {
+            background: var(--brand);
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        .rfid-status.error {
+            color: #dc3545;
+        }
+
+        .rfid-status.error::before {
+            background: #dc3545;
+        }
+
+        .rfid-status.success {
+            color: #10b981;
+        }
+
+        .rfid-status.success::before {
+            background: #10b981;
+            animation: pulse 0.5s ease-out;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.5;
+                transform: scale(1.2);
+            }
+        }
+
+        /* Manual login section — hidden by default */
+        .manual-login-section {
+            overflow: hidden;
+            max-height: 0;
+            opacity: 0;
+            transition: max-height 0.45s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.35s ease;
+        }
+        .manual-login-section.visible {
+            max-height: 900px;
+            opacity: 1;
+            scroll-margin-top: 12vh;
+            scroll-margin-bottom: 12vh;
+        }
+        /* No-card toggle link */
+        .no-card-link {
+            text-align: center;
+            margin-top: 18px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .no-card-link button {
+            background: none;
+            border: none;
+            padding: 8px 12px;
+            color: var(--brand);
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: color 0.2s ease, transform 0.2s ease;
+            text-decoration: underline;
+            text-underline-offset: 3px;
+            text-align: center;
+        }
+        .no-card-link button:hover {
+            color: #C4121A;
+            transform: translateY(-1px);
+        }
+
+        /* When manual login is open, keep the form easy to reach on tall / kiosk screens */
+        .login-card.manual-open .rfid-section {
+            opacity: 0.55;
+            transition: opacity 0.3s ease;
+        }
+        /* ── PIN / Password toggle ── */
+        .auth-mode-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #f1f5f9;
+            border: 2px solid #e2e8f0;
+            border-radius: 999px;
+            padding: 4px 10px 4px 6px;
+            cursor: pointer;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: var(--muted);
+            transition: all 0.25s ease;
+            user-select: none;
+            float: right;
+            margin-top: -2px;
+        }
+        .auth-mode-toggle:hover {
+            background: #FEF7D5;
+            border-color: var(--brand);
+            color: var(--brand);
+        }
+        .auth-mode-toggle .toggle-track {
+            position: relative;
+            width: 32px;
+            height: 18px;
+            background: #cbd5e1;
+            border-radius: 999px;
+            transition: background 0.25s;
+            flex-shrink: 0;
+        }
+        .auth-mode-toggle .toggle-thumb {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 14px;
+            height: 14px;
+            background: #fff;
+            border-radius: 50%;
+            transition: transform 0.25s, background 0.25s;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+        }
+        .auth-mode-toggle.pin-active .toggle-track {
+            background: var(--brand);
+        }
+        .auth-mode-toggle.pin-active .toggle-thumb {
+            transform: translateX(14px);
+        }
+        .auth-mode-toggle.pin-active {
+            color: var(--brand);
+            border-color: var(--brand);
+            background: #FEF7D5;
+        }
+
+        /* PIN keypad (reuse kiosk style) */
+        .login-pin-wrap {
+            display: none;
+        }
+        .login-pin-wrap.visible {
+            display: block;
+        }
+        .login-pin-dots {
+            display: flex;
+            justify-content: center;
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .login-pin-dot {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2.5px solid var(--brand);
+            background: transparent;
+            transition: background 0.15s, transform 0.1s;
+        }
+        .login-pin-dot.filled {
+            background: var(--brand);
+            transform: scale(1.15);
+        }
+        .login-pin-keypad {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+        .login-pin-keypad-row {
+            display: flex;
+            gap: 8px;
+        }
+        .login-pin-key {
+            width: 68px;
+            height: 68px;
+            border-radius: 50%;
+            border: 2px solid rgb(var(--brand-rgb) / 0.3);
+            background: rgb(var(--brand-rgb) / 0.08);
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: var(--brand);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.1s, transform 0.1s;
+            user-select: none;
+        }
+        .login-pin-key:hover  { background: rgb(var(--brand-rgb) / 0.18); }
+        .login-pin-key:active { background: rgb(var(--brand-rgb) / 0.3); transform: scale(0.92); }
+        .login-pin-key-empty  { border: none !important; background: transparent !important; cursor: default; pointer-events: none; }
+        .login-pin-error {
+            text-align: center;
+            color: #dc3545;
+            font-size: 0.82rem;
+            font-weight: 600;
+            margin-top: 10px;
+            min-height: 20px;
+        }
+
+        /* Responsive design */
+        @media (max-width: 480px) {
+            .login-container {
+                padding: 16px;
+            }
+
+            .login-card {
+                padding: 36px 28px;
+                border-radius: 24px;
+            }
+
+            .login-header .icon-wrapper {
+                width: 100%;
+                max-width: none;
+                min-height: 0;
+                padding: 0;
+                font-size: 2.25rem;
+            }
+
+            .login-header .icon-wrapper img,
+            .login-header .icon-wrapper svg {
+                display: block;
+                margin: 0 auto;
+                max-width: min(100%, 280px);
+                max-height: 132px;
+                width: auto;
+                height: auto;
+                object-fit: contain;
+                border-radius: 4px;
+                background: transparent;
+                padding: 0;
+                box-shadow: none;
+                filter: none;
+            }
+
+            .login-header h1 {
+                font-size: 1.75rem;
+            }
+        }
+
+        /* Loading spinner for processing state */
+        .rfid-status.scanning::after {
+            content: '';
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgb(var(--brand-rgb) / 0.2);
+            border-top-color: var(--brand);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin-left: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+{% if clear_kiosk_browser_state %}
+<script>
+(function () {
+    try {
+        localStorage.removeItem('coopKioskCart');
+        localStorage.removeItem('currentMember');
+        sessionStorage.removeItem('coopKioskCart');
+        sessionStorage.removeItem('currentMember');
+    } catch (e) {}
+})();
+</script>
+{% endif %}
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="icon-wrapper">
+                    {% if store_profile.logo %}
+                        <img id="storeLogo" src="{{ store_profile.logo.url }}" alt="{% if store_profile.show_store_name %}{{ store_profile.store_name|default:'Store' }} logo{% else %}Store logo{% endif %}" loading="lazy" decoding="async">
+                    {% else %}
+                        <img id="storeLogo" src="{% static 'images/default_store_logo.svg' %}" alt="{% if store_profile.show_store_name %}{{ store_profile.store_name|default:'Store' }} logo{% else %}Store logo{% endif %}" loading="lazy" decoding="async">
+                    {% endif %}
+                </div>
+                <h1>{% if store_profile.show_store_name %}{{ store_profile.store_name|default:"Login" }}{% else %}Login{% endif %}</h1>
+                <p>Sign in to access your account</p>
+            </div>
+
+            {% deduped_messages as flash_messages %}
+            {% if flash_messages %}
+                {% for message in flash_messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <!-- RFID Login Section -->
+            <div class="rfid-section">
+                <div class="form-group">
+                    <label for="rfidInput" class="form-label">
+                        <i class="bi bi-credit-card-2-front"></i>
+                        <span>RFID Card Login</span>
+                    </label>
+                    <div class="input-group-icon">
+                        <i class="bi bi-credit-card-2-front"></i>
+                        <input type="text" 
+                               class="form-control" 
+                               id="rfidInput" 
+                               name="rfid" 
+                               placeholder="Scan or enter RFID card number" 
+                               autocomplete="off"
+                               aria-label="RFID Card Number">
+                    </div>
+                    <div id="rfidStatus" class="rfid-status" role="status" aria-live="polite"></div>
+                </div>
+            </div>
+
+            <!-- No-card toggle link -->
+            <div class="no-card-link">
+                <button type="button" id="noCardToggle">
+                    <i class="bi bi-person-badge"></i> No card? Sign in manually
+                </button>
+            </div>
+
+            <!-- Manual login — hidden until revealed -->
+            <div class="manual-login-section" id="manualLoginSection">
+            <div class="divider">
+                <span>OR</span>
+            </div>
+
+            <form method="POST" action="{% url 'root_login' %}" id="loginForm">
+                {% csrf_token %}
+                {% if request.GET.next %}
+                    <input type="hidden" name="next" value="{{ request.GET.next }}">
+                {% endif %}
+                
+                <div class="form-group">
+                    <label for="username" class="form-label">Username</label>
+                    <div class="input-group-icon">
+                        <i class="bi bi-person-fill"></i>
+                        <input type="text" 
+                               class="form-control" 
+                               id="username" 
+                               name="username" 
+                               placeholder="Enter your username" 
+                               required 
+                               autocomplete="username">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="password" class="form-label">
+                        <span id="authModeLabel">Password</span>
+                        <!-- PIN / Password toggle switch -->
+                        <span class="auth-mode-toggle" id="authModeToggle" onclick="toggleAuthMode()" title="Switch between password and PIN">
+                            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                            <span id="authModeToggleLabel">Use PIN</span>
+                        </span>
+                    </label>
+
+                    <!-- Password input (default) -->
+                    <div class="input-group-icon" id="passwordWrap">
+                        <i class="bi bi-lock-fill"></i>
+                        <input type="password" 
+                               class="form-control" 
+                               id="password" 
+                               name="password" 
+                               placeholder="Enter your password">
+                    </div>
+
+                    <!-- PIN keypad (shown when PIN mode is active) -->
+                    <div class="login-pin-wrap" id="pinWrap">
+                        <!-- Hidden field carries the PIN value to the form -->
+                        <input type="hidden" id="pinHidden" name="pin_value" disabled>
+                        <div class="login-pin-dots" id="loginPinDots">
+                            <div class="login-pin-dot" id="lpd0"></div>
+                            <div class="login-pin-dot" id="lpd1"></div>
+                            <div class="login-pin-dot" id="lpd2"></div>
+                            <div class="login-pin-dot" id="lpd3"></div>
+                        </div>
+                        <div class="login-pin-keypad">
+                            <div class="login-pin-keypad-row">
+                                <button type="button" class="login-pin-key" data-lpin="1">1</button>
+                                <button type="button" class="login-pin-key" data-lpin="2">2</button>
+                                <button type="button" class="login-pin-key" data-lpin="3">3</button>
+                            </div>
+                            <div class="login-pin-keypad-row">
+                                <button type="button" class="login-pin-key" data-lpin="4">4</button>
+                                <button type="button" class="login-pin-key" data-lpin="5">5</button>
+                                <button type="button" class="login-pin-key" data-lpin="6">6</button>
+                            </div>
+                            <div class="login-pin-keypad-row">
+                                <button type="button" class="login-pin-key" data-lpin="7">7</button>
+                                <button type="button" class="login-pin-key" data-lpin="8">8</button>
+                                <button type="button" class="login-pin-key" data-lpin="9">9</button>
+                            </div>
+                            <div class="login-pin-keypad-row">
+                                <button type="button" class="login-pin-key login-pin-key-empty" disabled></button>
+                                <button type="button" class="login-pin-key" data-lpin="0">0</button>
+                                <button type="button" class="login-pin-key" id="lpinBackBtn"><i class="bi bi-backspace"></i></button>
+                            </div>
+                        </div>
+                        <div class="login-pin-error" id="loginPinError"></div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn btn-login" id="loginSubmitBtn">
+                    <i class="bi bi-box-arrow-in-right me-2"></i>Sign In
+                </button>
+            </form>
+            </div><!-- /manual-login-section -->
+
+        </div>
+    </div>
+
+    {% include "partials/bootstrap_scripts.html" %}
+    <script>
+        // Get CSRF token — use the template variable so it works even when CSRF_USE_SESSIONS=True
+        const csrftoken = '{{ csrf_token }}';
+
+        // Auto-theme based on logo color
+        const rootStyle = document.documentElement.style;
+        const logoImage = document.getElementById('storeLogo');
+
+        function rgbToHex(r, g, b) {
+            const toHex = (value) => value.toString(16).padStart(2, '0');
+            return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+        }
+
+        function clamp(value, min, max) {
+            return Math.min(max, Math.max(min, value));
+        }
+
+        function adjustRgb(r, g, b, amount) {
+            return [
+                clamp(r + amount, 0, 255),
+                clamp(g + amount, 0, 255),
+                clamp(b + amount, 0, 255)
+            ];
+        }
+
+        // Login stays on Bagnos red (#ED1C24). Do not sample logo pixels —
+        // the mark includes yellow and white that would wash out the brand UI.
+        function applyThemeFromColor(_r, _g, _b) {
+            return;
+        }
+
+        /**
+         * Detect uniform RGB background from corners and make similar pixels transparent.
+         * Skips SVGs and the default placeholder. Fails quietly if canvas is tainted (cross-origin).
+         */
+        function removeLogoSolidBackground(img) {
+            return new Promise((resolve) => {
+                if (!img || img.dataset.logoBgRemoved === '1') {
+                    resolve(false);
+                    return;
+                }
+                const src = img.currentSrc || img.src || '';
+                if (/default_store_logo/i.test(src) || /\.svg(\?|#|$)/i.test(src)) {
+                    resolve(false);
+                    return;
+                }
+                if (!img.complete || img.naturalWidth < 2 || img.naturalHeight < 2) {
+                    resolve(false);
+                    return;
+                }
+
+                const maxSide = 960;
+                const scale = Math.min(1, maxSide / Math.max(img.naturalWidth, img.naturalHeight));
+                const w = Math.max(2, Math.round(img.naturalWidth * scale));
+                const h = Math.max(2, Math.round(img.naturalHeight * scale));
+
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d', { willReadFrequently: true });
+                canvas.width = w;
+                canvas.height = h;
+
+                try {
+                    ctx.drawImage(img, 0, 0, w, h);
+                } catch (e) {
+                    resolve(false);
+                    return;
+                }
+
+                let imageData;
+                try {
+                    imageData = ctx.getImageData(0, 0, w, h);
+                } catch (e) {
+                    resolve(false);
+                    return;
+                }
+
+                const data = imageData.data;
+
+                function regionAvg(x0, y0, rw, rh) {
+                    let r = 0;
+                    let g = 0;
+                    let b = 0;
+                    let n = 0;
+                    for (let y = y0; y < y0 + rh; y++) {
+                        for (let x = x0; x < x0 + rw; x++) {
+                            const i = (y * w + x) * 4;
+                            r += data[i];
+                            g += data[i + 1];
+                            b += data[i + 2];
+                            n++;
+                        }
+                    }
+                    return [r / n, g / n, b / n];
+                }
+
+                function colorDist(a, b) {
+                    const dr = a[0] - b[0];
+                    const dg = a[1] - b[1];
+                    const db = a[2] - b[2];
+                    return Math.sqrt(dr * dr + dg * dg + db * db);
+                }
+
+                const sample = Math.min(12, Math.floor(Math.min(w, h) / 6) || 4);
+                const c1 = regionAvg(0, 0, sample, sample);
+                const c2 = regionAvg(w - sample, 0, sample, sample);
+                const c3 = regionAvg(0, h - sample, sample, sample);
+                const c4 = regionAvg(w - sample, h - sample, sample, sample);
+                const corners = [c1, c2, c3, c4];
+
+                let maxSpread = 0;
+                for (let i = 0; i < 4; i++) {
+                    for (let j = i + 1; j < 4; j++) {
+                        maxSpread = Math.max(maxSpread, colorDist(corners[i], corners[j]));
+                    }
+                }
+
+                // Logo touches edges or corners disagree — don't guess background.
+                if (maxSpread > 44) {
+                    resolve(false);
+                    return;
+                }
+
+                const bgR = (c1[0] + c2[0] + c3[0] + c4[0]) / 4;
+                const bgG = (c1[1] + c2[1] + c3[1] + c4[1]) / 4;
+                const bgB = (c1[2] + c2[2] + c3[2] + c4[2]) / 4;
+
+                const hardTol = 34;
+                const softBand = 38;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+                    const d = colorDist([r, g, b], [bgR, bgG, bgB]);
+                    if (d <= hardTol) {
+                        data[i + 3] = 0;
+                    } else if (d < hardTol + softBand) {
+                        const t = (d - hardTol) / softBand;
+                        data[i + 3] = Math.round(data[i + 3] * Math.min(1, Math.max(0, t)));
+                    }
+                }
+
+                ctx.putImageData(imageData, 0, 0);
+
+                let dataUrl;
+                try {
+                    dataUrl = canvas.toDataURL('image/png');
+                } catch (e) {
+                    resolve(false);
+                    return;
+                }
+
+                let settled = false;
+                function finish(ok) {
+                    if (settled) return;
+                    settled = true;
+                    if (ok) {
+                        img.dataset.logoBgRemoved = '1';
+                    }
+                    resolve(ok);
+                }
+
+                function onLoad() {
+                    img.removeEventListener('load', onLoad);
+                    img.removeEventListener('error', onErr);
+                    finish(true);
+                }
+
+                function onErr() {
+                    img.removeEventListener('load', onLoad);
+                    img.removeEventListener('error', onErr);
+                    finish(false);
+                }
+
+                img.addEventListener('load', onLoad, { once: true });
+                img.addEventListener('error', onErr, { once: true });
+                img.src = dataUrl;
+                if (img.complete && img.naturalWidth > 0) {
+                    queueMicrotask(onLoad);
+                }
+            });
+        }
+
+        function extractLogoDominantColor(imageElement) {
+            if (!imageElement || !imageElement.complete || imageElement.naturalWidth === 0) {
+                return;
+            }
+
+            try {
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d', { willReadFrequently: true });
+                const sampleSize = 56;
+                canvas.width = sampleSize;
+                canvas.height = sampleSize;
+                context.drawImage(imageElement, 0, 0, sampleSize, sampleSize);
+
+                const { data } = context.getImageData(0, 0, sampleSize, sampleSize);
+                let redSum = 0;
+                let greenSum = 0;
+                let blueSum = 0;
+                let pixelCount = 0;
+
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+                    const alpha = data[i + 3];
+
+                    if (alpha < 110) continue;
+
+                    const maxRgb = Math.max(r, g, b);
+                    const minRgb = Math.min(r, g, b);
+                    const saturation = maxRgb === 0 ? 0 : (maxRgb - minRgb) / maxRgb;
+
+                    // Ignore near-white / near-black pixels and low-saturation grays.
+                    if (maxRgb > 242 || maxRgb < 35 || saturation < 0.18) continue;
+
+                    redSum += r;
+                    greenSum += g;
+                    blueSum += b;
+                    pixelCount += 1;
+                }
+
+                if (pixelCount < 12) return;
+
+                const dominantR = Math.round(redSum / pixelCount);
+                const dominantG = Math.round(greenSum / pixelCount);
+                const dominantB = Math.round(blueSum / pixelCount);
+                applyThemeFromColor(dominantR, dominantG, dominantB);
+            } catch (error) {
+                // Keep defaults if browser blocks pixel reads (e.g., cross-origin image).
+            }
+        }
+
+        async function initLogoProcessing() {
+            if (!logoImage) return;
+            const run = async () => {
+                await removeLogoSolidBackground(logoImage);
+                extractLogoDominantColor(logoImage);
+            };
+            if (logoImage.complete && logoImage.naturalWidth > 0) {
+                await run();
+            } else {
+                logoImage.addEventListener('load', () => run(), { once: true });
+            }
+        }
+        initLogoProcessing();
+
+        // RFID Login functionality
+        const rfidInput = document.getElementById('rfidInput');
+        const rfidStatus = document.getElementById('rfidStatus');
+        const loginCard = document.querySelector('.login-card');
+        let rfidLoginTimeout = null;
+        let isProcessing = false;
+
+        async function handleRfidLogin(rfid) {
+            if (isProcessing) return;
+            
+            if (!rfid || rfid.trim() === '') {
+                return;
+            }
+
+            isProcessing = true;
+            rfidStatus.textContent = 'Scanning card...';
+            rfidStatus.className = 'rfid-status scanning';
+            rfidInput.disabled = true;
+            loginCard.style.transform = 'scale(0.98)';
+            loginCard.style.transition = 'transform 0.2s ease';
+
+            try {
+                const nextUrl = document.querySelector('input[name="next"]')?.value || '';
+                const response = await fetch('/api/rfid-login/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrftoken
+                    },
+                    body: JSON.stringify({
+                        rfid: rfid.trim(),
+                        ...(nextUrl ? { next: nextUrl } : {})
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    rfidStatus.textContent = 'Login successful! Redirecting...';
+                    rfidStatus.className = 'rfid-status success';
+                    loginCard.style.transform = 'scale(1)';
+                    loginCard.style.boxShadow = '0 25px 50px -12px rgba(237, 28, 36, 0.4)';
+                    setTimeout(() => {
+                        window.location.href = data.redirect_url;
+                    }, 800);
+                } else {
+                    rfidStatus.textContent = data.error || 'Login failed. Please try again.';
+                    rfidStatus.className = 'rfid-status error';
+                    loginCard.style.transform = 'scale(1)';
+                    loginCard.style.boxShadow = '';
+                    rfidInput.disabled = false;
+                    setTimeout(() => {
+                        rfidInput.focus();
+                        rfidInput.select();
+                    }, 100);
+                    isProcessing = false;
+                    // Auto-reveal manual login form when RFID fails
+                    revealManualLogin();
+                }
+            } catch (error) {
+                rfidStatus.textContent = 'Connection error. Please try again.';
+                rfidStatus.className = 'rfid-status error';
+                loginCard.style.transform = 'scale(1)';
+                loginCard.style.boxShadow = '';
+                rfidInput.disabled = false;
+                setTimeout(() => {
+                    rfidInput.focus();
+                    rfidInput.select();
+                }, 100);
+                isProcessing = false;
+                revealManualLogin();
+            }
+        }
+
+        // Handle RFID input - auto-submit only when exactly 10 digits are entered
+        rfidInput.addEventListener('input', function(e) {
+            const rfid = e.target.value;
+            
+            // Clear previous timeout
+            if (rfidLoginTimeout) {
+                clearTimeout(rfidLoginTimeout);
+            }
+
+            // If input is empty, clear status
+            if (!rfid || rfid.trim() === '') {
+                rfidStatus.textContent = '';
+                rfidStatus.className = 'rfid-status';
+                return;
+            }
+
+            // Auto-submit immediately when exactly 10 digits are entered
+            if (/^\d{10}$/.test(rfid.trim())) {
+                handleRfidLogin(rfid.trim());
+                return;
+            }
+        });
+
+        // Handle Enter key
+        rfidInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (rfidLoginTimeout) {
+                    clearTimeout(rfidLoginTimeout);
+                }
+                handleRfidLogin(e.target.value);
+            }
+        });
+
+        // Focus on RFID input on page load
+        rfidInput.focus();
+
+        // Manual login toggle logic
+        const manualSection = document.getElementById('manualLoginSection');
+        const noCardToggle = document.getElementById('noCardToggle');
+        const usernameInput = document.getElementById('username');
+
+        function centerManualLogin() {
+            if (!manualSection) return;
+            const target = manualSection.querySelector('#loginForm') || manualSection;
+            target.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'nearest' });
+            if (usernameInput) {
+                setTimeout(() => {
+                    usernameInput.focus({ preventScroll: true });
+                    if (typeof usernameInput.select === 'function') usernameInput.select();
+                }, 280);
+            }
+        }
+
+        function revealManualLogin() {
+            if (!manualSection || manualSection.classList.contains('visible')) return;
+            manualSection.classList.add('visible');
+            if (loginCard) loginCard.classList.add('manual-open');
+            if (noCardToggle) {
+                noCardToggle.innerHTML = '<i class="bi bi-x-circle"></i> Hide manual login';
+            }
+            requestAnimationFrame(() => {
+                setTimeout(centerManualLogin, 80);
+                setTimeout(centerManualLogin, 420);
+            });
+        }
+
+        function toggleManualLogin() {
+            if (!manualSection) return;
+            if (manualSection.classList.contains('visible')) {
+                manualSection.classList.remove('visible');
+                if (loginCard) loginCard.classList.remove('manual-open');
+                if (noCardToggle) {
+                    noCardToggle.innerHTML = '<i class="bi bi-person-badge"></i> No card? Sign in manually';
+                }
+                if (rfidInput) rfidInput.focus({ preventScroll: true });
+            } else {
+                revealManualLogin();
+            }
+        }
+
+        // Prefer addEventListener so the toggle still works even if inline onclick fails
+        if (noCardToggle) {
+            noCardToggle.addEventListener('click', function (e) {
+                e.preventDefault();
+                toggleManualLogin();
+            });
+        }
+        // Expose for inline onclick fallback
+        window.toggleManualLogin = toggleManualLogin;
+        window.revealManualLogin = revealManualLogin;
+
+        // ── PIN / Password toggle ────────────────────────────────────────────
+        let pinMode = false;          // false = password, true = PIN
+        let pinValue = '';            // current PIN digits
+
+        const authModeToggle  = document.getElementById('authModeToggle');
+        const authModeLabel   = document.getElementById('authModeLabel');
+        const authToggleLabel = document.getElementById('authModeToggleLabel');
+        const passwordWrap    = document.getElementById('passwordWrap');
+        const passwordInput   = document.getElementById('password');
+        const pinWrap         = document.getElementById('pinWrap');
+        const pinHidden       = document.getElementById('pinHidden');
+        const loginPinError   = document.getElementById('loginPinError');
+        const loginForm       = document.getElementById('loginForm');
+
+        function updatePinDots() {
+            for (let i = 0; i < 4; i++) {
+                const dot = document.getElementById('lpd' + i);
+                if (dot) dot.classList.toggle('filled', i < pinValue.length);
+            }
+        }
+
+        function toggleAuthMode() {
+            pinMode = !pinMode;
+            pinValue = '';
+            if (pinHidden) pinHidden.value = '';
+            updatePinDots();
+            if (loginPinError) loginPinError.textContent = '';
+
+            if (pinMode) {
+                // Switch to PIN mode
+                authModeToggle.classList.add('pin-active');
+                authToggleLabel.textContent = 'Use Password';
+                authModeLabel.textContent   = 'PIN';
+                passwordWrap.style.display  = 'none';
+                passwordInput.removeAttribute('required');
+                passwordInput.value = '';
+                pinWrap.classList.add('visible');
+            } else {
+                // Switch to Password mode
+                authModeToggle.classList.remove('pin-active');
+                authToggleLabel.textContent = 'Use PIN';
+                authModeLabel.textContent   = 'Password';
+                passwordWrap.style.display  = '';
+                passwordInput.setAttribute('required', '');
+                pinWrap.classList.remove('visible');
+            }
+        }
+
+        // PIN key clicks
+        document.querySelectorAll('.login-pin-key[data-lpin]').forEach(btn => {
+            btn.addEventListener('click', function () {
+                if (pinValue.length >= 4) return;
+                pinValue += this.dataset.lpin;
+                if (pinHidden) pinHidden.value = pinValue;
+                updatePinDots();
+                if (loginPinError) loginPinError.textContent = '';
+                // Auto-submit when 4 digits entered
+                if (pinValue.length === 4) {
+                    setTimeout(() => loginForm.requestSubmit(), 180);
+                }
+            });
+        });
+
+        // Backspace
+        const lpinBackBtn = document.getElementById('lpinBackBtn');
+        if (lpinBackBtn) {
+            lpinBackBtn.addEventListener('click', function () {
+                pinValue = pinValue.slice(0, -1);
+                if (pinHidden) pinHidden.value = pinValue;
+                updatePinDots();
+            });
+        }
+
+        // Form submit validation
+        loginForm.addEventListener('submit', function (e) {
+            if (pinMode) {
+                if (pinValue.length !== 4) {
+                    e.preventDefault();
+                    if (loginPinError) loginPinError.textContent = 'Please enter your 4-digit PIN.';
+                    return;
+                }
+                // Swap names: send PIN as "password", disable the visible input
+                passwordInput.disabled = true;
+                if (pinHidden) {
+                    pinHidden.name = 'password';
+                    pinHidden.disabled = false;
+                }
+            } else {
+                if (pinHidden) {
+                    pinHidden.name = 'pin_value';
+                    pinHidden.disabled = true;
+                }
+            }
+        });
+    </script>
+
+</body>
+</html>
+

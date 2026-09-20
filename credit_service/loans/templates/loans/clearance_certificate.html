@@ -1,0 +1,17 @@
+{% comment %}
+Reference context/layout for the clearance certificate. The actual PDF is
+generated programmatically with ReportLab in loans/services.py
+(generate_clearance_certificate); this template documents the expected
+context and can be used if a future HTML-to-PDF renderer is swapped in.
+{% endcomment %}
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"><title>Certificate of Loan Clearance</title></head>
+<body>
+    <h1>CERTIFICATE OF LOAN CLEARANCE</h1>
+    <p>This certifies that {{ application.member }} has fully settled
+       Loan Application #{{ application.id }} ({{ application.loan_product.name }})
+       in the principal amount of {{ application.amount_requested }}.</p>
+    <p>Date issued: {{ issued_date }}</p>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{# Expects: store_profile, store_logo_url, shop_name; optional: fallback_title, fallback_address #}
+{% if store_logo_url %}
+<div class="receipt-store-logo">
+  <img src="{{ store_logo_url }}" alt="{{ shop_name|default:store_profile.store_name }} logo">
+</div>
+{% endif %}
+<h1>
+  {% if store_profile and store_profile.store_name %}
+    {{ store_profile.store_name }}
+  {% else %}
+    {{ fallback_title|default:shop_name|default:"Cooperative" }}
+  {% endif %}
+</h1>
+<p>
+  {% if store_profile %}
+    {% include "admin_panel/partials/receipt_store_address.html" %}
+  {% elif fallback_address %}
+    {{ fallback_address }}
+  {% else %}
+    {{ fallback_title|default:"Official receipt" }}
+  {% endif %}
+</p>

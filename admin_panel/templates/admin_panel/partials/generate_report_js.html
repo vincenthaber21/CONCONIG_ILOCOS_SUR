@@ -1,0 +1,118 @@
+<script>
+  (function() {
+    const generateReportBtn = document.getElementById('generateReportBtn');
+    const reportDate = document.getElementById('reportDate');
+    const reportDateFrom = document.getElementById('reportDateFrom');
+    const reportDateTo = document.getElementById('reportDateTo');
+    const reportAlert = document.getElementById('reportAlert');
+    const generateReportModal = document.getElementById('generateReportModal');
+    const singleDateGroup = document.getElementById('singleDateGroup');
+    const dateRangeGroup = document.getElementById('dateRangeGroup');
+    const reportTypeSingle = document.getElementById('reportTypeSingle');
+    const reportTypeRange = document.getElementById('reportTypeRange');
+    const reportFormatPdf = document.getElementById('reportFormatPdf');
+    const reportFormatExcel = document.getElementById('reportFormatExcel');
+
+    const today = new Date().toISOString().split('T')[0];
+    if (reportDate) reportDate.value = today;
+    if (reportDateFrom) reportDateFrom.value = today;
+    if (reportDateTo) reportDateTo.value = today;
+
+    function onReportTypeChange() {
+      if (!singleDateGroup || !dateRangeGroup) return;
+      if (reportTypeRange && reportTypeRange.checked) {
+        singleDateGroup.style.display = 'none';
+        dateRangeGroup.style.display = '';
+      } else {
+        singleDateGroup.style.display = '';
+        dateRangeGroup.style.display = 'none';
+      }
+    }
+    if (reportTypeSingle) reportTypeSingle.addEventListener('change', onReportTypeChange);
+    if (reportTypeRange) reportTypeRange.addEventListener('change', onReportTypeChange);
+
+    function showReportAlert(message, type) {
+      if (!reportAlert) return;
+      type = type || 'info';
+      reportAlert.className = 'alert alert-' + type + ' alert-dismissible fade show';
+      reportAlert.innerHTML =
+        message +
+        '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+      reportAlert.style.display = 'block';
+    }
+
+    if (generateReportBtn) {
+      generateReportBtn.addEventListener('click', function() {
+        var url = '{% url "generate_daily_report_pdf" %}';
+        var selectedFormat = reportFormatExcel && reportFormatExcel.checked ? 'excel' : 'pdf';
+        var queryParts = ['format=' + encodeURIComponent(selectedFormat)];
+
+        if (reportTypeRange && reportTypeRange.checked) {
+          var fromVal = reportDateFrom ? reportDateFrom.value : '';
+          var toVal = reportDateTo ? reportDateTo.value : '';
+          if (!fromVal || !toVal) {
+            showReportAlert('Please select both a start and end date.', 'warning');
+            return;
+          }
+          if (toVal < fromVal) {
+            showReportAlert('End date cannot be before start date.', 'warning');
+            return;
+          }
+          queryParts.push('date_from=' + encodeURIComponent(fromVal));
+          queryParts.push('date_to=' + encodeURIComponent(toVal));
+        } else {
+          var dateValue = reportDate ? reportDate.value : '';
+          if (dateValue) {
+            queryParts.push('date_from=' + encodeURIComponent(dateValue));
+            queryParts.push('date_to=' + encodeURIComponent(dateValue));
+          }
+        }
+        url += '?' + queryParts.join('&');
+
+        generateReportBtn.disabled = true;
+        generateReportBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Generating...';
+
+        var link = document.createElement('a');
+        link.href = url;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        setTimeout(function() {
+          generateReportBtn.disabled = false;
+          generateReportBtn.innerHTML = '<i class="bi bi-download me-1"></i>Generate & Download';
+          showReportAlert('Report generation started. The ' + selectedFormat.toUpperCase() + ' file will download automatically.', 'success');
+
+          setTimeout(function() {
+            var modal = typeof bootstrap !== 'undefined' && generateReportModal
+              ? bootstrap.Modal.getInstance(generateReportModal)
+              : null;
+            if (modal) modal.hide();
+          }, 1500);
+        }, 1000);
+      });
+    }
+
+    if (generateReportModal) {
+      generateReportModal.addEventListener('hidden.bs.modal', function() {
+        var t = new Date().toISOString().split('T')[0];
+        if (reportDate) reportDate.value = t;
+        if (reportDateFrom) reportDateFrom.value = t;
+        if (reportDateTo) reportDateTo.value = t;
+        if (reportTypeSingle) {
+          reportTypeSingle.checked = true;
+          onReportTypeChange();
+        }
+        if (reportFormatPdf) {
+          reportFormatPdf.checked = true;
+        }
+        if (reportAlert) reportAlert.style.display = 'none';
+        if (generateReportBtn) {
+          generateReportBtn.disabled = false;
+          generateReportBtn.innerHTML = '<i class="bi bi-download me-1"></i>Generate & Download';
+        }
+      });
+    }
+  })();
+</script>

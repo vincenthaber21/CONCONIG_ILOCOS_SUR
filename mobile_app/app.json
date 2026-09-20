@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "Mobile Application",
+    "slug": "coop-kiosk-mobile",
+    "version": "1.0.2",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.coopkiosk.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Camera access is required to scan member QR codes for fund transfers.",
+        "NSPhotoLibraryUsageDescription": "Photo library access lets you pick an image of a QR code to select a transfer recipient."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/icon.png",
+        "backgroundColor": "#ED1C24"
+      },
+      "package": "com.coopkiosk.mobile",
+      "usesCleartextTraffic": true,
+      "networkSecurityConfig": {
+        "cleartextTrafficPermitted": true
+      },
+      "permissions": [
+        "CAMERA"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "4a9bc73a-f026-4cbd-a850-2a6dccbc0222"
+      }
+    }
+  }
+}

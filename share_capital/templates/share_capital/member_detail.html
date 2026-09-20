@@ -1,0 +1,864 @@
+{% extends "share_capital/base_share_capital.html" %}
+{% load currency_filters %}
+{% block title %}{{ member.full_name }} · Share Capital{% endblock %}
+{% block content %}
+<div class="acct-detail">
+  <header class="acct-detail__header">
+    <div class="acct-detail__header-main">
+      <a class="acct-detail__back" href="{% url 'share_capital:overview' %}">
+        <i class="bi bi-arrow-left"></i> All members
+      </a>
+      <div class="acct-detail__title-row">
+        <h1>{{ member.full_name }}</h1>
+        {% if member.share_capital > 0 %}
+        <span class="status-pill status-pill--active">Paid-up</span>
+        {% else %}
+        <span class="status-pill status-pill--zero">No capital</span>
+        {% endif %}
+      </div>
+      <p class="acct-detail__meta">
+        <span><i class="bi bi-person"></i> {{ member.username|default:member.email|default:"—" }}</span>
+        {% if member.member_status %}
+        <span><i class="bi bi-person-badge"></i> {{ member.member_status.name }}</span>
+        {% endif %}
+        {% if product %}
+        <span><i class="bi bi-coin"></i> {{ product.name }}</span>
+        {% endif %}
+        {% if member.date_joined %}
+        <span><i class="bi bi-calendar3"></i> Joined {{ member.date_joined|date:"M j, Y" }}</span>
+        {% endif %}
+      </p>
+    </div>
+  </header>
+
+  <div class="acct-detail__stats">
+    <section class="acct-balance-card">
+      <div class="acct-balance-card__label">Paid-up share capital</div>
+      <div class="acct-balance-card__amount">&#8369;{{ member.share_capital|currency }}</div>
+      <div class="acct-balance-card__hint">
+        {% if shares %}
+        {{ shares }} share{{ shares|pluralize }} at par{% if product %} &#8369;{{ product.par_value|currency }}{% endif %}
+        {% else %}
+        Current paid-up balance for this member
+        {% endif %}
+      </div>
+    </section>
+
+    {% if product %}
+    <section class="card acct-policy-card">
+      <h2>{{ product.name }}</h2>
+      <dl class="acct-policy-card__list">
+        <div>
+          <dt>Par value</dt>
+          <dd>&#8369;{{ product.par_value|currency }}</dd>
+        </div>
+        <div>
+          <dt>Shares allowed</dt>
+          <dd>{{ product.min_shares }}{% if product.max_shares %}–{{ product.max_shares }}{% else %}+{% endif %}</dd>
+        </div>
+        <div>
+          <dt>Dividend</dt>
+          <dd>{{ product.dividend_rate_display }}</dd>
+        </div>
+        <div>
+          <dt>Withdrawals</dt>
+          <dd>{% if product.allows_withdrawal %}Allowed{% else %}Not allowed{% endif %}</dd>
+        </div>
+        {% if min_contribution and min_contribution > 0 %}
+        <div>
+          <dt>Min. contribution</dt>
+          <dd>&#8369;{{ min_contribution|currency }}</dd>
+        </div>
+        {% endif %}
+        {% if max_paid_up %}
+        <div>
+          <dt>Max. paid-up</dt>
+          <dd>&#8369;{{ max_paid_up|currency }}</dd>
+        </div>
+        {% endif %}
+      </dl>
+      {% if not product.allows_withdrawal %}
+      <p class="acct-auto-interest">
+        <i class="bi bi-lock"></i>
+        Share capital is <strong>locked</strong> for this product — only contributions can be posted here.
+      </p>
+      {% endif %}
+    </section>
+    {% endif %}
+  </div>
+
+  <section class="card acct-move-card">
+    <div class="acct-section-head">
+      <h2>Deposit or withdraw</h2>
+      <p>Choose the type first, enter the amount, then review before posting.</p>
+    </div>
+    <form method="post" action="{% url 'share_capital:member-move' member.pk %}" class="acct-move-form" id="shareCapitalMoveForm" autocomplete="off" novalidate>
+      {% csrf_token %}
+      <input type="hidden" name="action" id="shareCapitalMoveAction" value="deposit">
+
+      <div class="acct-move-type" role="radiogroup" aria-label="Transaction type">
+        <button type="button" class="acct-move-type__btn is-active" data-sc-action="deposit" id="scDepositTypeBtn" aria-pressed="true">
+          <span class="acct-move-type__icon" aria-hidden="true"><i class="bi bi-arrow-down-circle"></i></span>
+          <span class="acct-move-type__copy">
+            <strong>Contribution</strong>
+            <small>Add paid-up share capital</small>
+          </span>
+        </button>
+        {% if can_withdraw %}
+        <button type="button" class="acct-move-type__btn acct-move-type__btn--out" data-sc-action="withdraw" id="scWithdrawTypeBtn" aria-pressed="false">
+          <span class="acct-move-type__icon" aria-hidden="true"><i class="bi bi-arrow-up-circle"></i></span>
+          <span class="acct-move-type__copy">
+            <strong>Withdraw</strong>
+            <small>Reduce paid-up capital</small>
+          </span>
+        </button>
+        {% endif %}
+      </div>
+
+      <div class="acct-move-form__row">
+        <div class="acct-move-form__field acct-move-form__field--amount">
+          <label for="{{ movement_form.amount.id_for_label }}">Amount</label>
+          <div class="acct-money acct-money--lg">
+            <span>&#8369;</span>
+            {{ movement_form.amount }}
+          </div>
+          <div class="acct-move-chips" role="group" aria-label="Common amounts">
+            {% if par_value %}
+            <button type="button" class="acct-move-chip" data-amount="{{ par_value }}">₱{{ par_value|currency }}</button>
+            {% endif %}
+            {% if min_contribution and min_contribution > 0 %}
+            <button type="button" class="acct-move-chip" data-amount="{{ min_contribution }}">₱{{ min_contribution|currency }}</button>
+            {% endif %}
+            <button type="button" class="acct-move-chip" data-amount="500">₱500</button>
+            <button type="button" class="acct-move-chip" data-amount="1000">₱1,000</button>
+            <button type="button" class="acct-move-chip" data-amount="5000">₱5,000</button>
+            <button type="button" class="acct-move-chip" data-amount="10000">₱10,000</button>
+          </div>
+          <small class="acct-move-error" id="scMoveAmountError" hidden>Enter a valid amount greater than zero.</small>
+        </div>
+        <div class="acct-move-form__field acct-move-form__field--grow">
+          <label for="{{ movement_form.notes.id_for_label }}">Notes <span class="acct-optional">(optional)</span></label>
+          {{ movement_form.notes }}
+          <small class="acct-move-hint">e.g. initial subscription, additional shares, walk-in</small>
+        </div>
+      </div>
+
+      <div class="acct-move-footer">
+        <div class="acct-move-preview" id="scMovePreview">
+          <div class="acct-move-preview__item">
+            <span>Current</span>
+            <strong>&#8369;{{ member.share_capital|currency }}</strong>
+          </div>
+          <i class="bi bi-arrow-right acct-move-preview__arrow" aria-hidden="true"></i>
+          <div class="acct-move-preview__item">
+            <span id="scMoveAfterLabel">After contribution</span>
+            <strong id="scMoveAfterValue">&#8369;{{ member.share_capital|currency }}</strong>
+          </div>
+        </div>
+        <button type="button" class="acct-move-submit acct-move-submit--in" id="scMoveSubmitBtn">
+          <i class="bi bi-plus-lg"></i> Review contribution
+        </button>
+      </div>
+    </form>
+  </section>
+
+  <div class="modal fade" id="confirmShareCapitalMoveModal" tabindex="-1" aria-labelledby="confirmShareCapitalMoveModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content acct-modal">
+        <div class="modal-header acct-modal__header" id="confirmScMoveHeader">
+          <h5 class="modal-title" id="confirmShareCapitalMoveModalLabel">
+            <i class="bi bi-shield-check me-2"></i>Confirm transaction
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cancel"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-3">
+            Please review this transaction for
+            <strong>{{ member.full_name }}</strong>
+            before posting.
+          </p>
+          <dl class="acct-confirm-summary">
+            <div>
+              <dt>Action</dt>
+              <dd id="confirmScMoveActionLabel">—</dd>
+            </div>
+            <div>
+              <dt>Amount</dt>
+              <dd id="confirmScMoveAmountLabel">—</dd>
+            </div>
+            <div>
+              <dt>Current paid-up</dt>
+              <dd>&#8369;{{ member.share_capital|currency }}</dd>
+            </div>
+            <div id="confirmScMoveBalanceRow">
+              <dt>Balance after</dt>
+              <dd id="confirmScMoveBalanceAfter">—</dd>
+            </div>
+            <div id="confirmScMoveNotesRow" hidden>
+              <dt>Notes</dt>
+              <dd id="confirmScMoveNotesLabel">—</dd>
+            </div>
+          </dl>
+          <div class="form-check mt-3">
+            <input class="form-check-input" type="checkbox" id="confirmScMoveAck" value="1">
+            <label class="form-check-label" for="confirmScMoveAck">
+              I verified the amount and authorize posting this transaction.
+            </label>
+          </div>
+          <small class="text-danger d-block mt-2" id="confirmScMoveAckError" hidden>
+            Check the box to continue.
+          </small>
+        </div>
+        <div class="modal-footer acct-modal__footer">
+          <button type="button" class="btn--secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn-loan" id="confirmScMoveBtn">
+            Yes, post transaction
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="card acct-ledger-card">
+    <div class="acct-section-head acct-section-head--row">
+      <div>
+        <h2>Share capital history</h2>
+        <p>Latest deposits, withdrawals, and adjustments for this member.</p>
+      </div>
+      <a class="btn--secondary" href="{% url 'share_capital:contribute' %}">
+        <i class="bi bi-plus-lg me-1"></i>Record for another member
+      </a>
+    </div>
+    <div class="acct-ledger-table-wrap">
+      <table class="acct-ledger-table">
+        <thead>
+          <tr>
+            <th>When</th>
+            <th>Type</th>
+            <th class="text-end">Amount</th>
+            <th class="text-end">Balance after</th>
+            <th>Reference</th>
+            <th>Staff</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for txn in ledger %}
+          <tr>
+            <td>
+              <div class="acct-ledger-when">{{ txn.created_at|date:"M j, Y" }}</div>
+              <small>{{ txn.created_at|date:"g:i A" }}</small>
+            </td>
+            <td>
+              <span class="acct-txn-type acct-txn-type--{{ txn.transaction_type }}">
+                {{ txn.get_transaction_type_display }}
+              </span>
+            </td>
+            <td class="text-end fw-semibold {% if txn.transaction_type == 'withdrawal' or txn.balance_after < txn.balance_before %}acct-amt--out{% else %}acct-amt--in{% endif %}">
+              {% if txn.transaction_type == 'withdrawal' or txn.balance_after < txn.balance_before %}−{% else %}+{% endif %}&#8369;{{ txn.amount|currency }}
+            </td>
+            <td class="text-end">&#8369;{{ txn.balance_after|currency }}</td>
+            <td><code class="acct-ref">{{ txn.transaction_number }}</code></td>
+            <td>
+              {% if txn.performed_by %}
+              {{ txn.performed_by.get_full_name|default:txn.performed_by.username }}
+              {% else %}
+              <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="6" class="acct-ledger-empty">No movements yet. Post a contribution above to start this member’s share capital history.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
+<style>
+  .acct-detail {
+    width: 100%;
+    max-width: 1400px;
+    margin-inline: auto;
+    box-sizing: border-box;
+  }
+
+  .acct-detail__header { margin-bottom: 1.35rem; }
+  .acct-detail__back {
+    display: inline-flex; align-items: center; gap: .4rem;
+    color: #64748b; text-decoration: none; font-size: .88rem; font-weight: 500; margin-bottom: .65rem;
+  }
+  .acct-detail__back:hover { color: #334155; }
+  .acct-detail__title-row {
+    display: flex; flex-wrap: wrap; align-items: center; gap: .65rem .85rem; margin-bottom: .45rem;
+  }
+  .acct-detail__title-row h1 {
+    margin: 0;
+    font-size: clamp(1.35rem, 1.1rem + 1vw, 1.85rem);
+  }
+  .acct-detail__meta {
+    display: flex; flex-wrap: wrap; gap: .35rem .9rem; margin: 0;
+    color: #64748b; font-size: .88rem;
+  }
+  .acct-detail__meta span { display: inline-flex; align-items: center; gap: .35rem; }
+  .acct-detail__meta i { color: #94a3b8; }
+
+  .acct-detail__stats {
+    display: grid;
+    grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: stretch;
+    margin-bottom: 1.25rem;
+  }
+
+  .acct-balance-card {
+    background: var(--gradient);
+    color: #fff;
+    border-radius: 18px;
+    padding: 1.5rem 1.6rem;
+    box-shadow: 0 16px 36px rgba(237, 28, 36, .28);
+    width: 100%;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+  .acct-balance-card__label {
+    font-size: .75rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .06em; opacity: .85; margin-bottom: .45rem;
+  }
+  .acct-balance-card__amount {
+    font-size: clamp(1.75rem, 1.2rem + 1.6vw, 2.6rem);
+    font-weight: 800; line-height: 1.15; margin-bottom: .5rem;
+    font-variant-numeric: tabular-nums;
+    word-break: break-word;
+  }
+  .acct-balance-card__hint { font-size: .88rem; opacity: .92; line-height: 1.4; }
+
+  .acct-policy-card,
+  .acct-move-card,
+  .acct-ledger-card {
+    padding: 1.35rem 1.5rem;
+  }
+  .acct-policy-card {
+    margin-bottom: 0;
+    height: 100%;
+    box-sizing: border-box;
+  }
+  .acct-policy-card h2,
+  .acct-move-card h2,
+  .acct-ledger-card h2 {
+    font-size: 1.05rem; margin: 0 0 .2rem;
+  }
+  .acct-policy-card__list {
+    margin: .85rem 0 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 1.5rem;
+  }
+  .acct-policy-card__list > div {
+    display: flex; justify-content: space-between; gap: .75rem;
+    padding: .55rem 0; border-bottom: 1px solid #f1f5f9; font-size: .88rem;
+  }
+  .acct-policy-card__list > div:nth-last-child(-n+2) { border-bottom: none; }
+  .acct-policy-card__list dt { margin: 0; color: #64748b; font-weight: 500; }
+  .acct-policy-card__list dd { margin: 0; font-weight: 600; color: #0f172a; text-align: right; }
+  .acct-auto-interest {
+    margin: .95rem 0 0;
+    padding: .7rem 1rem;
+    border-radius: 12px;
+    background: #eef2f7;
+    color: #475569;
+    font-size: .88rem;
+    display: flex;
+    align-items: flex-start;
+    gap: .5rem;
+    line-height: 1.45;
+  }
+  .acct-auto-interest i { flex-shrink: 0; margin-top: .15rem; }
+
+  .acct-section-head { margin-bottom: 1.1rem; }
+  .acct-section-head p { margin: 0; color: #64748b; font-size: .86rem; }
+  .acct-section-head--row {
+    display: flex; flex-wrap: wrap; align-items: flex-start;
+    justify-content: space-between; gap: .75rem;
+  }
+
+  .acct-move-type {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+  .acct-move-type:has(> :only-child) { grid-template-columns: 1fr; }
+  .acct-move-type__btn {
+    display: flex; align-items: center; gap: .95rem;
+    width: 100%; text-align: left;
+    padding: 1.05rem 1.2rem;
+    border: 2px solid #e2e8f0;
+    background: #fff;
+    border-radius: 14px;
+    cursor: pointer;
+    color: inherit;
+    transition: border-color .15s ease, background .15s ease, box-shadow .15s ease;
+  }
+  .acct-move-type__btn:hover { border-color: #cbd5e1; background: #f8fafc; }
+  .acct-move-type__icon {
+    width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 1.35rem;
+    background: #ecfdf3; color: #15803d;
+  }
+  .acct-move-type__btn--out .acct-move-type__icon {
+    background: #fef2f2; color: #b91c1c;
+  }
+  .acct-move-type__copy { display: flex; flex-direction: column; gap: .15rem; min-width: 0; }
+  .acct-move-type__copy strong { font-size: 1.05rem; font-weight: 700; color: #0f172a; }
+  .acct-move-type__copy small { color: #64748b; font-size: .84rem; }
+  .acct-move-type__btn.is-active {
+    border-color: #16a34a;
+    background: #f0fdf4;
+    box-shadow: 0 0 0 4px rgba(22, 163, 74, .12);
+  }
+  .acct-move-type__btn--out.is-active {
+    border-color: #dc2626;
+    background: #fef2f2;
+    box-shadow: 0 0 0 4px rgba(220, 38, 38, .12);
+  }
+
+  .acct-move-form__row {
+    display: grid;
+    grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+    gap: 1rem 1.35rem;
+    align-items: start;
+    margin-bottom: 1.15rem;
+  }
+  .acct-move-form__field label {
+    display: block; font-weight: 600; font-size: .9rem; color: #334155; margin-bottom: .4rem;
+  }
+  .acct-move-form__field--grow input { min-height: 52px; }
+  .acct-optional { font-weight: 500; color: #94a3b8; }
+  .acct-move-hint { display: block; margin-top: .4rem; color: #94a3b8; font-size: .78rem; }
+  .acct-money { position: relative; display: flex; align-items: center; }
+  .acct-money > span {
+    position: absolute; left: 14px; color: #64748b; font-weight: 700; z-index: 1;
+  }
+  .acct-money input {
+    padding-left: 34px !important; width: 100%; min-width: 0; box-sizing: border-box;
+    border: 1px solid #cbd5e1; border-radius: 12px;
+  }
+  .acct-money--lg input {
+    min-height: 52px;
+    font-size: 1.25rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .acct-move-chips { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .55rem; }
+  .acct-move-chip {
+    border: 1px solid #e2e8f0; background: #fff; border-radius: 999px;
+    padding: 6px 12px; font-size: .8rem; font-weight: 600; color: #475569; cursor: pointer;
+  }
+  .acct-move-chip:hover { background: #f8fafc; border-color: #cbd5e1; color: #0f172a; }
+  .acct-move-chip.is-active { background: #0f172a; border-color: #0f172a; color: #fff; }
+  .acct-move-chip:disabled { opacity: .4; cursor: not-allowed; }
+
+  .acct-move-footer {
+    display: flex; flex-wrap: wrap; align-items: center;
+    justify-content: space-between; gap: 1rem;
+    padding-top: .2rem;
+  }
+  .acct-move-preview {
+    display: flex; flex-wrap: wrap; align-items: center; gap: .85rem 1.25rem;
+    padding: .9rem 1.15rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    min-width: min(100%, 320px);
+    flex: 1 1 320px;
+  }
+  .acct-move-preview__item { display: flex; flex-direction: column; gap: .12rem; }
+  .acct-move-preview__item span {
+    font-size: .72rem; font-weight: 700; letter-spacing: .05em;
+    text-transform: uppercase; color: #64748b;
+  }
+  .acct-move-preview__item strong {
+    font-size: 1.1rem; font-weight: 800; color: #0f172a;
+    font-variant-numeric: tabular-nums;
+  }
+  .acct-move-preview__arrow { color: #94a3b8; }
+  .acct-move-preview.is-in .acct-move-preview__item:last-child strong { color: #15803d; }
+  .acct-move-preview.is-out .acct-move-preview__item:last-child strong { color: #b91c1c; }
+  .acct-move-preview.is-warn { background: #fef2f2; border-color: #fecaca; }
+
+  .acct-move-submit {
+    display: inline-flex; align-items: center; justify-content: center; gap: .45rem;
+    border: none; border-radius: 999px;
+    padding: 13px 26px;
+    font-weight: 700; font-size: .95rem;
+    color: #fff; cursor: pointer;
+    min-width: 220px;
+    white-space: nowrap;
+  }
+  .acct-move-submit--in { background: #15803d; }
+  .acct-move-submit--in:hover { background: #166534; color: #fff; }
+  .acct-move-submit--out { background: #b91c1c; }
+  .acct-move-submit--out:hover { background: #991b1b; color: #fff; }
+  .acct-move-submit:disabled { opacity: .65; cursor: not-allowed; }
+
+  .acct-ledger-table-wrap { overflow-x: auto; margin: 0 -.25rem; }
+  .acct-ledger-table { width: 100%; border-collapse: collapse; }
+  .acct-ledger-table th {
+    font-size: .72rem; letter-spacing: .05em; text-transform: uppercase;
+    color: #64748b; font-weight: 700; padding: 10px 12px;
+    border-bottom: 2px solid #e2e8f0; white-space: nowrap;
+  }
+  .acct-ledger-table td {
+    padding: 12px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; font-size: .9rem;
+  }
+  .acct-ledger-table tbody tr:hover { background: #f8fafc; }
+  .acct-ledger-when { font-weight: 600; color: #0f172a; }
+  .acct-ledger-table small { color: #94a3b8; }
+  .acct-ledger-empty { text-align: center; color: #64748b; padding: 2rem 12px !important; }
+  .acct-ref {
+    font-size: .78rem; background: #f1f5f9; padding: .2rem .45rem;
+    border-radius: 6px; color: #475569;
+  }
+  .acct-amt--in { color: #166534; }
+  .acct-amt--out { color: #b91c1c; }
+
+  .acct-txn-type {
+    display: inline-block; padding: 3px 10px; border-radius: 999px;
+    font-size: .75rem; font-weight: 600; background: #e2e8f0; color: #334155;
+  }
+  .acct-txn-type--opening,
+  .acct-txn-type--deposit { background: #dcfce7; color: #166534; }
+  .acct-txn-type--withdrawal { background: #fee2e2; color: #991b1b; }
+  .acct-txn-type--adjustment { background: #e0f2fe; color: #075985; }
+
+  .acct-modal { border: none; border-radius: 16px; overflow: hidden; }
+  .acct-modal__header { background: #166534; color: #fff; }
+  .acct-modal__header--withdraw { background: #b91c1c; }
+  .acct-modal__footer { background: #f8fafc; gap: .5rem; }
+  .acct-confirm-summary { margin: 0; }
+  .acct-confirm-summary > div {
+    display: flex; justify-content: space-between; gap: .75rem;
+    padding: .55rem 0; border-bottom: 1px solid #f1f5f9; font-size: .9rem;
+  }
+  .acct-confirm-summary > div:last-child { border-bottom: none; }
+  .acct-confirm-summary dt { margin: 0; color: #64748b; font-weight: 500; }
+  .acct-confirm-summary dd { margin: 0; font-weight: 700; color: #0f172a; text-align: right; }
+  .acct-move-error { display: block; color: #b91c1c; font-size: .78rem; margin-top: .35rem; }
+  .acct-money input.is-invalid { border-color: #dc2626; box-shadow: 0 0 0 3px rgba(220, 38, 38, .12); }
+  #confirmScMoveBtn.btn-loan--danger { background: #b91c1c; }
+  #confirmScMoveBtn.btn-loan--danger:hover { background: #991b1b; color: #fff; }
+
+  @media (max-width: 1100px) {
+    .acct-detail__stats {
+      grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+    }
+    .acct-policy-card__list { grid-template-columns: 1fr; }
+    .acct-policy-card__list > div { border-bottom: 1px solid #f1f5f9; }
+    .acct-policy-card__list > div:last-child { border-bottom: none; }
+  }
+
+  @media (max-width: 900px) {
+    .acct-detail__stats { grid-template-columns: 1fr; }
+    .acct-balance-card { min-height: auto; }
+    .acct-move-form__row { grid-template-columns: minmax(220px, 1fr) minmax(0, 1.2fr); }
+  }
+
+  @media (max-width: 700px) {
+    .acct-detail { max-width: none; }
+    .acct-move-card,
+    .acct-ledger-card,
+    .acct-policy-card { padding: 1.1rem 1.15rem; }
+    .acct-move-type,
+    .acct-move-form__row { grid-template-columns: 1fr; }
+    .acct-move-footer { flex-direction: column; align-items: stretch; }
+    .acct-move-submit { width: 100%; min-width: 0; }
+    .acct-move-preview { min-width: 0; }
+  }
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+(function () {
+  var currentCapital = Number('{{ member.share_capital|floatformat:2 }}'.replace(/,/g, ''));
+  var minContribution = Number('{{ min_contribution|default:"0" }}') || 0;
+  var maxPaidUp = Number('{{ max_paid_up|default:"0" }}') || 0;
+
+  function formatPeso(value) {
+    var n = Number(value);
+    if (!isFinite(n)) return '—';
+    return '₱' + n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function parseAmount(raw) {
+    if (window.MoneyInput && typeof window.MoneyInput.parse === 'function') {
+      return window.MoneyInput.parse(raw);
+    }
+    if (raw == null) return NaN;
+    var cleaned = String(raw).replace(/,/g, '').replace(/₱/g, '').trim();
+    if (!cleaned) return NaN;
+    return Number(cleaned);
+  }
+
+  function formatAmountInput(value) {
+    if (window.MoneyInput && typeof window.MoneyInput.format === 'function') {
+      return window.MoneyInput.format(value, 2);
+    }
+    var n = Number(value);
+    if (!isFinite(n)) return '';
+    return n.toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function getModal(el) {
+    if (typeof bootstrap === 'undefined' || !bootstrap.Modal) return null;
+    return bootstrap.Modal.getInstance(el) || new bootstrap.Modal(el);
+  }
+
+  var moveForm = document.getElementById('shareCapitalMoveForm');
+  var moveModalEl = document.getElementById('confirmShareCapitalMoveModal');
+  var bsMoveModal = moveModalEl ? getModal(moveModalEl) : null;
+  if (!moveForm) return;
+
+  var amountInput = moveForm.querySelector('[name="amount"]');
+  var notesInput = moveForm.querySelector('[name="notes"]');
+  var actionInput = document.getElementById('shareCapitalMoveAction');
+  var amountError = document.getElementById('scMoveAmountError');
+  var header = document.getElementById('confirmScMoveHeader');
+  var title = document.getElementById('confirmShareCapitalMoveModalLabel');
+  var actionLabel = document.getElementById('confirmScMoveActionLabel');
+  var amountLabel = document.getElementById('confirmScMoveAmountLabel');
+  var balanceAfter = document.getElementById('confirmScMoveBalanceAfter');
+  var notesRow = document.getElementById('confirmScMoveNotesRow');
+  var notesLabel = document.getElementById('confirmScMoveNotesLabel');
+  var ack = document.getElementById('confirmScMoveAck');
+  var ackError = document.getElementById('confirmScMoveAckError');
+  var confirmBtn = document.getElementById('confirmScMoveBtn');
+  var submitBtn = document.getElementById('scMoveSubmitBtn');
+  var previewEl = document.getElementById('scMovePreview');
+  var afterLabel = document.getElementById('scMoveAfterLabel');
+  var afterValue = document.getElementById('scMoveAfterValue');
+  var typeButtons = moveForm.querySelectorAll('[data-sc-action]');
+  var chips = moveForm.querySelectorAll('.acct-move-chip');
+  var pendingAction = null;
+  var submitting = false;
+  var selectedAction = 'deposit';
+  var allowsWithdraw = !!document.getElementById('scWithdrawTypeBtn');
+
+  function currentAmount() {
+    return parseAmount(amountInput && amountInput.value);
+  }
+
+  function validateAmount() {
+    var amount = currentAmount();
+    if (!isFinite(amount) || amount <= 0) {
+      if (amountError) amountError.hidden = false;
+      if (amountInput) {
+        amountInput.focus();
+        amountInput.classList.add('is-invalid');
+      }
+      return NaN;
+    }
+    if (amountError) amountError.hidden = true;
+    if (amountInput) amountInput.classList.remove('is-invalid');
+    return amount;
+  }
+
+  function updatePreview() {
+    var amount = currentAmount();
+    var isWithdraw = selectedAction === 'withdraw';
+    var hasAmount = isFinite(amount) && amount > 0;
+    var after = hasAmount
+      ? (isWithdraw ? currentCapital - amount : currentCapital + amount)
+      : currentCapital;
+    var insufficient = isWithdraw && hasAmount && after < 0;
+    var overMax = !isWithdraw && maxPaidUp > 0 && hasAmount && after > maxPaidUp;
+
+    if (afterLabel) afterLabel.textContent = isWithdraw ? 'After withdrawal' : 'After contribution';
+    if (afterValue) {
+      var suffix = insufficient ? ' (insufficient)' : (overMax ? ' (over limit)' : '');
+      afterValue.textContent = formatPeso(after) + suffix;
+    }
+    if (previewEl) {
+      previewEl.classList.toggle('is-in', !isWithdraw && hasAmount && !overMax);
+      previewEl.classList.toggle('is-out', isWithdraw && hasAmount && !insufficient);
+      previewEl.classList.toggle('is-warn', insufficient || overMax);
+    }
+    chips.forEach(function (chip) {
+      var chipAmt = Number(chip.getAttribute('data-amount'));
+      var overBalance = isWithdraw && isFinite(chipAmt) && chipAmt > currentCapital;
+      var overLimit = !isWithdraw && maxPaidUp > 0 && isFinite(chipAmt) && (currentCapital + chipAmt) > maxPaidUp;
+      chip.disabled = overBalance || overLimit;
+      chip.classList.toggle('is-active', hasAmount && chipAmt === amount);
+    });
+  }
+
+  function setAction(action) {
+    if (action === 'withdraw' && !allowsWithdraw) action = 'deposit';
+    selectedAction = action;
+    if (actionInput) actionInput.value = action;
+    var isWithdraw = action === 'withdraw';
+    typeButtons.forEach(function (btn) {
+      var active = btn.getAttribute('data-sc-action') === action;
+      btn.classList.toggle('is-active', active);
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+    if (submitBtn) {
+      submitBtn.classList.toggle('acct-move-submit--in', !isWithdraw);
+      submitBtn.classList.toggle('acct-move-submit--out', isWithdraw);
+      submitBtn.innerHTML = isWithdraw
+        ? '<i class="bi bi-dash-lg"></i> Review withdrawal'
+        : '<i class="bi bi-plus-lg"></i> Review contribution';
+    }
+    updatePreview();
+  }
+
+  function submitMove(action) {
+    if (submitting || !actionInput) return;
+    submitting = true;
+    actionInput.value = action;
+    typeButtons.forEach(function (btn) { btn.disabled = true; });
+    chips.forEach(function (chip) { chip.disabled = true; });
+    if (submitBtn) submitBtn.disabled = true;
+    if (confirmBtn) {
+      confirmBtn.disabled = true;
+      confirmBtn.innerHTML =
+        '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Posting…';
+    }
+    if (window.MoneyInput && typeof window.MoneyInput.stripForm === 'function') {
+      window.MoneyInput.stripForm(moveForm);
+    }
+    moveForm.submit();
+  }
+
+  function openMoveConfirm(action) {
+    var amount = validateAmount();
+    if (!isFinite(amount)) return;
+
+    var isWithdraw = action === 'withdraw';
+    var after = isWithdraw ? (currentCapital - amount) : (currentCapital + amount);
+    var notes = notesInput ? String(notesInput.value || '').trim() : '';
+
+    if (!isWithdraw && currentCapital <= 0 && minContribution > 0 && amount < minContribution) {
+      window.alert('Opening contribution must be at least ' + formatPeso(minContribution) + '.');
+      return;
+    }
+    if (!isWithdraw && maxPaidUp > 0 && after > maxPaidUp) {
+      window.alert('Paid-up share capital cannot exceed ' + formatPeso(maxPaidUp) + '.');
+      return;
+    }
+    if (isWithdraw && after < 0) {
+      window.alert('Cannot withdraw more than the current paid-up balance.');
+      return;
+    }
+
+    pendingAction = action;
+
+    if (!bsMoveModal || !moveModalEl) {
+      var msg =
+        (isWithdraw ? 'Withdraw ' : 'Post ') +
+        formatPeso(amount) +
+        ' for {{ member.full_name|escapejs }}?\n\nBalance after: ' +
+        formatPeso(after);
+      if (window.confirm(msg)) submitMove(action);
+      return;
+    }
+
+    if (header) {
+      header.classList.toggle('acct-modal__header--withdraw', isWithdraw);
+      if (!isWithdraw) header.style.background = '#166534';
+    }
+    if (title) {
+      title.innerHTML = isWithdraw
+        ? '<i class="bi bi-dash-circle me-2"></i>Confirm withdrawal'
+        : '<i class="bi bi-plus-circle me-2"></i>Confirm contribution';
+    }
+    if (actionLabel) actionLabel.textContent = isWithdraw ? 'Withdraw' : 'Contribution';
+    if (amountLabel) {
+      amountLabel.textContent = (isWithdraw ? '−' : '+') + formatPeso(amount);
+      amountLabel.style.color = isWithdraw ? '#b91c1c' : '#166534';
+    }
+    if (balanceAfter) {
+      balanceAfter.textContent = formatPeso(after);
+      balanceAfter.style.color = (isWithdraw && after < 0) ? '#b91c1c' : '';
+    }
+    if (notesRow && notesLabel) {
+      notesRow.hidden = !notes;
+      notesLabel.textContent = notes || '—';
+    }
+    if (ack) ack.checked = false;
+    if (ackError) ackError.hidden = true;
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.classList.toggle('btn-loan--danger', isWithdraw);
+      confirmBtn.innerHTML = 'Yes, post transaction';
+    }
+
+    bsMoveModal.show();
+  }
+
+  typeButtons.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      setAction(btn.getAttribute('data-sc-action') || 'deposit');
+    });
+  });
+
+  chips.forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      if (!amountInput || chip.disabled) return;
+      amountInput.value = formatAmountInput(chip.getAttribute('data-amount'));
+      amountInput.dispatchEvent(new Event('input', { bubbles: true }));
+      amountInput.classList.remove('is-invalid');
+      updatePreview();
+    });
+  });
+
+  if (amountInput) {
+    amountInput.addEventListener('input', updatePreview);
+    amountInput.addEventListener('change', updatePreview);
+  }
+
+  if (submitBtn) {
+    submitBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      openMoveConfirm(selectedAction);
+    });
+  }
+
+  moveForm.addEventListener('submit', function (e) {
+    if (!submitting) {
+      e.preventDefault();
+      openMoveConfirm(selectedAction);
+    }
+  });
+
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      if (ack && !ack.checked) {
+        if (ackError) ackError.hidden = false;
+        return;
+      }
+      bsMoveModal.hide();
+      window.setTimeout(function () {
+        submitMove(pendingAction || selectedAction);
+      }, 120);
+    });
+  }
+
+  if (ack) {
+    ack.addEventListener('change', function () {
+      if (ack.checked && ackError) ackError.hidden = true;
+    });
+  }
+
+  setAction('deposit');
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,89 @@
+{% extends "palay_trade/member/base_member_palay.html" %}
+{% load currency_filters %}
+{% block title %}My Palay Credit{% endblock %}
+{% block content %}
+<div>
+  <h1>Palay credit</h1>
+  <p class="subtitle">Hello, {{ display_name }}. Review palay credit features and your unsettled Rice Palay / Bigas tickets.</p>
+</div>
+
+{% if not settings.is_enabled %}
+<div class="alert alert-secondary">
+  Palay credit is not offered right now. Visit the coop desk for palay and bigas trades.
+</div>
+{% else %}
+
+{% if member %}
+<div class="balance-box">
+  <div class="balance-box__label">Your palay credit balance</div>
+  <div class="balance-box__value">&#8369;{{ total_outstanding|currency }}</div>
+</div>
+{% if not eligible %}
+<p class="text-warning small">
+  <i class="bi bi-info-circle me-1"></i>
+  You need at least {{ settings.min_membership_months }} month(s) of membership before using palay credit.
+</p>
+{% endif %}
+{% endif %}
+
+<h2 class="section-title">Palay credit features</h2>
+<div class="product-grid">
+  {% for product in products %}
+  <div class="product-tile">
+    <h3>{{ product.name }}</h3>
+    <p>{{ product.code }}</p>
+    <p style="margin-top:.45rem;">
+      Buy &#8369;{{ product.buy_price_per_kg|currency }}/kg ·
+      Sell &#8369;{{ product.sell_price_per_kg|currency }}/kg
+    </p>
+    <p style="margin-top:.35rem;">
+      {% if settings.is_enabled and product.credit_enabled %}
+      <span class="status-pill">Palay credit available</span>
+      {% else %}
+      <span class="status-pill status-pill--muted">Cash only</span>
+      {% endif %}
+    </p>
+  </div>
+  {% endfor %}
+</div>
+
+<ul class="text-muted small ps-3 mb-0" style="margin-top:1rem;">
+  {% if settings.member_max_outstanding %}
+  <li>Maximum outstanding palay credit: &#8369;{{ settings.member_max_outstanding|currency }} per member.</li>
+  {% else %}
+  <li>No fixed palay credit cap is set.</li>
+  {% endif %}
+  <li>Grace period: {{ settings.grace_period_days }} day{{ settings.grace_period_days|pluralize }} before interest may apply.</li>
+  {% if settings.allow_credit_on_sell %}
+  <li>Members may buy Rice Palay or Bigas on credit (sell tickets).</li>
+  {% endif %}
+  {% if settings.allow_credit_on_buy %}
+  <li>Members may sell palay on credit (buy tickets — coop pays later).</li>
+  {% endif %}
+</ul>
+
+{% if member and open_trades %}
+<h2 class="section-title">Open palay credit tickets</h2>
+{% for trade in open_trades %}
+<div class="loan-row">
+  <div>
+    <div style="font-weight:700;">{{ trade.reference }}</div>
+    <div style="color:#64748b;font-size:.85rem;">
+      {{ trade.product.name }} · {{ trade.get_trade_type_display }} · {{ trade.traded_at|date:"M j, Y" }}
+    </div>
+  </div>
+  <div class="text-end">
+    <div style="font-weight:800;">&#8369;{{ trade.outstanding|currency }}</div>
+    <span class="status-pill status-pill--warn">Unpaid</span>
+  </div>
+</div>
+{% endfor %}
+<p class="text-muted small mb-0">Pay at the coop palay desk to settle these tickets.</p>
+{% elif member %}
+<p class="text-muted mt-3 mb-0">You have no open palay credit tickets.</p>
+{% else %}
+<p class="text-muted mt-3 mb-0">Sign in as a member to view your palay credit balance.</p>
+{% endif %}
+
+{% endif %}
+{% endblock %}

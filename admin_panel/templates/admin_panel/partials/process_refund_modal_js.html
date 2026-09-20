@@ -1,0 +1,360 @@
+(function () {
+  const modalEl = document.getElementById('processRefundModal');
+  if (!modalEl) return;
+
+  let selectedTxnId = null;
+  let currentItems = [];
+  let transactionTotal = 0;
+  let selectedItemIds = new Set();
+  let restockItemIds = new Set();
+  let currentStep = 'form';
+
+  const formStep = document.getElementById('processRefundFormStep');
+  const pinStep = document.getElementById('processRefundPinStep');
+  const successStep = document.getElementById('processRefundSuccessStep');
+  const loadingEl = document.getElementById('processRefundLoading');
+  const alertEl = document.getElementById('processRefundAlert');
+  const submitBtn = document.getElementById('prSubmitBtn');
+  const confirmPinBtn = document.getElementById('prConfirmPinBtn');
+  const backBtn = document.getElementById('prBackBtn');
+  const pinBoxes = modalEl.querySelectorAll('.pr-pin-box');
+
+  function moneyFmt(amount) {
+    return '\u20B1' + parseFloat(amount).toFixed(2);
+  }
+
+  function sumItemPrices(items) {
+    return items.reduce(function (sum, i) { return sum + parseFloat(i.total_price); }, 0);
+  }
+
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function showAlert(msg) {
+    alertEl.textContent = msg;
+    alertEl.style.display = 'block';
+  }
+
+  function hideAlert() {
+    alertEl.style.display = 'none';
+    alertEl.textContent = '';
+  }
+
+  function setStep(step) {
+    currentStep = step;
+    formStep.style.display = step === 'form' ? 'block' : 'none';
+    pinStep.style.display = step === 'pin' ? 'block' : 'none';
+    successStep.style.display = step === 'success' ? 'block' : 'none';
+    loadingEl.style.display = step === 'loading' ? 'block' : 'none';
+    submitBtn.style.display = step === 'form' ? '' : 'none';
+    confirmPinBtn.style.display = step === 'pin' ? '' : 'none';
+    backBtn.style.display = step === 'pin' ? '' : 'none';
+    document.getElementById('processRefundFooter').querySelector('[data-bs-dismiss="modal"]').style.display =
+      step === 'success' ? 'none' : '';
+  }
+
+  function resetModal() {
+    selectedTxnId = null;
+    currentItems = [];
+    transactionTotal = 0;
+    selectedItemIds = new Set();
+    restockItemIds = new Set();
+    hideAlert();
+    document.getElementById('prRefundReason').value = '';
+    document.getElementById('prItemsList').innerHTML = '';
+    document.getElementById('prSummaryBox').style.display = 'none';
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Process Refund';
+    clearPin();
+    setStep('form');
+  }
+
+  function renderItems() {
+    const container = document.getElementById('prItemsList');
+    if (!currentItems.length) {
+      container.innerHTML = '<div class="text-muted small">No items on this transaction.</div>';
+      updateSummary();
+      return;
+    }
+
+    const refundable = currentItems.filter(function (i) { return !i.refunded_at; });
+    const allSelected = refundable.length > 0 && refundable.every(function (i) { return selectedItemIds.has(i.id); });
+    document.getElementById('prSelectAllBtn').textContent = allSelected ? 'Deselect All' : 'Select All';
+    document.getElementById('prSelectAllBtn').disabled = refundable.length === 0;
+
+    container.innerHTML = currentItems.map(function (item) {
+      const isRefunded = !!item.refunded_at;
+      const checked = !isRefunded && selectedItemIds.has(item.id);
+      const restock = restockItemIds.has(item.id);
+      return `
+        <div class="item-sel-row${isRefunded ? ' already-refunded' : ''}${checked ? ' selected' : ''}" data-item-id="${item.id}">
+          <div class="d-flex align-items-center gap-2 flex-grow-1 min-width-0" style="cursor:${isRefunded ? 'not-allowed' : 'pointer'};" data-action="toggle-item">
+            <div class="item-check-box${checked ? ' checked' : ''}">
+              <i class="bi bi-check2"></i>
+            </div>
+            <div class="min-width-0">
+              <div class="fw-semibold text-truncate">${escHtml(item.product_name)}</div>
+              <div class="text-muted small">Qty: ${item.quantity}${isRefunded ? ' · Refunded' : ''}</div>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-3 flex-shrink-0">
+            ${isRefunded ? '<span class="item-refunded-tag">Refunded</span>' : ''}
+            <span class="fw-bold text-success">${moneyFmt(item.total_price)}</span>
+            <div class="form-check form-switch mb-0">
+              <input class="form-check-input" type="checkbox" data-action="toggle-restock" data-item-id="${item.id}"
+                ${restock ? 'checked' : ''} ${checked ? '' : 'disabled'}>
+              <label class="form-check-label small text-muted">Restock</label>
+            </div>
+          </div>
+        </div>`;
+    }).join('');
+
+    container.querySelectorAll('[data-action="toggle-item"]').forEach(function (el) {
+      el.addEventListener('click', function () {
+        const row = el.closest('.item-sel-row');
+        const itemId = parseInt(row.getAttribute('data-item-id'), 10);
+        toggleItem(itemId);
+      });
+    });
+
+    container.querySelectorAll('[data-action="toggle-restock"]').forEach(function (input) {
+      input.addEventListener('change', function () {
+        const itemId = parseInt(input.getAttribute('data-item-id'), 10);
+        if (input.checked) restockItemIds.add(itemId);
+        else restockItemIds.delete(itemId);
+      });
+    });
+
+    updateSummary();
+  }
+
+  function toggleItem(itemId) {
+    const row = currentItems.find(function (i) { return i.id === itemId; });
+    if (row && row.refunded_at) return;
+    if (selectedItemIds.has(itemId)) {
+      selectedItemIds.delete(itemId);
+      restockItemIds.delete(itemId);
+    } else {
+      selectedItemIds.add(itemId);
+      restockItemIds.add(itemId);
+    }
+    renderItems();
+  }
+
+  function toggleSelectAll() {
+    const refundable = currentItems.filter(function (i) { return !i.refunded_at; });
+    const allSelected = refundable.every(function (i) { return selectedItemIds.has(i.id); });
+    if (allSelected) {
+      refundable.forEach(function (i) {
+        selectedItemIds.delete(i.id);
+        restockItemIds.delete(i.id);
+      });
+    } else {
+      refundable.forEach(function (i) {
+        selectedItemIds.add(i.id);
+        restockItemIds.add(i.id);
+      });
+    }
+    renderItems();
+  }
+
+  function updateSummary() {
+    const sel = currentItems.filter(function (i) { return selectedItemIds.has(i.id) && !i.refunded_at; });
+    const activeItems = currentItems.filter(function (i) { return !i.refunded_at; });
+    const refundTotal = sumItemPrices(sel);
+    const summaryBox = document.getElementById('prSummaryBox');
+    const partialHint = document.getElementById('prPartialHint');
+
+    if (sel.length === 0) {
+      summaryBox.style.display = 'none';
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Process Refund';
+    } else {
+      summaryBox.style.display = 'block';
+      document.getElementById('prSummaryText').textContent =
+        sel.length + ' item' + (sel.length !== 1 ? 's' : '') + ' selected for refund';
+      document.getElementById('prSummaryAmount').textContent = moneyFmt(refundTotal);
+      const isPartial = sel.length < activeItems.length || currentItems.some(function (i) { return i.refunded_at; });
+      partialHint.style.display = isPartial ? 'block' : 'none';
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Process Refund (' + moneyFmt(refundTotal) + ')';
+    }
+  }
+
+  function fillForm(t) {
+    selectedTxnId = t.id;
+    currentItems = t.items || [];
+    transactionTotal = parseFloat(t.total_amount) || sumItemPrices(currentItems);
+    selectedItemIds = new Set();
+    restockItemIds = new Set();
+
+    document.getElementById('prTxnNumber').textContent = t.transaction_number;
+    document.getElementById('prTxnMeta').textContent = (t.items_count || currentItems.length) + ' item(s)';
+    document.getElementById('prTxnAmount').textContent = moneyFmt(t.total_amount);
+    document.getElementById('prMember').textContent = t.member_name || '—';
+    document.getElementById('prPayment').textContent = t.payment_method || '—';
+    document.getElementById('prDate').textContent = t.created_at || '—';
+
+    renderItems();
+    setStep('form');
+  }
+
+  async function loadTransaction(txnNumber) {
+    hideAlert();
+    setStep('loading');
+    formStep.style.display = 'none';
+    pinStep.style.display = 'none';
+    successStep.style.display = 'none';
+
+    try {
+      const res = await fetch('/api/search-transactions-for-refund/?q=' + encodeURIComponent(txnNumber), {
+        headers: { 'X-CSRFToken': getCsrfToken() },
+        credentials: 'same-origin',
+      });
+      const data = await res.json();
+      if (!data.success || !data.transactions || !data.transactions.length) {
+        showAlert('Transaction not found, already fully refunded, or outside the refund window.');
+        setStep('form');
+        formStep.style.display = 'block';
+        return;
+      }
+      const exact = data.transactions.find(function (t) {
+        return t.transaction_number === txnNumber;
+      });
+      fillForm(exact || data.transactions[0]);
+    } catch (e) {
+      showAlert('Network error while loading transaction.');
+      setStep('form');
+      formStep.style.display = 'block';
+    }
+  }
+
+  function getPin() {
+    return Array.from(pinBoxes).map(function (b) { return b.value || ''; }).join('');
+  }
+
+  function clearPin() {
+    pinBoxes.forEach(function (b) {
+      b.value = '';
+      b.style.borderColor = '';
+    });
+    document.getElementById('prPinError').style.display = 'none';
+    confirmPinBtn.disabled = true;
+  }
+
+  function updatePinConfirm() {
+    confirmPinBtn.disabled = getPin().length !== 4;
+  }
+
+  pinBoxes.forEach(function (box, idx) {
+    box.addEventListener('input', function () {
+      this.value = this.value.replace(/\D/g, '').slice(0, 1);
+      if (this.value && idx < pinBoxes.length - 1) pinBoxes[idx + 1].focus();
+      updatePinConfirm();
+    });
+    box.addEventListener('keydown', function (e) {
+      if (e.key === 'Backspace' && !box.value && idx > 0) {
+        pinBoxes[idx - 1].focus();
+        pinBoxes[idx - 1].value = '';
+        updatePinConfirm();
+      }
+    });
+  });
+
+  document.getElementById('prSelectAllBtn').addEventListener('click', toggleSelectAll);
+
+  submitBtn.addEventListener('click', function () {
+    if (!selectedTxnId || selectedItemIds.size === 0) return;
+    hideAlert();
+    clearPin();
+    setStep('pin');
+    pinBoxes[0].focus();
+  });
+
+  backBtn.addEventListener('click', function () {
+    clearPin();
+    setStep('form');
+  });
+
+  confirmPinBtn.addEventListener('click', async function () {
+    const pin = getPin();
+    if (pin.length !== 4 || !selectedTxnId || selectedItemIds.size === 0) return;
+
+    confirmPinBtn.disabled = true;
+    confirmPinBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Processing…';
+
+    try {
+      const res = await fetch('/api/process-refund/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': getCsrfToken(),
+        },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          transaction_id: selectedTxnId,
+          reason: document.getElementById('prRefundReason').value.trim(),
+          refund_item_ids: Array.from(selectedItemIds),
+          restock_item_ids: Array.from(restockItemIds),
+          pin: pin,
+        }),
+      });
+      const data = await res.json();
+
+      if (data.success) {
+        document.getElementById('prSuccessMessage').textContent = data.message || 'Refund processed successfully.';
+        const receiptUrl = data.receipt_url || (
+          data.receipt_item_ids && data.receipt_item_ids.length
+            ? '/refund-receipt/' + selectedTxnId + '/?items=' + data.receipt_item_ids.join(',')
+            : '/refund-receipt/' + selectedTxnId + '/'
+        );
+        document.getElementById('prPrintReceiptLink').href = receiptUrl;
+        setStep('success');
+        setTimeout(function () { window.location.reload(); }, 4000);
+      } else if (data.pin_wrong) {
+        clearPin();
+        const errEl = document.getElementById('prPinError');
+        errEl.textContent = data.error || 'Incorrect PIN.';
+        errEl.style.display = 'block';
+        pinBoxes[0].focus();
+      } else if (data.pin_locked) {
+        const errEl = document.getElementById('prPinError');
+        errEl.textContent = data.error || 'PIN locked.';
+        errEl.style.display = 'block';
+        confirmPinBtn.disabled = true;
+      } else {
+        setStep('form');
+        showAlert(data.error || 'Failed to process refund.');
+      }
+    } catch (e) {
+      setStep('form');
+      showAlert('Network error while processing refund.');
+    } finally {
+      confirmPinBtn.innerHTML = '<i class="bi bi-shield-lock me-1"></i>Confirm Refund';
+      updatePinConfirm();
+    }
+  });
+
+  modalEl.addEventListener('hidden.bs.modal', resetModal);
+
+  document.querySelectorAll('.open-process-refund-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const txnNumber = this.getAttribute('data-txn-number') || '';
+      if (!txnNumber) return;
+      resetModal();
+      bootstrap.Modal.getOrCreateInstance(modalEl).show();
+      loadTransaction(txnNumber);
+    });
+  });
+
+  window.openProcessRefundModal = function (txnNumber) {
+    resetModal();
+    bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    loadTransaction(txnNumber);
+  };
+})();

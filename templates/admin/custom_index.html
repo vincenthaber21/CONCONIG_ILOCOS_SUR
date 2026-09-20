@@ -1,0 +1,57 @@
+{% extends "admin/index.html" %}
+{% load i18n %}
+
+{% block content %}
+<style>
+  .dt-index-banner {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin: 0 0 20px;
+    padding: 16px 20px;
+    border-radius: 8px;
+    background: linear-gradient(90deg, #1f1f1f 0%, #3a3a3a 70%, #ED1C24 180%);
+    color: #fff;
+    border: 1px solid #ED1C24;
+  }
+  .dt-index-banner h2 {
+    margin: 0 0 4px;
+    font-size: 1.15rem;
+    color: #fff;
+  }
+  .dt-index-banner p {
+    margin: 0;
+    font-size: 0.88rem;
+    opacity: 0.9;
+    max-width: 560px;
+  }
+  .dt-index-banner a.button {
+    display: inline-block;
+    background: #ED1C24;
+    color: #fff !important;
+    font-weight: 700;
+    padding: 10px 16px;
+    border-radius: 4px;
+    text-decoration: none;
+    border: none;
+  }
+  .dt-index-banner a.button:hover {
+    background: #d96f12;
+  }
+</style>
+
+<div class="dt-index-banner">
+  <div>
+    <h2>Export / Import all database data</h2>
+    <p>
+      Full backup: products, members, purchases/transactions/revenue, store logo,
+      and product images — download or restore from one ZIP.
+    </p>
+  </div>
+  <a class="button" href="{% url 'admin_data_transfer' %}">Open data transfer</a>
+</div>
+
+{{ block.super }}
+{% endblock %}

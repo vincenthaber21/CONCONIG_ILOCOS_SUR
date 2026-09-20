@@ -1,0 +1,199 @@
+<!-- Balance Refill Modal -->
+<style>
+  /* Responsive PIN row — wraps and scales on narrow viewports */
+  #refillPinBoxes {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: clamp(0.3rem, 2vw, 0.5rem);
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .refill-pin-box {
+    width: clamp(38px, min(14vw, 12dvh), 56px);
+    height: clamp(38px, min(14vw, 12dvh), 56px);
+    min-width: 0;
+    border-radius: 10px;
+    border: 2px solid #dee2e6;
+    text-align: center;
+    font-size: clamp(1.05rem, 4.2vw, 1.5rem);
+    font-weight: 700;
+    flex: 0 0 auto;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  @media (max-width: 360px) {
+    #refillPinBoxes { gap: 0.25rem; }
+    .refill-pin-box {
+      width: clamp(34px, 20vw, 44px);
+      height: clamp(34px, 20vw, 44px);
+      font-size: 1.05rem;
+    }
+  }
+  /* Search results dropdown */
+  #memberSearchResults {
+    position: relative;
+    z-index: 10;
+  }
+  #memberResultsList {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+  #memberResultsList .list-group-item {
+    padding: 0.6rem 0.75rem;
+  }
+  /* Wrap long text in result items */
+  .refill-member-result-name {
+    word-break: break-word;
+    white-space: normal;
+  }
+  .refill-member-result-meta {
+    white-space: normal;
+    word-break: break-all;
+  }
+</style>
+<div class="modal fade" id="refillBalanceModal" tabindex="-1" aria-labelledby="refillBalanceModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-md">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5 class="modal-title" id="refillBalanceModalLabel">
+          <i class="bi bi-wallet2 me-2"></i>Refill Card Balance
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Success summary (shown after successful refill) -->
+        <div id="refillSuccessSummary" style="display:none;">
+          <div class="text-center mb-3">
+            <div class="rounded-circle bg-success d-inline-flex align-items-center justify-content-center mb-2" style="width:56px;height:56px;">
+              <i class="bi bi-check-lg text-white fs-3"></i>
+            </div>
+            <h5 class="text-success fw-bold mb-1">Balance Refill Successful!</h5>
+            <p class="text-muted small mb-0">Transaction has been processed.</p>
+          </div>
+          <div class="card border-success bg-success bg-opacity-10 mb-3">
+            <div class="card-body p-3">
+              <div class="d-flex justify-content-between flex-wrap gap-1 mb-1">
+                <span class="text-muted small">Member</span>
+                <span class="fw-semibold small" id="summaryMemberName">-</span>
+              </div>
+              <div class="d-flex justify-content-between flex-wrap gap-1 mb-1">
+                <span class="text-muted small">RFID Card</span>
+                <span class="fw-semibold small" id="summaryMemberRfid">-</span>
+              </div>
+              <div class="d-flex justify-content-between flex-wrap gap-1 mb-1">
+                <span class="text-muted small">Amount Added</span>
+                <span class="fw-bold text-success small" id="summaryAmount">₱0.00</span>
+              </div>
+              <div class="d-flex justify-content-between flex-wrap gap-1">
+                <span class="text-muted small">New Balance</span>
+                <span class="fw-bold text-success small" id="summaryNewBalance">₱0.00</span>
+              </div>
+            </div>
+          </div>
+          <div id="summaryMemberNotified" style="display:none;" class="alert alert-info py-2 px-3 small mb-0">
+            <i class="bi bi-envelope-check me-1"></i>A confirmation email has been sent to the member.
+          </div>
+          <div class="alert alert-secondary py-2 px-3 small mt-2 mb-0">
+            <i class="bi bi-shield-check me-1"></i>Admin has been notified by email.
+          </div>
+        </div>
+
+        <!-- Refill Form (hidden after success) -->
+        <form id="refillBalanceForm">
+          {% csrf_token %}
+          <!-- Search Member -->
+          <div class="mb-3">
+            <label for="memberSearch" class="form-label fw-semibold">Search Member</label>
+            <div class="input-group">
+              <input type="text" class="form-control" id="memberSearch"
+                     placeholder="Search by name, RFID, or email…"
+                     autocomplete="off" autocorrect="off" spellcheck="false">
+              <button class="btn btn-outline-secondary" type="button" id="searchMemberBtn" aria-label="Search">
+                <i class="bi bi-search"></i>
+              </button>
+            </div>
+            <small class="text-muted">Type at least 2 characters to search</small>
+            <div id="memberSearchResults" class="mt-1" style="display:none;">
+              <div class="list-group" id="memberResultsList"></div>
+            </div>
+          </div>
+
+          <!-- Selected Member Card -->
+          <div class="mb-3" id="selectedMemberInfo" style="display:none;">
+            <div class="card bg-light border-success border-opacity-25">
+              <div class="card-body py-2 px-3">
+                <div class="d-flex align-items-center justify-content-between mb-1">
+                  <h6 class="card-title mb-0 text-success"><i class="bi bi-person-check me-1"></i>Selected Member</h6>
+                  <button type="button" class="btn-close btn-sm" id="clearSelectedMemberBtn" aria-label="Clear selection" style="font-size:0.65rem;"></button>
+                </div>
+                <div class="row row-cols-1 row-cols-sm-3 g-1 mt-1">
+                  <div class="col">
+                    <span class="text-muted small d-block">Name</span>
+                    <span class="fw-semibold small" id="selectedMemberName" style="word-break:break-word;">-</span>
+                  </div>
+                  <div class="col">
+                    <span class="text-muted small d-block">RFID</span>
+                    <span class="fw-semibold small" id="selectedMemberRfid" style="word-break:break-all;">-</span>
+                  </div>
+                  <div class="col">
+                    <span class="text-muted small d-block">Balance</span>
+                    <span class="fw-bold text-success small" id="selectedMemberBalance">₱0.00</span>
+                  </div>
+                </div>
+                <input type="hidden" id="selectedMemberId" value="">
+              </div>
+            </div>
+          </div>
+
+          <!-- Amount -->
+          <div class="mb-3">
+            <label for="refillAmount" class="form-label fw-semibold">Amount to Add</label>
+            <div class="input-group">
+              <span class="input-group-text">₱</span>
+              <input type="number" class="form-control" id="refillAmount" placeholder="0.00" step="0.01" min="0.01" required inputmode="decimal">
+            </div>
+          </div>
+
+          <!-- Notes -->
+          <div class="mb-3">
+            <label for="refillNotes" class="form-label fw-semibold">Notes <span class="fw-normal text-muted">(Optional)</span></label>
+            <textarea class="form-control" id="refillNotes" rows="2" placeholder="Add any notes about this transaction…"></textarea>
+          </div>
+
+          <!-- Admin PIN -->
+          <div class="mb-3">
+            <label class="form-label fw-semibold d-block">
+              <i class="bi bi-shield-lock me-1 text-warning"></i>Admin PIN <span class="text-danger">*</span>
+            </label>
+            <div class="my-2" id="refillPinBoxes" role="group" aria-label="Admin PIN digits">
+              <input type="password" class="form-control refill-pin-box pin-box" id="adminPin0" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off">
+              <input type="password" class="form-control refill-pin-box pin-box" id="adminPin1" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off">
+              <input type="password" class="form-control refill-pin-box pin-box" id="adminPin2" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off">
+              <input type="password" class="form-control refill-pin-box pin-box" id="adminPin3" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off">
+            </div>
+            <input type="hidden" id="refillAdminPin">
+            <div id="refillPinError" class="text-danger small text-center fw-semibold mt-2" style="display:none;" role="alert" aria-live="polite"></div>
+            <small class="text-muted d-block text-center px-1">Enter the 4-digit PIN of an active <strong>Admin</strong> member (PIN must be set on that account) to authorise this transaction.</small>
+          </div>
+
+          <div id="refillAlert" style="display:none;"></div>
+        </form>
+      </div>
+      <div class="modal-footer flex-wrap gap-2" id="refillModalFooter">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="refillCancelBtn">Cancel</button>
+        <button type="button" class="btn btn-success" id="submitRefillBtn" disabled>
+          <i class="bi bi-check-circle me-1"></i>Refill Balance
+        </button>
+        <button type="button" class="btn btn-success" id="refillDoneBtn" style="display:none;">
+          <i class="bi bi-check2 me-1"></i>Done
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

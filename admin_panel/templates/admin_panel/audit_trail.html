@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Website Audit Trail | {{ kiosk_system_name }}</title>
+  {% include "partials/bootstrap_head.html" %}
+  <style>
+    :root {
+      --dark: #0f172a;
+      --brand: #ED1C24;
+      --muted: #94a3b8;
+      --panel: #ffffff;
+      --gradient: linear-gradient(135deg, #ED1C24 0%, #C4121A 40%, #8B0E14 100%);
+    }
+
+    body {
+      background: #f1f5f9;
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    }
+
+    /* Dark top navbar (required — admin_top_navbar uses .super-nav) */
+    .super-nav {
+      background: var(--dark);
+      color: #fff;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.4);
+    }
+
+    .hero-card {
+      background: var(--gradient);
+      color: #fff;
+      border-radius: 24px;
+      padding: 32px;
+      box-shadow: 0 25px 55px rgba(15, 23, 42, 0.35);
+    }
+
+    .hero-metric {
+      background: rgba(255, 255, 255, 0.18);
+      border-radius: 16px;
+      padding: 16px 20px;
+      min-width: 120px;
+    }
+
+    .period-toolbar,
+    .table-card {
+      background: var(--panel);
+      border-radius: 20px;
+      padding: 20px 24px;
+      box-shadow: 0 15px 30px rgba(15, 23, 42, 0.07);
+    }
+
+    .audit-table {
+      font-size: 0.9rem;
+      margin: 0;
+    }
+
+    .audit-table thead {
+      color: var(--muted);
+      text-transform: uppercase;
+      font-size: 0.72rem;
+      letter-spacing: 0.06em;
+    }
+
+    .audit-table tbody tr:hover {
+      background: #f8fafc;
+    }
+
+    .action-pill {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border-radius: 999px;
+      padding: 4px 10px;
+      white-space: nowrap;
+    }
+
+    .action-LOGIN { background: #d1fae5; color: #065f46; }
+    .action-LOGOUT { background: #e2e8f0; color: #334155; }
+    .action-LOGIN_FAILED { background: #fee2e2; color: #991b1b; }
+    .action-MEMBER { background: #dbeafe; color: #1e40af; }
+    .action-INVENTORY { background: #fef3c7; color: #92400e; }
+    .action-TRANSACTION { background: #ede9fe; color: #5b21b6; }
+    .action-PURCHASE { background: #dcfce7; color: #166534; }
+    .action-REFUND { background: #ffedd5; color: #9a3412; }
+    .action-BALANCE_REFILL { background: #cffafe; color: #155e75; }
+    .action-FUND_TRANSFER { background: #e0e7ff; color: #3730a3; }
+    .action-QR { background: #fce7f3; color: #9d174d; }
+    .action-CREDIT_PAYMENT { background: #fae8ff; color: #86198f; }
+    .action-LOAN { background: #ccfbf1; color: #115e59; }
+    .action-SAVINGS { background: #ecfccb; color: #3f6212; }
+    .action-SHARE_CAPITAL { background: #fef3c7; color: #92400e; }
+    .action-PALAY { background: #fce7f3; color: #9d174d; }
+    .action-SETTINGS,
+    .action-ADMIN { background: #f1f5f9; color: #0f172a; }
+    .action-REPORT { background: #e0f2fe; color: #075985; }
+    .action-KIOSK { background: #fef9c3; color: #854d0e; }
+    .action-PAGE_ACTION,
+    .action-OTHER { background: #f1f5f9; color: #475569; }
+
+    .audit-meta {
+      color: #64748b;
+      font-size: 0.8rem;
+    }
+
+    .audit-path {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.78rem;
+      color: #475569;
+      word-break: break-all;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px 24px;
+      color: #64748b;
+    }
+
+    @media (max-width: 992px) {
+      .hero-card { padding: 22px; border-radius: 16px; }
+    }
+  </style>
+</head>
+<body>
+  {% include 'admin_panel/partials/admin_top_navbar.html' %}
+
+  <main class="container-fluid px-4 py-5">
+    <section class="hero-card mb-4">
+      <div class="row align-items-center g-4">
+        <div class="col-lg-7">
+          <p class="mb-2 text-uppercase fw-semibold" style="letter-spacing:0.2em;">Security Monitor</p>
+          <h1 class="fw-bold mb-2">
+            <i class="bi bi-shield-lock me-2"></i>Website Audit Trail
+            {% include 'admin_panel/partials/admin_role_badge.html' %}
+          </h1>
+          <p class="mb-0 lead text-white-50">
+            Immutable record of logins, logouts, and staff actions across the site. Admin access only.
+          </p>
+        </div>
+        <div class="col-lg-5 d-flex gap-3 justify-content-lg-end flex-wrap">
+          <div class="hero-metric">
+            <small class="text-uppercase text-white-50">Events</small>
+            <h3 class="mb-0">{{ total_events }}</h3>
+          </div>
+          <div class="hero-metric">
+            <small class="text-uppercase text-white-50">Logins</small>
+            <h3 class="mb-0">{{ login_count }}</h3>
+          </div>
+          <div class="hero-metric">
+            <small class="text-uppercase text-white-50">Failed</small>
+            <h3 class="mb-0">{{ failed_count }}</h3>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {% include 'admin_panel/partials/admin_main_nav.html' with nav_active='audit' %}
+
+    <div class="period-toolbar mb-4">
+      <form method="get" class="row g-3 align-items-end">
+        <div class="col-md-2">
+          <label class="form-label small text-muted mb-1" for="date_from">From</label>
+          <input type="date" class="form-control" id="date_from" name="date_from" value="{{ date_from }}">
+        </div>
+        <div class="col-md-2">
+          <label class="form-label small text-muted mb-1" for="date_to">To</label>
+          <input type="date" class="form-control" id="date_to" name="date_to" value="{{ date_to }}">
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small text-muted mb-1" for="action">Action</label>
+          <select class="form-select" id="action" name="action">
+            <option value="">All actions</option>
+            {% for value, label in action_choices %}
+            <option value="{{ value }}" {% if action_filter == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label small text-muted mb-1" for="q">Search</label>
+          <input type="search" class="form-control" id="q" name="q" value="{{ actor_q }}" placeholder="Actor, path, description…">
+        </div>
+        <div class="col-md-2 d-flex gap-2">
+          <button type="submit" class="btn btn-success flex-grow-1">
+            <i class="bi bi-funnel me-1"></i>Filter
+          </button>
+          <a href="{% url 'website_audit_trail' %}" class="btn btn-outline-secondary" title="Reset">
+            <i class="bi bi-x-lg"></i>
+          </a>
+        </div>
+      </form>
+    </div>
+
+    <div class="table-card">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+          <h2 class="h5 mb-0 fw-bold">Activity log</h2>
+          <p class="text-muted small mb-0">{{ logout_count }} logout{{ logout_count|pluralize }} in this range · newest first</p>
+        </div>
+        <span class="badge text-bg-light border">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages|default:1 }}</span>
+      </div>
+
+      {% if audit_logs %}
+      <div class="table-responsive">
+        <table class="table audit-table align-middle">
+          <thead>
+            <tr>
+              <th scope="col">When</th>
+              <th scope="col">Action</th>
+              <th scope="col">Actor</th>
+              <th scope="col">Description</th>
+              <th scope="col">Path</th>
+              <th scope="col">IP</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for entry in audit_logs %}
+            <tr>
+              <td class="text-nowrap">
+                <div>{{ entry.created_at|date:"M j, Y" }}</div>
+                <div class="audit-meta">{{ entry.created_at|date:"g:i:s A" }}</div>
+              </td>
+              <td>
+                <span class="action-pill action-{{ entry.action }}">{{ entry.get_action_display }}</span>
+              </td>
+              <td>
+                <div class="fw-semibold">{{ entry.actor_label }}</div>
+                {% if entry.actor %}
+                <div class="audit-meta">@{{ entry.actor.username }}</div>
+                {% endif %}
+              </td>
+              <td>{{ entry.description }}</td>
+              <td>
+                {% if entry.request_path %}
+                <span class="audit-path">
+                  {% if entry.request_method %}<strong>{{ entry.request_method }}</strong> {% endif %}{{ entry.request_path }}
+                </span>
+                {% else %}
+                <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+              <td class="text-nowrap audit-meta">{{ entry.ip_address|default:"—" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if page_obj.has_other_pages %}
+      <nav class="mt-3" aria-label="Audit trail pages">
+        <ul class="pagination justify-content-center mb-0">
+          {% if page_obj.has_previous %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}&date_from={{ date_from }}&date_to={{ date_to }}&action={{ action_filter }}&q={{ actor_q|urlencode }}">Previous</a>
+          </li>
+          {% endif %}
+          <li class="page-item disabled"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+          {% if page_obj.has_next %}
+          <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}&date_from={{ date_from }}&date_to={{ date_to }}&action={{ action_filter }}&q={{ actor_q|urlencode }}">Next</a>
+          </li>
+          {% endif %}
+        </ul>
+      </nav>
+      {% endif %}
+
+      {% else %}
+      <div class="empty-state">
+        <i class="bi bi-shield-check display-4 d-block mb-3 text-success"></i>
+        <h3 class="h5">No audit events in this range</h3>
+        <p class="mb-0">Logins, logouts, and staff save/update actions will appear here automatically.</p>
+      </div>
+      {% endif %}
+    </div>
+  </main>
+
+  {% include "partials/bootstrap_scripts.html" %}
+  {% include 'admin_panel/partials/admin_nav_footer.html' %}
+</body>
+</html>

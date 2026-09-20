@@ -1,0 +1,63 @@
+{# Expects: suffix e.g. "_edit" or "_add" (used in ids and radio group names). Optional: expanded_discount_help=True #}
+<div class="mt-3 mb-1">
+  <p class="fw-semibold text-secondary mb-2" style="font-size:.8rem;letter-spacing:.05em;text-transform:uppercase;">
+    Discount &amp; pricing account
+  </p>
+</div>
+{% if expanded_discount_help %}
+<div class="alert alert-info border-0 py-2 px-3 small mb-3" style="background:#e8f4fc;border-left:4px solid #0d6efd !important;">
+  <div class="fw-semibold text-dark mb-1"><i class="bi bi-tags me-1"></i>How store discounts apply</div>
+  <ul class="mb-0 ps-3">
+    <li><strong>Co-op member account</strong> — While <strong>Active</strong> is checked above, this account automatically receives <strong>member / reseller</strong> segment discounts at the kiosk on products tagged with a discount group (amounts are in the <strong>Segment product discounts</strong> card on this page).</li>
+    <li><strong>Senior or PWD</strong> — Choose one option below to register for <strong>senior &amp; PWD</strong> segment pricing instead of the default member tier (only one concession type can be active). OSCA / PWD ID fields are optional references for your records.</li>
+  </ul>
+</div>
+{% else %}
+<p class="small text-muted mb-2">
+  <strong>Member</strong> accounts use member segment discounts while active. Register <strong>Senior</strong> or <strong>PWD</strong> below for senior/PWD segment pricing instead. Only one concession may be active at a time.
+  Rules per product group appear under <a href="#segment-store-rules" class="text-decoration-none"><strong>Segment product discounts</strong></a> on this page.
+</p>
+{% endif %}
+<div class="row g-3">
+  <div class="col-12">
+    <label class="form-label small text-muted mb-1">Concession type</label>
+    <div class="d-flex flex-wrap gap-2">
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="concessionType{{ suffix }}" id="ctNone{{ suffix }}" value="none" checked>
+        <label class="form-check-label" for="ctNone{{ suffix }}">None</label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="concessionType{{ suffix }}" id="ctSenior{{ suffix }}" value="senior">
+        <label class="form-check-label" for="ctSenior{{ suffix }}">Senior citizen <span class="badge rounded-pill text-bg-success align-middle" style="font-size:0.65rem;">discount</span></label>
+      </div>
+      <div class="form-check form-check-inline">
+        <input class="form-check-input" type="radio" name="concessionType{{ suffix }}" id="ctPwd{{ suffix }}" value="pwd">
+        <label class="form-check-label" for="ctPwd{{ suffix }}">PWD <span class="badge rounded-pill text-bg-success align-middle" style="font-size:0.65rem;">discount</span></label>
+      </div>
+    </div>
+  </div>
+  <div class="col-12" id="concessionSeniorWrap{{ suffix }}" style="display: none;">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label" for="seniorOsca{{ suffix }}">OSCA / senior ID <span class="text-muted">(optional)</span></label>
+        <input type="text" class="form-control" id="seniorOsca{{ suffix }}" maxlength="64" placeholder="Reference for records" autocomplete="off">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="seniorNotes{{ suffix }}">Senior notes <span class="text-muted">(optional)</span></label>
+        <input type="text" class="form-control" id="seniorNotes{{ suffix }}" maxlength="500" placeholder="Internal notes" autocomplete="off">
+      </div>
+    </div>
+  </div>
+  <div class="col-12" id="concessionPwdWrap{{ suffix }}" style="display: none;">
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label" for="pwdId{{ suffix }}">PWD ID <span class="text-muted">(optional)</span></label>
+        <input type="text" class="form-control" id="pwdId{{ suffix }}" maxlength="64" placeholder="Reference for records" autocomplete="off">
+      </div>
+      <div class="col-md-6">
+        <label class="form-label" for="pwdNotes{{ suffix }}">PWD notes <span class="text-muted">(optional)</span></label>
+        <input type="text" class="form-control" id="pwdNotes{{ suffix }}" maxlength="500" placeholder="Internal notes" autocomplete="off">
+      </div>
+    </div>
+  </div>
+</div>

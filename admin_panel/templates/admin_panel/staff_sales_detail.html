@@ -1,0 +1,557 @@
+{% load currency_filters %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ staff_member.first_name }} {{ staff_member.last_name }} — Sales | {{ kiosk_system_name }}</title>
+  {% include "partials/bootstrap_head.html" %}
+  {% include "partials/chartjs_scripts.html" %}
+  <style>
+    :root {
+      --dark: #0f172a;
+      --brand: #ED1C24;
+      --accent: #E6C200;
+      --muted: #94a3b8;
+      --panel: #ffffff;
+      --gradient: linear-gradient(135deg, #ED1C24 0%, #C4121A 40%, #8B0E14 100%);
+    }
+
+    body {
+      background: #f1f5f9;
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    }
+
+    /* ── Dark top navbar ───────────────────────────────────── */
+    .super-nav {
+      background: var(--dark);
+      color: #fff;
+      box-shadow: 0 10px 30px rgba(15,23,42,0.4);
+    }
+
+    .nav-pill {
+      border-radius: 999px;
+      padding: 8px 18px;
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+    }
+
+    .nav-pill.active, .nav-pill:hover {
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+    }
+
+    /* ── Hero banner ───────────────────────────────────────── */
+    .hero-card {
+      background: var(--gradient);
+      color: #fff;
+      border-radius: 24px;
+      padding: 32px;
+      box-shadow: 0 25px 55px rgba(15,23,42,0.35);
+    }
+
+    .hero-metric {
+      background: rgba(255,255,255,0.18);
+      border-radius: 16px;
+      padding: 16px 20px;
+      min-width: 140px;
+    }
+
+    .chips {
+      display: inline-flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .chip {
+      background: #e2e8f0;
+      color: #0f172a;
+      border-radius: 999px;
+      padding: 4px 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    /* ── Stat cards ────────────────────────────────────────── */
+    .stat-card {
+      border: none;
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 18px 36px rgba(15,23,42,0.08);
+      background: var(--panel);
+      height: 100%;
+    }
+
+    .stat-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      color: #fff;
+    }
+
+    .stat-title {
+      color: var(--muted);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .stat-kpi-value {
+      font-size: clamp(1.1rem, 3.5vw, 1.65rem);
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    /* ── Table / chart cards ───────────────────────────────── */
+    .table-card {
+      border-radius: 20px;
+      padding: 20px;
+      background: var(--panel);
+      box-shadow: 0 15px 30px rgba(15,23,42,0.07);
+    }
+
+    .table-card table { font-size: 0.9rem; }
+    .table-card thead {
+      color: var(--muted);
+      text-transform: uppercase;
+      font-size: 0.75rem;
+    }
+
+    .chart-card {
+      border-radius: 20px;
+      padding: 20px;
+      background: var(--panel);
+      box-shadow: 0 15px 30px rgba(15,23,42,0.07);
+      height: 100%;
+    }
+
+    /* ── Date-range toolbar ────────────────────────────────── */
+    .period-toolbar {
+      background: var(--panel);
+      border-radius: 20px;
+      padding: 18px 24px;
+      box-shadow: 0 15px 30px rgba(15,23,42,0.07);
+    }
+
+    /* ── Role badge ────────────────────────────────────────── */
+    .role-badge {
+      font-size: 0.72rem; padding: 3px 10px;
+      border-radius: 999px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      display: inline-block;
+    }
+    .role-badge-cashier { background: #d1fae5; color: #065f46; }
+    .role-badge-staff   { background: #dbeafe; color: #1e40af; }
+    .role-badge-admin   { background: #fef9c3; color: #854d0e; }
+
+    /* ── Transaction status badges ─────────────────────────── */
+    .txn-status-badge {
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      padding: 0.35rem 0.65rem; border-radius: 999px;
+      font-weight: 600; font-size: 0.72rem; line-height: 1.2;
+      white-space: nowrap; border: 1px solid transparent;
+    }
+    .txn-status-completed          { background: #d1fae5; color: #065f46; border-color: #a7f3d0; }
+    .txn-status-pending            { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+    .txn-status-cancelled          { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+    .txn-status-refunded           { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+    .txn-status-refund_requested   { background: #FEF7D5; color: #c2410c; border-color: #fed7aa; }
+    .txn-status-return_window      { background: #fef9c3; color: #854d0e; border-color: #fde047; }
+    .txn-status-partially_refunded { background: linear-gradient(135deg,#e0f2fe 0%,#ffedd5 100%); color: #0c4a6e; border-color: #7dd3fc; }
+    .txn-status-return_expired     { background: #fce7f3; color: #9d174d; border-color: #f9a8d4; }
+
+    /* ── Payment method badges ─────────────────────────────── */
+    .badge-payment {
+      padding: 4px 10px; border-radius: 999px;
+      font-weight: 600; font-size: 0.75rem; text-transform: uppercase;
+    }
+    .badge-cash   { background: #dbeafe; color: #1e40af; }
+    .badge-debit  { background: #d1fae5; color: var(--accent); }
+    .badge-credit { background: #ede9fe; color: #5b21b6; }
+
+    /* ── Payment breakdown tiles ───────────────────────────── */
+    .pay-tile {
+      background: linear-gradient(135deg,#f8fafc 0%,#f1f5f9 100%);
+      border-radius: 14px; padding: 0.85rem 1rem;
+      border: 1px solid rgba(148,163,184,0.28);
+    }
+    .pay-tile .pt-lab {
+      font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em;
+      color: #64748b; font-weight: 600; margin-bottom: 0.2rem;
+    }
+    .pay-tile .pt-val { font-size: 1.15rem; font-weight: 700; color: #0f172a; }
+    .pay-tile .pt-sub { font-size: 0.78rem; color: #94a3b8; margin-top: 0.15rem; }
+
+    /* ── Member avatar (large) ─────────────────────────────── */
+    .member-avatar-lg {
+      width: 60px; height: 60px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 1.3rem; color: #fff;
+      background: rgba(255,255,255,0.25); flex-shrink: 0;
+    }
+
+    /* ── Logout modal ──────────────────────────────────────── */
+    #logoutConfirmModal { z-index: 9999 !important; }
+    #logoutConfirmModal .modal-dialog {
+      max-width: 480px; margin: 10vh auto;
+      display: flex; align-items: center; min-height: calc(100vh - 20vh);
+    }
+    #logoutConfirmModal .modal-content {
+      border-radius: 18px; border: none;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden; animation: modalSlideIn 0.3s ease-out;
+    }
+    @keyframes modalSlideIn {
+      from { opacity: 0; transform: translateY(-30px) scale(0.95); }
+      to   { opacity: 1; transform: translateY(0)    scale(1);    }
+    }
+    #logoutConfirmModal .modal-backdrop { background-color: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 9998 !important; }
+    #logoutConfirmModal .modal-header { background: linear-gradient(135deg,#f8f9fa 0%,#e9ecef 100%); border-bottom: 2px solid #dee2e6; padding: 24px 32px; display: flex; align-items: center; gap: 12px; }
+    #logoutConfirmModal .modal-header .modal-title { font-weight: 700; font-size: 1.5rem; color: #1a1a1a; display: flex; align-items: center; gap: 12px; margin: 0; }
+    #logoutConfirmModal .modal-header .modal-title i { color: #ED1C24; font-size: 1.8rem; }
+    #logoutConfirmModal .modal-body { padding: 32px; text-align: center; }
+    #logoutConfirmModal .modal-body .warning-icon { font-size: 4rem; color: #ED1C24; margin-bottom: 20px; display: block; }
+    #logoutConfirmModal .modal-body p { font-size: 1.1rem; color: #495057; line-height: 1.6; margin: 0; font-weight: 400; }
+    #logoutConfirmModal .modal-footer { border-top: 2px solid #e9ecef; padding: 20px 32px; display: flex; justify-content: center; gap: 12px; background: #f8f9fa; }
+    #logoutConfirmModal .modal-footer .btn { min-width: 120px; padding: 12px 24px; font-weight: 600; font-size: 1rem; border-radius: 8px; transition: all 0.2s ease; }
+    #logoutConfirmModal .modal-footer .btn-cancel { background: #6c757d; border: 2px solid #6c757d; color: white; }
+    #logoutConfirmModal .modal-footer .btn-cancel:hover { background: #5a6268; border-color: #5a6268; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(108,117,125,0.3); }
+    #logoutConfirmModal .modal-footer .btn-confirm { background: linear-gradient(135deg,#ED1C24,#C4121A); border: 2px solid #ED1C24; color: white; }
+    #logoutConfirmModal .modal-footer .btn-confirm:hover { background: linear-gradient(135deg,#C4121A,#A10F16); border-color: #A10F16; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(237,28,36,0.4); }
+
+    @media (max-width: 992px) {
+      .hero-card { padding: 22px; border-radius: 16px; }
+    }
+  </style>
+</head>
+<body>
+  {% include 'admin_panel/partials/admin_top_navbar.html' %}
+
+  <main class="container-fluid px-4 py-5">
+
+    <!-- Breadcrumb back link -->
+    <div class="mb-3">
+      <a href="{% url 'staff_sales_report' %}?date_from={{ date_from }}&date_to={{ date_to }}"
+         class="btn btn-sm btn-outline-secondary rounded-pill px-3">
+        <i class="bi bi-arrow-left me-1"></i> All Staff
+      </a>
+    </div>
+
+    <!-- Hero -->
+    <section class="hero-card mb-4">
+      <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+          <p class="mb-2 text-uppercase fw-semibold" style="letter-spacing:0.2em;">Individual Sales</p>
+          <h1 class="fw-bold mb-2 d-flex align-items-center gap-3 flex-wrap">
+            <span class="member-avatar-lg">{{ staff_member.first_name|first|upper }}{{ staff_member.last_name|first|upper }}</span>
+            {{ staff_member.first_name }} {{ staff_member.last_name }}
+            {% include 'admin_panel/partials/admin_role_badge.html' %}
+          </h1>
+          <div class="d-flex align-items-center gap-2 mb-3 flex-wrap">
+            <span class="role-badge role-badge-{{ staff_member.role }}">{{ staff_member.member_role.name }}</span>
+            {% if staff_member.username %}<span class="text-white-50 small">@{{ staff_member.username }}</span>{% endif %}
+            {% if staff_member.member_type %}<span class="text-white-50 small">· {{ staff_member.member_type.name }}</span>{% endif %}
+          </div>
+          <div class="chips">
+            <span class="chip"><i class="bi bi-currency-dollar me-1"></i> ₱{{ total_revenue|floatformat:2 }}</span>
+            <span class="chip"><i class="bi bi-receipt-cutoff me-1"></i> {{ txn_count }} transactions</span>
+            <span class="chip"><i class="bi bi-graph-up me-1"></i> Avg ₱{{ avg_order|floatformat:2 }}</span>
+          </div>
+        </div>
+        <div class="col-lg-4 d-flex gap-3 justify-content-lg-end flex-wrap">
+          <div class="hero-metric">
+            <small class="text-uppercase text-white-50">Revenue</small>
+            <h3 class="mb-0">₱{{ total_revenue|floatformat:2 }}</h3>
+          </div>
+          <div class="hero-metric">
+            <small class="text-uppercase text-white-50">Transactions</small>
+            <h3 class="mb-0">{{ txn_count }}</h3>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {% include 'admin_panel/partials/admin_main_nav.html' with nav_active='staff_sales' %}
+
+    <!-- Date range filter -->
+    <div class="period-toolbar mb-4">
+      <form method="get" class="d-flex flex-wrap align-items-center gap-3">
+        <span class="fw-semibold text-secondary" style="font-size:0.85rem;text-transform:uppercase;letter-spacing:0.08em;">
+          <i class="bi bi-calendar-range me-1"></i>Date Range
+        </span>
+        <div class="d-flex align-items-center gap-2">
+          <label for="dateFrom" class="small fw-semibold text-secondary mb-0">From</label>
+          <input type="date" name="date_from" id="dateFrom" value="{{ date_from }}"
+                 class="form-control form-control-sm rounded-pill" style="border:1.5px solid #ED1C24;width:auto;">
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <label for="dateTo" class="small fw-semibold text-secondary mb-0">To</label>
+          <input type="date" name="date_to" id="dateTo" value="{{ date_to }}"
+                 class="form-control form-control-sm rounded-pill" style="border:1.5px solid #ED1C24;width:auto;">
+        </div>
+        <button type="submit" class="btn btn-success btn-sm rounded-pill px-3">
+          <i class="bi bi-check2-circle me-1"></i> Apply
+        </button>
+        <a href="{% url 'staff_sales_detail' staff_member.id %}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">Reset</a>
+        <div class="d-flex align-items-center gap-2 flex-wrap ms-auto">
+          <span class="small text-muted"><i class="bi bi-download me-1"></i>Download report</span>
+          <a href="{% url 'export_staff_sales_detail' staff_member.id %}?format=excel&amp;date_from={{ date_from }}&amp;date_to={{ date_to }}"
+             class="btn btn-success btn-sm rounded-pill px-3" title="Download Excel report">
+            <i class="bi bi-file-earmark-spreadsheet me-1"></i> Excel
+          </a>
+          <a href="{% url 'export_staff_sales_detail' staff_member.id %}?format=pdf&amp;date_from={{ date_from }}&amp;date_to={{ date_to }}"
+             class="btn btn-outline-success btn-sm rounded-pill px-3" title="Download PDF report">
+            <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+          </a>
+          <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2" style="font-size:0.8rem;">
+            <i class="bi bi-clock-history me-1"></i>{{ date_from }} — {{ date_to }}
+          </span>
+        </div>
+      </form>
+    </div>
+
+    <!-- KPI stat cards -->
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <div>
+              <div class="stat-title mb-1">Total Revenue</div>
+              <div class="stat-kpi-value fw-bold" style="color:#ED1C24;">₱{{ total_revenue|floatformat:2 }}</div>
+            </div>
+            <div class="stat-icon" style="background:linear-gradient(135deg,#ED1C24,#C4121A);">
+              <i class="bi bi-cash-stack"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <div>
+              <div class="stat-title mb-1">Transactions</div>
+              <div class="stat-kpi-value fw-bold">{{ txn_count }}</div>
+            </div>
+            <div class="stat-icon" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);">
+              <i class="bi bi-receipt"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <div>
+              <div class="stat-title mb-1">Avg Order Value</div>
+              <div class="stat-kpi-value fw-bold">₱{{ avg_order|floatformat:2 }}</div>
+            </div>
+            <div class="stat-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);">
+              <i class="bi bi-graph-up-arrow"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <div>
+              <div class="stat-title mb-1">VAT Collected</div>
+              <div class="stat-kpi-value fw-bold">₱{{ total_vat|floatformat:2 }}</div>
+            </div>
+            <div class="stat-icon" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);">
+              <i class="bi bi-percent"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Payment breakdown -->
+    {% if payment_breakdown %}
+    <div class="row g-3 mb-4">
+      <div class="col-12 col-md-8">
+        <div class="chart-card">
+          <h6 class="fw-bold mb-3"><i class="bi bi-pie-chart me-2 text-success"></i>Payment Method Breakdown</h6>
+          <div class="row g-2">
+            {% for pm in payment_breakdown %}
+            <div class="col-6 col-sm-4">
+              <div class="pay-tile">
+                <div class="pt-lab">{{ pm.payment_method|title }}</div>
+                <div class="pt-val" style="color:#ED1C24;">₱{{ pm.revenue|floatformat:2 }}</div>
+                <div class="pt-sub">{{ pm.count }} txn{% if pm.count != 1 %}s{% endif %}</div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-md-4">
+        <div class="chart-card d-flex flex-column align-items-center justify-content-center">
+          <canvas id="paymentPieChart" style="max-height:200px;"></canvas>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Transaction history -->
+    <div class="table-card">
+      <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+        <h5 class="fw-bold mb-0">
+          <i class="bi bi-list-ul me-2 text-success"></i>Transaction History
+        </h5>
+        {% if page_obj.paginator.num_pages > 1 %}
+        <span class="text-muted small">Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        {% endif %}
+      </div>
+
+      {% if page_obj.object_list %}
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead>
+            <tr>
+              <th>TXN #</th>
+              <th>Date &amp; Time</th>
+              <th>Customer</th>
+              <th>Payment</th>
+              <th>Status</th>
+              <th class="text-end">Amount</th>
+              <th class="text-center">Receipt</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for txn in page_obj %}
+            <tr>
+              <td>
+                <code style="background:#f1f5f9;padding:0.2rem 0.45rem;border-radius:6px;font-size:0.82rem;">
+                  {{ txn.transaction_number }}
+                </code>
+              </td>
+              <td class="small text-muted">{{ txn.created_at|date:"M d, Y H:i" }}</td>
+              <td class="fw-semibold">{{ txn.customer_display_name }}</td>
+              <td>
+                <span class="badge-payment badge-{{ txn.payment_method }}">{{ txn.payment_method|title }}</span>
+              </td>
+              <td>
+                <span class="txn-status-badge txn-status-{{ txn.status }}">{{ txn.get_status_display }}</span>
+              </td>
+              <td class="text-end fw-bold" style="color:#ED1C24;">₱{{ txn.total_amount|floatformat:2 }}</td>
+              <td class="text-center">
+                {% if txn.payment_method == 'cash' %}
+                  <a href="{% url 'view_cash_receipt' txn.id %}" target="_blank"
+                     class="btn btn-sm btn-outline-success rounded-pill px-2 py-0">
+                    <i class="bi bi-receipt"></i>
+                  </a>
+                {% elif txn.payment_method == 'credit' %}
+                  <a href="{% url 'view_credit_receipt' txn.id %}" target="_blank"
+                     class="btn btn-sm btn-outline-success rounded-pill px-2 py-0">
+                    <i class="bi bi-receipt"></i>
+                  </a>
+                {% else %}
+                  <a href="{% url 'view_debit_credit_receipt' txn.id %}" target="_blank"
+                     class="btn btn-sm btn-outline-success rounded-pill px-2 py-0">
+                    <i class="bi bi-receipt"></i>
+                  </a>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      {% if page_obj.paginator.num_pages > 1 %}
+      <nav class="mt-4" aria-label="Transactions pagination">
+        <ul class="pagination pagination-sm justify-content-center mb-0">
+          {% if page_obj.has_previous %}
+          <li class="page-item">
+            <a class="page-link rounded-pill me-1"
+               href="?page={{ page_obj.previous_page_number }}&date_from={{ date_from }}&date_to={{ date_to }}">
+              <i class="bi bi-chevron-left"></i>
+            </a>
+          </li>
+          {% endif %}
+          {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+            <li class="page-item active">
+              <span class="page-link rounded-pill mx-1">{{ num }}</span>
+            </li>
+            {% elif num >= page_obj.number|add:"-2" and num <= page_obj.number|add:"2" %}
+            <li class="page-item">
+              <a class="page-link rounded-pill mx-1"
+                 href="?page={{ num }}&date_from={{ date_from }}&date_to={{ date_to }}">{{ num }}</a>
+            </li>
+            {% endif %}
+          {% endfor %}
+          {% if page_obj.has_next %}
+          <li class="page-item">
+            <a class="page-link rounded-pill ms-1"
+               href="?page={{ page_obj.next_page_number }}&date_from={{ date_from }}&date_to={{ date_to }}">
+              <i class="bi bi-chevron-right"></i>
+            </a>
+          </li>
+          {% endif %}
+        </ul>
+      </nav>
+      {% endif %}
+
+      {% else %}
+      <div class="text-center py-5 text-muted">
+        <i class="bi bi-receipt-cutoff" style="font-size:3rem;opacity:.4;"></i>
+        <p class="mt-3 mb-1 fw-semibold">No transactions found</p>
+        <p class="small mb-0">Try adjusting the date range filter above.</p>
+      </div>
+      {% endif %}
+    </div>
+
+  </main>
+
+  {% include "partials/bootstrap_scripts.html" %}
+  {% include 'admin_panel/partials/admin_nav_footer.html' %}
+  {% include 'admin_panel/partials/admin_logout_confirm_js.html' %}
+
+  {% if payment_breakdown %}
+  <script>
+    (function () {
+      var labels  = [{% for pm in payment_breakdown %}'{{ pm.payment_method|title }}'{% if not forloop.last %},{% endif %}{% endfor %}];
+      var data    = [{% for pm in payment_breakdown %}{{ pm.revenue }}{% if not forloop.last %},{% endif %}{% endfor %}];
+      var colours = ['#ED1C24','#3b82f6','#f59e0b','#8b5cf6','#E6C200'];
+      var ctx = document.getElementById('paymentPieChart');
+      if (ctx) {
+        new Chart(ctx, {
+          type: 'doughnut',
+          data: {
+            labels: labels,
+            datasets: [{
+              data: data,
+              backgroundColor: colours.slice(0, labels.length),
+              borderWidth: 2,
+              borderColor: '#fff'
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+              legend: { position: 'bottom', labels: { font: { size: 11 }, padding: 10 } },
+              tooltip: {
+                callbacks: {
+                  label: function (ctx) {
+                    return ' ₱' + parseFloat(ctx.raw).toLocaleString('en-PH', { minimumFractionDigits: 2 });
+                  }
+                }
+              }
+            }
+          }
+        });
+      }
+    })();
+  </script>
+  {% endif %}
+</body>
+</html>

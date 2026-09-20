@@ -1,0 +1,950 @@
+{% extends "loans/member/base_member_loans.html" %}
+{% load currency_filters %}
+{% block title %}Loan Status{% endblock %}
+{% block content %}
+<style>
+  .detail-hero__status {
+    display: inline-flex;
+    margin-top: .5rem;
+  }
+  .detail-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: .75rem;
+    margin-bottom: 1.75rem;
+  }
+  .detail-overview__card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 1rem 1.1rem;
+    background: var(--panel);
+  }
+  .detail-overview__card--accent {
+    background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+    border-color: #bbf7d0;
+  }
+  .detail-overview__card--warn {
+    background: linear-gradient(135deg, #FEF7D5 0%, #ffedd5 100%);
+    border-color: #fed7aa;
+  }
+  .detail-overview__label {
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--muted);
+    margin-bottom: .25rem;
+  }
+  .detail-overview__card--accent .detail-overview__label { color: #166534; }
+  .detail-overview__card--warn .detail-overview__label { color: #9a3412; }
+  .detail-overview__value {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--dark);
+    letter-spacing: -.02em;
+  }
+  .detail-overview__card--accent .detail-overview__value { color: #166534; }
+  .detail-overview__card--warn .detail-overview__value { color: #b91c1c; }
+  .detail-info-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: .85rem 1.25rem;
+    padding: 1.15rem 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: #fff;
+    margin-bottom: 1.75rem;
+  }
+  .detail-info-grid dt {
+    color: var(--muted);
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    margin: 0;
+  }
+  .detail-info-grid dd {
+    margin: .25rem 0 0;
+    font-weight: 700;
+    font-size: .92rem;
+    color: var(--dark);
+  }
+  .detail-info-grid__full { grid-column: 1 / -1; }
+  .detail-info-grid__full dd { font-weight: 500; line-height: 1.5; }
+  .detail-panel {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: #fff;
+    margin-bottom: 1.75rem;
+    overflow: hidden;
+  }
+  .detail-panel__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .9rem 1.15rem;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  .detail-panel__head h2 {
+    margin: 0;
+    font-size: .95rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+  }
+  .detail-panel__head h2 i { color: var(--accent); }
+  .detail-panel__body { padding: 1.15rem 1.25rem 1.25rem; }
+  .detail-panel__body .helptext { margin-top: .65rem; margin-bottom: 0; }
+  .detail-notice {
+    display: flex;
+    align-items: flex-start;
+    gap: .65rem;
+    padding: .9rem 1rem;
+    margin-bottom: 1.75rem;
+    border-radius: var(--radius-sm);
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1e40af;
+    font-size: .86rem;
+    line-height: 1.45;
+  }
+  .detail-notice i { font-size: 1.1rem; flex-shrink: 0; }
+  .doc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: .65rem;
+  }
+  .doc-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    padding: .85rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+  }
+  .doc-card__info { min-width: 0; }
+  .doc-card__name {
+    font-weight: 700;
+    font-size: .88rem;
+    color: var(--dark);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .doc-card__date { font-size: .76rem; color: var(--muted); margin-top: .15rem; }
+  .detail-footer {
+    display: flex;
+    align-items: center;
+    gap: .75rem;
+    padding-top: .5rem;
+    border-top: 1px solid var(--border);
+    margin-top: .5rem;
+  }
+  .detail-footer .subtitle { margin: 0; flex: 1; }
+  .detail-hero__status { flex-wrap: wrap; gap: .35rem; }
+  .detail-overview__value { overflow-wrap: anywhere; }
+
+  .loan-progress {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: #fff;
+    padding: 1rem 1.15rem 1.05rem;
+    margin-bottom: 1.75rem;
+  }
+  .loan-progress__head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: .75rem;
+    margin-bottom: .85rem;
+  }
+  .loan-progress__head h2 {
+    margin: 0;
+    font-size: .95rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+  }
+  .loan-progress__head h2 i { color: var(--accent); }
+  .loan-progress__head p { margin: 0; color: var(--muted); font-size: .88rem; }
+  .loan-stepper {
+    list-style: none; margin: 0; padding: 0;
+    display: flex; gap: 0; overflow-x: auto;
+  }
+  .loan-stepper__item {
+    flex: 1 0 auto; min-width: 88px; max-width: 140px;
+    display: flex; flex-direction: column; align-items: center;
+    text-align: center; position: relative; padding: 0 .4rem .15rem;
+  }
+  .loan-stepper__item:not(:last-child)::after {
+    content: "";
+    position: absolute; top: 14px; left: calc(50% + 16px); right: calc(-50% + 16px);
+    height: 2px; background: #e2e8f0;
+  }
+  .loan-stepper__item.is-done:not(:last-child)::after { background: #86efac; }
+  .loan-stepper__item.is-failed:not(:last-child)::after { background: #fecaca; }
+  .loan-stepper__mark {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: .72rem; font-weight: 700; background: #f1f5f9; color: #64748b;
+    border: 1px solid #e2e8f0; position: relative; z-index: 1;
+  }
+  .loan-stepper__label {
+    margin-top: .45rem; font-size: .72rem; font-weight: 600; color: #94a3b8; line-height: 1.25;
+  }
+  .loan-stepper__item.is-done .loan-stepper__mark { background: #dcfce7; border-color: #86efac; color: #166534; }
+  .loan-stepper__item.is-done .loan-stepper__label { color: #166534; }
+  .loan-stepper__item.is-current .loan-stepper__mark { background: #ED1C24; border-color: #ED1C24; color: #fff; }
+  .loan-stepper__item.is-current .loan-stepper__label { color: #0f172a; font-weight: 700; }
+  .loan-stepper__item.is-failed .loan-stepper__mark { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+  .loan-stepper__item.is-failed .loan-stepper__label { color: #991b1b; font-weight: 700; }
+
+  .detail-notice--ok { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
+  .detail-notice--warn { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+  .detail-notice--danger { background: #fef2f2; border-color: #fecaca; color: #991b1b; }
+  .detail-notice__title { display: block; font-weight: 800; margin-bottom: .2rem; }
+  .detail-notice__next { display: block; margin-top: .45rem; font-weight: 600; }
+
+  .process-list { display: flex; flex-direction: column; gap: 0; }
+  .process-stage {
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: .85rem;
+    padding: .85rem 0;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .process-stage:last-child { border-bottom: none; padding-bottom: 0; }
+  .process-stage:first-child { padding-top: 0; }
+  .process-stage__mark {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: .72rem; font-weight: 700; background: #f1f5f9; color: #64748b;
+    border: 1px solid #e2e8f0; margin-top: .1rem;
+  }
+  .process-stage.is-done .process-stage__mark { background: #dcfce7; border-color: #86efac; color: #166534; }
+  .process-stage.is-current .process-stage__mark { background: #ED1C24; border-color: #ED1C24; color: #fff; }
+  .process-stage.is-failed .process-stage__mark { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
+  .process-stage.is-waiting { opacity: .72; }
+  .process-stage__title {
+    margin: 0;
+    font-size: .92rem;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    flex-wrap: wrap;
+  }
+  .process-stage__desc { margin: .2rem 0 0; color: var(--muted); font-size: .84rem; line-height: 1.45; }
+  .process-stage__facts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: .5rem .85rem;
+    margin-top: .65rem;
+  }
+  .process-stage__facts dt {
+    margin: 0; font-size: .68rem; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .04em; color: var(--muted);
+  }
+  .process-stage__facts dd { margin: .15rem 0 0; font-size: .86rem; font-weight: 700; color: var(--dark); }
+
+  .loan-ref {
+    display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .85rem; padding: .9rem 1rem; border-radius: 12px;
+    background: #0f172a; color: #f8fafc; margin-bottom: 1rem;
+  }
+  .loan-ref span {
+    display: block; font-size: .7rem; letter-spacing: .05em;
+    text-transform: uppercase; color: #94a3b8; margin-bottom: .2rem;
+  }
+  .loan-ref strong { font-size: .98rem; }
+  .loan-facts {
+    display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .75rem .9rem;
+  }
+  .loan-facts span { display: block; font-size: .72rem; color: #94a3b8; font-weight: 600; margin-bottom: .15rem; }
+  .loan-facts strong { font-size: .88rem; color: #0f172a; }
+
+  .loan-audit-trail__list {
+    display: flex; flex-direction: column; gap: 0;
+    margin-top: .15rem; border-left: 2px solid #e2e8f0; margin-left: .35rem;
+  }
+  .loan-audit-entry {
+    display: grid; grid-template-columns: 12px 1fr; gap: .85rem;
+    padding: .75rem 0 .75rem .65rem;
+  }
+  .loan-audit-entry + .loan-audit-entry { border-top: 1px solid #f1f5f9; }
+  .loan-audit-entry__marker {
+    width: 10px; height: 10px; border-radius: 50%; background: var(--accent);
+    border: 2px solid #fff; box-shadow: 0 0 0 2px #fde68a;
+    margin-top: .35rem; margin-left: -1.05rem;
+  }
+  .loan-audit-entry__head {
+    display: flex; flex-wrap: wrap; align-items: center;
+    justify-content: space-between; gap: .35rem .75rem; margin-bottom: .2rem;
+  }
+  .loan-audit-entry__action { font-weight: 700; font-size: .88rem; color: var(--dark); }
+  .loan-audit-entry__time { font-size: .78rem; color: var(--muted); }
+  .loan-audit-entry__desc { margin: 0; font-size: .86rem; color: #334155; line-height: 1.45; }
+
+  @media (max-width: 991.98px) {
+    .detail-overview { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .detail-info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .loan-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+  @media (max-width: 575.98px) {
+    .detail-overview { grid-template-columns: 1fr; }
+    .detail-info-grid {
+      grid-template-columns: 1fr;
+      padding: 1rem;
+    }
+    .detail-panel__head,
+    .detail-panel__body { padding-left: 1rem; padding-right: 1rem; }
+    .detail-panel__head { flex-wrap: wrap; }
+    .doc-card { flex-wrap: wrap; }
+    .doc-card .btn-ghost { width: 100%; justify-content: center; }
+    .detail-footer {
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .loan-progress__head { flex-direction: column; align-items: flex-start; }
+    .loan-ref, .loan-facts { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="loans-hero loans-hero--desktop">
+  <div class="loans-hero__main">
+    <div class="loans-hero__eyebrow">{{ kiosk_system_name|default:"Cooperative" }} · Loan Application</div>
+    <h1>{{ application.loan_product.name }}</h1>
+    <p class="subtitle">
+      Submitted {% if application.submitted_at %}{{ application.submitted_at|date:"M j, Y" }}{% else %}{{ application.created_at|date:"M j, Y" }}{% endif %}
+      &middot; {{ application.term_months }} months
+    </p>
+    <div class="detail-hero__status">
+      <span class="status-pill status-pill--{{ application.status|lower }}">{{ application.get_status_display }}</span>
+      {% if show_loan_financials and payment_plan and plan_is_estimate %}
+      <span class="status-pill" style="margin-left:.45rem;">Estimate</span>
+      {% endif %}
+    </div>
+  </div>
+  <div class="loans-hero__side">
+    <div class="loans-hero__actions">
+      <a class="btn-ghost" href="{% url 'member_loan_list' %}">
+        <i class="bi bi-arrow-left"></i> Back to My Loans
+      </a>
+    </div>
+  </div>
+</div>
+
+<div class="member-card__body member-card__body--desktop">
+
+  <div class="detail-overview">
+    <div class="detail-overview__card">
+      <div class="detail-overview__label">Amount requested</div>
+      <div class="detail-overview__value">&#8369;{{ application.amount_requested|currency }}</div>
+    </div>
+    {% if show_loan_financials %}
+    {% if uses_period_interest %}
+    <div class="detail-overview__card">
+      <div class="detail-overview__label">Interest rate</div>
+      <div class="detail-overview__value" style="font-size:1.05rem;">{{ interest_rate|floatformat:3 }}</div>
+    </div>
+    <div class="detail-overview__card">
+      <div class="detail-overview__label">Interest charged</div>
+      <div class="detail-overview__value">&#8369;{{ interest_charged_so_far|currency }}</div>
+    </div>
+    <div class="detail-overview__card">
+      <div class="detail-overview__label">Total with interest</div>
+      <div class="detail-overview__value">&#8369;{{ total_obligation|currency }}</div>
+    </div>
+    {% endif %}
+    <div class="detail-overview__card">
+      <div class="detail-overview__label">Total paid</div>
+      <div class="detail-overview__value">&#8369;{{ total_paid|currency }}</div>
+    </div>
+    <div class="detail-overview__card detail-overview__card--accent">
+      <div class="detail-overview__label">Balance remaining</div>
+      <div class="detail-overview__value">&#8369;{{ outstanding_balance|currency }}</div>
+    </div>
+    {% if payment_plan and not uses_period_interest %}
+    <div class="detail-overview__card">
+      <div class="detail-overview__label">Monthly payment</div>
+      <div class="detail-overview__value">&#8369;{{ payment_plan.monthly_payment|currency }}</div>
+    </div>
+    {% endif %}
+    {% else %}
+    <div class="detail-overview__card">
+      <div class="detail-overview__label">Term</div>
+      <div class="detail-overview__value">{{ application.term_months }} mo.</div>
+    </div>
+    <div class="detail-overview__card">
+      <div class="detail-overview__label">Submitted</div>
+      <div class="detail-overview__value" style="font-size:.95rem;">
+        {{ application.submitted_at|date:"M j, Y"|default:"—" }}
+      </div>
+    </div>
+    <div class="detail-overview__card detail-overview__card--warn">
+      <div class="detail-overview__label">Status</div>
+      <div class="detail-overview__value" style="font-size:.95rem;">Under review</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <section class="loan-progress" aria-label="Loan process">
+    <div class="loan-progress__head">
+      <h2><i class="bi bi-diagram-3"></i> Loan process</h2>
+      {% for step in pipeline_steps %}
+        {% if step.current %}
+        <p>Current step: <strong>{{ step.label }}</strong></p>
+        {% endif %}
+      {% endfor %}
+    </div>
+    <ol class="loan-stepper">
+      {% for step in pipeline_steps %}
+      <li class="loan-stepper__item{% if step.completed %} is-done{% endif %}{% if step.current %} is-current{% endif %}{% if step.failed %} is-failed{% endif %}">
+        <span class="loan-stepper__mark" aria-hidden="true">
+          {% if step.failed %}<i class="bi bi-x-lg"></i>
+          {% elif step.completed %}<i class="bi bi-check-lg"></i>
+          {% else %}{{ forloop.counter }}{% endif %}
+        </span>
+        <span class="loan-stepper__label">{{ step.label }}</span>
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+
+  {% if status_guidance %}
+  <div class="detail-notice detail-notice--{{ status_guidance.tone }}">
+    <i class="bi {% if status_guidance.tone == 'ok' %}bi-check-circle{% elif status_guidance.tone == 'danger' %}bi-exclamation-triangle{% else %}bi-info-circle{% endif %}"></i>
+    <span>
+      <span class="detail-notice__title">{{ status_guidance.title }}</span>
+      {{ status_guidance.body }}
+      <span class="detail-notice__next">{{ status_guidance.next_step }}</span>
+    </span>
+  </div>
+  {% endif %}
+
+  <section class="detail-panel">
+    <div class="detail-panel__head">
+      <h2><i class="bi bi-list-check"></i> What happens at each step</h2>
+    </div>
+    <div class="detail-panel__body">
+      <div class="process-list">
+        {% for stage in process_stages %}
+        <article class="process-stage is-{{ stage.state }}">
+          <span class="process-stage__mark" aria-hidden="true">
+            {% if stage.failed %}<i class="bi bi-x-lg"></i>
+            {% elif stage.completed %}<i class="bi bi-check-lg"></i>
+            {% else %}{{ forloop.counter }}{% endif %}
+          </span>
+          <div>
+            <h3 class="process-stage__title">
+              {{ stage.label }}
+              {% if stage.failed %}<span class="status-pill status-pill--rejected">Did not pass</span>
+              {% elif stage.current %}<span class="status-pill status-pill--submitted">Now</span>
+              {% elif stage.completed %}<span class="status-pill status-pill--approved">Done</span>
+              {% else %}<span class="status-pill">Waiting</span>{% endif %}
+            </h3>
+            <p class="process-stage__desc">{{ stage.description }}</p>
+            {% if stage.facts %}
+            <dl class="process-stage__facts">
+              {% for fact in stage.facts %}
+              <div>
+                <dt>{{ fact.0 }}</dt>
+                <dd>{{ fact.1 }}</dd>
+              </div>
+              {% endfor %}
+            </dl>
+            {% endif %}
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section class="detail-panel">
+    <div class="detail-panel__head">
+      <h2><i class="bi bi-card-text"></i> Application details</h2>
+    </div>
+    <div class="detail-panel__body">
+      <dl class="detail-info-grid">
+        <div>
+          <dt>Amount requested</dt>
+          <dd>&#8369;{{ application.amount_requested|currency }}</dd>
+        </div>
+        <div>
+          <dt>Term</dt>
+          <dd>{{ application.term_months }} months</dd>
+        </div>
+        <div>
+          <dt>Submitted</dt>
+          <dd>{{ application.submitted_at|date:"M j, Y H:i"|default:"—" }}</dd>
+        </div>
+        {% if show_loan_financials %}
+        <div>
+          <dt>Interest rate</dt>
+          <dd>{{ interest_rate|floatformat:3 }} / mo <span class="data-table__muted">(decimal)</span></dd>
+        </div>
+        {% if uses_period_interest %}
+        <div>
+          <dt>Interest formula</dt>
+          <dd>Daily = (rate ÷ 30) × balance</dd>
+        </div>
+        <div>
+          <dt>Interest charged</dt>
+          <dd>
+            {% if interest_charged_so_far > 0 %}
+              &#8369;{{ interest_charged_so_far|currency }}
+            {% else %}
+              &#8369;0.00 <span class="data-table__muted">(none yet)</span>
+            {% endif %}
+          </dd>
+        </div>
+        <div>
+          <dt>Total with interest</dt>
+          <dd>&#8369;{{ total_obligation|currency }}</dd>
+        </div>
+        <div>
+          <dt>Balance remaining</dt>
+          <dd>&#8369;{{ outstanding_balance|currency }}</dd>
+        </div>
+        {% else %}
+        <div>
+          <dt>Interest start month</dt>
+          <dd>Month {{ application.loan_product.interest_start_month }}</dd>
+        </div>
+        <div>
+          <dt>Late interest per missed month</dt>
+          <dd>{{ monthly_interest_rate|floatformat:4 }} / month of unpaid principal</dd>
+        </div>
+        {% if payment_plan %}
+        <div>
+          <dt>Months covered</dt>
+          <dd>
+            {{ payment_plan.paid_months }} paid
+            {% if payment_plan.partial_months %} · {{ payment_plan.partial_months }} partial{% endif %}
+            · {{ payment_plan.unpaid_months }} unpaid
+          </dd>
+        </div>
+        <div>
+          <dt>Interest charged so far</dt>
+          <dd>
+            {% if interest_charged_so_far > 0 %}
+              &#8369;{{ interest_charged_so_far|currency }}
+            {% else %}
+              &#8369;0.00 <span class="data-table__muted">(none yet)</span>
+            {% endif %}
+          </dd>
+        </div>
+        <div>
+          <dt>Max interest if all late</dt>
+          <dd class="miss-summary__late">&#8369;{{ payment_plan.total_late_penalty_if_missed|currency }}</dd>
+        </div>
+        {% endif %}
+        {% endif %}
+        {% endif %}
+        <div class="detail-info-grid__full">
+          <dt>Purpose</dt>
+          <dd>{{ application.purpose|default:"—" }}</dd>
+        </div>
+      </dl>
+    </div>
+  </section>
+
+  {% if not show_loan_financials %}
+  <div class="detail-notice">
+    <i class="bi bi-calendar3"></i>
+    <span>Your monthly payment schedule and interest details will appear here after the credit committee approves this loan.</span>
+  </div>
+  {% endif %}
+
+  {% if show_contract and contract %}
+  <section class="detail-panel" id="loan-contract">
+    <div class="detail-panel__head">
+      <h2><i class="bi bi-file-earmark-text"></i> Payment contract</h2>
+      {% if documentation and documentation.agreement_file %}
+      <span>
+        <a class="btn-ghost" href="{{ documentation.agreement_file.url }}" target="_blank" rel="noopener">
+          <i class="bi bi-eye"></i> View PDF
+        </a>
+        <a class="btn-ghost" href="{{ documentation.agreement_file.url }}" download>
+          <i class="bi bi-download"></i> Download
+        </a>
+      </span>
+      {% endif %}
+    </div>
+    <div class="detail-panel__body">
+      <div class="loan-ref">
+        <div>
+          <span>Contract reference</span>
+          <strong>LPC-{{ contract.application_ref }}</strong>
+        </div>
+        <div>
+          <span>Issued</span>
+          <strong>{{ contract.issued_on|date:"M j, Y" }}</strong>
+        </div>
+        <div>
+          <span>Signatures</span>
+          {% if documentation and documentation.signing_method == "HARD_COPY" and documentation.signed_hard_copy %}
+          <strong>Hard copy on file</strong>
+          {% elif documentation and documentation.signed_by_borrower_at and documentation.signed_by_authorized_personnel_at %}
+          <strong>Fully signed</strong>
+          {% elif documentation and documentation.signed_by_borrower_at or documentation and documentation.signed_by_authorized_personnel_at %}
+          <strong>Partially signed</strong>
+          {% else %}
+          <strong>Awaiting signatures</strong>
+          {% endif %}
+        </div>
+      </div>
+      <div class="loan-facts">
+        <div><span>Borrower</span><strong>{{ contract.member_name }}</strong></div>
+        <div><span>Loan product</span><strong>{{ contract.product.name }}</strong></div>
+        <div><span>Principal</span><strong>&#8369;{{ application.amount_requested|currency }}</strong></div>
+        <div><span>Monthly payment</span><strong>&#8369;{{ contract.monthly_payment|currency }}</strong></div>
+        <div><span>Total if on time</span><strong>&#8369;{{ contract.total_on_time|currency }}</strong></div>
+        <div><span>You signed</span><strong>{% if documentation %}{{ documentation.signed_by_borrower_at|date:"M j, Y"|default:"Not yet" }}{% else %}Not yet{% endif %}</strong></div>
+        <div><span>Cooperative signed</span><strong>{% if documentation %}{{ documentation.signed_by_authorized_personnel_at|date:"M j, Y"|default:"Not yet" }}{% else %}Not yet{% endif %}</strong></div>
+        <div><span>Signing method</span><strong>{% if documentation %}{{ documentation.get_signing_method_display }}{% else %}—{% endif %}</strong></div>
+      </div>
+      {% if documentation and documentation.signed_hard_copy %}
+      <p class="helptext" style="margin-top:1rem;margin-bottom:0;">
+        <a href="{{ documentation.signed_hard_copy.url }}" target="_blank" rel="noopener">View signed hard copy</a>
+      </p>
+      {% elif not documentation or not documentation.agreement_file %}
+      <p class="helptext" style="margin-top:1rem;margin-bottom:0;">
+        The PDF agreement will appear here once staff prepare it for signing.
+      </p>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if collaterals %}
+  <section class="detail-panel">
+    <div class="detail-panel__head">
+      <h2><i class="bi bi-shield-check"></i> Collateral</h2>
+    </div>
+    <div class="detail-panel__body">
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th>Estimated value</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in collaterals %}
+            <tr>
+              <td class="data-table__strong data-table__lead">{{ item.description }}</td>
+              <td data-label="Estimated value">&#8369;{{ item.estimated_value|currency }}</td>
+              <td data-label="Status">
+                {% if item.is_released %}
+                <span class="status-pill status-pill--fully_paid">Released</span>
+                {% else %}
+                <span class="status-pill">Held</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if show_loan_financials and payment_plan and not uses_period_interest %}
+  <section class="detail-panel">
+    <div class="detail-panel__head">
+      <h2><i class="bi bi-calendar3"></i> Monthly payment plan</h2>
+      {% if plan_is_estimate %}<span class="status-pill">Estimate</span>{% endif %}
+    </div>
+    <div class="detail-panel__body">
+      <div class="plan-cards">
+        <div class="plan-card">
+          <span class="plan-card__label">Pay on time total</span>
+          <span class="plan-card__value">&#8369;{{ payment_plan.total_if_on_time|currency }}</span>
+        </div>
+        <div class="plan-card plan-card--accent">
+          <span class="plan-card__label">Balance left</span>
+          <span class="plan-card__value">&#8369;{{ outstanding_balance|currency }}</span>
+        </div>
+        <div class="plan-card">
+          <span class="plan-card__label">Months paid</span>
+          <span class="plan-card__value">{{ payment_plan.paid_months }} / {{ payment_plan.rows|length }}</span>
+        </div>
+        <div class="plan-card plan-card--warn">
+          <span class="plan-card__label">If all due dates missed</span>
+          <span class="plan-card__value">&#8369;{{ payment_plan.total_if_all_missed|currency }}</span>
+        </div>
+      </div>
+
+      {% if payment_plan.rows %}
+      <div class="data-table-wrap" style="margin-top:1rem;">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Month</th>
+              <th>Due date</th>
+              <th>Principal</th>
+              <th>Pay on time</th>
+              <th>Applied</th>
+              <th>If missed</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in payment_plan.rows %}
+            <tr{% if row.payment_status == "paid" %} style="background:#f0fdf4;"{% elif row.payment_status == "partial" %} style="background:#FEF7D5;"{% endif %}>
+              <td class="data-table__strong data-table__lead">Month {{ row.month }}</td>
+              <td data-label="Due date">
+                {% if row.due_date %}
+                  {{ row.due_date|date:"M j, Y" }}
+                  {% if row.is_overdue and row.payment_status != "paid" %}
+                  <div class="payment-table__late">Past due</div>
+                  {% endif %}
+                {% else %}
+                  <span class="data-table__muted">—</span>
+                {% endif %}
+              </td>
+              <td data-label="Principal">&#8369;{{ row.principal_due|currency }}</td>
+              <td class="data-table__amount" data-label="Pay on time">
+                &#8369;{{ row.on_time_pay|currency }}
+                <div class="data-table__muted">No interest</div>
+              </td>
+              <td data-label="Applied">
+                {% if row.amount_applied > 0 %}
+                  &#8369;{{ row.amount_applied|currency }}
+                  {% if row.payment_status == "partial" %}
+                  <div class="data-table__muted">&#8369;{{ row.amount_remaining|currency }} due</div>
+                  {% endif %}
+                {% else %}
+                  <span class="data-table__muted">&#8369;0.00</span>
+                {% endif %}
+              </td>
+              <td data-label="If missed">
+                {% if row.payment_status == "paid" %}
+                  <span class="data-table__muted">Paid</span>
+                {% elif row.before_interest_start %}
+                  &#8369;{{ row.total_if_missed|currency }}
+                  <div class="data-table__muted">No late interest yet</div>
+                {% elif row.can_get_late_interest %}
+                  <strong class="payment-table__late-amt">&#8369;{{ row.total_if_missed|currency }}</strong>
+                  <div class="payment-table__late">+&#8369;{{ row.late_interest_if_missed|currency }} interest</div>
+                {% else %}
+                  &#8369;{{ row.total_if_missed|currency }}
+                {% endif %}
+              </td>
+              <td data-label="Status">
+                {% if row.payment_status == "paid" %}
+                  <span class="status-pill status-pill--fully_paid">Paid</span>
+                {% elif row.payment_status == "partial" %}
+                  <span class="status-pill status-pill--submitted">Partial</span>
+                {% elif row.is_overdue %}
+                  <span class="status-pill status-pill--rejected">Overdue</span>
+                {% else %}
+                  <span class="status-pill">Unpaid</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+          <tfoot>
+            <tr style="background:var(--panel);">
+              <td class="data-table__strong data-table__lead">Total</td>
+              <td data-label="Due date"></td>
+              <td class="data-table__strong" data-label="Principal">&#8369;{{ payment_plan.total_principal|currency }}</td>
+              <td class="data-table__amount" data-label="Pay on time">&#8369;{{ payment_plan.total_if_on_time|currency }}</td>
+              <td class="data-table__strong" data-label="Applied">&#8369;{{ total_paid|currency }}</td>
+              <td class="payment-table__late-amt" data-label="If missed">&#8369;{{ payment_plan.total_if_all_missed|currency }}</td>
+              <td data-label="Status"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <p class="helptext">
+        Pay on time = no interest. From month {{ application.loan_product.interest_start_month }} onward,
+        missing a due date adds late interest at rate {{ application.effective_interest_rate|floatformat:4 }} per month
+        (daily = monthly rate ÷ 30).
+      </p>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if show_loan_financials and uses_period_interest %}
+  <section class="detail-panel">
+    <div class="detail-panel__head">
+      <h2><i class="bi bi-percent"></i> Loan balance summary</h2>
+    </div>
+    <div class="detail-panel__body">
+      <div class="plan-cards">
+        <div class="plan-card">
+          <span class="plan-card__label">Principal</span>
+          <span class="plan-card__value">&#8369;{{ application.amount_requested|currency }}</span>
+        </div>
+        <div class="plan-card">
+          <span class="plan-card__label">Interest ({{ interest_rate|floatformat:3 }})</span>
+          <span class="plan-card__value">&#8369;{{ interest_charged_so_far|currency }}</span>
+        </div>
+        <div class="plan-card">
+          <span class="plan-card__label">Total with interest</span>
+          <span class="plan-card__value">&#8369;{{ total_obligation|currency }}</span>
+        </div>
+        <div class="plan-card plan-card--accent">
+          <span class="plan-card__label">Balance left</span>
+          <span class="plan-card__value">&#8369;{{ outstanding_balance|currency }}</span>
+        </div>
+      </div>
+      <p class="helptext" style="margin-top:1rem;">
+        Interest uses the same formula as payments:
+        daily = ({{ interest_rate|floatformat:3 }} ÷ 30) × balance, then × usable days.
+      </p>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if show_loan_financials %}
+  <section class="detail-panel">
+    <div class="detail-panel__head">
+      <h2><i class="bi bi-receipt"></i> Payment history</h2>
+      {% if payments %}<span class="status-pill">{{ payments|length }} payment{{ payments|length|pluralize }}</span>{% endif %}
+    </div>
+    <div class="detail-panel__body">
+      {% if payments %}
+      <div class="data-table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Amount paid</th>
+              <th>Period</th>
+              <th>Interest</th>
+              <th>Method</th>
+              <th>Official receipt</th>
+              <th>Remarks</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for payment in payments %}
+            <tr>
+              <td class="data-table__lead">
+                {{ payment.payment_date|date:"M j, Y" }}
+                <div class="data-table__muted">{{ payment.payment_date|date:"g:i A" }}</div>
+              </td>
+              <td class="data-table__amount" data-label="Amount paid">&#8369;{{ payment.amount_paid|currency }}</td>
+              <td data-label="Period">
+                {% if payment.usable_from and payment.usable_to %}
+                  {{ payment.usable_from|date:"M j" }} – {{ payment.usable_to|date:"M j, Y" }}
+                  <div class="data-table__muted">{{ payment.usable_days }} days</div>
+                {% else %}
+                  <span class="data-table__muted">—</span>
+                {% endif %}
+              </td>
+              <td data-label="Interest">
+                {% if payment.period_interest %}
+                  &#8369;{{ payment.period_interest|currency }}
+                {% else %}
+                  <span class="data-table__muted">&#8369;0.00</span>
+                {% endif %}
+              </td>
+              <td data-label="Method">{{ payment.get_payment_method_display }}</td>
+              <td data-label="Official receipt">{{ payment.or_number|default:"—" }}</td>
+              <td data-label="Remarks">{{ payment.remarks|default:"—" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty">
+        <i class="bi bi-receipt"></i>
+        <p class="mb-0">No payments have been recorded for this loan yet.</p>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="detail-panel">
+    <div class="detail-panel__head">
+      <h2><i class="bi bi-paperclip"></i> Uploaded documents</h2>
+      {% if documents %}<span class="status-pill">{{ documents|length }} file{{ documents|length|pluralize }}</span>{% endif %}
+    </div>
+    <div class="detail-panel__body">
+      {% if documents %}
+      <div class="doc-grid">
+        {% for doc in documents %}
+        <div class="doc-card">
+          <div class="doc-card__info">
+            <div class="doc-card__name" title="{{ doc.document_type }}">{{ doc.document_type }}</div>
+            <div class="doc-card__date">
+              {{ doc.uploaded_at|date:"M j, Y H:i" }}
+              {% if doc.is_verified %} · Verified{% endif %}
+            </div>
+          </div>
+          {% if doc.file %}
+          <a class="btn-ghost" href="{{ doc.file.url }}" target="_blank" rel="noopener">
+            <i class="bi bi-eye"></i> View
+          </a>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty">
+        <i class="bi bi-file-earmark"></i>
+        <p class="mb-0">No documents were attached to this request.</p>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+
+  {% if activity_logs %}
+  <section class="detail-panel">
+    <div class="detail-panel__head">
+      <h2><i class="bi bi-clock-history"></i> Activity history</h2>
+      <span class="status-pill">{{ activity_logs|length }} update{{ activity_logs|length|pluralize }}</span>
+    </div>
+    <div class="detail-panel__body">
+      <p class="helptext" style="margin-top:0;">Every recorded step on this loan, in order from newest to oldest.</p>
+      <div class="loan-audit-trail__list">
+        {% for entry in activity_logs %}
+        <article class="loan-audit-entry">
+          <div class="loan-audit-entry__marker" aria-hidden="true"></div>
+          <div>
+            <header class="loan-audit-entry__head">
+              <span class="loan-audit-entry__action">{{ entry.get_action_display }}</span>
+              <time class="loan-audit-entry__time" datetime="{{ entry.created_at|date:'c' }}">
+                {{ entry.created_at|date:"M j, Y g:i A" }}
+              </time>
+            </header>
+            <p class="loan-audit-entry__desc">{{ entry.description }}</p>
+          </div>
+        </article>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  <div class="detail-footer">
+    {% if can_request_loan %}
+    <a class="btn-member" href="{% url 'member_loan_request' %}"><i class="bi bi-plus-lg"></i> New loan request</a>
+    {% elif loan_waiting and not loan_waiting.allowed %}
+    <p class="subtitle">{{ loan_waiting.message }}</p>
+    {% else %}
+    <p class="subtitle">You can submit another loan request after this one is closed, rejected, or fully paid.</p>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

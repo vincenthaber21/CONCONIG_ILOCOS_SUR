@@ -1,0 +1,9 @@
+{% extends "loans/member/base_member_loans.html" %}
+{% block title %}Request a Loan{% endblock %}
+{% block content %}
+{% include "loans/partials/loan_request_form.html" %}
+{% endblock %}
+
+{% block extra_scripts %}
+{% include "loans/partials/loan_request_form_scripts.html" %}
+{% endblock %}

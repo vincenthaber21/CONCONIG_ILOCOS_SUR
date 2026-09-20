@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}New Loan Application{% endblock %}
+{% block content %}
+<h1>New Loan Application</h1>
+<p class="subtitle">Complete the details below to submit a formal loan application.</p>
+<div class="card">
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <p>
+            <label for="documents">Supporting Documents (optional)</label>
+            <input type="file" name="documents" id="documents" multiple>
+        </p>
+        <button type="submit" class="btn">Submit Application</button>
+    </form>
+</div>
+{% endblock %}

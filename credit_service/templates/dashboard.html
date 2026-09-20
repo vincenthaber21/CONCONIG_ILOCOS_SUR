@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Credit Service{% endblock %}
+{% block content %}
+<h1>Credit Desk Dashboard</h1>
+<p class="subtitle">Portfolio health and pipeline overview.</p>
+
+<div class="grid grid--kpis">
+    <div class="kpi">
+        <p class="kpi__label">Total Applications</p>
+        <p class="kpi__value">{{ total_applications }}</p>
+    </div>
+    <div class="kpi">
+        <p class="kpi__label">Disbursed This Month</p>
+        <p class="kpi__value kpi__value--teal">₱{{ total_disbursed_this_month|floatformat:2 }}</p>
+    </div>
+    <div class="kpi">
+        <p class="kpi__label">Active Loans</p>
+        <p class="kpi__value">{{ active_loans_count }}</p>
+    </div>
+    <div class="kpi">
+        <p class="kpi__label">Delinquency Rate</p>
+        <p class="kpi__value kpi__value--warning">{{ delinquency_rate }}%</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card__header">
+        <h2>Application Funnel by Status</h2>
+    </div>
+    <canvas id="funnelChart" height="110"></canvas>
+</div>
+
+<div class="card">
+    <div class="card__header">
+        <h2>Quick links</h2>
+    </div>
+    <p>
+        <a class="btn" href="{% url 'loans:application-create' %}">New Loan Application</a>
+        <a class="btn btn--secondary" href="{% url 'loans:application-list' %}">View All Applications</a>
+    </p>
+</div>
+
+{% endblock %}
+
+{% block extra_scripts %}
+{% load static %}
+<script src="{% static 'vendor/chart.js/chart.umd.min.js' %}"></script>
+<script>
+    const ctx = document.getElementById('funnelChart');
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: {{ funnel_labels|safe }},
+            datasets: [{
+                label: 'Applications',
+                data: {{ funnel_values|safe }},
+                backgroundColor: '#0f8b8d',
+                borderRadius: 4,
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            plugins: { legend: { display: false } },
+            scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
+        }
+    });
+</script>
+{% endblock %}

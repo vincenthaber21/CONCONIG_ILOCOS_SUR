@@ -1,0 +1,230 @@
+{% extends "palay_trade/base_palay.html" %}
+{% load currency_filters %}
+{% block title %}Palay &amp; Bigas Features{% endblock %}
+{% block content %}
+<style>
+  .pf-hero {
+    background: var(--gradient); color: #fff; border-radius: 24px; padding: 28px 32px;
+    box-shadow: 0 25px 55px rgba(15,23,42,0.35); margin-bottom: 1.5rem;
+  }
+  .pf-hero h1 { color: #fff; font-size: 1.55rem; margin-bottom: .35rem; }
+  .pf-hero p { margin: 0; opacity: .92; max-width: 40rem; font-size: .95rem; }
+  .pf-stat {
+    background: #fff; border-radius: 16px; padding: 1rem 1.15rem;
+    box-shadow: 0 10px 24px rgba(15,23,42,0.07); border: 1px solid #e2e8f0;
+    height: 100%;
+  }
+  .pf-stat__label {
+    font-size: .72rem; text-transform: uppercase; letter-spacing: .06em;
+    color: #64748b; font-weight: 700; margin-bottom: .25rem;
+  }
+  .pf-stat__value { font-size: 1.35rem; font-weight: 800; color: #0f172a; }
+  .pf-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.25rem; margin-bottom: 1.5rem;
+  }
+  .pf-card {
+    background: #fff; border-radius: 20px; border: 1px solid #e2e8f0;
+    box-shadow: 0 15px 35px rgba(15,23,42,0.08); overflow: hidden;
+    display: flex; flex-direction: column;
+  }
+  .pf-card__head {
+    padding: 1.25rem 1.35rem 1rem; border-bottom: 1px solid #f1f5f9;
+    display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem;
+  }
+  .pf-card__icon {
+    width: 48px; height: 48px; border-radius: 14px; display: flex;
+    align-items: center; justify-content: center; font-size: 1.35rem; flex-shrink: 0;
+  }
+  .pf-card__icon--palay { background: #fef9c3; color: #854d0e; }
+  .pf-card__icon--bigas { background: #ffedd5; color: #9a3412; }
+  .pf-card__title { font-size: 1.15rem; font-weight: 800; color: #0f172a; margin: 0 0 .15rem; }
+  .pf-card__code { font-size: .78rem; color: #64748b; font-weight: 600; }
+  .pf-card__body { padding: 1.15rem 1.35rem; flex: 1; }
+  .pf-metrics {
+    display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; margin-bottom: 1rem;
+  }
+  .pf-metric {
+    background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px;
+    padding: .75rem .85rem;
+  }
+  .pf-metric__label {
+    font-size: .72rem; text-transform: uppercase; letter-spacing: .05em;
+    color: #64748b; font-weight: 700; margin-bottom: .2rem;
+  }
+  .pf-metric__value { font-size: 1rem; font-weight: 800; color: #0f172a; }
+  .pf-metric__hint { font-size: .75rem; color: #94a3b8; margin-top: .15rem; }
+  .pf-limits { font-size: .85rem; color: #475569; margin-bottom: 1rem; }
+  .pf-limits li { margin-bottom: .25rem; }
+  .pf-desc {
+    font-size: .85rem; color: #64748b; margin-bottom: 1rem;
+    padding: .65rem .85rem; background: #f8fafc; border-radius: 10px; border: 1px solid #f1f5f9;
+  }
+  .pf-card__foot {
+    padding: 1rem 1.35rem 1.25rem; border-top: 1px solid #f1f5f9;
+    display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; justify-content: space-between;
+  }
+  .stock-pill {
+    display: inline-block; padding: 3px 10px; border-radius: 999px;
+    font-size: .75rem; font-weight: 700;
+  }
+  .stock-pill--ok { background: #dcfce7; color: #166534; }
+  .stock-pill--low { background: #fef3c7; color: #92400e; }
+  .stock-pill--out { background: #fee2e2; color: #991b1b; }
+  .pf-chip {
+    display: inline-flex; align-items: center; gap: .3rem;
+    padding: .25rem .65rem; border-radius: 999px; font-size: .74rem; font-weight: 700;
+    background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0;
+  }
+</style>
+
+<section class="pf-hero">
+  <div class="d-flex justify-content-between flex-wrap gap-3 align-items-start">
+    <div>
+      <p class="mb-1 text-uppercase small fw-semibold" style="letter-spacing:.12em;opacity:.85;">Product features</p>
+      <h1>Rice Palay &amp; Bigas</h1>
+      <p>Configure buy/sell rates, stock levels, and trade limits for the two default palay desk products.</p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <a class="btn btn-light rounded-pill px-4 fw-semibold" href="{% url 'palay_trade:overview' %}">
+        <i class="bi bi-arrow-left me-1"></i>Palay desk
+      </a>
+      <a class="btn btn-light rounded-pill px-4 fw-semibold" href="{% url 'palay_trade:credit-desk' %}">
+        <i class="bi bi-credit-card me-1"></i>Palay utang desk
+      </a>
+      <a class="btn btn-dark rounded-pill px-4 fw-semibold" href="{% url 'palay_trade:trade-create' %}">
+        <i class="bi bi-plus-lg me-1"></i>New trade
+      </a>
+    </div>
+  </div>
+</section>
+
+<section class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="pf-stat">
+      <div class="pf-stat__label">Products</div>
+      <div class="pf-stat__value">{{ products|length }}</div>
+      <small class="text-muted">Rice Palay and Bigas only</small>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="pf-stat">
+      <div class="pf-stat__label">Combined stock</div>
+      <div class="pf-stat__value">{{ total_rice_stock|currency }} kg</div>
+      <small class="text-muted">Across both products</small>
+    </div>
+  </div>
+  <div class="col-md-4">
+    <div class="pf-stat">
+      <div class="pf-stat__label">Low-stock alerts</div>
+      <div class="pf-stat__value">{% if low_stock_count %}{{ low_stock_count }}{% else %}None{% endif %}</div>
+      <small class="text-muted">Products at or below alert level</small>
+    </div>
+  </div>
+</section>
+
+<div class="pf-grid">
+  {% for product in products %}
+  <article class="pf-card">
+    <header class="pf-card__head">
+      <div class="d-flex align-items-start gap-3">
+        <div class="pf-card__icon {% if product.code == 'rice-palay' %}pf-card__icon--palay{% else %}pf-card__icon--bigas{% endif %}">
+          {% if product.code == "rice-palay" %}
+          <i class="bi bi-flower1"></i>
+          {% else %}
+          <i class="bi bi-basket2"></i>
+          {% endif %}
+        </div>
+        <div>
+          <h2 class="pf-card__title">{{ product.name }}</h2>
+          <div class="pf-card__code">{{ product.code }}</div>
+        </div>
+      </div>
+      <div class="text-end">
+        {% if not product.is_active %}
+        <span class="stock-pill stock-pill--out">Inactive</span>
+        {% elif product.stock_kg <= 0 %}
+        <span class="stock-pill stock-pill--out">Out of stock</span>
+        {% elif product.is_low_stock %}
+        <span class="stock-pill stock-pill--low">Low stock</span>
+        {% else %}
+        <span class="stock-pill stock-pill--ok">In stock</span>
+        {% endif %}
+      </div>
+    </header>
+
+    <div class="pf-card__body">
+      <div class="pf-metrics">
+        <div class="pf-metric">
+          <div class="pf-metric__label">Buy rate</div>
+          <div class="pf-metric__value">&#8369;{{ product.buy_price_per_kg|currency }}</div>
+          <div class="pf-metric__hint">Per kg from farmer</div>
+        </div>
+        <div class="pf-metric">
+          <div class="pf-metric__label">Sell rate</div>
+          <div class="pf-metric__value">&#8369;{{ product.sell_price_per_kg|currency }}</div>
+          <div class="pf-metric__hint">Per kg from stock</div>
+        </div>
+        <div class="pf-metric">
+          <div class="pf-metric__label">Stock on hand</div>
+          <div class="pf-metric__value">{{ product.stock_kg|currency }} kg</div>
+          {% if product.low_stock_kg %}
+          <div class="pf-metric__hint">Alert at {{ product.low_stock_kg|currency }} kg</div>
+          {% endif %}
+        </div>
+        <div class="pf-metric">
+          <div class="pf-metric__label">Posted trades</div>
+          <div class="pf-metric__value">{{ product.trade_count }}</div>
+          <div class="pf-metric__hint">All-time tickets</div>
+        </div>
+      </div>
+
+      <ul class="pf-limits list-unstyled mb-0">
+        <li>
+          <i class="bi bi-sliders me-1 text-success"></i>
+          Quantity:
+          {% if product.min_quantity_kg %}min {{ product.min_quantity_kg|currency }} kg{% else %}no minimum{% endif %}
+          ·
+          {% if product.max_quantity_kg %}max {{ product.max_quantity_kg|currency }} kg{% else %}no maximum{% endif %}
+        </li>
+        <li>
+          <i class="bi bi-people me-1 text-success"></i>
+          {% if product.members_only %}Members only{% else %}Open to members and walk-ins{% endif %}
+        </li>
+        <li>
+          <i class="bi bi-credit-card me-1 text-success"></i>
+          {% if credit_settings.is_enabled and product.credit_enabled %}Palay credit allowed{% else %}Cash only{% endif %}
+        </li>
+        {% if product.variety %}
+        <li><i class="bi bi-tag me-1 text-success"></i>Variety: {{ product.variety.name }}</li>
+        {% endif %}
+      </ul>
+
+      {% if product.description %}
+      <p class="pf-desc mb-0">{{ product.description|truncatechars:160 }}</p>
+      {% endif %}
+    </div>
+
+    <footer class="pf-card__foot">
+      <span class="pf-chip"><i class="bi bi-receipt"></i> {{ product.trade_count }} trade{{ product.trade_count|pluralize }}</span>
+      <a class="btn-loan" href="{% url 'palay_trade:product-edit' product.pk %}">
+        <i class="bi bi-pencil"></i> Edit features
+      </a>
+    </footer>
+  </article>
+  {% empty %}
+  <div class="col-12 text-center text-muted py-5">
+    Default products will appear after the next page load.
+  </div>
+  {% endfor %}
+</div>
+
+<section class="card" style="border-radius:16px;">
+  <h2 class="h6 fw-bold mb-2"><i class="bi bi-info-circle me-2 text-success"></i>About these products</h2>
+  <p class="mb-0 text-muted small" style="max-width:48rem;">
+    The palay desk uses two fixed products: <strong>Rice Palay</strong> (unmilled rice bought from farmers or sold from stock)
+    and <strong>Bigas</strong> (milled rice). Edit each card to set default buy/sell prices, adjust opening stock,
+    configure low-stock alerts, and set per-ticket quantity limits. New trades pull rates from these features automatically.
+  </p>
+</section>
+{% endblock %}

@@ -1,0 +1,474 @@
+{% load currency_filters %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Loan Management | {{ kiosk_system_name }}</title>
+  {% include "partials/bootstrap_head.html" %}
+  <style>
+    :root {
+      --dark: #0f172a;
+      --brand: #ED1C24;
+      --accent: #E6C200;
+      --muted: #94a3b8;
+      --panel: #ffffff;
+      --gradient: linear-gradient(135deg, #ED1C24 0%, #C4121A 40%, #8B0E14 100%);
+    }
+
+    body {
+      background: #f1f5f9;
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    }
+
+    .super-nav {
+      background: var(--dark);
+      color: #fff;
+      box-shadow: 0 10px 30px rgba(15,23,42,0.4);
+    }
+
+    .hero-card {
+      background: var(--gradient);
+      color: #fff;
+      border-radius: 24px;
+      padding: 32px;
+      box-shadow: 0 25px 55px rgba(15,23,42,0.35);
+    }
+
+    .stat-card {
+      background: var(--panel);
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 12px 30px rgba(15,23,42,0.08);
+      height: 100%;
+    }
+
+    .stat-icon {
+      width: 46px;
+      height: 46px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 1.3rem;
+      flex-shrink: 0;
+    }
+
+    .loans-panel {
+      background: var(--panel);
+      border-radius: 18px;
+      padding: 22px;
+      box-shadow: 0 12px 30px rgba(15,23,42,0.08);
+      border: 1px solid #e2e8f0;
+    }
+
+    .loans-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    .loans-table th {
+      font-size: 0.75rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #64748b;
+      font-weight: 700;
+      padding: 10px 12px;
+      border-bottom: 2px solid #e2e8f0;
+      white-space: nowrap;
+    }
+    .loans-table td {
+      padding: 14px 12px;
+      border-bottom: 1px solid #f1f5f9;
+      vertical-align: middle;
+      font-size: 0.92rem;
+      color: #0f172a;
+    }
+    .loans-table tbody tr:hover {
+      background: #f8fafc;
+    }
+
+    .member-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .member-cell strong { font-weight: 700; }
+    .member-cell small { color: #64748b; font-size: 0.78rem; }
+
+    .status-pill {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      background: #e2e8f0;
+      color: #334155;
+      white-space: nowrap;
+    }
+    .status-pill--active,
+    .status-pill--disbursed,
+    .status-pill--approved,
+    .status-pill--fully_paid,
+    .status-pill--closed,
+    .status-pill--insurance_enrolled,
+    .status-pill--documentation_signed { background: #dcfce7; color: #166534; }
+    .status-pill--rejected,
+    .status-pill--verification_failed { background: #fee2e2; color: #991b1b; }
+    .status-pill--pending_committee_approval,
+    .status-pill--under_verification,
+    .status-pill--under_investigation,
+    .status-pill--submitted,
+    .status-pill--draft { background: #fef3c7; color: #92400e; }
+
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+    .filter-bar .form-control,
+    .filter-bar .form-select {
+      border-radius: 999px;
+      border: 1px solid #cbd5e1;
+      padding: 8px 16px;
+      min-height: 42px;
+    }
+    .filter-bar .form-control { min-width: 220px; flex: 1; }
+
+    /* Pipeline step cards */
+    .step-card {
+      position: relative;
+      background: var(--panel);
+      border-radius: 18px;
+      padding: 22px 20px 18px;
+      box-shadow: 0 12px 30px rgba(15,23,42,0.08);
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid #e2e8f0;
+      transition: transform .18s ease, box-shadow .18s ease;
+    }
+    .step-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 22px 45px rgba(15,23,42,0.16);
+    }
+    .step-badge {
+      position: absolute;
+      top: -14px;
+      left: 20px;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: var(--gradient);
+      color: #fff;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 6px 16px rgba(237,28,36,0.4);
+    }
+    .step-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      color: var(--accent);
+      background: #ecfdf5;
+      margin: 6px 0 12px;
+    }
+    .step-card h3 {
+      font-size: 1.02rem;
+      font-weight: 700;
+      color: var(--dark);
+      margin-bottom: 6px;
+    }
+    .step-card p {
+      color: #64748b;
+      font-size: 0.86rem;
+      flex-grow: 1;
+    }
+    .step-card .btn {
+      align-self: flex-start;
+      border-radius: 999px;
+      font-size: 0.82rem;
+      padding: 6px 16px;
+    }
+    .connector-note { color: #64748b; font-size: 0.85rem; }
+    .empty-state {
+      text-align: center;
+      padding: 48px 20px;
+      color: #64748b;
+    }
+    .empty-state i { font-size: 2.4rem; color: #cbd5e1; }
+  </style>
+</head>
+<body class="loans-page">
+  {% include 'admin_panel/partials/admin_top_navbar.html' %}
+
+  <main class="container-fluid px-4 py-5">
+    <section class="hero-card mb-4">
+      <div class="row align-items-center g-3">
+        <div class="col-lg-8">
+          <p class="mb-2 text-uppercase fw-semibold" style="letter-spacing:0.2em;">Loan Management</p>
+          <h1 class="fw-bold mb-2">Member Loans{% include 'admin_panel/partials/admin_role_badge.html' %}</h1>
+          <p class="mb-0 lead text-white-50">
+            {% if is_committee_only %}
+            Review loan applications and record the credit committee decision.
+            {% elif is_loan_officer_only %}
+            Process member loan applications, make staff decisions, and move records through the credit pipeline.
+            {% else %}
+            View every loan members have acquired — amount, status, outstanding balance — and move applications through the credit pipeline.
+            {% endif %}
+          </p>
+        </div>
+        <div class="col-lg-4 text-lg-end d-flex gap-2 justify-content-lg-end flex-wrap">
+          {% if not is_committee_only %}
+          <a href="{{ apply_url }}" class="btn btn-light rounded-pill px-4">
+            <i class="bi bi-plus-lg me-1"></i>New Application
+          </a>
+          <a href="{% url 'loan_settings' %}" class="btn btn-outline-light rounded-pill px-4">
+            <i class="bi bi-sliders me-1"></i>Settings
+          </a>
+          {% endif %}
+          {% if not is_loans_only %}
+          <a href="{% url 'dashboard' %}" class="btn btn-outline-light rounded-pill px-4">
+            <i class="bi bi-arrow-left me-1"></i>Back
+          </a>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+
+    {% include 'admin_panel/partials/admin_main_nav.html' with nav_active='loans' %}
+
+    {# ---- Summary KPIs ---- #}
+    <section class="row g-3 mb-4">
+      <div class="col-xl-3 col-md-6">
+        <div class="stat-card">
+          <div class="d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#ED1C24;"><i class="bi bi-bank2"></i></div>
+            <div>
+              <div class="text-muted small text-uppercase fw-semibold">Acquired Loans</div>
+              <h3 class="mb-0 fw-bold">{{ acquired_count }}</h3>
+              <small class="text-muted">{{ total_loans }} total applications</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-3 col-md-6">
+        <div class="stat-card">
+          <div class="d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#FFF200;color:#111;"><i class="bi bi-activity"></i></div>
+            <div>
+              <div class="text-muted small text-uppercase fw-semibold">Active Loans</div>
+              <h3 class="mb-0 fw-bold">{{ active_count }}</h3>
+              <small class="text-muted">{{ pending_count }} in pipeline</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-3 col-md-6">
+        <div class="stat-card">
+          <div class="d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#0ea5e9;"><i class="bi bi-cash-stack"></i></div>
+            <div>
+              <div class="text-muted small text-uppercase fw-semibold">Total Disbursed</div>
+              <h3 class="mb-0 fw-bold">&#8369;{{ total_disbursed|currency }}</h3>
+              <small class="text-muted">All-time releases</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-xl-3 col-md-6">
+        <div class="stat-card">
+          <div class="d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#ef4444;"><i class="bi bi-wallet2"></i></div>
+            <div>
+              <div class="text-muted small text-uppercase fw-semibold">Outstanding</div>
+              <h3 class="mb-0 fw-bold">&#8369;{{ outstanding_total|currency }}</h3>
+              <small class="text-muted">Active loan balances</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {# ---- Member loans table ---- #}
+    <section class="loans-panel mb-5">
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+        <h2 class="h5 fw-bold mb-0 text-dark">
+          <i class="bi bi-people-fill me-2 text-success"></i>Loans Acquired by Members
+        </h2>
+        <span class="connector-note">
+          Showing {{ page_obj.paginator.count }} loan{{ page_obj.paginator.count|pluralize }}
+        </span>
+      </div>
+
+      <form method="get" class="filter-bar mb-3">
+        <input
+          type="search"
+          name="search"
+          class="form-control"
+          placeholder="Search member, product, or purpose…"
+          value="{{ search_query }}"
+        >
+        <select name="status" class="form-select" style="max-width: 220px;">
+          {% for value, label in status_choices %}
+          <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-success rounded-pill px-4">
+          <i class="bi bi-funnel me-1"></i>Filter
+        </button>
+        {% if search_query or status_filter != 'acquired' %}
+        <a href="{% url 'loans_overview' %}" class="btn btn-outline-secondary rounded-pill px-3">Clear</a>
+        {% endif %}
+      </form>
+
+      <div class="table-responsive">
+        <table class="loans-table">
+          <thead>
+            <tr>
+              <th>Member</th>
+              <th>Product</th>
+              <th>Amount</th>
+              <th>Term</th>
+              <th>Status</th>
+              <th>Outstanding</th>
+              <th>Disbursed</th>
+              <th>Created</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for loan in loans %}
+            <tr>
+              <td>
+                <div class="member-cell">
+                  <strong>
+                    {% if loan.member.get_full_name %}
+                      {{ loan.member.get_full_name }}
+                    {% else %}
+                      {{ loan.member.username }}
+                    {% endif %}
+                  </strong>
+                  <small>@{{ loan.member.username }}{% if loan.member.email %} · {{ loan.member.email }}{% endif %}</small>
+                </div>
+              </td>
+              <td>{{ loan.loan_product.name }}</td>
+              <td class="fw-semibold">&#8369;{{ loan.amount_requested|currency }}</td>
+              <td>{{ loan.term_months }} mo</td>
+              <td>
+                <span class="status-pill status-pill--{{ loan.status|lower }}">
+                  {{ loan.get_status_display }}
+                </span>
+              </td>
+              <td>
+                {% if loan.status == 'ACTIVE' or loan.status == 'DISBURSED' %}
+                  <span class="fw-semibold text-danger">&#8369;{{ loan.outstanding_balance|currency }}</span>
+                {% elif loan.status == 'FULLY_PAID' or loan.status == 'CLOSED' %}
+                  <span class="text-success">&#8369;0.00</span>
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if loan.disbursement %}
+                  {{ loan.disbursement.disbursement_date|date:"M d, Y" }}
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+              <td>{{ loan.created_at|date:"M d, Y" }}</td>
+              <td class="text-end text-nowrap">
+                <a href="{% url 'loans:application-detail' loan.pk %}" class="btn btn-sm btn-outline-success rounded-pill px-3">
+                  View <i class="bi bi-arrow-right ms-1"></i>
+                </a>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="9">
+                <div class="empty-state">
+                  <i class="bi bi-inbox d-block mb-2"></i>
+                  <p class="mb-1 fw-semibold">No member loans found</p>
+                  <p class="mb-3 small">
+                    {% if search_query or status_filter != 'acquired' %}
+                      Try clearing filters, or switch status to “All applications”.
+                    {% else %}
+                      No acquired loans yet. Start with a new application, then move it through disbursement.
+                    {% endif %}
+                  </p>
+                  {% if not is_committee_only %}
+                  <a href="{{ apply_url }}" class="btn btn-success rounded-pill px-4">
+                    <i class="bi bi-plus-lg me-1"></i>New Application
+                  </a>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if page_obj.paginator.num_pages > 1 %}
+      <nav class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+        <span class="text-muted small">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        <div class="d-flex gap-2">
+          {% if page_obj.has_previous %}
+          <a class="btn btn-outline-success btn-sm rounded-pill px-3"
+             href="?page={{ page_obj.previous_page_number }}&search={{ search_query|urlencode }}&status={{ status_filter }}">
+            &laquo; Prev
+          </a>
+          {% endif %}
+          {% if page_obj.has_next %}
+          <a class="btn btn-outline-success btn-sm rounded-pill px-3"
+             href="?page={{ page_obj.next_page_number }}&search={{ search_query|urlencode }}&status={{ status_filter }}">
+            Next &raquo;
+          </a>
+          {% endif %}
+        </div>
+      </nav>
+      {% endif %}
+    </section>
+
+    {# ---- Pipeline shortcuts (staff/admin only) ---- #}
+    {% if not is_committee_only %}
+    <section class="mb-4">
+      <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+        <h2 class="h5 fw-bold mb-0 text-dark">
+          <i class="bi bi-diagram-3 me-2 text-success"></i>Loan Process Steps
+        </h2>
+        <span class="connector-note">
+          <i class="bi bi-info-circle me-1"></i>Use these to advance an application through the pipeline.
+        </span>
+      </div>
+
+      <div class="row g-4 mt-1">
+        {% for step in steps %}
+        <div class="col-xl-3 col-lg-4 col-md-6">
+          <div class="step-card">
+            <span class="step-badge">{{ step.n }}</span>
+            <div class="step-icon"><i class="bi {{ step.icon }}"></i></div>
+            <h3>{{ step.title }}</h3>
+            <p>{{ step.desc }}</p>
+            <a href="{{ step.url }}" class="btn btn-outline-success">
+              {{ step.action }} <i class="bi bi-arrow-right ms-1"></i>
+            </a>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+  </main>
+
+  {% include "partials/bootstrap_scripts.html" %}
+  {% include 'admin_panel/partials/admin_nav_footer.html' %}
+</body>
+</html>

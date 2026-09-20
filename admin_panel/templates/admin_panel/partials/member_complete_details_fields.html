@@ -1,0 +1,168 @@
+{# Shared complete-detail fields for Add / Edit member modals.
+   Expects: id_prefix (e.g. adminAdd or member) #}
+{% with p=id_prefix %}
+            <div class="member-form-section">
+              <div class="member-form-section-title">Personal &amp; address</div>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label" for="{{ p }}DateOfBirth">Date of birth</label>
+                  <input type="date" class="form-control member-dob-input" id="{{ p }}DateOfBirth" data-age-target="{{ p }}Age">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="{{ p }}Age">Age</label>
+                  <input type="number" class="form-control" id="{{ p }}Age" min="0" max="150" placeholder="Auto from DOB">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="{{ p }}Gender">Gender</label>
+                  <select class="form-select" id="{{ p }}Gender">
+                    <option value="">— Select —</option>
+                    <option value="male">Male</option>
+                    <option value="female">Female</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="{{ p }}CivilStatus">Civil status</label>
+                  <select class="form-select" id="{{ p }}CivilStatus">
+                    <option value="">— Select —</option>
+                    <option value="single">Single</option>
+                    <option value="married">Married</option>
+                    <option value="widowed">Widowed</option>
+                    <option value="separated">Separated</option>
+                    <option value="live_in">Live-in</option>
+                  </select>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="{{ p }}Tin">TIN</label>
+                  <input type="text" class="form-control" id="{{ p }}Tin" placeholder="Tax Identification Number">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="{{ p }}Religion">Religion</label>
+                  <input type="text" class="form-control" id="{{ p }}Religion">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="{{ p }}EducationalAttainment">Educational attainment</label>
+                  <input type="text" class="form-control" id="{{ p }}EducationalAttainment" placeholder="e.g. High School, College">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="{{ p }}Occupation">Occupation</label>
+                  <input type="text" class="form-control" id="{{ p }}Occupation">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="{{ p }}Barangay">Barangay</label>
+                  <input type="text" class="form-control" id="{{ p }}Barangay">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="{{ p }}Municipality">Municipality</label>
+                  <input type="text" class="form-control" id="{{ p }}Municipality">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="{{ p }}Province">Province</label>
+                  <input type="text" class="form-control" id="{{ p }}Province">
+                </div>
+              </div>
+            </div>
+
+            <div class="member-form-section">
+              <div class="member-form-section-title">Membership / RSBSA</div>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label" for="{{ p }}CoopType">Type</label>
+                  <input type="text" class="form-control" id="{{ p }}CoopType" placeholder="e.g. Regular, Associate">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="{{ p }}Area">Area</label>
+                  <input type="text" class="form-control" id="{{ p }}Area">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="{{ p }}MembershipStatus">Status</label>
+                  <select class="form-select" id="{{ p }}MembershipStatus">
+                    <option value="">— Select —</option>
+                    <option value="Active">Active</option>
+                    <option value="Resign">Resign</option>
+                    <option value="Suspended">Suspended</option>
+                    <option value="Deceased">Deceased</option>
+                    <option value="Inactive">Inactive</option>
+                  </select>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="{{ p }}Location">Location</label>
+                  <input type="text" class="form-control" id="{{ p }}Location">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="{{ p }}RsbsaNumber">RSBSA number</label>
+                  <input type="text" class="form-control" id="{{ p }}RsbsaNumber">
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="{{ p }}RsbsaRemarks">Remarks (RSBSA)</label>
+                  <textarea class="form-control" id="{{ p }}RsbsaRemarks" rows="2" placeholder="Optional RSBSA remarks"></textarea>
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="{{ p }}IncomeSources">Sources</label>
+                  <input type="text" class="form-control" id="{{ p }}IncomeSources" placeholder="Income sources">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="{{ p }}AnnualIncome">Annual income</label>
+                  <div class="input-group">
+                    <span class="input-group-text bg-white">₱</span>
+                    <input type="number" class="form-control" id="{{ p }}AnnualIncome" min="0" step="0.01" placeholder="0.00">
+                  </div>
+                </div>
+                <div class="col-12">
+                  <label class="form-label" for="{{ p }}OtherAssets">Other assets</label>
+                  <textarea class="form-control" id="{{ p }}OtherAssets" rows="2"></textarea>
+                </div>
+              </div>
+            </div>
+
+            <div class="member-form-section">
+              <div class="member-form-section-title">Spouse / live-in partner</div>
+              <div class="row g-3">
+                <div class="col-md-6">
+                  <label class="form-label" for="{{ p }}SpouseName">Name of spouse / live-in partner</label>
+                  <input type="text" class="form-control" id="{{ p }}SpouseName">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="{{ p }}SpouseOccupation">Occupation</label>
+                  <input type="text" class="form-control" id="{{ p }}SpouseOccupation">
+                </div>
+              </div>
+            </div>
+
+            <div class="member-form-section">
+              <div class="member-form-section-title">Acceptance &amp; capital</div>
+              <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label" for="{{ p }}DateOfPmes">Date of PMES</label>
+                  <input type="date" class="form-control" id="{{ p }}DateOfPmes">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="{{ p }}ResolutionNumber">Res. No.</label>
+                  <input type="text" class="form-control" id="{{ p }}ResolutionNumber">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="{{ p }}DateAccepted">Date accepted</label>
+                  <input type="date" class="form-control" id="{{ p }}DateAccepted">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="{{ p }}OrNumber">OR number</label>
+                  <input type="text" class="form-control" id="{{ p }}OrNumber">
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="{{ p }}InitialCapitalPaidUp">Initial capital paid-up</label>
+                  <div class="input-group">
+                    <span class="input-group-text bg-white">₱</span>
+                    <input type="number" class="form-control" id="{{ p }}InitialCapitalPaidUp" min="0" step="0.01" placeholder="0.00">
+                  </div>
+                </div>
+                <div class="col-md-4">
+                  <label class="form-label" for="{{ p }}DateOfMfRecog">Date of MF Recog</label>
+                  <input type="date" class="form-control" id="{{ p }}DateOfMfRecog">
+                </div>
+                <div class="col-md-6">
+                  <label class="form-label" for="{{ p }}MfCenter">MF Center</label>
+                  <input type="text" class="form-control" id="{{ p }}MfCenter">
+                </div>
+              </div>
+            </div>
+{% endwith %}

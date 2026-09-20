@@ -1,0 +1,1029 @@
+{% extends "palay_trade/base_palay.html" %}
+{% load currency_filters %}
+{% block title %}Palay Credit (Utang){% endblock %}
+{% block extra_head %}
+  {% include "partials/tom_select_head.html" %}
+{% endblock %}
+{% block content %}
+<div class="pc-utang-page">
+  <header class="pc-utang-page__header">
+    <a class="pc-utang-page__back" href="{% url 'palay_trade:overview' %}">
+      <i class="bi bi-arrow-left"></i> Palay desk
+    </a>
+    <div class="pc-utang-page__title-row">
+      <div>
+        <h1>Post palay utang</h1>
+        <p class="subtitle">Select a member, choose rice from stock, enter kilos taken on credit, then review before posting.</p>
+      </div>
+      <div class="d-flex flex-wrap gap-2 align-items-center">
+        <span class="pc-utang-badge">
+          <i class="bi bi-credit-card"></i>
+          <span>Member utang</span>
+        </span>
+        <a class="btn--secondary" href="{% url 'palay_trade:credit-overview' %}">
+          <i class="bi bi-people"></i> Credit overview
+        </a>
+        <a class="btn--secondary" href="{% url 'palay_trade:credit-settings' %}">
+          <i class="bi bi-sliders"></i> Configure limits
+        </a>
+      </div>
+    </div>
+  </header>
+
+  {% if not credit_ready %}
+  <div class="pc-utang-form__alert pc-utang-form__alert--warn" role="alert">
+    <i class="bi bi-exclamation-triangle"></i>
+    <div>
+      <strong>Utang is not active yet.</strong>
+      Turn on palay credit and allow utang from stock under
+      <a href="{% url 'palay_trade:credit-settings' %}">Configure limits</a>.
+      Each product also needs <strong>Palay credit allowed</strong> on its
+      <a href="{% url 'palay_trade:product-list' %}">features page</a>.
+    </div>
+  </div>
+  {% endif %}
+
+  <ol class="pc-utang-steps" aria-label="Posting steps" id="palayUtangSteps">
+    <li class="pc-utang-step is-active" data-step="member">
+      <span class="pc-utang-step__num">1</span>
+      <span class="pc-utang-step__copy">
+        <strong>Member</strong>
+        <small>Who owes</small>
+      </span>
+    </li>
+    <li class="pc-utang-step" data-step="product">
+      <span class="pc-utang-step__num">2</span>
+      <span class="pc-utang-step__copy">
+        <strong>Product</strong>
+        <small>Rice from stock</small>
+      </span>
+    </li>
+    <li class="pc-utang-step" data-step="kilos">
+      <span class="pc-utang-step__num">3</span>
+      <span class="pc-utang-step__copy">
+        <strong>Kilos</strong>
+        <small>Quantity on utang</small>
+      </span>
+    </li>
+    <li class="pc-utang-step" data-step="review">
+      <span class="pc-utang-step__num">4</span>
+      <span class="pc-utang-step__copy">
+        <strong>Review</strong>
+        <small>Confirm &amp; post</small>
+      </span>
+    </li>
+  </ol>
+
+  <div class="pc-utang-page__layout">
+    <section class="card pc-utang-page__card">
+      <form method="post" id="palayUtangForm" class="pc-utang-form" autocomplete="off" novalidate>
+        {% csrf_token %}
+
+        {% if utang_form.non_field_errors %}
+        <div class="pc-utang-form__alert" role="alert">
+          <i class="bi bi-exclamation-circle"></i>
+          <div>
+            <strong>Could not post utang.</strong>
+            {{ utang_form.non_field_errors }}
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="pc-utang-form__section" data-section="member">
+          <div class="pc-utang-form__section-head">
+            <h2 class="pc-utang-form__section-title">
+              <span class="pc-utang-form__section-icon"><i class="bi bi-person"></i></span>
+              Member
+            </h2>
+            <p>Search by name, username, or card number. Only eligible members appear in results.</p>
+          </div>
+          <div class="pc-utang-form__field">
+            <label for="{{ utang_form.member.id_for_label }}">{{ utang_form.member.label }}</label>
+            {{ utang_form.member }}
+            <p class="pc-utang-form__hint">Showing up to 10 members — type to search.</p>
+            {% if utang_form.member.errors %}<div class="pc-utang-form__errors">{{ utang_form.member.errors }}</div>{% endif %}
+          </div>
+        </div>
+
+        <div class="pc-utang-form__section" data-section="product">
+          <div class="pc-utang-form__section-head">
+            <h2 class="pc-utang-form__section-title">
+              <span class="pc-utang-form__section-icon"><i class="bi bi-box-seam"></i></span>
+              Product from stock
+            </h2>
+            <p>Choose Rice Palay or Bigas. Stock is deducted when you post the utang ticket.</p>
+          </div>
+          <div class="pc-utang-products">
+            {% for radio in utang_form.product %}
+            <label class="pc-utang-product-opt">
+              {{ radio.tag }}
+              <span class="pc-utang-product-card" data-product-id="{{ radio.data.value }}">
+                <span class="pc-utang-product-card__name">{{ radio.choice_label }}</span>
+                <span class="pc-utang-product-card__meta product-stock-meta">Stock: — · ₱— / kg</span>
+              </span>
+            </label>
+            {% endfor %}
+          </div>
+          {% if utang_form.product.errors %}<div class="pc-utang-form__errors">{{ utang_form.product.errors }}</div>{% endif %}
+        </div>
+
+        <div class="pc-utang-form__section" data-section="kilos">
+          <div class="pc-utang-form__section-head">
+            <h2 class="pc-utang-form__section-title">
+              <span class="pc-utang-form__section-icon"><i class="bi bi-speedometer2"></i></span>
+              Kilos on utang
+            </h2>
+            <p>Enter how many kilograms the member takes from stock on credit.</p>
+          </div>
+          <div class="pc-utang-form__row">
+            <div class="pc-utang-form__field">
+              <label for="{{ utang_form.gross_kg.id_for_label }}">{{ utang_form.gross_kg.label }}</label>
+              <div class="pc-utang-form__kg">
+                {{ utang_form.gross_kg }}
+                <span class="pc-utang-form__kg-unit">kg</span>
+              </div>
+              {% if utang_form.gross_kg.errors %}<div class="pc-utang-form__errors">{{ utang_form.gross_kg.errors }}</div>{% endif %}
+            </div>
+            <div class="pc-utang-form__field">
+              <label for="{{ utang_form.notes.id_for_label }}">{{ utang_form.notes.label }}</label>
+              {{ utang_form.notes }}
+              <p class="pc-utang-form__hint">Optional — e.g. walk-in, partial pickup, reference.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="pc-utang-form__actions">
+          <button type="button" class="pc-utang-submit" id="palayUtangSubmitBtn" {% if not credit_ready %}disabled{% endif %}>
+            <i class="bi bi-check-lg"></i> Review &amp; post utang
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <aside class="pc-utang-page__aside">
+      <section class="card pc-utang-ticket" id="utang-ticket-preview">
+        <div class="pc-utang-ticket__head">
+          <h2>Utang ticket</h2>
+          <span class="pc-utang-ticket__status" id="ticketStatus">Incomplete</span>
+        </div>
+        <dl class="pc-utang-ticket__list">
+          <div>
+            <dt>Member</dt>
+            <dd id="ticketMember">Select a member</dd>
+          </div>
+          <div>
+            <dt>Product</dt>
+            <dd id="ticketProduct">Choose a product</dd>
+          </div>
+          <div>
+            <dt>Rate</dt>
+            <dd id="utangRate">—</dd>
+          </div>
+          <div>
+            <dt>Stock available</dt>
+            <dd id="utangStock">—</dd>
+          </div>
+          <div>
+            <dt>Kilos (utang)</dt>
+            <dd id="utangKg">—</dd>
+          </div>
+          <div>
+            <dt>Utang amount</dt>
+            <dd id="utangAmount">—</dd>
+          </div>
+          <div>
+            <dt>Stock after</dt>
+            <dd id="ticketStockAfter">—</dd>
+          </div>
+          {% if settings_obj.member_max_outstanding %}
+          <div>
+            <dt>Max per member</dt>
+            <dd>&#8369;{{ settings_obj.member_max_outstanding|currency }}</dd>
+          </div>
+          {% endif %}
+        </dl>
+        <p class="pc-utang-ticket__note">
+          <i class="bi bi-info-circle"></i>
+          Stock is deducted immediately when you post. Member can settle from Credit overview.
+        </p>
+      </section>
+
+      <section class="card pc-utang-page__tips">
+        <h2>Desk checklist</h2>
+        <ul class="pc-utang-tips">
+          <li>
+            <i class="bi bi-person-check"></i>
+            <span>Verify the member’s ID matches the selected profile.</span>
+          </li>
+          <li>
+            <i class="bi bi-box-seam"></i>
+            <span>Confirm stock on hand before posting kilos on utang.</span>
+          </li>
+          <li>
+            <i class="bi bi-receipt"></i>
+            <span>Give the member their trade reference after posting.</span>
+          </li>
+        </ul>
+      </section>
+
+      <section class="card pc-utang-open">
+        <div class="pc-utang-open__head">
+          <h2>Open utang</h2>
+          <span class="pc-utang-open__count">{{ open_trades|length }}</span>
+        </div>
+        <form method="get" class="pc-utang-open__search">
+          <input type="search" name="search" value="{{ search_query }}" placeholder="Search member or reference…">
+        </form>
+        <div class="pc-utang-open__table-wrap">
+          <table class="pc-utang-open__table">
+            <thead>
+              <tr>
+                <th>Member</th>
+                <th>Product</th>
+                <th>Kg</th>
+                <th>Utang</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for trade in open_trades %}
+              <tr>
+                <td>
+                  <a href="{% url 'palay_trade:trade-detail' trade.pk %}">{{ trade.party_name }}</a>
+                  <div class="pc-utang-open__ref">{{ trade.reference }}</div>
+                </td>
+                <td>{{ trade.product.name }}</td>
+                <td>{{ trade.net_kg|currency }}</td>
+                <td>&#8369;{{ trade.outstanding|currency }}</td>
+              </tr>
+              {% empty %}
+              <tr>
+                <td colspan="4" class="pc-utang-open__empty">No open palay utang tickets.</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </aside>
+  </div>
+</div>
+
+{# Confirm post utang #}
+<div class="modal fade" id="confirmPalayUtangModal" tabindex="-1" aria-labelledby="confirmPalayUtangModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content pc-utang-modal">
+      <div class="modal-header pc-utang-modal__header">
+        <h5 class="modal-title" id="confirmPalayUtangModalLabel">
+          <i class="bi bi-credit-card me-2"></i>Post member utang?
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cancel"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-3">
+          Review this utang ticket, then click <strong>Proceed</strong> to post it. Stock will be deducted immediately.
+        </p>
+        <dl class="pc-utang-confirm-summary">
+          <div>
+            <dt>Member</dt>
+            <dd id="confirmUtangMember">—</dd>
+          </div>
+          <div>
+            <dt>Product</dt>
+            <dd id="confirmUtangProduct">—</dd>
+          </div>
+          <div>
+            <dt>Kilos (utang)</dt>
+            <dd id="confirmUtangKg">—</dd>
+          </div>
+          <div>
+            <dt>Rate</dt>
+            <dd id="confirmUtangRate">—</dd>
+          </div>
+          <div>
+            <dt>Utang amount</dt>
+            <dd id="confirmUtangAmount">—</dd>
+          </div>
+          <div>
+            <dt>Stock after</dt>
+            <dd id="confirmUtangStockAfter">—</dd>
+          </div>
+        </dl>
+      </div>
+      <div class="modal-footer pc-utang-modal__footer">
+        <button type="button" class="btn--secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn-loan" id="confirmPalayUtangBtn">
+          <i class="bi bi-check-lg me-1"></i>Proceed — post utang
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  #confirmPalayUtangModal { z-index: 10050 !important; }
+  .modal-backdrop.show { z-index: 10040 !important; }
+  .pc-utang-modal { border: none; border-radius: 16px; overflow: hidden; }
+  .pc-utang-modal__header { background: #166534; color: #fff; }
+  .pc-utang-modal__footer { background: #f8fafc; gap: .5rem; }
+  .pc-utang-confirm-summary { margin: 0; }
+  .pc-utang-confirm-summary > div {
+    display: flex; justify-content: space-between; gap: .75rem;
+    padding: .55rem 0; border-bottom: 1px solid #f1f5f9; font-size: .9rem;
+  }
+  .pc-utang-confirm-summary > div:last-child { border-bottom: none; }
+  .pc-utang-confirm-summary dt { margin: 0; color: #64748b; font-weight: 500; }
+  .pc-utang-confirm-summary dd { margin: 0; font-weight: 700; color: #0f172a; text-align: right; }
+
+  .pc-utang-page {
+    width: 100%;
+    max-width: 1280px;
+    margin-inline: auto;
+    box-sizing: border-box;
+  }
+  .pc-utang-page__header { margin-bottom: 1.25rem; }
+  .pc-utang-page__title-row {
+    display: flex; flex-wrap: wrap; align-items: flex-start;
+    justify-content: space-between; gap: .85rem 1.25rem;
+  }
+  .pc-utang-page__header h1 {
+    margin: 0 0 .35rem;
+    font-size: clamp(1.35rem, 1.1rem + 1vw, 1.85rem);
+  }
+  .pc-utang-page__header .subtitle {
+    margin: 0; max-width: 42rem; color: #64748b; font-size: .92rem;
+  }
+  .pc-utang-page__back {
+    display: inline-flex; align-items: center; gap: .4rem;
+    color: #64748b; text-decoration: none; font-size: .88rem; font-weight: 500; margin-bottom: .65rem;
+  }
+  .pc-utang-page__back:hover { color: #334155; }
+  .pc-utang-badge {
+    display: inline-flex; align-items: center; gap: .45rem;
+    padding: .55rem .9rem; border-radius: 999px;
+    background: #fff; border: 1px solid #e2e8f0;
+    color: #0f172a; font-weight: 700; font-size: .84rem;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, .06);
+  }
+  .pc-utang-badge i { color: #ED1C24; }
+
+  .pc-utang-steps {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .75rem;
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1.35rem;
+  }
+  .pc-utang-step {
+    display: flex; align-items: center; gap: .7rem;
+    padding: .85rem 1rem;
+    border-radius: 14px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    color: #94a3b8;
+  }
+  .pc-utang-step.is-active {
+    border-color: #fecaca;
+    box-shadow: 0 0 0 3px rgba(237, 28, 36, .08);
+    color: #0f172a;
+  }
+  .pc-utang-step.is-done {
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+    color: #166534;
+  }
+  .pc-utang-step__num {
+    width: 30px; height: 30px; border-radius: 999px; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: .8rem; font-weight: 800;
+    background: #e2e8f0; color: #64748b;
+  }
+  .pc-utang-step.is-active .pc-utang-step__num {
+    background: #ED1C24; color: #fff;
+  }
+  .pc-utang-step.is-done .pc-utang-step__num {
+    background: #16a34a; color: #fff;
+  }
+  .pc-utang-step__copy {
+    display: flex; flex-direction: column; gap: .05rem; min-width: 0;
+  }
+  .pc-utang-step__copy strong {
+    font-size: .88rem; font-weight: 700; line-height: 1.2;
+  }
+  .pc-utang-step__copy small {
+    font-size: .75rem; color: #94a3b8; font-weight: 500;
+  }
+  .pc-utang-step.is-done .pc-utang-step__copy small { color: #4ade80; }
+
+  .pc-utang-page__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(280px, .8fr);
+    gap: 1.25rem;
+    align-items: start;
+  }
+  .pc-utang-page__card,
+  .pc-utang-page__tips,
+  .pc-utang-ticket,
+  .pc-utang-open {
+    padding: 1.4rem 1.5rem;
+    margin-bottom: 0;
+  }
+  .pc-utang-page__aside {
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+    position: sticky;
+    top: 1rem;
+  }
+
+  .pc-utang-form__alert {
+    display: flex; gap: .65rem; align-items: flex-start;
+    margin-bottom: 1.25rem; padding: .85rem 1rem;
+    border-radius: 12px; background: #fee2e2; color: #991b1b; font-size: .88rem;
+  }
+  .pc-utang-form__alert--warn {
+    background: #fef3c7; color: #92400e; border: 1px solid #fde68a;
+    margin-bottom: 1.25rem;
+  }
+  .pc-utang-form__alert a { color: inherit; font-weight: 700; }
+  .pc-utang-form__alert i { font-size: 1.1rem; margin-top: .1rem; flex-shrink: 0; }
+
+  .pc-utang-form__section {
+    padding-bottom: 1.35rem;
+    margin-bottom: 1.35rem;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .pc-utang-form__section:last-of-type {
+    border-bottom: none; margin-bottom: 0; padding-bottom: 0;
+  }
+  .pc-utang-form__section-head { margin-bottom: 1rem; }
+  .pc-utang-form__section-head p {
+    margin: .35rem 0 0; color: #64748b; font-size: .84rem; line-height: 1.45;
+  }
+  .pc-utang-form__section-title {
+    display: flex; align-items: center; gap: .55rem;
+    font-size: 1.02rem; font-weight: 700; color: #0f172a; margin: 0;
+  }
+  .pc-utang-form__section-icon {
+    width: 34px; height: 34px; border-radius: 10px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: #fef2f2; color: #ED1C24; font-size: 1rem;
+  }
+
+  .pc-utang-form__field { margin-bottom: .85rem; }
+  .pc-utang-form__field:last-child { margin-bottom: 0; }
+  .pc-utang-form__field > label:first-child {
+    display: block; margin-bottom: .4rem;
+    font-weight: 600; font-size: .9rem; color: #334155;
+  }
+  .pc-utang-form__hint {
+    margin: .4rem 0 0; font-size: .78rem; color: #94a3b8;
+  }
+  .pc-utang-form__row {
+    display: grid;
+    grid-template-columns: minmax(200px, 280px) minmax(0, 1fr);
+    gap: 1rem 1.25rem;
+    align-items: start;
+  }
+  .pc-utang-form__kg {
+    position: relative; display: flex; align-items: center;
+  }
+  .pc-utang-form__kg input {
+    padding-right: 44px !important;
+    min-height: 52px; font-size: 1.25rem; font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .pc-utang-form__kg-unit {
+    position: absolute; right: 14px; color: #64748b; font-weight: 700; font-size: .9rem;
+  }
+  .pc-utang-form__field textarea {
+    min-height: 52px; resize: vertical;
+  }
+  .pc-utang-form__errors { color: #dc2626; font-size: .82rem; margin-top: .35rem; }
+  .pc-utang-form__errors ul { margin: 0; padding-left: 1rem; }
+
+  .pc-utang-products {
+    display: grid; grid-template-columns: 1fr 1fr; gap: .75rem;
+  }
+  .pc-utang-product-opt { position: relative; }
+  .pc-utang-product-opt input {
+    position: absolute; opacity: 0; width: 0; height: 0;
+  }
+  .pc-utang-product-card {
+    display: block; border: 2px solid #e2e8f0; border-radius: 14px;
+    padding: .95rem 1rem; cursor: pointer; background: #f8fafc; height: 100%;
+    transition: border-color .15s, background .15s, box-shadow .15s;
+  }
+  .pc-utang-product-opt input:checked + .pc-utang-product-card {
+    border-color: #ED1C24; background: #fff7f7;
+    box-shadow: 0 0 0 3px rgba(237, 28, 36, .08);
+  }
+  .pc-utang-product-card__name { font-weight: 800; color: #0f172a; font-size: .98rem; }
+  .pc-utang-product-card__meta { font-size: .78rem; color: #64748b; margin-top: .25rem; }
+
+  .pc-utang-form__actions {
+    display: flex; flex-wrap: wrap; gap: .65rem; align-items: center;
+    margin-top: 1.4rem; padding-top: 1.2rem; border-top: 1px solid #f1f5f9;
+  }
+  .pc-utang-submit {
+    display: inline-flex; align-items: center; justify-content: center; gap: .45rem;
+    border: none; border-radius: 999px; padding: 13px 24px;
+    background: #15803d; color: #fff; font-weight: 700; font-size: .95rem; cursor: pointer;
+  }
+  .pc-utang-submit:hover { background: #166534; color: #fff; }
+  .pc-utang-submit:disabled { opacity: .65; cursor: not-allowed; }
+
+  .pc-utang-ticket {
+    background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
+  }
+  .pc-utang-ticket__head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: .75rem; margin-bottom: 1rem;
+  }
+  .pc-utang-ticket__head h2,
+  .pc-utang-page__tips h2,
+  .pc-utang-open__head h2 {
+    font-size: 1rem; margin: 0;
+  }
+  .pc-utang-ticket__status {
+    display: inline-flex; align-items: center;
+    padding: .25rem .65rem; border-radius: 999px;
+    font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    background: #fef3c7; color: #92400e;
+  }
+  .pc-utang-ticket__status.is-ready {
+    background: #dcfce7; color: #166534;
+  }
+  .pc-utang-ticket__list { margin: 0; }
+  .pc-utang-ticket__list > div {
+    display: flex; justify-content: space-between; gap: .75rem;
+    padding: .55rem 0; border-bottom: 1px solid #eef2f7; font-size: .86rem;
+  }
+  .pc-utang-ticket__list > div:last-child { border-bottom: none; }
+  .pc-utang-ticket__list dt { color: #64748b; font-weight: 500; margin: 0; }
+  .pc-utang-ticket__list dd {
+    margin: 0; font-weight: 700; color: #0f172a; text-align: right;
+    max-width: 60%; word-break: break-word;
+  }
+  .pc-utang-ticket__note {
+    display: flex; align-items: flex-start; gap: .45rem;
+    margin: 1rem 0 0; padding: .75rem .85rem;
+    border-radius: 12px; background: #eef2f7; color: #475569;
+    font-size: .8rem; line-height: 1.4;
+  }
+  .pc-utang-ticket__note i { color: #64748b; margin-top: .1rem; }
+
+  .pc-utang-tips {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; gap: .8rem;
+  }
+  .pc-utang-tips li {
+    display: flex; align-items: flex-start; gap: .55rem;
+    font-size: .84rem; color: #64748b; line-height: 1.45;
+  }
+  .pc-utang-tips i {
+    color: #E6C200; font-size: 1.05rem; flex-shrink: 0; margin-top: .05rem;
+  }
+
+  .pc-utang-open__head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: .75rem; margin-bottom: .85rem;
+  }
+  .pc-utang-open__count {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 26px; height: 26px; padding: 0 .45rem;
+    border-radius: 999px; background: #f1f5f9; color: #475569;
+    font-size: .78rem; font-weight: 700;
+  }
+  .pc-utang-open__search { margin-bottom: .85rem; }
+  .pc-utang-open__search input {
+    width: 100%; padding: 8px 12px; border: 1px solid #e2e8f0;
+    border-radius: 10px; font-size: .86rem;
+  }
+  .pc-utang-open__table-wrap { overflow-x: auto; }
+  .pc-utang-open__table {
+    width: 100%; border-collapse: collapse; font-size: .84rem;
+  }
+  .pc-utang-open__table th {
+    text-align: left; font-size: .68rem; text-transform: uppercase;
+    letter-spacing: .05em; color: #64748b; padding: .45rem .35rem;
+    border-bottom: 2px solid #e2e8f0; white-space: nowrap;
+  }
+  .pc-utang-open__table td {
+    padding: .55rem .35rem; border-bottom: 1px solid #f1f5f9; vertical-align: middle;
+  }
+  .pc-utang-open__ref { font-size: .72rem; color: #94a3b8; margin-top: .1rem; }
+  .pc-utang-open__empty {
+    text-align: center; color: #94a3b8; padding: 1.25rem .5rem !important;
+  }
+
+  .pc-utang-page .ts-wrapper.single .ts-control {
+    min-height: 48px;
+    padding: 11px 14px;
+  }
+  .pc-utang-page .ts-wrapper.single .ts-control:focus-within {
+    border-color: #16a34a;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, .12);
+  }
+  .pc-utang-page form select:focus,
+  .pc-utang-page form input:focus,
+  .pc-utang-page form textarea:focus {
+    outline: none;
+    border-color: #16a34a;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, .12);
+  }
+
+  @media (max-width: 980px) {
+    .pc-utang-page__layout { grid-template-columns: 1fr; }
+    .pc-utang-page__aside { position: static; }
+    .pc-utang-steps { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 700px) {
+    .pc-utang-steps { grid-template-columns: 1fr; }
+    .pc-utang-products { grid-template-columns: 1fr; }
+    .pc-utang-form__row { grid-template-columns: 1fr; }
+    .pc-utang-submit { width: 100%; }
+    .pc-utang-page__card,
+    .pc-utang-page__tips,
+    .pc-utang-ticket,
+    .pc-utang-open { padding: 1.15rem; }
+  }
+</style>
+
+{{ product_rates|json_script:"palay-utang-rates" }}
+{% endblock %}
+
+{% block extra_scripts %}
+  {% include "partials/tom_select_scripts.html" %}
+  <script>
+  (function () {
+    var memberSelect = document.getElementById("{{ utang_form.member.id_for_label }}");
+    if (!memberSelect || !window.TomSelect) return;
+
+    var memberSearchUrl = "{% url 'palay_trade:api-search-members' %}";
+
+    function getCsrfToken() {
+      var el = document.querySelector("[name=csrfmiddlewaretoken]");
+      return el ? el.value : "";
+    }
+
+    Array.from(memberSelect.options).forEach(function (opt) {
+      if (!opt.value) opt.textContent = "";
+    });
+
+    var memberTomSelect = new TomSelect(memberSelect, {
+      allowEmptyOption: true,
+      placeholder: "Type to search member name or username…",
+      maxOptions: 10,
+      dropdownParent: "body",
+      create: false,
+      sortField: { field: "text", direction: "asc" },
+      shouldLoad: function () { return true; },
+      load: function (query, callback) {
+        var url = memberSearchUrl + "?q=" + encodeURIComponent(query || "");
+        fetch(url, {
+          headers: { "X-CSRFToken": getCsrfToken() },
+          credentials: "same-origin",
+        })
+          .then(function (response) { return response.json(); })
+          .then(function (data) {
+            if (!data.success || !data.members) return callback();
+            callback(data.members.map(function (member) {
+              return { value: String(member.id), text: member.label };
+            }));
+          })
+          .catch(function () { callback(); });
+      },
+      preload: "focus",
+      render: {
+        option: function (data, escape) {
+          if (!data.value) return null;
+          return '<div class="option">' + escape(data.text) + "</div>";
+        },
+        item: function (data, escape) {
+          if (!data.value) return '<div class="item placeholder"></div>';
+          return '<div class="item">' + escape(data.text) + "</div>";
+        },
+      },
+      onInitialize: function () {
+        var sel = this.input;
+        if (!sel) return;
+        sel.classList.add("ts-hidden-accessible");
+        sel.style.setProperty("display", "none", "important");
+        sel.setAttribute("aria-hidden", "true");
+        sel.tabIndex = -1;
+      },
+      onDropdownOpen: function () {
+        var root = this.dropdown_content;
+        if (!root) return;
+        var blank = root.querySelector('[data-value=""]');
+        if (blank) blank.style.display = "none";
+      },
+      onChange: function () {
+        document.dispatchEvent(new CustomEvent("palay-utang-ticket-sync"));
+      },
+    });
+
+    if (memberTomSelect.options[""]) memberTomSelect.removeOption("");
+    if (!memberSelect.value) memberTomSelect.clear(true);
+    memberSelect._palayUtangTomSelect = memberTomSelect;
+  })();
+  </script>
+  <script>
+(function () {
+  var ratesEl = document.getElementById("palay-utang-rates");
+  var rates = {};
+  if (ratesEl) {
+    try { rates = JSON.parse(ratesEl.textContent || "{}"); } catch (e) { rates = {}; }
+  }
+  var form = document.getElementById("palayUtangForm");
+  if (!form) return;
+
+  var kgInput = document.getElementById("{{ utang_form.gross_kg.id_for_label }}");
+  var memberSelect = document.getElementById("{{ utang_form.member.id_for_label }}");
+  var postBtn = document.getElementById("palayUtangSubmitBtn");
+  var confirmBtn = document.getElementById("confirmPalayUtangBtn");
+  var ticketStatus = document.getElementById("ticketStatus");
+  var ticketMember = document.getElementById("ticketMember");
+  var ticketProduct = document.getElementById("ticketProduct");
+  var ticketStockAfter = document.getElementById("ticketStockAfter");
+  var steps = document.querySelectorAll("#palayUtangSteps .pc-utang-step");
+  var submitting = false;
+
+  function getMemberTomSelect() {
+    if (!memberSelect) return null;
+    return memberSelect._palayUtangTomSelect || memberSelect.tomselect || null;
+  }
+
+  function getModal(el) {
+    if (!el || typeof bootstrap === "undefined" || !bootstrap.Modal) return null;
+    return bootstrap.Modal.getInstance(el) || new bootstrap.Modal(el, {
+      backdrop: true, keyboard: true, focus: true
+    });
+  }
+
+  function selectedProductId() {
+    var checked = form.querySelector('input[name="{{ utang_form.product.html_name }}"]:checked');
+    return checked ? checked.value : null;
+  }
+
+  function selectedProductName() {
+    var pid = selectedProductId();
+    if (pid && rates[pid]) return rates[pid].name || "—";
+    var checked = form.querySelector('input[name="{{ utang_form.product.html_name }}"]:checked');
+    if (!checked) return "Choose a product";
+    var card = checked.closest(".pc-utang-product-opt");
+    var nameEl = card && card.querySelector(".pc-utang-product-card__name");
+    return nameEl ? nameEl.textContent.trim() : "—";
+  }
+
+  function memberLabel() {
+    if (!memberSelect) return "";
+    var ts = getMemberTomSelect();
+    if (ts) {
+      var val = ts.getValue();
+      if (!val) return "";
+      var opt = ts.options[val];
+      return (opt && opt.text) || "";
+    }
+    var selected = memberSelect.options[memberSelect.selectedIndex];
+    return selected && selected.value ? selected.textContent.trim() : "";
+  }
+
+  function memberSelected() {
+    if (!memberSelect) return false;
+    var ts = getMemberTomSelect();
+    if (ts) return !!ts.getValue();
+    return !!memberSelect.value;
+  }
+
+  function parseKg(raw) {
+    if (window.MoneyInput && typeof window.MoneyInput.parse === "function") {
+      return window.MoneyInput.parse(raw);
+    }
+    var n = Number(String(raw || "").replace(/,/g, "").trim());
+    return isFinite(n) ? n : NaN;
+  }
+
+  function formatMoney(n) {
+    var v = isNaN(n) ? 0 : n;
+    return "₱" + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function formatKg(n) {
+    var v = isNaN(n) ? 0 : n;
+    return v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function setText(id, text) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = text;
+  }
+
+  function syncTicket() {
+    var pid = selectedProductId();
+    var info = pid ? rates[pid] : null;
+    var kg = parseKg(kgInput && kgInput.value) || 0;
+    var rate = info ? parseFloat(info.sell) : 0;
+    var stock = info ? parseFloat(info.stock) : 0;
+    var hasMember = memberSelected();
+    var hasProduct = !!pid && info && info.credit;
+    var hasKg = isFinite(kg) && kg > 0;
+    var withinStock = !hasKg || kg <= stock;
+    var ready = hasMember && hasProduct && hasKg && withinStock;
+
+    document.querySelectorAll(".product-stock-meta").forEach(function (el) {
+      var card = el.closest(".pc-utang-product-opt");
+      if (!card) return;
+      var input = card.querySelector('input[type="radio"]');
+      var p = input && rates[input.value];
+      if (p) {
+        el.textContent = "Stock: " + parseFloat(p.stock).toFixed(2) + " kg · " + formatMoney(parseFloat(p.sell)) + " / kg";
+      }
+    });
+
+    if (ticketMember) {
+      ticketMember.textContent = hasMember ? (memberLabel() || "Selected member") : "Select a member";
+    }
+    if (ticketProduct) {
+      ticketProduct.textContent = pid ? selectedProductName() : "Choose a product";
+    }
+    setText("utangRate", info ? formatMoney(rate) + " / kg" : "—");
+    setText("utangStock", info ? stock.toFixed(2) + " kg" : "—");
+    setText("utangKg", hasKg ? kg.toFixed(2) + " kg" : "—");
+    var amountEl = document.getElementById("utangAmount");
+    if (amountEl) {
+      amountEl.textContent = hasKg ? formatMoney(kg * rate) : "—";
+      amountEl.style.color = (hasKg && !withinStock) ? "#b91c1c" : "";
+    }
+    if (ticketStockAfter) {
+      ticketStockAfter.textContent = (info && hasKg)
+        ? formatKg(stock - kg) + " kg"
+        : "—";
+      ticketStockAfter.style.color = (hasKg && !withinStock) ? "#b91c1c" : "";
+    }
+    if (ticketStatus) {
+      ticketStatus.textContent = ready ? "Ready" : "Incomplete";
+      ticketStatus.classList.toggle("is-ready", ready);
+    }
+
+    steps.forEach(function (step) {
+      var key = step.getAttribute("data-step");
+      var done = false;
+      var active = false;
+      if (key === "member") {
+        done = hasMember;
+        active = !hasMember;
+      } else if (key === "product") {
+        done = hasProduct;
+        active = hasMember && !hasProduct;
+      } else if (key === "kilos") {
+        done = hasKg && withinStock;
+        active = hasMember && hasProduct && !(hasKg && withinStock);
+      } else if (key === "review") {
+        done = false;
+        active = ready;
+      }
+      step.classList.toggle("is-done", done && !active);
+      step.classList.toggle("is-active", active);
+    });
+  }
+
+  function validateUtang() {
+    if (!memberSelected()) {
+      window.alert("Select a member before posting utang.");
+      var ts = getMemberTomSelect();
+      if (ts) { try { ts.focus(); } catch (e) {} }
+      return null;
+    }
+    var pid = selectedProductId();
+    if (!pid) {
+      window.alert("Choose a rice product from stock.");
+      return null;
+    }
+    var info = rates[pid];
+    if (!info || !info.credit) {
+      window.alert("Palay credit is not allowed for the selected product.");
+      return null;
+    }
+    var kg = parseKg(kgInput && kgInput.value);
+    if (!isFinite(kg) || kg <= 0) {
+      window.alert("Enter valid kilos greater than zero.");
+      if (kgInput) { try { kgInput.focus(); } catch (e) {} }
+      return null;
+    }
+    var rate = parseFloat(info.sell) || 0;
+    var stock = parseFloat(info.stock) || 0;
+    if (kg > stock) {
+      window.alert("Not enough stock. Available: " + formatKg(stock) + " kg.");
+      if (kgInput) { try { kgInput.focus(); } catch (e) {} }
+      return null;
+    }
+    return {
+      member: memberLabel() || "Selected member",
+      productName: info.name || selectedProductName(),
+      kg: kg,
+      rate: rate,
+      amount: kg * rate,
+      stockAfter: stock - kg
+    };
+  }
+
+  function submitUtang() {
+    if (submitting) return;
+    submitting = true;
+    if (postBtn) {
+      postBtn.disabled = true;
+      postBtn.innerHTML =
+        '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Posting…';
+    }
+    if (confirmBtn) {
+      confirmBtn.disabled = true;
+      confirmBtn.innerHTML =
+        '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Posting…';
+    }
+    if (window.MoneyInput && typeof window.MoneyInput.stripForm === "function") {
+      window.MoneyInput.stripForm(form);
+    }
+    HTMLFormElement.prototype.submit.call(form);
+  }
+
+  function openPostConfirm() {
+    if (submitting) return;
+    var data = validateUtang();
+    if (!data) return;
+
+    setText("confirmUtangMember", data.member);
+    setText("confirmUtangProduct", data.productName);
+    setText("confirmUtangKg", formatKg(data.kg) + " kg");
+    setText("confirmUtangRate", formatMoney(data.rate) + " / kg");
+    setText("confirmUtangAmount", formatMoney(data.amount));
+    setText("confirmUtangStockAfter", formatKg(data.stockAfter) + " kg (−" + formatKg(data.kg) + ")");
+
+    if (confirmBtn) {
+      confirmBtn.disabled = false;
+      confirmBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Proceed — post utang';
+    }
+
+    var modalEl = document.getElementById("confirmPalayUtangModal");
+    var bsModal = getModal(modalEl);
+    if (!bsModal) {
+      var ok = window.confirm(
+        "Post utang for " + data.member + "?\n\n" +
+        "Product: " + data.productName + "\n" +
+        "Kilos: " + formatKg(data.kg) + " kg\n" +
+        "Utang amount: " + formatMoney(data.amount) + "\n\n" +
+        "Click OK to proceed."
+      );
+      if (ok) submitUtang();
+      return;
+    }
+    try { bsModal.show(); }
+    catch (err) {
+      if (window.confirm("Post this utang ticket now?")) submitUtang();
+    }
+  }
+
+  function proceedFromConfirm() {
+    if (submitting) return;
+    var modalEl = document.getElementById("confirmPalayUtangModal");
+    var bsModal = getModal(modalEl);
+    if (bsModal) { try { bsModal.hide(); } catch (e) {} }
+    window.setTimeout(submitUtang, 120);
+  }
+
+  if (form) {
+    form.querySelectorAll('input[name="{{ utang_form.product.html_name }}"]').forEach(function (el) {
+      el.addEventListener("change", syncTicket);
+    });
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      openPostConfirm();
+    });
+  }
+  if (kgInput) {
+    kgInput.addEventListener("input", syncTicket);
+    kgInput.addEventListener("change", syncTicket);
+  }
+  if (memberSelect) memberSelect.addEventListener("change", syncTicket);
+  document.addEventListener("palay-utang-ticket-sync", syncTicket);
+
+  if (postBtn) {
+    postBtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      openPostConfirm();
+    });
+  }
+  if (confirmBtn) {
+    confirmBtn.addEventListener("click", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      proceedFromConfirm();
+    });
+  }
+
+  syncTicket();
+})();
+  </script>
+{% endblock %}

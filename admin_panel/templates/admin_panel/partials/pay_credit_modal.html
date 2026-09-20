@@ -1,0 +1,109 @@
+<!-- Pay Credit (settle utang) Modal -->
+<div class="modal fade" id="payCreditModal" tabindex="-1" aria-labelledby="payCreditModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
+    <div class="modal-content">
+      <div class="modal-header text-white" style="background:#5b21b6;">
+        <h5 class="modal-title" id="payCreditModalLabel">
+          <i class="bi bi-cash-coin me-2"></i>Pay Credit (Utang)
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="payCreditSuccessSummary" style="display:none;">
+          <div class="text-center mb-3">
+            <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-2" style="width:56px;height:56px;background:#5b21b6;">
+              <i class="bi bi-check-lg text-white fs-3"></i>
+            </div>
+            <h5 class="fw-bold mb-1" style="color:#5b21b6;">Credit Payment Successful</h5>
+            <p class="text-muted small mb-0">Receipt emailed to the member when an email is on file.</p>
+          </div>
+          <div class="card mb-3" style="border-color:#ddd6fe;background:#f5f3ff;">
+            <div class="card-body p-3 small">
+              <div class="d-flex justify-content-between"><span>Settlement #</span><strong id="payCreditSummarySettlement">—</strong></div>
+              <div class="d-flex justify-content-between"><span>Amount paid</span><strong id="payCreditSummaryAmount">—</strong></div>
+              <div class="d-flex justify-content-between"><span>Products settled</span><strong id="payCreditSummaryCount">—</strong></div>
+              <div class="d-flex justify-content-between"><span>Member notified</span><strong id="payCreditSummaryNotified">—</strong></div>
+            </div>
+          </div>
+          <a href="#" id="payCreditReceiptLink" class="btn btn-outline-primary w-100 mb-2" target="_blank" rel="noopener">
+            <i class="bi bi-receipt me-1"></i>View / Print Receipt
+          </a>
+        </div>
+
+        <form id="payCreditForm">
+          <div id="payCreditAlert" class="alert alert-danger" style="display:none;"></div>
+
+          <div class="mb-3">
+            <label class="form-label">Member</label>
+            <div class="p-3 rounded border bg-light">
+              <div class="fw-semibold" id="payCreditMemberName">—</div>
+              <div class="small text-muted">Outstanding credit: <span class="fw-bold" style="color:#5b21b6;" id="payCreditOutstanding">₱0.00</span></div>
+              <div class="small text-muted" id="payCreditInterestWrap" style="display:none;">
+                Principal <span id="payCreditPrincipal">₱0.00</span>
+                · Interest <span class="fw-semibold" id="payCreditInterest">₱0.00</span>
+                <span class="d-block mt-1" style="color:#5b21b6;">Payment pays interest first, then principal. Next months: (remaining principal × rate) + principal.</span>
+              </div>
+              <div class="small text-muted">Card balance: <span id="payCreditMemberBalance">₱0.00</span></div>
+              <div class="small text-muted" id="payCreditMemberEmailWrap" style="display:none;">Email: <span id="payCreditMemberEmail"></span></div>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <label class="form-label mb-0">Unsettled credit sales</label>
+              <div class="btn-group btn-group-sm" id="payCreditSalesSelectActions" style="display:none;">
+                <button type="button" class="btn btn-link btn-sm p-0 me-2" id="payCreditSelectAllBtn">Select all</button>
+                <button type="button" class="btn btn-link btn-sm p-0 text-muted" id="payCreditClearSelectionBtn">Clear</button>
+              </div>
+            </div>
+            <p class="small text-muted mb-2">Select the products to pay. Tap a sale header to select or clear all items in that sale. Use <i class="bi bi-receipt"></i> to view the sale receipt only.</p>
+            <div id="payCreditSalesList" class="list-group list-group-flush border rounded" style="max-height:280px;overflow-y:auto;">
+              <div class="list-group-item text-muted small text-center">Loading…</div>
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-md-6">
+              <label class="form-label" for="payCreditMethod">Payment method</label>
+              <select class="form-select" id="payCreditMethod" required>
+                <option value="cash">Cash</option>
+                <option value="debit">Debit (deduct from member balance)</option>
+              </select>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label" for="payCreditAmount">Amount to pay</label>
+              <div class="input-group">
+                <span class="input-group-text">₱</span>
+                <input type="number" class="form-control" id="payCreditAmount" min="0.01" step="0.01" inputmode="decimal" aria-describedby="payCreditAmountError">
+              </div>
+              <div id="payCreditAmountError" class="text-danger small mt-1" style="display:none;" role="alert"></div>
+              <small class="text-muted d-block mt-1">Defaults to principal + interest on selected products. Payment applies to interest first, then principal. Later months charge interest on the remaining principal only — e.g. ₱415 + (415 × rate).</small>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label" for="payCreditNotes">Notes <span class="text-muted fw-normal">(optional)</span></label>
+            <textarea class="form-control" id="payCreditNotes" rows="2" placeholder="Reference number, remarks…"></textarea>
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label">Admin PIN <span class="text-danger">*</span></label>
+            <p class="small text-muted mb-2">Enter the 4-digit PIN of an active Admin member to authorize this payment.</p>
+            <div class="d-flex justify-content-center gap-2" id="payCreditPinBoxes">
+              <input type="password" class="form-control text-center pay-credit-pin-box" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" style="width:48px;height:48px;font-size:1.25rem;font-weight:700;">
+              <input type="password" class="form-control text-center pay-credit-pin-box" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" style="width:48px;height:48px;font-size:1.25rem;font-weight:700;">
+              <input type="password" class="form-control text-center pay-credit-pin-box" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" style="width:48px;height:48px;font-size:1.25rem;font-weight:700;">
+              <input type="password" class="form-control text-center pay-credit-pin-box" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" style="width:48px;height:48px;font-size:1.25rem;font-weight:700;">
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+        <button type="button" class="btn text-white" id="submitPayCreditBtn" style="background:#5b21b6;">
+          <i class="bi bi-check-circle me-1"></i>Confirm Pay Credit
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

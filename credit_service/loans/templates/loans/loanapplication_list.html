@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Loan Applications{% endblock %}
+{% block content %}
+<h1>Loan Applications</h1>
+<p class="subtitle">All applications you have access to.</p>
+
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Member</th>
+                <th>Product</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Created</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for application in applications %}
+            <tr>
+                <td><a href="{% url 'loans:application-detail' application.pk %}">{{ application.id|truncatechars:8 }}</a></td>
+                <td>{{ application.member }}</td>
+                <td>{{ application.loan_product.name }}</td>
+                <td>₱{{ application.amount_requested|floatformat:2 }}</td>
+                <td><span class="status-pill status-pill--{{ application.status|lower }}">{{ application.get_status_display }}</span></td>
+                <td>{{ application.created_at|date:"Y-m-d" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6">No loan applications found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if is_paginated %}
+<p>
+    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}">&laquo; Prev</a>{% endif %}
+    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}">Next &raquo;</a>{% endif %}
+</p>
+{% endif %}
+{% endblock %}

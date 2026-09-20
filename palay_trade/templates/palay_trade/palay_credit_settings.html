@@ -1,0 +1,189 @@
+{% extends "palay_trade/base_palay.html" %}
+{% load currency_filters %}
+{% block title %}Palay Credit Settings{% endblock %}
+{% block content %}
+<style>
+  .pc-page { max-width: 980px; margin: 0 auto; }
+  .pc-hero {
+    background: var(--gradient); color: #fff; border-radius: 22px;
+    padding: 1.35rem 1.5rem; margin-bottom: 1.15rem;
+    box-shadow: 0 18px 40px rgba(15, 23, 42, 0.28);
+  }
+  .pc-hero a {
+    color: rgba(255,255,255,.9); text-decoration: none; font-size: .88rem; font-weight: 600;
+    display: inline-flex; align-items: center; gap: .35rem;
+  }
+  .pc-hero h1 { color: #fff; font-size: 1.45rem; margin: .35rem 0 .25rem; }
+  .pc-hero p { margin: 0; opacity: .92; font-size: .92rem; max-width: 40rem; }
+  .pc-layout {
+    display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(260px, .85fr);
+    gap: 1.15rem; align-items: start;
+  }
+  @media (max-width: 860px) { .pc-layout { grid-template-columns: 1fr; } }
+  .pc-panel {
+    background: #fff; border: 1px solid #e2e8f0; border-radius: 18px;
+    padding: 1.35rem 1.45rem; box-shadow: 0 12px 28px rgba(15, 23, 42, 0.07);
+  }
+  .pc-section + .pc-section {
+    margin-top: 1.15rem; padding-top: 1.1rem; border-top: 1px solid #f1f5f9;
+  }
+  .pc-section h2 {
+    margin: 0 0 .85rem; font-size: .98rem; font-weight: 700; color: #0f172a;
+    display: flex; align-items: center; gap: .45rem;
+  }
+  .pc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .85rem; }
+  @media (max-width: 640px) { .pc-grid { grid-template-columns: 1fr; } }
+  .pc-field { margin-bottom: .95rem; }
+  .pc-field > label {
+    display: block; margin-bottom: .35rem; font-weight: 700; font-size: .88rem; color: #334155;
+  }
+  .pc-field .helptext { margin: .3rem 0 0; color: #94a3b8; font-size: .78rem; }
+  .pc-field .error { margin-top: .3rem; color: #dc2626; font-size: .82rem; }
+  .pc-check {
+    display: flex; align-items: flex-start; gap: .65rem;
+    padding: .85rem 1rem; border: 1px solid #e2e8f0; border-radius: 12px; background: #f8fafc;
+    margin-bottom: .65rem;
+  }
+  .pc-check input { width: 16px; height: 16px; margin-top: .15rem; accent-color: #ED1C24; }
+  .pc-check span { font-weight: 600; color: #334155; font-size: .9rem; }
+  .pc-check small { display: block; color: #64748b; font-weight: 500; margin-top: .2rem; }
+  .pc-money { position: relative; display: flex; align-items: center; }
+  .pc-money > span {
+    position: absolute; left: 12px; z-index: 1; color: #64748b; font-weight: 700;
+  }
+  .pc-money input { padding-left: 30px !important; }
+  .pc-product {
+    display: flex; justify-content: space-between; align-items: center; gap: .75rem;
+    padding: .75rem 0; border-bottom: 1px solid #f1f5f9; font-size: .9rem;
+  }
+  .pc-product:last-child { border-bottom: 0; }
+  .pc-pill {
+    display: inline-flex; padding: .2rem .65rem; border-radius: 999px;
+    font-size: .72rem; font-weight: 700;
+  }
+  .pc-pill--on { background: #dcfce7; color: #166534; }
+  .pc-pill--off { background: #f1f5f9; color: #64748b; }
+</style>
+
+<div class="pc-page">
+  <header class="pc-hero">
+    <a href="{% url 'palay_trade:overview' %}"><i class="bi bi-arrow-left"></i> Palay desk</a>
+    <h1>Palay credit for members</h1>
+    <p>Configure when members may buy Rice Palay or Bigas on credit, credit limits, grace period, and interest.</p>
+  </header>
+
+  <div class="pc-layout">
+    <section class="pc-panel">
+      <form method="post" novalidate>
+        {% csrf_token %}
+        {% if form.non_field_errors %}
+        <div class="alert alert-danger">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        <div class="pc-section">
+          <h2><i class="bi bi-toggle-on text-success"></i> Enable palay credit</h2>
+          <label class="pc-check">
+            {{ form.is_enabled }}
+            <span>
+              {{ form.is_enabled.label }}
+              {% if form.is_enabled.help_text %}<small>{{ form.is_enabled.help_text }}</small>{% endif %}
+            </span>
+          </label>
+          {% if form.is_enabled.errors %}<div class="error">{{ form.is_enabled.errors|striptags }}</div>{% endif %}
+        </div>
+
+        <div class="pc-section">
+          <h2><i class="bi bi-shield-check text-success"></i> Limits &amp; eligibility</h2>
+          <div class="pc-grid">
+            <div class="pc-field">
+              <label for="{{ form.member_max_outstanding.id_for_label }}">{{ form.member_max_outstanding.label }}</label>
+              <div class="pc-money"><span>&#8369;</span>{{ form.member_max_outstanding }}</div>
+              {% if form.member_max_outstanding.help_text %}<p class="helptext">{{ form.member_max_outstanding.help_text }}</p>{% endif %}
+              {% if form.member_max_outstanding.errors %}<div class="error">{{ form.member_max_outstanding.errors|striptags }}</div>{% endif %}
+            </div>
+            <div class="pc-field">
+              <label for="{{ form.min_membership_months.id_for_label }}">{{ form.min_membership_months.label }}</label>
+              {{ form.min_membership_months }}
+              {% if form.min_membership_months.help_text %}<p class="helptext">{{ form.min_membership_months.help_text }}</p>{% endif %}
+              {% if form.min_membership_months.errors %}<div class="error">{{ form.min_membership_months.errors|striptags }}</div>{% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div class="pc-section">
+          <h2><i class="bi bi-receipt-cutoff text-success"></i> Allowed ticket types</h2>
+          <label class="pc-check">
+            {{ form.allow_credit_on_sell }}
+            <span>
+              {{ form.allow_credit_on_sell.label }}
+              {% if form.allow_credit_on_sell.help_text %}<small>{{ form.allow_credit_on_sell.help_text }}</small>{% endif %}
+            </span>
+          </label>
+          <label class="pc-check">
+            {{ form.allow_credit_on_buy }}
+            <span>
+              {{ form.allow_credit_on_buy.label }}
+              {% if form.allow_credit_on_buy.help_text %}<small>{{ form.allow_credit_on_buy.help_text }}</small>{% endif %}
+            </span>
+          </label>
+        </div>
+
+        <div class="pc-section">
+          <h2><i class="bi bi-percent text-success"></i> Interest (optional)</h2>
+          <div class="pc-grid">
+            <div class="pc-field">
+              <label for="{{ form.grace_period_days.id_for_label }}">{{ form.grace_period_days.label }}</label>
+              {{ form.grace_period_days }}
+              {% if form.grace_period_days.help_text %}<p class="helptext">{{ form.grace_period_days.help_text }}</p>{% endif %}
+            </div>
+            <div class="pc-field">
+              <label for="{{ form.interest_rate.id_for_label }}">{{ form.interest_rate.label }}</label>
+              {{ form.interest_rate }}
+              {% if form.interest_rate.help_text %}<p class="helptext">{{ form.interest_rate.help_text }}</p>{% endif %}
+            </div>
+          </div>
+          <label class="pc-check">
+            {{ form.interest_enabled }}
+            <span>
+              {{ form.interest_enabled.label }}
+              {% if form.interest_enabled.help_text %}<small>{{ form.interest_enabled.help_text }}</small>{% endif %}
+            </span>
+          </label>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2 mt-3 pt-3 border-top">
+          <button type="submit" class="btn-loan"><i class="bi bi-check2-circle"></i> Save settings</button>
+          <a class="btn--secondary" href="{% url 'palay_trade:product-list' %}">Product features</a>
+        </div>
+      </form>
+    </section>
+
+    <aside class="pc-panel">
+      <h2 class="h6 fw-bold mb-3"><i class="bi bi-box-seam me-2 text-success"></i> Product credit flags</h2>
+      <p class="text-muted small">Each product must also allow palay credit on its features page.</p>
+      {% for product in products %}
+      <div class="pc-product">
+        <div>
+          <strong>{{ product.name }}</strong>
+          <div class="text-muted small">{{ product.code }}</div>
+        </div>
+        <div class="text-end">
+          {% if product.credit_enabled %}
+          <span class="pc-pill pc-pill--on">Credit on</span>
+          {% else %}
+          <span class="pc-pill pc-pill--off">Credit off</span>
+          {% endif %}
+          <div class="mt-1">
+            <a href="{% url 'palay_trade:product-edit' product.pk %}" class="small">Edit</a>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+      <p class="text-muted small mt-3 mb-0">
+        Members view palay credit features at
+        <a href="{% url 'member_palay_credit' %}" target="_blank" rel="noopener">/member/palay/</a>.
+      </p>
+    </aside>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,1038 @@
+{% extends "savings/base_savings.html" %}
+{% load currency_filters %}
+{% block title %}Open Savings Account{% endblock %}
+{% block extra_head %}
+  {% include "partials/tom_select_head.html" %}
+{% endblock %}
+{% block content %}
+<div class="open-account-page">
+  <header class="open-account-page__header">
+    <a class="open-account-page__back" href="{% url 'savings:overview' %}">
+      <i class="bi bi-arrow-left"></i> Savings desk
+    </a>
+    <div class="open-account-page__title-row">
+      <div>
+        <h1>Open savings account</h1>
+        <p class="subtitle">Search the member, confirm the opening date, collect the deposit, then review before opening.</p>
+      </div>
+      <div class="open-account-badge">
+        <i class="bi bi-piggy-bank"></i>
+        <span>Regular Savings</span>
+      </div>
+    </div>
+  </header>
+
+  <ol class="open-account-steps" aria-label="Opening steps" id="openAccountSteps">
+    <li class="open-account-step is-active" data-step="member">
+      <span class="open-account-step__num">1</span>
+      <span class="open-account-step__copy">
+        <strong>Member</strong>
+        <small>Who is opening</small>
+      </span>
+    </li>
+    <li class="open-account-step" data-step="date">
+      <span class="open-account-step__num">2</span>
+      <span class="open-account-step__copy">
+        <strong>Opening date</strong>
+        <small>Passbook start</small>
+      </span>
+    </li>
+    <li class="open-account-step" data-step="deposit">
+      <span class="open-account-step__num">3</span>
+      <span class="open-account-step__copy">
+        <strong>Deposit</strong>
+        <small>{% if form.regular_product and form.regular_product.min_opening_deposit %}Min &#8369;{{ form.regular_product.min_opening_deposit|currency }}{% else %}Amount{% endif %}</small>
+      </span>
+    </li>
+    <li class="open-account-step" data-step="review">
+      <span class="open-account-step__num">4</span>
+      <span class="open-account-step__copy">
+        <strong>Review</strong>
+        <small>Confirm &amp; open</small>
+      </span>
+    </li>
+  </ol>
+
+  <div class="open-account-page__layout">
+    <section class="card open-account-page__card">
+      <form method="post" id="open-savings-account-form" class="open-account-form" autocomplete="off" novalidate>
+        {% csrf_token %}
+
+        {% if form.errors %}
+        <div class="open-account-form__alert" role="alert">
+          <i class="bi bi-exclamation-circle"></i>
+          <div>
+            <strong>Could not open account.</strong>
+            Check the highlighted fields and try again.
+            {{ form.non_field_errors }}
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="open-account-form__section" data-section="member">
+          <div class="open-account-form__section-head">
+            <h2 class="open-account-form__section-title">
+              <span class="open-account-form__section-icon"><i class="bi bi-person"></i></span>
+              Member
+            </h2>
+            <p>Only eligible members without an open Regular Savings account are listed.</p>
+          </div>
+          <div class="open-account-form__field">
+            <label for="{{ form.member.id_for_label }}">{{ form.member.label }}</label>
+            {{ form.member }}
+            <p class="open-account-form__hint">Type to search by name, username, or card number.</p>
+            {% if form.member.errors %}<div class="open-account-form__errors">{{ form.member.errors }}</div>{% endif %}
+          </div>
+        </div>
+
+        <div class="open-account-form__section" data-section="date">
+          <div class="open-account-form__section-head">
+            <h2 class="open-account-form__section-title">
+              <span class="open-account-form__section-icon"><i class="bi bi-calendar3"></i></span>
+              Opening date
+            </h2>
+            <p>Official start date for interest. Use an earlier date when encoding an existing passbook.</p>
+          </div>
+          <div class="open-account-form__row open-account-form__row--date">
+            <div class="open-account-form__field">
+              <label for="{{ form.opening_date.id_for_label }}">{{ form.opening_date.label }}</label>
+              <div class="open-account-date">
+                {{ form.opening_date }}
+                <button type="button" class="open-account-date__today" id="openAccountUseToday">Use today</button>
+              </div>
+              {% if form.opening_date.errors %}<div class="open-account-form__errors">{{ form.opening_date.errors }}</div>{% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div class="open-account-form__section" data-section="deposit">
+          <div class="open-account-form__section-head">
+            <h2 class="open-account-form__section-title">
+              <span class="open-account-form__section-icon"><i class="bi bi-cash-coin"></i></span>
+              Opening deposit
+            </h2>
+            <p>Collect cash now.{% if form.regular_product %}
+              {% if form.regular_product.min_opening_deposit %} Minimum &#8369;{{ form.regular_product.min_opening_deposit|currency }}.{% endif %}
+              {% if form.regular_product.max_balance %} Maximum balance &#8369;{{ form.regular_product.max_balance|currency }}.{% endif %}
+            {% endif %}</p>
+          </div>
+
+          {{ form.product }}
+          {% if form.regular_product %}
+          <div class="open-account-product-chip" aria-hidden="true">
+            <i class="bi bi-check-circle-fill"></i>
+            <span>{{ form.regular_product.name }} · {{ savings_policy.annual_rate_display }}/year</span>
+          </div>
+          {% else %}
+          <div class="open-account-form__alert" role="alert">
+            <i class="bi bi-exclamation-circle"></i>
+            <div>No active Regular Savings product yet. Add one under Regular Savings first.</div>
+          </div>
+          {% endif %}
+          {% if form.product.errors %}<div class="open-account-form__errors">{{ form.product.errors }}</div>{% endif %}
+
+          <div class="open-account-form__row open-account-form__row--deposit">
+            <div class="open-account-form__field">
+              <label for="{{ form.opening_amount.id_for_label }}">{{ form.opening_amount.label }}</label>
+              <div class="open-account-form__money open-account-form__money--lg">
+                <span>&#8369;</span>
+                {{ form.opening_amount }}
+              </div>
+              <div class="open-account-chips" role="group" aria-label="Common opening deposits">
+                <button type="button" class="open-account-chip" data-amount="1000">₱1,000</button>
+                <button type="button" class="open-account-chip" data-amount="2000">₱2,000</button>
+                <button type="button" class="open-account-chip" data-amount="5000">₱5,000</button>
+                <button type="button" class="open-account-chip" data-amount="10000">₱10,000</button>
+              </div>
+              <p class="open-account-form__hint" id="opening-min-hint">Tap a common amount or type the exact cash collected.</p>
+              {% if form.opening_amount.errors %}<div class="open-account-form__errors">{{ form.opening_amount.errors }}</div>{% endif %}
+            </div>
+            <div class="open-account-form__field">
+              <label for="{{ form.notes.id_for_label }}">{{ form.notes.label }}</label>
+              {{ form.notes }}
+              <p class="open-account-form__hint">Optional — e.g. walk-in, existing passbook, referral.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="open-account-form__actions">
+          <button type="button" class="open-account-submit" id="open-savings-submit-btn">
+            <i class="bi bi-check-lg"></i> Review &amp; open account
+          </button>
+          <a class="btn--secondary" href="{% url 'savings:overview' %}" id="open-savings-cancel-btn">Cancel</a>
+        </div>
+      </form>
+    </section>
+
+    <aside class="open-account-page__aside">
+      <section class="card open-account-ticket" id="product-preview">
+        <div class="open-account-ticket__head">
+          <h2>Opening ticket</h2>
+          <span class="open-account-ticket__status" id="ticketStatus">Incomplete</span>
+        </div>
+        <dl class="open-account-ticket__list">
+          <div>
+            <dt>Member</dt>
+            <dd id="ticketMember">Select a member</dd>
+          </div>
+          <div>
+            <dt>Product</dt>
+            <dd>Regular Savings</dd>
+          </div>
+          <div>
+            <dt>Opening date</dt>
+            <dd id="preview-opened">{% if form.opening_date.value %}{{ form.opening_date.value }}{% else %}Today{% endif %}</dd>
+          </div>
+          <div>
+            <dt>Deposit</dt>
+            <dd id="ticketAmount">—</dd>
+          </div>
+          <div>
+            <dt>Interest</dt>
+            <dd id="preview-rate">{{ savings_policy.annual_rate_display }} / year · monthly</dd>
+          </div>
+          <div>
+            <dt>Min. opening</dt>
+            <dd id="preview-min">{% if form.regular_product %}&#8369;{{ form.regular_product.min_opening_deposit|currency }}{% else %}—{% endif %}</dd>
+          </div>
+          <div>
+            <dt>Max. balance</dt>
+            <dd id="preview-max">{% if form.regular_product and form.regular_product.max_balance %}&#8369;{{ form.regular_product.max_balance|currency }}{% else %}No limit{% endif %}</dd>
+          </div>
+          <div>
+            <dt>Term</dt>
+            <dd id="preview-term">Open-ended</dd>
+          </div>
+        </dl>
+        <p class="open-account-ticket__note">
+          <i class="bi bi-receipt"></i>
+          A printable receipt opens right after the account is created.
+        </p>
+      </section>
+
+      <section class="card open-account-page__tips">
+        <h2>Desk checklist</h2>
+        <ul class="open-account-tips">
+          <li>
+            <i class="bi bi-person-check"></i>
+            <span>Verify the member’s ID matches the selected profile.</span>
+          </li>
+          <li>
+            <i class="bi bi-cash-stack"></i>
+            <span>Count the opening cash before you click open.</span>
+          </li>
+          <li>
+            <i class="bi bi-journal-text"></i>
+            <span>Update the passbook after the receipt prints.</span>
+          </li>
+        </ul>
+      </section>
+    </aside>
+  </div>
+</div>
+
+{# Confirm open account #}
+<div class="modal fade" id="confirmOpenSavingsModal" tabindex="-1" aria-labelledby="confirmOpenSavingsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content open-sav-modal">
+      <div class="modal-header open-sav-modal__header">
+        <h5 class="modal-title" id="confirmOpenSavingsModalLabel">
+          <i class="bi bi-piggy-bank me-2"></i>Open Regular Savings?
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cancel"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-3">
+          Review this opening ticket, then click <strong>Proceed</strong> to open the account.
+        </p>
+        <dl class="open-sav-confirm-summary">
+          <div>
+            <dt>Member</dt>
+            <dd id="confirmOpenMember">—</dd>
+          </div>
+          <div>
+            <dt>Product</dt>
+            <dd>Regular Savings</dd>
+          </div>
+          <div>
+            <dt>Opening date</dt>
+            <dd id="confirmOpenDate">—</dd>
+          </div>
+          <div>
+            <dt>Opening deposit</dt>
+            <dd id="confirmOpenAmount">—</dd>
+          </div>
+        </dl>
+      </div>
+      <div class="modal-footer open-sav-modal__footer">
+        <button type="button" class="btn--secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn-loan" id="confirmOpenSavingsBtn">
+          <i class="bi bi-check-lg me-1"></i>Proceed — open account
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Confirm leave / cancel #}
+<div class="modal fade" id="confirmLeaveOpenSavingsModal" tabindex="-1" aria-labelledby="confirmLeaveOpenSavingsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content open-sav-modal">
+      <div class="modal-header open-sav-modal__header open-sav-modal__header--neutral">
+        <h5 class="modal-title" id="confirmLeaveOpenSavingsModalLabel">
+          <i class="bi bi-x-circle me-2"></i>Leave this page?
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Stay"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-0" id="confirmLeaveOpenMessage">
+          Any details entered on this form will be discarded.
+        </p>
+      </div>
+      <div class="modal-footer open-sav-modal__footer">
+        <button type="button" class="btn--secondary" data-bs-dismiss="modal">Stay on page</button>
+        <a class="btn-loan open-sav-modal__danger-btn" id="confirmLeaveOpenBtn" href="{% url 'savings:overview' %}">
+          Yes, leave
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  #confirmOpenSavingsModal,
+  #confirmLeaveOpenSavingsModal { z-index: 10050 !important; }
+  .open-sav-modal { border: none; border-radius: 16px; overflow: hidden; }
+  .open-sav-modal__header { background: #166534; color: #fff; }
+  .open-sav-modal__header--neutral { background: #334155; }
+  .open-sav-modal__footer { background: #f8fafc; gap: .5rem; }
+  .open-sav-modal__danger-btn { background: #b91c1c; color: #fff; text-decoration: none; }
+  .open-sav-modal__danger-btn:hover { background: #991b1b; color: #fff; }
+  .open-sav-confirm-summary { margin: 0; }
+  .open-sav-confirm-summary > div {
+    display: flex; justify-content: space-between; gap: .75rem;
+    padding: .55rem 0; border-bottom: 1px solid #f1f5f9; font-size: .9rem;
+  }
+  .open-sav-confirm-summary > div:last-child { border-bottom: none; }
+  .open-sav-confirm-summary dt { margin: 0; color: #64748b; font-weight: 500; }
+  .open-sav-confirm-summary dd { margin: 0; font-weight: 700; color: #0f172a; text-align: right; }
+  .open-account-form__money input.is-invalid,
+  .open-account-form__field input.is-invalid,
+  .open-account-form__field select.is-invalid,
+  .open-account-page .ts-wrapper.is-invalid .ts-control {
+    border-color: #dc2626 !important;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, .12);
+  }
+
+  .open-account-page {
+    width: 100%;
+    max-width: 1280px;
+    margin-inline: auto;
+    box-sizing: border-box;
+  }
+  .open-account-page__header { margin-bottom: 1.25rem; }
+  .open-account-page__title-row {
+    display: flex; flex-wrap: wrap; align-items: flex-start;
+    justify-content: space-between; gap: .85rem 1.25rem;
+  }
+  .open-account-page__header h1 {
+    margin: 0 0 .35rem;
+    font-size: clamp(1.35rem, 1.1rem + 1vw, 1.85rem);
+  }
+  .open-account-page__header .subtitle {
+    margin: 0; max-width: 42rem; color: #64748b; font-size: .92rem;
+  }
+  .open-account-page__back {
+    display: inline-flex; align-items: center; gap: .4rem;
+    color: #64748b; text-decoration: none; font-size: .88rem; font-weight: 500; margin-bottom: .65rem;
+  }
+  .open-account-page__back:hover { color: #334155; }
+  .open-account-badge {
+    display: inline-flex; align-items: center; gap: .45rem;
+    padding: .55rem .9rem; border-radius: 999px;
+    background: #fff; border: 1px solid #e2e8f0;
+    color: #0f172a; font-weight: 700; font-size: .84rem;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, .06);
+  }
+  .open-account-badge i { color: #ED1C24; }
+
+  .open-account-steps {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .75rem;
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1.35rem;
+  }
+  .open-account-step {
+    display: flex; align-items: center; gap: .7rem;
+    padding: .85rem 1rem;
+    border-radius: 14px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    color: #94a3b8;
+  }
+  .open-account-step.is-active {
+    border-color: #fecaca;
+    box-shadow: 0 0 0 3px rgba(237, 28, 36, .08);
+    color: #0f172a;
+  }
+  .open-account-step.is-done {
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+    color: #166534;
+  }
+  .open-account-step__num {
+    width: 30px; height: 30px; border-radius: 999px; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: .8rem; font-weight: 800;
+    background: #e2e8f0; color: #64748b;
+  }
+  .open-account-step.is-active .open-account-step__num {
+    background: #ED1C24; color: #fff;
+  }
+  .open-account-step.is-done .open-account-step__num {
+    background: #16a34a; color: #fff;
+  }
+  .open-account-step__copy {
+    display: flex; flex-direction: column; gap: .05rem; min-width: 0;
+  }
+  .open-account-step__copy strong {
+    font-size: .88rem; font-weight: 700; line-height: 1.2;
+  }
+  .open-account-step__copy small {
+    font-size: .75rem; color: #94a3b8; font-weight: 500;
+  }
+  .open-account-step.is-done .open-account-step__copy small { color: #4ade80; }
+
+  .open-account-page__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(280px, .8fr);
+    gap: 1.25rem;
+    align-items: start;
+  }
+  .open-account-page__card,
+  .open-account-page__tips,
+  .open-account-ticket {
+    padding: 1.4rem 1.5rem;
+    margin-bottom: 0;
+  }
+  .open-account-page__aside {
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+    position: sticky;
+    top: 1rem;
+  }
+
+  .open-account-form__alert {
+    display: flex; gap: .65rem; align-items: flex-start;
+    margin-bottom: 1.25rem; padding: .85rem 1rem;
+    border-radius: 12px; background: #fee2e2; color: #991b1b; font-size: .88rem;
+  }
+  .open-account-form__alert i { font-size: 1.1rem; margin-top: .1rem; flex-shrink: 0; }
+
+  .open-account-form__section {
+    padding-bottom: 1.35rem;
+    margin-bottom: 1.35rem;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .open-account-form__section:last-of-type {
+    border-bottom: none; margin-bottom: 0; padding-bottom: 0;
+  }
+  .open-account-form__section-head { margin-bottom: 1rem; }
+  .open-account-form__section-head p {
+    margin: .35rem 0 0; color: #64748b; font-size: .84rem; line-height: 1.45;
+  }
+  .open-account-form__section-title {
+    display: flex; align-items: center; gap: .55rem;
+    font-size: 1.02rem; font-weight: 700; color: #0f172a; margin: 0;
+  }
+  .open-account-form__section-icon {
+    width: 34px; height: 34px; border-radius: 10px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: #fef2f2; color: #ED1C24; font-size: 1rem;
+  }
+
+  .open-account-form__field { margin-bottom: .85rem; }
+  .open-account-form__field:last-child { margin-bottom: 0; }
+  .open-account-form__field > label:first-child {
+    display: block; margin-bottom: .4rem;
+    font-weight: 600; font-size: .9rem; color: #334155;
+  }
+  .open-account-form__hint {
+    margin: .4rem 0 0; font-size: .78rem; color: #94a3b8;
+  }
+  .open-account-form__row--deposit {
+    display: grid;
+    grid-template-columns: minmax(240px, 320px) minmax(0, 1fr);
+    gap: 1rem 1.25rem;
+    align-items: start;
+    margin-top: .85rem;
+  }
+  .open-account-form__money {
+    position: relative; display: flex; align-items: center;
+  }
+  .open-account-form__money > span {
+    position: absolute; left: 14px; color: #64748b; font-weight: 700; z-index: 1;
+  }
+  .open-account-form__money input {
+    padding-left: 34px !important; width: 100%; box-sizing: border-box;
+  }
+  .open-account-form__money--lg input {
+    min-height: 52px; font-size: 1.25rem; font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .open-account-form__field textarea {
+    min-height: 52px; resize: vertical;
+  }
+  .open-account-form__errors { color: #dc2626; font-size: .82rem; margin-top: .35rem; }
+  .open-account-form__errors ul { margin: 0; padding-left: 1rem; }
+
+  .open-account-date {
+    display: flex; flex-wrap: wrap; gap: .55rem; align-items: center;
+  }
+  .open-account-date input[type="date"] {
+    flex: 1 1 180px; min-height: 48px; color-scheme: light;
+  }
+  .open-account-date__today {
+    border: 1px solid #e2e8f0; background: #fff; color: #334155;
+    border-radius: 999px; padding: 10px 14px; font-weight: 600; font-size: .84rem;
+    cursor: pointer; white-space: nowrap;
+  }
+  .open-account-date__today:hover { background: #f8fafc; border-color: #cbd5e1; }
+
+  .open-account-product-chip {
+    display: inline-flex; align-items: center; gap: .45rem;
+    padding: .45rem .75rem; border-radius: 999px;
+    background: #f0fdf4; color: #166534; font-size: .82rem; font-weight: 600;
+  }
+  .open-account-product-chip i { color: #16a34a; }
+
+  .open-account-chips {
+    display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .55rem;
+  }
+  .open-account-chip {
+    border: 1px solid #e2e8f0; background: #fff; border-radius: 999px;
+    padding: 6px 12px; font-size: .8rem; font-weight: 600; color: #475569; cursor: pointer;
+  }
+  .open-account-chip:hover { background: #f8fafc; border-color: #cbd5e1; color: #0f172a; }
+  .open-account-chip.is-active {
+    background: #0f172a; border-color: #0f172a; color: #fff;
+  }
+
+  .open-account-form__actions {
+    display: flex; flex-wrap: wrap; gap: .65rem; align-items: center;
+    margin-top: 1.4rem; padding-top: 1.2rem; border-top: 1px solid #f1f5f9;
+  }
+  .open-account-submit {
+    display: inline-flex; align-items: center; justify-content: center; gap: .45rem;
+    border: none; border-radius: 999px; padding: 13px 24px;
+    background: #15803d; color: #fff; font-weight: 700; font-size: .95rem; cursor: pointer;
+  }
+  .open-account-submit:hover { background: #166534; color: #fff; }
+  .open-account-submit:disabled { opacity: .65; cursor: not-allowed; }
+
+  .open-account-ticket {
+    background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
+  }
+  .open-account-ticket__head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: .75rem; margin-bottom: 1rem;
+  }
+  .open-account-ticket__head h2,
+  .open-account-page__tips h2 {
+    font-size: 1rem; margin: 0;
+  }
+  .open-account-ticket__status {
+    display: inline-flex; align-items: center;
+    padding: .25rem .65rem; border-radius: 999px;
+    font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    background: #fef3c7; color: #92400e;
+  }
+  .open-account-ticket__status.is-ready {
+    background: #dcfce7; color: #166534;
+  }
+  .open-account-ticket__list { margin: 0; }
+  .open-account-ticket__list > div {
+    display: flex; justify-content: space-between; gap: .75rem;
+    padding: .55rem 0; border-bottom: 1px solid #eef2f7; font-size: .86rem;
+  }
+  .open-account-ticket__list > div:last-child { border-bottom: none; }
+  .open-account-ticket__list dt { color: #64748b; font-weight: 500; margin: 0; }
+  .open-account-ticket__list dd {
+    margin: 0; font-weight: 700; color: #0f172a; text-align: right;
+    max-width: 60%; word-break: break-word;
+  }
+  .open-account-ticket__note {
+    display: flex; align-items: flex-start; gap: .45rem;
+    margin: 1rem 0 0; padding: .75rem .85rem;
+    border-radius: 12px; background: #eef2f7; color: #475569;
+    font-size: .8rem; line-height: 1.4;
+  }
+  .open-account-ticket__note i { color: #64748b; margin-top: .1rem; }
+
+  .open-account-tips {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; gap: .8rem;
+  }
+  .open-account-tips li {
+    display: flex; align-items: flex-start; gap: .55rem;
+    font-size: .84rem; color: #64748b; line-height: 1.45;
+  }
+  .open-account-tips i {
+    color: #E6C200; font-size: 1.05rem; flex-shrink: 0; margin-top: .05rem;
+  }
+
+  .open-account-page .ts-wrapper.single .ts-control {
+    min-height: 48px;
+    padding: 11px 14px;
+  }
+  .open-account-page .ts-wrapper.single .ts-control:focus-within {
+    border-color: #16a34a;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, .12);
+  }
+  .open-account-page form select:focus,
+  .open-account-page form input:focus,
+  .open-account-page form textarea:focus {
+    outline: none;
+    border-color: #16a34a;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, .12);
+  }
+
+  @media (max-width: 980px) {
+    .open-account-page__layout { grid-template-columns: 1fr; }
+    .open-account-page__aside { position: static; }
+    .open-account-steps { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 700px) {
+    .open-account-steps { grid-template-columns: 1fr; }
+    .open-account-form__row--deposit { grid-template-columns: 1fr; }
+    .open-account-submit { width: 100%; }
+    .open-account-page__card,
+    .open-account-page__tips,
+    .open-account-ticket {
+      padding: 1.15rem;
+    }
+  }
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+  {% include "partials/tom_select_scripts.html" %}
+  <script>
+  (function () {
+    var memberSelect = document.getElementById("{{ form.member.id_for_label }}");
+    if (!memberSelect || !window.TomSelect) return;
+
+    Array.from(memberSelect.options).forEach(function (opt) {
+      if (!opt.value) opt.textContent = "";
+    });
+
+    var memberTomSelect = new TomSelect(memberSelect, {
+      allowEmptyOption: true,
+      placeholder: "Type to search member name or username...",
+      maxOptions: 200,
+      dropdownParent: "body",
+      create: false,
+      sortField: { field: "text", direction: "asc" },
+      render: {
+        option: function (data, escape) {
+          if (!data.value) return null;
+          return '<div class="option">' + escape(data.text) + "</div>";
+        },
+        item: function (data, escape) {
+          if (!data.value) {
+            return '<div class="item placeholder"></div>';
+          }
+          return '<div class="item">' + escape(data.text) + "</div>";
+        },
+      },
+      onInitialize: function () {
+        var sel = this.input;
+        if (!sel) return;
+        sel.classList.add("ts-hidden-accessible");
+        sel.style.setProperty("display", "none", "important");
+        sel.setAttribute("aria-hidden", "true");
+        sel.tabIndex = -1;
+      },
+      onDropdownOpen: function () {
+        var root = this.dropdown_content;
+        if (!root) return;
+        var blank = root.querySelector('[data-value=""]');
+        if (blank) blank.style.display = "none";
+      },
+      onChange: function () {
+        document.dispatchEvent(new CustomEvent("open-savings-ticket-sync"));
+      },
+    });
+
+    if (memberTomSelect.options[""]) {
+      memberTomSelect.removeOption("");
+    }
+    if (!memberSelect.value) {
+      memberTomSelect.clear(true);
+    }
+  })();
+
+  (function () {
+    var form = document.getElementById("open-savings-account-form");
+    if (!form) return;
+
+    var memberSelect = document.getElementById("{{ form.member.id_for_label }}");
+    var amountInput = document.getElementById("{{ form.opening_amount.id_for_label }}");
+    var dateInput = document.getElementById("{{ form.opening_date.id_for_label }}");
+    var notesEl = document.getElementById("{{ form.notes.id_for_label }}");
+    var submitBtn = document.getElementById("open-savings-submit-btn");
+    var cancelLink = document.getElementById("open-savings-cancel-btn");
+    var backLink = document.querySelector(".open-account-page__back");
+    var confirmBtn = document.getElementById("confirmOpenSavingsBtn");
+    var leaveBtn = document.getElementById("confirmLeaveOpenBtn");
+    var leaveMsg = document.getElementById("confirmLeaveOpenMessage");
+    var previewOpened = document.getElementById("preview-opened");
+    var ticketMember = document.getElementById("ticketMember");
+    var ticketAmount = document.getElementById("ticketAmount");
+    var ticketStatus = document.getElementById("ticketStatus");
+    var useTodayBtn = document.getElementById("openAccountUseToday");
+    var chips = form.querySelectorAll(".open-account-chip");
+    var steps = document.querySelectorAll("#openAccountSteps .open-account-step");
+    var submitting = false;
+    var minOpening = {% if form.regular_product %}{{ form.regular_product.min_opening_deposit }}{% else %}0{% endif %};
+    var maxBalance = {% if form.regular_product and form.regular_product.max_balance %}{{ form.regular_product.max_balance }}{% else %}0{% endif %};
+
+    function getModal(el) {
+      if (!el || typeof bootstrap === "undefined" || !bootstrap.Modal) return null;
+      return bootstrap.Modal.getInstance(el) || new bootstrap.Modal(el, {
+        backdrop: true,
+        keyboard: true,
+        focus: true
+      });
+    }
+
+    function memberLabel() {
+      if (!memberSelect) return "";
+      if (memberSelect.tomselect) {
+        var val = memberSelect.tomselect.getValue();
+        if (!val) return "";
+        var opt = memberSelect.tomselect.options[val];
+        return (opt && opt.text) || "";
+      }
+      var selected = memberSelect.options[memberSelect.selectedIndex];
+      return selected && selected.value ? selected.textContent.trim() : "";
+    }
+
+    function memberSelected() {
+      if (!memberSelect) return false;
+      if (memberSelect.tomselect) return !!memberSelect.tomselect.getValue();
+      return !!(memberSelect.value);
+    }
+
+    function formatAmount(raw) {
+      if (window.MoneyInput && typeof window.MoneyInput.format === "function") {
+        var formatted = window.MoneyInput.format(raw, 2);
+        if (formatted) return formatted;
+      }
+      var n = Number(String(raw || "").replace(/,/g, ""));
+      if (!isFinite(n)) return String(raw || "").trim() || "0.00";
+      return n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function parseAmount(raw) {
+      if (window.MoneyInput && typeof window.MoneyInput.parse === "function") {
+        return window.MoneyInput.parse(raw);
+      }
+      var n = Number(String(raw || "").replace(/,/g, "").replace(/₱/g, "").trim());
+      return isFinite(n) ? n : NaN;
+    }
+
+    function formatPreviewDate(value) {
+      if (!value) return "Today";
+      var parts = value.split("-");
+      if (parts.length !== 3) return value;
+      var months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      var month = months[Number(parts[1]) - 1] || parts[1];
+      return month + " " + Number(parts[2]) + ", " + parts[0];
+    }
+
+    function todayIso() {
+      var d = new Date();
+      var m = String(d.getMonth() + 1).padStart(2, "0");
+      var day = String(d.getDate()).padStart(2, "0");
+      return d.getFullYear() + "-" + m + "-" + day;
+    }
+
+    function setText(id, text) {
+      var el = document.getElementById(id);
+      if (el) el.textContent = text;
+    }
+
+    function clearFlash() {
+      [amountInput, dateInput].forEach(function (el) {
+        if (el) el.classList.remove("is-invalid");
+      });
+      if (memberSelect) {
+        memberSelect.classList.remove("is-invalid");
+        var wrap = memberSelect.closest(".ts-wrapper");
+        if (wrap) wrap.classList.remove("is-invalid");
+      }
+    }
+
+    function flash(el) {
+      if (!el) return;
+      el.classList.add("is-invalid");
+      try { el.focus(); } catch (e) {}
+      var wrap = el.closest && el.closest(".ts-wrapper");
+      if (wrap) wrap.classList.add("is-invalid");
+    }
+
+    function syncTicket() {
+      var hasMember = memberSelected();
+      var openingDate = (dateInput && dateInput.value) || "";
+      var amount = parseAmount(amountInput && amountInput.value);
+      var hasAmount = isFinite(amount) && amount > 0;
+      var meetsMin = minOpening <= 0 || (hasAmount && amount >= minOpening);
+      var withinMax = maxBalance <= 0 || (hasAmount && amount <= maxBalance);
+      var ready = hasMember && !!openingDate && hasAmount && meetsMin && withinMax;
+
+      if (ticketMember) {
+        ticketMember.textContent = hasMember ? (memberLabel() || "Selected member") : "Select a member";
+      }
+      if (previewOpened) {
+        previewOpened.textContent = formatPreviewDate(openingDate);
+      }
+      if (ticketAmount) {
+        ticketAmount.textContent = hasAmount ? ("₱" + formatAmount(amount)) : "—";
+        ticketAmount.style.color = (hasAmount && !meetsMin) || (hasAmount && !withinMax) ? "#b91c1c" : "";
+      }
+      if (ticketStatus) {
+        ticketStatus.textContent = ready ? "Ready" : "Incomplete";
+        ticketStatus.classList.toggle("is-ready", ready);
+      }
+
+      chips.forEach(function (chip) {
+        var chipAmt = Number(chip.getAttribute("data-amount"));
+        chip.classList.toggle("is-active", hasAmount && chipAmt === amount);
+      });
+
+      steps.forEach(function (step) {
+        var key = step.getAttribute("data-step");
+        var done = false;
+        var active = false;
+        if (key === "member") {
+          done = hasMember;
+          active = !hasMember;
+        } else if (key === "date") {
+          done = !!openingDate;
+          active = hasMember && !openingDate;
+        } else if (key === "deposit") {
+          done = hasAmount && meetsMin && withinMax;
+          active = hasMember && !!openingDate && !(hasAmount && meetsMin && withinMax);
+        } else if (key === "review") {
+          done = false;
+          active = ready;
+        }
+        step.classList.toggle("is-done", done && !active);
+        step.classList.toggle("is-active", active);
+      });
+    }
+
+    function validateOpen() {
+      clearFlash();
+      if (!memberSelected()) {
+        flash(memberSelect);
+        if (memberSelect && memberSelect.tomselect) {
+          try { memberSelect.tomselect.focus(); } catch (e) {}
+        }
+        window.alert("Select a member before opening the account.");
+        return null;
+      }
+      var openingDate = (dateInput && dateInput.value) || "";
+      if (!openingDate) {
+        flash(dateInput);
+        window.alert("Choose an opening date.");
+        return null;
+      }
+      var amount = parseAmount(amountInput && amountInput.value);
+      if (!isFinite(amount) || amount <= 0) {
+        flash(amountInput);
+        window.alert("Enter a valid opening deposit greater than zero.");
+        return null;
+      }
+      if (minOpening > 0 && amount < minOpening) {
+        flash(amountInput);
+        window.alert("Opening deposit must be at least ₱" + formatAmount(minOpening) + ".");
+        return null;
+      }
+      if (maxBalance > 0 && amount > maxBalance) {
+        flash(amountInput);
+        window.alert("Opening deposit cannot exceed the maximum balance of ₱" + formatAmount(maxBalance) + ".");
+        return null;
+      }
+      return {
+        member: memberLabel() || "the selected member",
+        openingDate: formatPreviewDate(openingDate),
+        amount: amount
+      };
+    }
+
+    function submitOpen() {
+      if (submitting) return;
+      submitting = true;
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML =
+          '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Opening…';
+      }
+      if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.innerHTML =
+          '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Opening…';
+      }
+      if (window.MoneyInput && typeof window.MoneyInput.stripForm === "function") {
+        window.MoneyInput.stripForm(form);
+      }
+      HTMLFormElement.prototype.submit.call(form);
+    }
+
+    function openConfirm() {
+      if (submitting) return;
+      var data = validateOpen();
+      if (!data) return;
+
+      setText("confirmOpenMember", data.member);
+      setText("confirmOpenDate", data.openingDate);
+      setText("confirmOpenAmount", "₱" + formatAmount(data.amount));
+
+      if (confirmBtn) {
+        confirmBtn.disabled = false;
+        confirmBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Proceed — open account';
+      }
+
+      var modalEl = document.getElementById("confirmOpenSavingsModal");
+      var bsModal = getModal(modalEl);
+      if (!bsModal) {
+        var ok = window.confirm(
+          "Open Regular Savings for " + data.member + "?\n\n" +
+          "Opening date: " + data.openingDate + "\n" +
+          "Opening deposit: ₱" + formatAmount(data.amount) + "\n\n" +
+          "Click OK to proceed."
+        );
+        if (ok) submitOpen();
+        return;
+      }
+      try {
+        bsModal.show();
+      } catch (err) {
+        if (window.confirm("Open Regular Savings for " + data.member + "?")) submitOpen();
+      }
+    }
+
+    function proceedOpen() {
+      if (submitting) return;
+      var modalEl = document.getElementById("confirmOpenSavingsModal");
+      var bsModal = getModal(modalEl);
+      if (bsModal) {
+        try { bsModal.hide(); } catch (e) {}
+      }
+      window.setTimeout(submitOpen, 120);
+    }
+
+    function formHasDraft() {
+      var amount = parseAmount(amountInput && amountInput.value);
+      var notes = notesEl ? String(notesEl.value || "").trim() : "";
+      return memberSelected() || (isFinite(amount) && amount > 0) || !!notes;
+    }
+
+    function openLeaveConfirm(href, message) {
+      if (leaveMsg) leaveMsg.textContent = message;
+      if (leaveBtn) leaveBtn.setAttribute("href", href);
+      var modalEl = document.getElementById("confirmLeaveOpenSavingsModal");
+      var bsModal = getModal(modalEl);
+      if (!bsModal) {
+        if (window.confirm(message + "\n\nClick OK to leave.")) {
+          window.location.href = href;
+        }
+        return;
+      }
+      bsModal.show();
+    }
+
+    if (useTodayBtn && dateInput) {
+      useTodayBtn.addEventListener("click", function () {
+        dateInput.value = todayIso();
+        dateInput.dispatchEvent(new Event("change", { bubbles: true }));
+        syncTicket();
+      });
+    }
+
+    chips.forEach(function (chip) {
+      chip.addEventListener("click", function () {
+        if (!amountInput) return;
+        amountInput.value = formatAmount(chip.getAttribute("data-amount"));
+        amountInput.dispatchEvent(new Event("input", { bubbles: true }));
+        amountInput.classList.remove("is-invalid");
+        syncTicket();
+      });
+    });
+
+    if (amountInput) {
+      amountInput.addEventListener("input", syncTicket);
+      amountInput.addEventListener("change", syncTicket);
+    }
+    if (dateInput) {
+      dateInput.addEventListener("input", syncTicket);
+      dateInput.addEventListener("change", syncTicket);
+    }
+    if (memberSelect) {
+      memberSelect.addEventListener("change", syncTicket);
+    }
+    document.addEventListener("open-savings-ticket-sync", syncTicket);
+
+    if (submitBtn) {
+      submitBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+        openConfirm();
+      });
+    }
+
+    form.addEventListener("submit", function (e) {
+      if (!submitting) {
+        e.preventDefault();
+        openConfirm();
+      }
+    });
+
+    if (confirmBtn) {
+      confirmBtn.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        proceedOpen();
+      });
+    }
+
+    if (cancelLink) {
+      cancelLink.addEventListener("click", function (e) {
+        if (!formHasDraft()) return;
+        e.preventDefault();
+        openLeaveConfirm(
+          cancelLink.href,
+          "Cancel opening this savings account? Any details entered on this form will be discarded."
+        );
+      });
+    }
+
+    if (backLink) {
+      backLink.addEventListener("click", function (e) {
+        if (!formHasDraft()) return;
+        e.preventDefault();
+        openLeaveConfirm(
+          backLink.href,
+          "Leave this page and return to the savings desk? Any details entered on this form will be discarded."
+        );
+      });
+    }
+
+    syncTicket();
+  })();
+  </script>
+{% endblock %}

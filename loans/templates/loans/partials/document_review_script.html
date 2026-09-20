@@ -1,0 +1,61 @@
+<script>
+(function () {
+  var root = document.getElementById("doc-review");
+  if (!root) return;
+
+  var items = root.querySelectorAll(".doc-review__item");
+  var titleEl = document.getElementById("doc-preview-title");
+  var subEl = document.getElementById("doc-preview-sub");
+  var openEl = document.getElementById("doc-open-tab");
+  var downloadEl = document.getElementById("doc-download");
+  var imgEl = document.getElementById("doc-preview-image");
+  var pdfEl = document.getElementById("doc-preview-pdf");
+  var fallbackEl = document.getElementById("doc-preview-fallback");
+
+  function showPreview(btn) {
+    items.forEach(function (el) { el.classList.remove("is-active"); });
+    btn.classList.add("is-active");
+
+    var url = btn.getAttribute("data-doc-url") || "";
+    var kind = btn.getAttribute("data-doc-kind") || "file";
+    var name = btn.getAttribute("data-doc-name") || "";
+    var type = btn.getAttribute("data-doc-type") || name;
+    var date = btn.getAttribute("data-doc-date") || "";
+    var verified = btn.getAttribute("data-doc-verified") === "1";
+
+    if (titleEl) titleEl.textContent = type;
+    if (subEl) {
+      subEl.innerHTML = name + (date ? " &middot; " + date : "") +
+        (verified ? ' <span class="doc-review__badge">Verified</span>' : "");
+    }
+    if (openEl) openEl.href = url;
+    if (downloadEl) downloadEl.href = url;
+
+    if (imgEl) imgEl.hidden = true;
+    if (pdfEl) {
+      pdfEl.hidden = true;
+      pdfEl.removeAttribute("src");
+    }
+    if (fallbackEl) fallbackEl.hidden = true;
+
+    if (kind === "image" && url && imgEl) {
+      imgEl.src = url;
+      imgEl.alt = type;
+      imgEl.hidden = false;
+    } else if (kind === "pdf" && url && pdfEl) {
+      pdfEl.src = url + "#toolbar=1&navpanes=0";
+      pdfEl.hidden = false;
+    } else if (fallbackEl) {
+      fallbackEl.innerHTML =
+        '<i class="bi bi-file-earmark" aria-hidden="true"></i>' +
+        "<p>Preview not available for this file type.</p>" +
+        '<a class="btn-loan" href="' + url + '" target="_blank" rel="noopener">Open file</a>';
+      fallbackEl.hidden = false;
+    }
+  }
+
+  items.forEach(function (btn) {
+    btn.addEventListener("click", function () { showPreview(btn); });
+  });
+})();
+</script>

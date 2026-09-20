@@ -1,0 +1,244 @@
+{% extends "loans/base_loans.html" %}
+{% block title %}Add Loan Product{% endblock %}
+{% block content %}
+<div class="loan-form-page loan-form-page--wide">
+  <header class="loan-form-page__header">
+    <a class="loan-form-page__back" href="{% url 'loans:product-list' %}">
+      <i class="bi bi-arrow-left"></i> Loan products
+    </a>
+    <h1>Add Loan Product</h1>
+    <p class="subtitle">Define a loan offering members can apply for — amount range and term. Interest rate and usable days are set when applying.</p>
+  </header>
+
+  <div class="loan-form-page__layout">
+    <section class="card loan-form-page__card">
+      <form method="post" class="loan-form">
+        {% csrf_token %}
+
+        {% if form.non_field_errors %}
+        <div class="loan-form__errors">{{ form.non_field_errors }}</div>
+        {% endif %}
+
+        <div class="loan-form__field">
+          <label for="{{ form.name.id_for_label }}">{{ form.name.label }}</label>
+          {{ form.name }}
+          {% if form.name.errors %}<div class="loan-form__errors">{{ form.name.errors }}</div>{% endif %}
+        </div>
+
+        <div class="loan-form__field">
+          <label for="{{ form.description.id_for_label }}">{{ form.description.label }}</label>
+          {{ form.description }}
+          {% if form.description.errors %}<div class="loan-form__errors">{{ form.description.errors }}</div>{% endif %}
+        </div>
+
+        <div class="loan-form__row">
+          <div class="loan-form__field">
+            <label for="{{ form.min_amount.id_for_label }}">{{ form.min_amount.label }}</label>
+            <div class="loan-form__money">
+              <span>&#8369;</span>
+              {{ form.min_amount }}
+            </div>
+            {% if form.min_amount.errors %}<div class="loan-form__errors">{{ form.min_amount.errors }}</div>{% endif %}
+          </div>
+          <div class="loan-form__field">
+            <label for="{{ form.max_amount.id_for_label }}">{{ form.max_amount.label }}</label>
+            <div class="loan-form__money">
+              <span>&#8369;</span>
+              {{ form.max_amount }}
+            </div>
+            {% if form.max_amount.errors %}<div class="loan-form__errors">{{ form.max_amount.errors }}</div>{% endif %}
+          </div>
+        </div>
+
+        <div class="loan-form__row">
+          <div class="loan-form__field">
+            <label for="{{ form.term_months.id_for_label }}">{{ form.term_months.label }}</label>
+            {{ form.term_months }}
+            {% if form.term_months.help_text %}<p class="helptext">{{ form.term_months.help_text }}</p>{% endif %}
+            {% if form.term_months.errors %}<div class="loan-form__errors">{{ form.term_months.errors }}</div>{% endif %}
+          </div>
+          <div class="loan-form__field">
+            <label for="{{ form.interest_start_month.id_for_label }}">{{ form.interest_start_month.label }}</label>
+            {{ form.interest_start_month }}
+            {% if form.interest_start_month.help_text %}<p class="helptext">{{ form.interest_start_month.help_text }}</p>{% endif %}
+            {% if form.interest_start_month.errors %}<div class="loan-form__errors">{{ form.interest_start_month.errors }}</div>{% endif %}
+          </div>
+        </div>
+
+        <div class="loan-form__actions">
+          <button type="submit" class="btn-loan">
+            <i class="bi bi-plus-lg"></i> Save product
+          </button>
+          <a class="btn--secondary" href="{% url 'loans:product-list' %}">Cancel</a>
+        </div>
+      </form>
+    </section>
+
+    <aside class="card loan-form-page__tips">
+      <h2>Tips</h2>
+      <dl class="loan-tips">
+        <div>
+          <dt>Term (months)</dt>
+          <dd>How many monthly payments the loan is split into. Term does not change interest — only the installment count.</dd>
+        </div>
+        <div>
+          <dt>Interest rate</dt>
+          <dd>Set on each loan application (Apply step), not on the product — so rates can differ per borrower.</dd>
+        </div>
+        <div>
+          <dt>Late interest from month</dt>
+          <dd>First installment month that can receive late interest if unpaid past due (1 = first month).</dd>
+        </div>
+        <div>
+          <dt>Usable days</dt>
+          <dd>Interest day count is set on Apply from a From/To date range — not on the product.</dd>
+        </div>
+        <div>
+          <dt>Amount range</dt>
+          <dd>Applications outside min/max are rejected at entry.</dd>
+        </div>
+      </dl>
+    </aside>
+  </div>
+</div>
+
+<style>
+  .loan-form-page {
+    width: 100%;
+    max-width: 680px;
+    margin-inline: auto;
+  }
+  .loan-form-page--wide { max-width: 980px; }
+
+  .loan-form-page__header { margin-bottom: 1.25rem; }
+  .loan-form-page__header h1 { margin: 0 0 .35rem; }
+  .loan-form-page__header .subtitle { margin-bottom: 0; }
+
+  .loan-form-page__back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    color: #64748b;
+    text-decoration: none;
+    font-size: .88rem;
+    font-weight: 500;
+    margin-bottom: .65rem;
+  }
+  .loan-form-page__back:hover { color: #0f172a; }
+
+  .loan-form-page__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(240px, .85fr);
+    gap: 1.25rem;
+    align-items: start;
+  }
+  @media (max-width: 900px) {
+    .loan-form-page__layout { grid-template-columns: 1fr; }
+  }
+
+  .loan-form-page__card,
+  .loan-form-page__tips {
+    padding: 1.5rem 1.6rem;
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+    margin-bottom: 0;
+  }
+
+  .loan-form-page__tips h2 {
+    margin-bottom: .85rem;
+    font-size: 1rem;
+  }
+
+  .loan-tips { margin: 0; }
+  .loan-tips > div {
+    padding: .7rem 0;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .loan-tips > div:last-child {
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+  .loan-tips dt {
+    margin-bottom: .2rem;
+    color: #0f172a;
+    font-size: .82rem;
+    font-weight: 700;
+  }
+  .loan-tips dd {
+    margin: 0;
+    color: #64748b;
+    font-size: .82rem;
+    line-height: 1.45;
+  }
+
+  .loan-form__field { margin-bottom: 1.1rem; }
+  .loan-form__field > label:first-child {
+    display: block;
+    margin-bottom: .4rem;
+    color: #334155;
+    font-size: .9rem;
+    font-weight: 600;
+  }
+  .loan-form__field select,
+  .loan-form__field textarea,
+  .loan-form__field input:not([type="checkbox"]) {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #fff;
+    font-size: .92rem;
+  }
+  .loan-form__field select:focus,
+  .loan-form__field textarea:focus,
+  .loan-form__field input:focus {
+    outline: none;
+    border-color: #E6C200;
+    box-shadow: 0 0 0 3px rgba(230, 194, 0, .15);
+  }
+  .loan-form__field textarea {
+    min-height: 90px;
+    resize: vertical;
+  }
+
+  .loan-form__row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .85rem;
+  }
+  @media (max-width: 640px) {
+    .loan-form__row { grid-template-columns: 1fr; }
+  }
+
+  .loan-form__money {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+  .loan-form__money > span {
+    position: absolute;
+    left: 12px;
+    color: #64748b;
+    font-weight: 600;
+    z-index: 1;
+  }
+  .loan-form__money input { padding-left: 30px !important; }
+
+  .loan-form__errors .errorlist {
+    margin: .35rem 0 0;
+    padding-left: 1.15rem;
+  }
+
+  .loan-form__actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .5rem;
+    margin-top: 1.35rem;
+    padding-top: 1.15rem;
+    border-top: 1px solid #f1f5f9;
+  }
+  .loan-form__actions .btn-loan,
+  .loan-form__actions .btn--secondary { margin: 0; }
+</style>
+{% endblock %}

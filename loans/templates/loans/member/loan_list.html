@@ -1,0 +1,248 @@
+{% extends "loans/member/base_member_loans.html" %}
+{% load currency_filters %}
+{% block title %}My Loans{% endblock %}
+{% block content %}
+
+<div class="loans-hero loans-hero--desktop">
+  <div class="loans-hero__main">
+    <div class="loans-hero__eyebrow">{{ kiosk_system_name|default:"Cooperative" }} · Member Loans</div>
+    <h1>Hello, {{ display_name }}</h1>
+    <p class="subtitle">Apply for a loan, track your applications, and view payment history.</p>
+  </div>
+  <div class="loans-hero__side">
+    <div class="stats-row stats-row--inline">
+      <div class="stat-card">
+        <div class="stat-card__value">{{ applications|length }}</div>
+        <div class="stat-card__label">Applications</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card__value stat-card__value--green">&#8369;{{ total_paid|currency }}</div>
+        <div class="stat-card__label">Total paid</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-card__value">{{ payments|length }}</div>
+        <div class="stat-card__label">Payments</div>
+      </div>
+    </div>
+    <div class="loans-hero__actions">
+      {% if can_request_loan %}
+      <a class="btn-member" href="{% url 'member_loan_request' %}">
+        <i class="bi bi-plus-lg"></i> Request a loan
+      </a>
+      {% elif open_application %}
+      <a class="btn-ghost" href="{% url 'member_loan_detail' open_application.pk %}">
+        <i class="bi bi-eye"></i> View open request
+      </a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<div class="member-card__body member-card__body--desktop">
+
+  {% if open_applications %}
+  <div class="open-request-card">
+    <div>
+      <div class="open-request-card__label">Ongoing loan{% if open_applications|length > 1 %}s{% endif %}</div>
+      {% for application in open_applications %}
+      <div class="open-request-card__title">{{ application.loan_product.name }}</div>
+      <div class="open-request-card__meta">
+        &#8369;{{ application.amount_requested|currency }}
+        &middot; {{ application.get_status_display }}
+        {% if application.current_pipeline_step %}
+        &middot; Step: {{ application.current_pipeline_step }}
+        {% endif %}
+      </div>
+      {% if not forloop.last %}<hr class="open-request-card__divider">{% endif %}
+      {% endfor %}
+    </div>
+    {% if open_applications|length == 1 %}
+    <a class="btn-ghost" href="{% url 'member_loan_detail' open_applications.0.pk %}">
+      Track status <i class="bi bi-chevron-right"></i>
+    </a>
+    {% endif %}
+  </div>
+  {% elif loan_waiting and not loan_waiting.allowed %}
+  <div class="notice notice--membership" role="alert">
+    <i class="bi bi-hourglass-split" aria-hidden="true"></i>
+    <div class="notice__body">
+      <strong class="notice__title">Membership waiting period</strong>
+      <span>{{ loan_waiting.message }}</span>
+      {% if loan_waiting.eligible_on %}
+      <span class="notice__date">
+        <i class="bi bi-calendar-event"></i>
+        Apply starting {{ loan_waiting.eligible_on|date:"F j, Y" }}
+      </span>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+
+  <section class="section-block">
+    <h2 class="section-title"><i class="bi bi-bank2"></i> Available loan products</h2>
+    {% if products %}
+    <div class="data-table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Amount range</th>
+            <th>Term</th>
+            <th>Interest from</th>
+            <th>Description</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for product in products %}
+          <tr>
+            <td class="data-table__strong data-table__lead">{{ product.name }}</td>
+            <td data-label="Amount range">&#8369;{{ product.min_amount|currency }} – &#8369;{{ product.max_amount|currency }}</td>
+            <td data-label="Term">{{ product.term_months }} months</td>
+            <td data-label="Interest from">Month {{ product.interest_start_month }}</td>
+            <td class="data-table__muted" data-label="Description">{{ product.description|truncatewords:12|default:"—" }}</td>
+            <td class="data-table__action">
+              {% if can_request_loan and product.pk not in blocked_product_ids %}
+              <a class="btn-ghost" href="{% url 'member_loan_request' %}?product={{ product.pk }}">Apply</a>
+              {% elif product.pk in blocked_product_ids %}
+              <span class="helptext">Ongoing loan</span>
+              {% elif loan_waiting and not loan_waiting.allowed %}
+              <span class="helptext">{{ loan_waiting.required_months }} mo. membership</span>
+              {% else %}
+              <span class="helptext">Unavailable</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty">
+      <i class="bi bi-bank"></i>
+      <p class="mb-0">No loan products are available yet. Please contact the cooperative office.</p>
+    </div>
+    {% endif %}
+  </section>
+
+  <section class="section-block">
+    <h2 class="section-title"><i class="bi bi-journal-text"></i> Your applications</h2>
+    {% if applications %}
+    <div class="data-table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Amount</th>
+            <th>Term</th>
+            <th>Date submitted</th>
+            <th>Monthly payment</th>
+            <th>Total payment</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for app in applications %}
+          <tr>
+            <td class="data-table__strong data-table__lead">{{ app.loan_product.name }}</td>
+            <td data-label="Amount">&#8369;{{ app.amount_requested|currency }}</td>
+            <td data-label="Term">{{ app.term_months }} months</td>
+            <td data-label="Date submitted">
+              {% if app.submitted_at %}{{ app.submitted_at|date:"M j, Y" }}{% else %}{{ app.created_at|date:"M j, Y" }}{% endif %}
+            </td>
+            <td data-label="Monthly payment">
+              {% if app.show_loan_financials %}
+                &#8369;{{ app.monthly_payment|currency }}
+              {% else %}
+                <span class="data-table__muted">—</span>
+              {% endif %}
+            </td>
+            <td data-label="Total payment">
+              {% if app.show_loan_financials %}
+                &#8369;{{ app.total_payment|currency }}
+              {% else %}
+                <span class="data-table__muted">—</span>
+              {% endif %}
+            </td>
+            <td data-label="Status">
+              <span class="status-pill status-pill--{{ app.status|lower }}">{{ app.get_status_display }}</span>
+              {% if app.current_pipeline_step %}
+              <div class="data-table__muted">{{ app.current_pipeline_step }}</div>
+              {% endif %}
+            </td>
+            <td class="data-table__action">
+              <a class="btn-ghost" href="{% url 'member_loan_detail' app.pk %}">View details</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty">
+      <i class="bi bi-inbox"></i>
+      <p class="mb-2">You haven't submitted a loan request yet.</p>
+      {% if can_request_loan %}
+      <a class="btn-member" href="{% url 'member_loan_request' %}"><i class="bi bi-plus-lg"></i> Request a loan</a>
+      {% endif %}
+    </div>
+    {% endif %}
+  </section>
+
+  <section class="section-block">
+    <h2 class="section-title"><i class="bi bi-wallet2"></i> Payment history</h2>
+    {% if payments %}
+    <div class="payment-summary">
+      <span class="payment-summary__label">Total of all recorded payments</span>
+      <span class="payment-summary__amount">&#8369;{{ total_paid|currency }}</span>
+    </div>
+    <div class="data-table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Loan</th>
+            <th>Amount paid</th>
+            <th>Method</th>
+            <th>Official receipt</th>
+            <th>Applied to</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for payment in payments %}
+          <tr>
+            <td class="data-table__lead" data-label="Date">
+              {{ payment.payment_date|date:"M j, Y" }}
+              <div class="data-table__muted">{{ payment.payment_date|date:"g:i A" }}</div>
+            </td>
+            <td data-label="Loan">
+              <a href="{% url 'member_loan_detail' payment.application.pk %}">
+                {{ payment.application.loan_product.name }}
+              </a>
+            </td>
+            <td class="data-table__amount" data-label="Amount paid">&#8369;{{ payment.amount_paid|currency }}</td>
+            <td data-label="Method">{{ payment.get_payment_method_display }}</td>
+            <td data-label="Official receipt">{{ payment.or_number|default:"—" }}</td>
+            <td data-label="Applied to">
+              {% if payment.applied_to_installment %}
+                Installment #{{ payment.applied_to_installment.installment_number }}
+              {% else %}
+                General payment
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty">
+      <i class="bi bi-receipt"></i>
+      <p class="mb-0">No loan payments have been recorded yet.</p>
+    </div>
+    {% endif %}
+  </section>
+
+</div>
+{% endblock %}

@@ -1,0 +1,318 @@
+{% load currency_filters %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Credit Unpaid History | {{ kiosk_system_name }}</title>
+  {% include "partials/bootstrap_head.html" %}
+  <style>
+    :root {
+      --dark: #0f172a;
+      --brand: #ED1C24;
+      --muted: #94a3b8;
+      --panel: #ffffff;
+      --gradient: linear-gradient(135deg, #5b21b6 0%, #7c3aed 55%, #6d28d9 100%);
+    }
+    body {
+      background: #f1f5f9;
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    }
+    .super-nav {
+      background: var(--dark);
+      color: #fff;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.4);
+    }
+    .super-nav .navbar-brand,
+    .super-nav .navbar-brand:hover,
+    .super-nav .navbar-brand:focus {
+      color: #fff !important;
+    }
+    .hero-card {
+      background: var(--gradient);
+      color: #fff;
+      border-radius: 24px;
+      padding: 32px;
+      box-shadow: 0 25px 55px rgba(91, 33, 182, 0.28);
+    }
+    .stat-card {
+      border: none;
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 18px 36px rgba(15,23,42,0.08);
+      background: var(--panel);
+      height: 100%;
+    }
+    .stat-title {
+      color: var(--muted);
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+    .table-card {
+      border-radius: 20px;
+      padding: 20px;
+      background: var(--panel);
+      box-shadow: 0 18px 36px rgba(15,23,42,0.08);
+    }
+    .credit-outstanding { color: #5b21b6; font-weight: 700; }
+    .days-badge {
+      font-size: 0.78rem;
+      font-weight: 600;
+      border-radius: 999px;
+      padding: 0.25rem 0.65rem;
+    }
+    .days-ok { background: #ecfdf5; color: #047857; }
+    .days-warn { background: #fff7ed; color: #c2410c; }
+    .days-late { background: #fef2f2; color: #b91c1c; }
+    .table thead th {
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #64748b;
+      border-bottom-width: 1px;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  {% include 'admin_panel/partials/admin_top_navbar.html' %}
+
+  <main class="container-fluid px-4 py-5">
+    <section class="hero-card mb-4">
+      <div class="row align-items-center">
+        <div class="col-lg-8">
+          <p class="mb-2 text-uppercase fw-semibold" style="letter-spacing:0.2em;">Credit (Utang)</p>
+          <h1 class="fw-bold mb-2">Unpaid Credit History{% include 'admin_panel/partials/admin_role_badge.html' %}</h1>
+          <p class="mb-0 lead text-white-50">
+            Transparent list of credit sales that are still unpaid — sale date, days unpaid, grace, and interest.
+          </p>
+        </div>
+        <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+          <a href="{% url 'member_management' %}?credit=owed#all-members-section" class="btn btn-light btn-sm me-1">
+            <i class="bi bi-people me-1"></i>Members with Credit
+          </a>
+          <a href="{% url 'member_management' %}#member-credit-summary" class="btn btn-outline-light btn-sm">
+            Overview
+          </a>
+        </div>
+      </div>
+    </section>
+
+    {% include 'admin_panel/partials/admin_main_nav.html' with nav_active='members' %}
+
+    <div class="row g-3 mb-4">
+      <div class="col-md-3 col-lg">
+        <div class="stat-card">
+          <div class="stat-title">Unpaid sales</div>
+          <h3 class="mb-0">{{ unpaid_count }}</h3>
+          <small class="text-muted">Open credit transactions</small>
+        </div>
+      </div>
+      <div class="col-md-3 col-lg">
+        <div class="stat-card">
+          <div class="stat-title">Principal owed</div>
+          <h3 class="mb-0 credit-outstanding">₱{{ total_principal|floatformat:2 }}</h3>
+        </div>
+      </div>
+      <div class="col-md-3 col-lg">
+        <div class="stat-card">
+          <div class="stat-title">Interest accrued</div>
+          <h3 class="mb-0">₱{{ total_interest|floatformat:2 }}</h3>
+        </div>
+      </div>
+      <div class="col-md-3 col-lg">
+        <div class="stat-card">
+          <div class="stat-title">Total outstanding</div>
+          <h3 class="mb-0 credit-outstanding">₱{{ total_outstanding|floatformat:2 }}</h3>
+          {% if credit_interest_enabled %}
+          <small class="text-muted">Rate {{ credit_settings.interest_rate }} · {{ credit_settings.grace_period_days }}-day grace</small>
+          {% else %}
+          <small class="text-muted">Interest off</small>
+          {% endif %}
+        </div>
+      </div>
+      <div class="col-md-3 col-lg">
+        <div class="stat-card">
+          <div class="stat-title">If unpaid next month</div>
+          <h3 class="mb-0" style="color:#7c3aed;">₱{{ total_next_month|floatformat:2 }}</h3>
+          <small class="text-muted">Projected after next interest charge</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="table-card mb-4">
+      <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div>
+          <h5 class="mb-0 fw-semibold">Still unpaid</h5>
+          <small class="text-muted">Sorted by longest unpaid first</small>
+        </div>
+        <form method="get" class="d-flex gap-2" action="{% url 'credit_unpaid_history' %}">
+          <input
+            type="search"
+            name="search"
+            class="form-control form-control-sm"
+            style="min-width:220px;"
+            placeholder="Search member or sale #"
+            value="{{ search_query }}"
+          >
+          <button type="submit" class="btn btn-sm btn-primary" style="background:#5b21b6;border-color:#5b21b6;">Search</button>
+          {% if search_query %}
+          <a href="{% url 'credit_unpaid_history' %}" class="btn btn-sm btn-outline-secondary">Clear</a>
+          {% endif %}
+        </form>
+      </div>
+
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Member</th>
+              <th>Sale #</th>
+              <th>Credit date</th>
+              <th>Days unpaid</th>
+              <th>Grace / interest</th>
+              <th class="text-end">Principal</th>
+              <th class="text-end">Interest</th>
+              <th class="text-end">Total due</th>
+              <th class="text-end">If unpaid next month</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in unpaid_rows %}
+            <tr>
+              <td>
+                <div class="fw-semibold">{{ row.member.full_name }}</div>
+                <small class="text-muted">{{ row.member.rfid_card_number|default:"—" }}</small>
+              </td>
+              <td>
+                <code class="small">{{ row.sale.transaction_number }}</code>
+              </td>
+              <td>
+                <div>{{ row.sale_date|date:"M j, Y" }}</div>
+                <small class="text-muted">{{ row.sale_datetime|date:"g:i A" }}</small>
+              </td>
+              <td>
+                {% if row.days_unpaid <= credit_settings.grace_period_days %}
+                <span class="days-badge days-ok">{{ row.days_unpaid }} day{{ row.days_unpaid|pluralize }}</span>
+                {% elif row.days_unpaid <= 30 %}
+                <span class="days-badge days-warn">{{ row.days_unpaid }} days</span>
+                {% else %}
+                <span class="days-badge days-late">{{ row.days_unpaid }} days</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if row.within_grace %}
+                <span class="badge bg-success">Within grace</span>
+                <small class="d-block text-muted mt-1">Grace ends {{ row.grace_ends|date:"M j, Y" }} · first interest {{ row.first_interest_due|date:"M j, Y" }}</small>
+                {% elif row.awaiting_first_month %}
+                <span class="badge bg-warning text-dark">Past grace</span>
+                <small class="d-block text-muted mt-1">No interest yet · first charge {{ row.first_interest_due|date:"M j, Y" }}</small>
+                {% else %}
+                <span class="badge bg-danger">Past grace</span>
+                <small class="d-block text-muted mt-1">
+                  {{ row.days_past_grace }} day{{ row.days_past_grace|pluralize }} past grace
+                  {% if row.interest > 0 and row.months_late %}
+                  · {{ row.months_late }} mo. interest
+                  {% elif row.months_late and row.interest == 0 %}
+                  · interest paid / next month on remaining principal
+                  {% endif %}
+                </small>
+                {% endif %}
+              </td>
+              <td class="text-end">₱{{ row.principal|floatformat:2 }}</td>
+              <td class="text-end">
+                {% if row.interest > 0 %}
+                <span class="text-danger">₱{{ row.interest|floatformat:2 }}</span>
+                {% else %}
+                <span class="text-muted">₱0.00</span>
+                {% endif %}
+              </td>
+              <td class="text-end credit-outstanding">₱{{ row.total|floatformat:2 }}</td>
+              <td class="text-end">
+                <div class="fw-bold" style="color:#7c3aed;">₱{{ row.next_month_due|floatformat:2 }}</div>
+                {% if row.next_interest_add > 0 %}
+                <small class="text-muted d-block">+₱{{ row.next_interest_add|floatformat:2 }} interest{% if row.next_charge_on %} · {{ row.next_charge_on|date:"M j" }}{% endif %}</small>
+                {% else %}
+                <small class="text-muted d-block">No added interest</small>
+                {% endif %}
+              </td>
+              <td class="text-nowrap text-end">
+                <a href="{{ row.receipt_url }}" class="btn btn-sm btn-outline-secondary" target="_blank" title="Sale receipt">
+                  <i class="bi bi-receipt"></i>
+                </a>
+                <a
+                  href="{% url 'member_management' %}?credit=owed&search={{ row.member.full_name|urlencode }}#all-members-section"
+                  class="btn btn-sm btn-outline-primary"
+                  style="border-color:#5b21b6;color:#5b21b6;"
+                  title="Open member to pay credit"
+                >
+                  <i class="bi bi-cash-coin"></i>
+                </a>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="10" class="text-center text-muted py-5">
+                <i class="bi bi-check-circle me-1"></i>
+                {% if search_query %}No unpaid credit matches your search.{% else %}No unpaid credit right now.{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="table-card">
+      <div class="mb-3">
+        <h5 class="mb-0 fw-semibold">Recent credit payments</h5>
+        <small class="text-muted">Settlements recorded when utang was paid</small>
+      </div>
+      <div class="table-responsive">
+        <table class="table align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Paid on</th>
+              <th>Settlement #</th>
+              <th>Member</th>
+              <th>Method</th>
+              <th class="text-end">Interest paid</th>
+              <th class="text-end">Amount paid</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for payment in recent_payments %}
+            <tr>
+              <td>
+                <div>{{ payment.created_at|date:"M j, Y" }}</div>
+                <small class="text-muted">{{ payment.created_at|date:"g:i A" }}</small>
+              </td>
+              <td><code class="small">{{ payment.settlement_number }}</code></td>
+              <td>{{ payment.member.full_name }}</td>
+              <td>{{ payment.get_payment_method_display }}</td>
+              <td class="text-end">₱{{ payment.interest_amount|floatformat:2 }}</td>
+              <td class="text-end fw-semibold">₱{{ payment.amount_paid|floatformat:2 }}</td>
+              <td class="text-end">
+                <a href="{% url 'view_credit_payment_receipt' payment.id %}" class="btn btn-sm btn-outline-secondary" target="_blank">
+                  <i class="bi bi-receipt"></i>
+                </a>
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="7" class="text-center text-muted py-4">No credit payments recorded yet.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  {% include "partials/bootstrap_scripts.html" %}
+  {% include 'admin_panel/partials/admin_nav_footer.html' %}
+</body>
+</html>

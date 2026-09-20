@@ -1,0 +1,425 @@
+{% load currency_filters %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Staff &amp; Cashier Sales | {{ kiosk_system_name }}</title>
+  {% include "partials/bootstrap_head.html" %}
+  <style>
+    :root {
+      --dark: #0f172a;
+      --brand: #ED1C24;
+      --accent: #E6C200;
+      --muted: #94a3b8;
+      --panel: #ffffff;
+      --gradient: linear-gradient(135deg, #ED1C24 0%, #C4121A 40%, #8B0E14 100%);
+    }
+
+    body {
+      background: #f1f5f9;
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    }
+
+    /* ── Dark top navbar ───────────────────────────────────── */
+    .super-nav {
+      background: var(--dark);
+      color: #fff;
+      box-shadow: 0 10px 30px rgba(15,23,42,0.4);
+    }
+
+    .nav-pill {
+      border-radius: 999px;
+      padding: 8px 18px;
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+    }
+
+    .nav-pill.active, .nav-pill:hover {
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+    }
+
+    /* ── Hero banner ───────────────────────────────────────── */
+    .hero-card {
+      background: var(--gradient);
+      color: #fff;
+      border-radius: 24px;
+      padding: 32px;
+      box-shadow: 0 25px 55px rgba(15,23,42,0.35);
+    }
+
+    .hero-metric {
+      background: rgba(255,255,255,0.18);
+      border-radius: 16px;
+      padding: 16px 20px;
+      min-width: 140px;
+    }
+
+    .chips {
+      display: inline-flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .chip {
+      background: #e2e8f0;
+      color: #0f172a;
+      border-radius: 999px;
+      padding: 4px 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    /* ── Stat cards ────────────────────────────────────────── */
+    .stat-card {
+      border: none;
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 18px 36px rgba(15,23,42,0.08);
+      background: var(--panel);
+      height: 100%;
+    }
+
+    .stat-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      color: #fff;
+    }
+
+    .stat-title {
+      color: var(--muted);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .stat-kpi-value {
+      font-size: clamp(1.1rem, 3.5vw, 1.65rem);
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+
+    /* ── Table / chart cards ───────────────────────────────── */
+    .table-card {
+      border-radius: 20px;
+      padding: 20px;
+      background: var(--panel);
+      box-shadow: 0 15px 30px rgba(15,23,42,0.07);
+    }
+
+    .table-card table { font-size: 0.9rem; }
+    .table-card thead {
+      color: var(--muted);
+      text-transform: uppercase;
+      font-size: 0.75rem;
+    }
+
+    /* ── Date-range toolbar ────────────────────────────────── */
+    .period-toolbar {
+      background: var(--panel);
+      border-radius: 20px;
+      padding: 18px 24px;
+      box-shadow: 0 15px 30px rgba(15,23,42,0.07);
+    }
+
+    /* ── Role / payment badges ─────────────────────────────── */
+    .role-badge {
+      font-size: 0.72rem; padding: 3px 10px;
+      border-radius: 999px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.06em;
+      display: inline-block;
+    }
+    .role-badge-cashier { background: #d1fae5; color: #065f46; }
+    .role-badge-staff   { background: #dbeafe; color: #1e40af; }
+    .role-badge-admin   { background: #fef9c3; color: #854d0e; }
+
+    /* ── Revenue share mini-bar ────────────────────────────── */
+    .revenue-bar { height: 6px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
+    .revenue-bar-fill { height: 6px; border-radius: 999px; background: var(--gradient); }
+
+    /* ── Member avatar initials ────────────────────────────── */
+    .member-avatar {
+      width: 40px; height: 40px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 0.9rem; color: #fff; flex-shrink: 0;
+    }
+
+    .staff-row { cursor: pointer; transition: background 0.15s; }
+    .staff-row:hover { background: #f0fdf4; }
+
+    /* ── Logout modal ──────────────────────────────────────── */
+    #logoutConfirmModal { z-index: 9999 !important; }
+    #logoutConfirmModal .modal-dialog {
+      max-width: 480px; margin: 10vh auto;
+      display: flex; align-items: center; min-height: calc(100vh - 20vh);
+    }
+    #logoutConfirmModal .modal-content {
+      border-radius: 18px; border: none;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      overflow: hidden; animation: modalSlideIn 0.3s ease-out;
+    }
+    @keyframes modalSlideIn {
+      from { opacity: 0; transform: translateY(-30px) scale(0.95); }
+      to   { opacity: 1; transform: translateY(0)    scale(1);    }
+    }
+    #logoutConfirmModal .modal-backdrop { background-color: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 9998 !important; }
+    #logoutConfirmModal .modal-header { background: linear-gradient(135deg,#f8f9fa 0%,#e9ecef 100%); border-bottom: 2px solid #dee2e6; padding: 24px 32px; display: flex; align-items: center; gap: 12px; }
+    #logoutConfirmModal .modal-header .modal-title { font-weight: 700; font-size: 1.5rem; color: #1a1a1a; display: flex; align-items: center; gap: 12px; margin: 0; }
+    #logoutConfirmModal .modal-header .modal-title i { color: #ED1C24; font-size: 1.8rem; }
+    #logoutConfirmModal .modal-body { padding: 32px; text-align: center; }
+    #logoutConfirmModal .modal-body .warning-icon { font-size: 4rem; color: #ED1C24; margin-bottom: 20px; display: block; }
+    #logoutConfirmModal .modal-body p { font-size: 1.1rem; color: #495057; line-height: 1.6; margin: 0; font-weight: 400; }
+    #logoutConfirmModal .modal-footer { border-top: 2px solid #e9ecef; padding: 20px 32px; display: flex; justify-content: center; gap: 12px; background: #f8f9fa; }
+    #logoutConfirmModal .modal-footer .btn { min-width: 120px; padding: 12px 24px; font-weight: 600; font-size: 1rem; border-radius: 8px; transition: all 0.2s ease; }
+    #logoutConfirmModal .modal-footer .btn-cancel { background: #6c757d; border: 2px solid #6c757d; color: white; }
+    #logoutConfirmModal .modal-footer .btn-cancel:hover { background: #5a6268; border-color: #5a6268; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(108,117,125,0.3); }
+    #logoutConfirmModal .modal-footer .btn-confirm { background: linear-gradient(135deg,#ED1C24,#C4121A); border: 2px solid #ED1C24; color: white; }
+    #logoutConfirmModal .modal-footer .btn-confirm:hover { background: linear-gradient(135deg,#C4121A,#A10F16); border-color: #A10F16; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(237,28,36,0.4); }
+
+    @media (max-width: 992px) {
+      .hero-card { padding: 22px; border-radius: 16px; }
+    }
+  </style>
+</head>
+<body>
+  {% include 'admin_panel/partials/admin_top_navbar.html' %}
+
+  <main class="container-fluid px-4 py-5">
+
+    <!-- Hero -->
+    <section class="hero-card mb-4">
+      <div class="row align-items-center g-4">
+        <div class="col-lg-8">
+          <p class="mb-2 text-uppercase fw-semibold" style="letter-spacing:0.2em;">Sales Performance</p>
+          <h1 class="fw-bold mb-2">
+            <i class="bi bi-person-badge-fill me-2"></i>Staff &amp; Cashier Sales
+            {% include 'admin_panel/partials/admin_role_badge.html' %}
+          </h1>
+          <p class="mb-4 lead text-white-50">Individual sales per cashier and staff member</p>
+          <div class="chips">
+            <span class="chip"><i class="bi bi-currency-dollar me-1"></i> Revenue: ₱{{ grand_revenue|floatformat:2 }}</span>
+            <span class="chip"><i class="bi bi-receipt-cutoff me-1"></i> {{ grand_txns }} transactions</span>
+            <span class="chip"><i class="bi bi-people-fill me-1"></i> {{ staff_data|length }} staff</span>
+          </div>
+        </div>
+        <div class="col-lg-4 d-flex gap-3 justify-content-lg-end flex-wrap">
+          <div class="hero-metric">
+            <small class="text-uppercase text-white-50">Total Revenue</small>
+            <h3 class="mb-0">₱{{ grand_revenue|floatformat:2 }}</h3>
+          </div>
+          <div class="hero-metric">
+            <small class="text-uppercase text-white-50">Transactions</small>
+            <h3 class="mb-0">{{ grand_txns }}</h3>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    {% include 'admin_panel/partials/admin_main_nav.html' with nav_active='staff_sales' %}
+
+    <!-- Date range filter -->
+    <div class="period-toolbar mb-4">
+      <form method="get" class="d-flex flex-wrap align-items-center gap-3">
+        <span class="fw-semibold text-secondary" style="font-size:0.85rem;text-transform:uppercase;letter-spacing:0.08em;">
+          <i class="bi bi-calendar-range me-1"></i>Date Range
+        </span>
+        <div class="d-flex align-items-center gap-2">
+          <label for="dateFrom" class="small fw-semibold text-secondary mb-0">From</label>
+          <input type="date" name="date_from" id="dateFrom" value="{{ date_from }}"
+                 class="form-control form-control-sm rounded-pill" style="border:1.5px solid #ED1C24;width:auto;">
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <label for="dateTo" class="small fw-semibold text-secondary mb-0">To</label>
+          <input type="date" name="date_to" id="dateTo" value="{{ date_to }}"
+                 class="form-control form-control-sm rounded-pill" style="border:1.5px solid #ED1C24;width:auto;">
+        </div>
+        <button type="submit" class="btn btn-success btn-sm rounded-pill px-3">
+          <i class="bi bi-check2-circle me-1"></i> Apply
+        </button>
+        <a href="{% url 'staff_sales_report' %}" class="btn btn-outline-secondary btn-sm rounded-pill px-3">Reset</a>
+        <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2 ms-auto" style="font-size:0.8rem;">
+          <i class="bi bi-clock-history me-1"></i>{{ date_from }} — {{ date_to }}
+        </span>
+      </form>
+    </div>
+
+    <!-- KPI stat cards -->
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <div>
+              <div class="stat-title mb-1">Total Revenue</div>
+              <div class="stat-kpi-value fw-bold" style="color:#ED1C24;">₱{{ grand_revenue|floatformat:2 }}</div>
+            </div>
+            <div class="stat-icon" style="background:linear-gradient(135deg,#ED1C24,#C4121A);">
+              <i class="bi bi-cash-stack"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <div>
+              <div class="stat-title mb-1">Transactions</div>
+              <div class="stat-kpi-value fw-bold">{{ grand_txns }}</div>
+            </div>
+            <div class="stat-icon" style="background:linear-gradient(135deg,#3b82f6,#1d4ed8);">
+              <i class="bi bi-receipt"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <div>
+              <div class="stat-title mb-1">Active Staff</div>
+              <div class="stat-kpi-value fw-bold">{{ staff_data|length }}</div>
+            </div>
+            <div class="stat-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706);">
+              <i class="bi bi-people-fill"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-md-3">
+        <div class="stat-card">
+          <div class="d-flex justify-content-between align-items-start gap-2">
+            <div>
+              <div class="stat-title mb-1">Avg per Staff</div>
+              <div class="stat-kpi-value fw-bold">
+                {% if staff_data|length > 0 %}₱{% widthratio grand_revenue staff_data|length 1 %}{% else %}₱0{% endif %}
+              </div>
+            </div>
+            <div class="stat-icon" style="background:linear-gradient(135deg,#8b5cf6,#6d28d9);">
+              <i class="bi bi-bar-chart-fill"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Staff / Cashier table -->
+    <div class="table-card">
+      <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+        <h5 class="fw-bold mb-0">
+          <i class="bi bi-person-badge me-2 text-success"></i>Staff &amp; Cashier Overview
+        </h5>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+          <span class="small text-muted"><i class="bi bi-download me-1"></i>Download all staff summary</span>
+          <a href="{% url 'export_staff_sales_overview' %}?format=excel&amp;date_from={{ date_from }}&amp;date_to={{ date_to }}"
+             class="btn btn-sm btn-outline-success rounded-pill px-3" title="Download Excel overview">
+            <i class="bi bi-file-earmark-spreadsheet me-1"></i> Excel
+          </a>
+          <a href="{% url 'export_staff_sales_overview' %}?format=pdf&amp;date_from={{ date_from }}&amp;date_to={{ date_to }}"
+             class="btn btn-sm btn-outline-success rounded-pill px-3" title="Download PDF overview">
+            <i class="bi bi-file-earmark-pdf me-1"></i> PDF
+          </a>
+        </div>
+      </div>
+
+      {% if staff_data %}
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead>
+            <tr>
+              <th style="min-width:220px;">Staff Member</th>
+              <th>Role</th>
+              <th class="text-end">Transactions</th>
+              <th class="text-end">Total Revenue</th>
+              <th style="min-width:150px;">Share</th>
+              <th class="text-center">Detail</th>
+              <th class="text-center" style="min-width:120px;">Download</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in staff_data %}
+            {% with m=row.member %}
+            <tr class="staff-row"
+                onclick="window.location='{% url 'staff_sales_detail' m.id %}?date_from={{ date_from }}&date_to={{ date_to }}'">
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="member-avatar"
+                       style="background:hsl({{ forloop.counter0|add:'120' }},50%,38%);">
+                    {{ m.first_name|first|upper }}{{ m.last_name|first|upper }}
+                  </div>
+                  <div>
+                    <div class="fw-semibold">{{ m.first_name }} {{ m.last_name }}</div>
+                    <div class="text-muted" style="font-size:0.78rem;">{{ m.username|default:"—" }}</div>
+                  </div>
+                </div>
+              </td>
+              <td><span class="role-badge role-badge-{{ m.role }}">{{ m.member_role.name }}</span></td>
+              <td class="text-end fw-semibold">{{ row.txn_count }}</td>
+              <td class="text-end fw-bold" style="color:#ED1C24;">₱{{ row.total_revenue|floatformat:2 }}</td>
+              <td>
+                {% if grand_revenue > 0 %}
+                  {% widthratio row.total_revenue grand_revenue 100 as pct %}
+                  <div class="revenue-bar mb-1">
+                    <div class="revenue-bar-fill" style="width:{{ pct }}%"></div>
+                  </div>
+                  <small class="text-muted">{{ pct }}%</small>
+                {% else %}
+                  <small class="text-muted">—</small>
+                {% endif %}
+              </td>
+              <td class="text-center">
+                <a href="{% url 'staff_sales_detail' m.id %}?date_from={{ date_from }}&date_to={{ date_to }}"
+                   class="btn btn-sm btn-outline-success rounded-pill px-3"
+                   onclick="event.stopPropagation()">
+                  <i class="bi bi-eye me-1"></i> View
+                </a>
+              </td>
+              <td class="text-center" onclick="event.stopPropagation()">
+                <div class="d-flex gap-1 justify-content-center flex-wrap">
+                  <a href="{% url 'export_staff_sales_detail' m.id %}?format=excel&amp;date_from={{ date_from }}&amp;date_to={{ date_to }}"
+                     class="btn btn-sm btn-outline-primary rounded-pill px-2"
+                     title="Download Excel report for {{ m.first_name }} {{ m.last_name }}">
+                    <i class="bi bi-file-earmark-spreadsheet"></i>
+                  </a>
+                  <a href="{% url 'export_staff_sales_detail' m.id %}?format=pdf&amp;date_from={{ date_from }}&amp;date_to={{ date_to }}"
+                     class="btn btn-sm btn-outline-danger rounded-pill px-2"
+                     title="Download PDF report for {{ m.first_name }} {{ m.last_name }}">
+                    <i class="bi bi-file-earmark-pdf"></i>
+                  </a>
+                </div>
+              </td>
+            </tr>
+            {% endwith %}
+            {% endfor %}
+          </tbody>
+          <tfoot class="table-light">
+            <tr class="fw-bold">
+              <td colspan="2">Grand Total</td>
+              <td class="text-end">{{ grand_txns }}</td>
+              <td class="text-end" style="color:#ED1C24;">₱{{ grand_revenue|floatformat:2 }}</td>
+              <td colspan="3"></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      {% else %}
+      <div class="text-center py-5 text-muted">
+        <i class="bi bi-person-x" style="font-size:3rem;opacity:.4;"></i>
+        <p class="mt-3 mb-1 fw-semibold">No cashier or staff members found</p>
+        <p class="small mb-0">Try a wider date range, or create staff accounts with a Cashier/Staff role.</p>
+      </div>
+      {% endif %}
+    </div>
+
+  </main>
+
+  {% include "partials/bootstrap_scripts.html" %}
+  {% include 'admin_panel/partials/admin_nav_footer.html' %}
+  {% include 'admin_panel/partials/admin_logout_confirm_js.html' %}
+</body>
+</html>

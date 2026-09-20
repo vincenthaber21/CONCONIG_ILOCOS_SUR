@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome | {{ kiosk_system_name }}</title>
+    {% include "partials/inter_font.html" %}
+    {% include "partials/bootstrap_head.html" %}
+    <style>
+        :root {
+            --dark: #0f172a;
+            --dark-secondary: #1e293b;
+            --brand: #ED1C24;
+            --brand-light: #FF4D54;
+            --brand-dark: #A10F16;
+            --accent: #E6C200;
+            --accent-light: #2DBE6A;
+            --muted: #64748b;
+            --muted-light: #94a3b8;
+            --panel: #ffffff;
+            --panel-secondary: #f8fafc;
+            --border: #e2e8f0;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --error: #ef4444;
+            --gradient: linear-gradient(135deg, #ED1C24 0%, #C4121A 40%, #8B0E14 100%);
+            --gradient-light: linear-gradient(135deg, #FF4D54 0%, #ED1C24 40%, #E6C200 100%);
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 50%, #f8fafc 100%);
+            background-attachment: fixed;
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            position: relative;
+            overflow-x: hidden;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(237, 28, 36, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(230, 194, 0, 0.03) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        .choice-container {
+            width: 100%;
+            max-width: 700px;
+            position: relative;
+            z-index: 1;
+            animation: fadeInUp 0.6s ease-out;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .choice-card {
+            background: var(--panel);
+            border-radius: 32px;
+            padding: 48px 40px;
+            box-shadow: var(--shadow-2xl);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(10px);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .choice-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: var(--gradient);
+        }
+        
+        .choice-header {
+            text-align: center;
+            margin-bottom: 48px;
+        }
+        
+        .choice-header .icon-wrapper {
+            width: 96px;
+            height: 96px;
+            background: var(--gradient);
+            border-radius: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+            font-size: 2.75rem;
+            color: white;
+            box-shadow: 0 8px 24px rgba(237, 28, 36, 0.3);
+            position: relative;
+            transition: transform 0.3s ease;
+        }
+        
+        .choice-header .icon-wrapper::after {
+            content: '';
+            position: absolute;
+            inset: -2px;
+            border-radius: 24px;
+            padding: 2px;
+            background: var(--gradient-light);
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .choice-header:hover .icon-wrapper {
+            transform: scale(1.05) rotate(5deg);
+        }
+        
+        .choice-header:hover .icon-wrapper::after {
+            opacity: 1;
+        }
+        
+        .choice-header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--dark);
+            margin-bottom: 12px;
+            letter-spacing: -0.02em;
+            line-height: 1.2;
+        }
+        
+        .choice-header .user-name {
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .choice-header p {
+            color: var(--muted);
+            font-size: 1rem;
+            font-weight: 400;
+            letter-spacing: 0.01em;
+        }
+        
+        .choice-options {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+        
+        .choice-option {
+            background: var(--panel-secondary);
+            border: 2px solid var(--border);
+            border-radius: 20px;
+            padding: 28px 24px;
+            text-decoration: none;
+            color: var(--dark);
+            transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .choice-option::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            transition: left 0.5s ease;
+        }
+        
+        .choice-option:hover::before {
+            left: 100%;
+        }
+        
+        .choice-option:hover {
+            border-color: var(--brand);
+            background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(237, 28, 36, 0.2);
+            color: var(--dark);
+            text-decoration: none;
+        }
+        
+        .choice-option:active {
+            transform: translateY(-2px);
+        }
+        
+        .choice-option-icon {
+            width: 64px;
+            height: 64px;
+            background: var(--gradient);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.875rem;
+            color: white;
+            flex-shrink: 0;
+            box-shadow: 0 4px 12px rgba(237, 28, 36, 0.25);
+            transition: all 0.3s ease;
+        }
+        
+        .choice-option:hover .choice-option-icon {
+            transform: scale(1.1) rotate(5deg);
+            box-shadow: 0 6px 16px rgba(237, 28, 36, 0.35);
+        }
+        
+        .choice-option-content {
+            flex: 1;
+        }
+        
+        .choice-option-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: var(--dark);
+            letter-spacing: -0.01em;
+        }
+        
+        .choice-option-desc {
+            font-size: 0.875rem;
+            color: var(--muted);
+            line-height: 1.5;
+            font-weight: 400;
+        }
+        
+        .choice-option-arrow {
+            color: var(--muted-light);
+            font-size: 1.25rem;
+            transition: all 0.3s ease;
+            opacity: 0;
+            transform: translateX(-10px);
+        }
+        
+        .choice-option:hover .choice-option-arrow {
+            opacity: 1;
+            transform: translateX(0);
+            color: var(--brand);
+        }
+        
+        .countdown-display {
+            text-align: center;
+            margin: 32px 0 24px;
+            padding: 16px 24px;
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border: 2px solid #fbbf24;
+            border-radius: 16px;
+            color: #92400e;
+            font-weight: 600;
+            font-size: 0.9375rem;
+            box-shadow: 0 4px 12px rgba(251, 191, 36, 0.2);
+            transition: all 0.3s ease;
+        }
+        
+        .countdown-display.warning {
+            background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+            border-color: #f87171;
+            color: #991b1b;
+            animation: pulse 1.5s infinite;
+            box-shadow: 0 4px 16px rgba(248, 113, 113, 0.3);
+        }
+        
+        @keyframes pulse {
+            0%, 100% { 
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% { 
+                opacity: 0.9;
+                transform: scale(1.02);
+            }
+        }
+        
+        .countdown-number {
+            font-size: 1.375rem;
+            font-weight: 700;
+            color: var(--brand);
+            display: inline-block;
+            min-width: 32px;
+            text-align: center;
+        }
+        
+        .countdown-display.warning .countdown-number {
+            color: #dc2626;
+        }
+        
+        .logout-link {
+            text-align: center;
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid var(--border);
+        }
+        
+        .logout-link a {
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 0.9375rem;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: 8px;
+        }
+        
+        .logout-link a:hover {
+            color: var(--brand);
+            background: rgba(237, 28, 36, 0.05);
+        }
+        
+        .alert {
+            border-radius: 16px;
+            border: none;
+            box-shadow: var(--shadow-md);
+            margin-bottom: 24px;
+            padding: 16px 20px;
+            font-size: 0.9375rem;
+        }
+        
+        .alert i {
+            font-size: 1.125rem;
+        }
+        
+        @media (min-width: 768px) {
+            .choice-options {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .choice-options .choice-option:last-child:nth-child(odd) {
+                grid-column: 1 / -1;
+            }
+            
+            .choice-option {
+                padding: 32px 28px;
+            }
+            
+            .choice-card {
+                padding: 56px 48px;
+            }
+            
+            .choice-header h1 {
+                font-size: 2.25rem;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .choice-card {
+                padding: 32px 24px;
+                border-radius: 24px;
+            }
+            
+            .choice-header .icon-wrapper {
+                width: 80px;
+                height: 80px;
+                font-size: 2.25rem;
+            }
+            
+            .choice-header h1 {
+                font-size: 1.75rem;
+            }
+            
+            .choice-option {
+                padding: 24px 20px;
+            }
+            
+            .choice-option-icon {
+                width: 56px;
+                height: 56px;
+                font-size: 1.625rem;
+            }
+        }
+
+        /* Custom Logout Confirmation Modal */
+        #logoutConfirmModal {
+            z-index: 9999 !important;
+        }
+        #logoutConfirmModal .modal-dialog {
+            max-width: 480px;
+            margin: 10vh auto;
+            display: flex;
+            align-items: center;
+            min-height: calc(100vh - 20vh);
+        }
+        #logoutConfirmModal .modal-content {
+            border-radius: 18px;
+            border: none;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+            animation: modalSlideIn 0.3s ease-out;
+        }
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-30px) scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        #logoutConfirmModal .modal-backdrop {
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            z-index: 9998 !important;
+        }
+        #logoutConfirmModal .modal-header {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-bottom: 2px solid #dee2e6;
+            padding: 24px 32px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        #logoutConfirmModal .modal-header .modal-title {
+            font-weight: 700;
+            font-size: 1.5rem;
+            color: #1a1a1a;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 0;
+        }
+        #logoutConfirmModal .modal-header .modal-title i {
+            color: #ED1C24;
+            font-size: 1.8rem;
+        }
+        #logoutConfirmModal .modal-body {
+            padding: 32px;
+            text-align: center;
+        }
+        #logoutConfirmModal .modal-body .warning-icon {
+            font-size: 4rem;
+            color: #ED1C24;
+            margin-bottom: 20px;
+            display: block;
+        }
+        #logoutConfirmModal .modal-body p {
+            font-size: 1.1rem;
+            color: #495057;
+            line-height: 1.6;
+            margin: 0;
+            font-weight: 400;
+        }
+        #logoutConfirmModal .modal-footer {
+            border-top: 2px solid #e9ecef;
+            padding: 20px 32px;
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            background: #f8f9fa;
+        }
+        #logoutConfirmModal .modal-footer .btn {
+            min-width: 120px;
+            padding: 12px 24px;
+            font-weight: 600;
+            font-size: 1rem;
+            border-radius: 8px;
+            transition: all 0.2s ease;
+        }
+        #logoutConfirmModal .modal-footer .btn-cancel {
+            background: #6c757d;
+            border: 2px solid #6c757d;
+            color: white;
+        }
+        #logoutConfirmModal .modal-footer .btn-cancel:hover {
+            background: #5a6268;
+            border-color: #5a6268;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+        }
+        #logoutConfirmModal .modal-footer .btn-confirm {
+            background: linear-gradient(135deg, #ED1C24, #C4121A);
+            border: 2px solid #ED1C24;
+            color: white;
+        }
+        #logoutConfirmModal .modal-footer .btn-confirm:hover {
+            background: linear-gradient(135deg, #C4121A, #A10F16);
+            border-color: #A10F16;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(237, 28, 36, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div class="choice-container">
+        <div class="choice-card">
+            <div class="choice-header">
+                <div class="icon-wrapper">
+                    <i class="bi bi-shop"></i>
+                </div>
+                <h1>Welcome, <span class="user-name">{{ user.get_full_name|default:user.username }}</span>!</h1>
+                <p>Choose what you'd like to do</p>
+            </div>
+
+            {% load currency_filters %}
+            {% deduped_messages as flash_messages %}
+            {% if flash_messages %}
+                {% for message in flash_messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>{{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <div class="choice-options">
+                <a href="{% url 'user_transactions' %}" class="choice-option">
+                    <div class="choice-option-icon">
+                        <i class="bi bi-receipt-cutoff"></i>
+                    </div>
+                    <div class="choice-option-content">
+                        <div class="choice-option-title">View Transactions</div>
+                        <div class="choice-option-desc">See your last 10 transactions</div>
+                    </div>
+                    <i class="bi bi-chevron-right choice-option-arrow"></i>
+                </a>
+
+                <a href="{% url 'kiosk_home' %}" class="choice-option">
+                    <div class="choice-option-icon">
+                        <i class="bi bi-cart-check"></i>
+                    </div>
+                    <div class="choice-option-content">
+                        <div class="choice-option-title">Start Shopping</div>
+                        <div class="choice-option-desc">Go to self-checkout kiosk</div>
+                    </div>
+                    <i class="bi bi-chevron-right choice-option-arrow"></i>
+                </a>
+
+                <a href="{% url 'member_loan_list' %}" class="choice-option">
+                    <div class="choice-option-icon">
+                        <i class="bi bi-bank"></i>
+                    </div>
+                    <div class="choice-option-content">
+                        <div class="choice-option-title">Request a Loan</div>
+                        <div class="choice-option-desc">Apply for a loan or track your requests</div>
+                    </div>
+                    <i class="bi bi-chevron-right choice-option-arrow"></i>
+                </a>
+
+                <a href="{% url 'member_savings_list' %}" class="choice-option">
+                    <div class="choice-option-icon">
+                        <i class="bi bi-piggy-bank"></i>
+                    </div>
+                    <div class="choice-option-content">
+                        <div class="choice-option-title">My Savings</div>
+                        <div class="choice-option-desc">View savings products and your balances</div>
+                    </div>
+                    <i class="bi bi-chevron-right choice-option-arrow"></i>
+                </a>
+
+                <a href="{% url 'member_palay_credit' %}" class="choice-option">
+                    <div class="choice-option-icon">
+                        <i class="bi bi-basket2"></i>
+                    </div>
+                    <div class="choice-option-content">
+                        <div class="choice-option-title">Palay Credit</div>
+                        <div class="choice-option-desc">Rice Palay &amp; Bigas credit features and balance</div>
+                    </div>
+                    <i class="bi bi-chevron-right choice-option-arrow"></i>
+                </a>
+
+                <!-- <a href="{% url 'process_refund' %}" class="choice-option">
+                    <div class="choice-option-icon">
+                        <i class="bi bi-arrow-counterclockwise"></i>
+                    </div>
+                    <div class="choice-option-content">
+                        <div class="choice-option-title">Process Refund</div>
+                        <div class="choice-option-desc">Customer care refund management</div>
+                    </div>
+                    <i class="bi bi-chevron-right choice-option-arrow"></i>
+                </a> -->
+            </div>
+
+            <div class="countdown-display" id="countdownDisplay">
+                <i class="bi bi-clock me-2"></i>
+                Auto-logout in <span class="countdown-number" id="countdownNumber">30</span> seconds
+            </div>
+
+            <div class="logout-link">
+                <a href="javascript:void(0);" id="logoutLink">
+                    <i class="bi bi-box-arrow-right me-1"></i>Logout
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% include "partials/bootstrap_scripts.html" %}
+    <script>
+        (function() {
+            let timeLeft = 30;
+            const countdownDisplay = document.getElementById('countdownDisplay');
+            const countdownNumber = document.getElementById('countdownNumber');
+            const logoutUrl = "{% url 'kiosk_logout' %}";
+            
+            // Update countdown display
+            function updateCountdown() {
+                countdownNumber.textContent = timeLeft;
+                
+                // Add warning class when 10 seconds or less
+                if (timeLeft <= 10) {
+                    countdownDisplay.classList.add('warning');
+                }
+                
+                // Redirect to logout when time reaches 0
+                if (timeLeft <= 0) {
+                    window.location.href = logoutUrl;
+                    return;
+                }
+                
+                timeLeft--;
+            }
+            
+            // Start countdown - updates every second
+            const countdownInterval = setInterval(updateCountdown, 1000);
+        })();
+
+        // Logout confirmation handler
+        (function() {
+            const logoutLink = document.getElementById('logoutLink');
+            const logoutUrl = "{% url 'kiosk_logout' %}";
+            
+            if (logoutLink) {
+                logoutLink.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    showLogoutConfirmModal();
+                });
+            }
+
+            function showLogoutConfirmModal() {
+                const modal = document.getElementById('logoutConfirmModal');
+                if (!modal) {
+                    console.error('Logout confirmation modal not found');
+                    // Fallback to browser confirm
+                    if (confirm('Are you sure you want to logout?')) {
+                        window.location.href = logoutUrl;
+                    }
+                    return;
+                }
+                
+                // Check if Bootstrap is available
+                if (typeof bootstrap === 'undefined') {
+                    console.error('Bootstrap is not loaded');
+                    // Fallback to browser confirm
+                    if (confirm('Are you sure you want to logout?')) {
+                        window.location.href = logoutUrl;
+                    }
+                    return;
+                }
+                
+                // Get or create modal instance
+                let bsModal = bootstrap.Modal.getInstance(modal);
+                if (!bsModal) {
+                    bsModal = new bootstrap.Modal(modal, {
+                        backdrop: true,
+                        keyboard: true,
+                        focus: true
+                    });
+                }
+                
+                // Remove existing event listeners to prevent duplicates
+                const confirmBtn = modal.querySelector('.btn-confirm');
+                const cancelBtn = modal.querySelector('.btn-cancel');
+                
+                // Clone and replace buttons to remove old listeners
+                if (confirmBtn) {
+                    const newConfirmBtn = confirmBtn.cloneNode(true);
+                    confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+                    newConfirmBtn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        bsModal.hide();
+                        setTimeout(function() {
+                            window.location.href = logoutUrl;
+                        }, 300);
+                    });
+                }
+                
+                if (cancelBtn) {
+                    const newCancelBtn = cancelBtn.cloneNode(true);
+                    cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+                    newCancelBtn.addEventListener('click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        bsModal.hide();
+                    });
+                }
+                
+                // Show modal
+                try {
+                    bsModal.show();
+                } catch (error) {
+                    console.error('Error showing modal:', error);
+                    // Fallback to browser confirm
+                    if (confirm('Are you sure you want to logout?')) {
+                        window.location.href = logoutUrl;
+                    }
+                }
+            }
+        })();
+    </script>
+
+    <!-- Logout Confirmation Modal -->
+    <div class="modal fade" id="logoutConfirmModal" tabindex="-1" aria-labelledby="logoutConfirmModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="logoutConfirmModalLabel">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        Confirm Logout
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <i class="bi bi-exclamation-triangle-fill warning-icon"></i>
+                    <p>Are you sure you want to logout?</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-cancel" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-confirm">OK</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
+

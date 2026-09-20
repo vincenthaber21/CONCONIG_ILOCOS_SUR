@@ -1,0 +1,1338 @@
+{% load currency_filters %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Credit Receipt — {{ transaction.transaction_number }}</title>
+    <style>
+        /* ── Reset ─────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        /* ── Screen layout ─────────────────────────── */
+        html, body {
+            background: #eef0f4;
+            font-family: Arial, Helvetica, sans-serif;
+            min-height: 100vh;
+        }
+
+        /* ── Sticky toolbar ────────────────────────── */
+        .toolbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 24px;
+            background: #1e293b;
+            box-shadow: 0 2px 12px rgba(0,0,0,.25);
+        }
+        .toolbar-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #f8fafc;
+            font-size: 15px;
+            font-weight: 600;
+        }
+        .toolbar-brand svg { opacity: .85; }
+        .toolbar-actions { display: flex; gap: 10px; }
+        .btn-toolbar {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 8px 18px;
+            border: none;
+            border-radius: 8px;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 13.5px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background .18s, transform .12s;
+            white-space: nowrap;
+        }
+        .btn-toolbar:active { transform: scale(.97); }
+        .btn-print {
+            background: #3b82f6;
+            color: #fff;
+        }
+        .btn-print:hover { background: #2563eb; }
+        .btn-close-receipt {
+            background: #334155;
+            color: #cbd5e1;
+        }
+        .btn-close-receipt:hover { background: #475569; color: #f1f5f9; }
+        .btn-shop {
+            background: #10b981;
+            color: #fff;
+        }
+        .btn-shop:hover { background: #059669; }
+        .btn-logout {
+            background: #ef4444;
+            color: #fff;
+        }
+        .btn-logout:hover { background: #dc2626; }
+        .kbd-hint {
+            font-size: 11px;
+            color: #64748b;
+            align-self: center;
+        }
+
+        /* ── Print Prompt Modal ────────────────────── */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.55);
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn .2s ease;
+        }
+        @keyframes fadeIn { from { opacity:0; } to { opacity:1; } }
+        .modal-box {
+            background: #fff;
+            border-radius: 18px;
+            padding: 32px 36px 28px;
+            width: 360px;
+            max-width: 94vw;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0,0,0,.25);
+            animation: popIn .22s cubic-bezier(.34,1.56,.64,1);
+        }
+        @keyframes popIn { from { transform:scale(.85); opacity:0; } to { transform:scale(1); opacity:1; } }
+        @media (max-width: 480px) {
+            .modal-box {
+                width: 100%;
+                max-width: 100vw;
+                border-radius: 18px 18px 0 0;
+                padding: 28px 20px 24px;
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                margin: 0;
+            }
+            .modal-overlay {
+                align-items: flex-end;
+            }
+            .modal-actions {
+                flex-direction: column;
+            }
+            .modal-btn {
+                width: 100%;
+                padding: 14px;
+                font-size: 15px;
+            }
+            .modal-icon { width: 48px; height: 48px; }
+            .modal-title { font-size: 17px; }
+        }
+        @media (min-width: 481px) and (max-width: 768px) {
+            .modal-box {
+                width: 90vw;
+                padding: 28px 28px 24px;
+            }
+        }
+        .modal-icon {
+            width: 56px; height: 56px;
+            background: #eff6ff;
+            border-radius: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+        }
+        .modal-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 8px;
+        }
+        .modal-sub {
+            font-size: 13px;
+            color: #64748b;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+        }
+        .modal-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background .15s, transform .1s;
+        }
+        .modal-btn:active { transform: scale(.97); }
+        .modal-btn-print {
+            background: #3b82f6;
+            color: #fff;
+        }
+        .modal-btn-print:hover { background: #2563eb; }
+        .modal-btn-skip {
+            background: #f1f5f9;
+            color: #475569;
+        }
+        .modal-btn-skip:hover { background: #e2e8f0; color: #1e293b; }
+
+        /* ── After-receipt action bar ──────────────── */
+        .action-bar {
+            display: flex;
+            gap: 14px;
+            justify-content: center;
+            margin-top: 4px;
+        }
+        .action-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 13px 28px;
+            border: none;
+            border-radius: 12px;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background .18s, transform .12s, box-shadow .18s;
+            box-shadow: 0 2px 8px rgba(0,0,0,.10);
+        }
+        .action-btn:active { transform: scale(.97); }
+        .action-btn-shop {
+            background: #10b981;
+            color: #fff;
+        }
+        .action-btn-shop:hover { background: #059669; box-shadow: 0 4px 14px rgba(16,185,129,.35); }
+        .action-btn-logout {
+            background: #ef4444;
+            color: #fff;
+        }
+        .action-btn-logout:hover { background: #dc2626; box-shadow: 0 4px 14px rgba(239,68,68,.35); }
+
+        /* ── Balance Modal ─────────────────────────── */
+        .balance-modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,.6);
+            z-index: 9998;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn .2s ease;
+        }
+        .balance-modal-box {
+            background: #fff;
+            border-radius: 20px;
+            padding: 36px 36px 30px;
+            width: 360px;
+            max-width: 92vw;
+            text-align: center;
+            box-shadow: 0 24px 64px rgba(0,0,0,.28);
+            animation: popIn .24s cubic-bezier(.34,1.56,.64,1);
+        }
+        .balance-modal-icon {
+            width: 62px; height: 62px;
+            background: #f0fdf4;
+            border-radius: 18px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 14px;
+        }
+        .balance-modal-title {
+            font-size: 19px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 4px;
+        }
+        .balance-modal-member {
+            font-size: 13.5px;
+            color: #64748b;
+            margin-bottom: 20px;
+        }
+        .balance-card {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%);
+            border-radius: 14px;
+            padding: 20px 24px;
+            margin-bottom: 22px;
+            text-align: left;
+        }
+        .balance-card-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 1.2px;
+            margin-bottom: 6px;
+        }
+        .balance-card-amount {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 30px;
+            font-weight: 700;
+            color: #4ade80;
+            letter-spacing: -1px;
+        }
+        .balance-card-sub {
+            font-size: 11.5px;
+            color: #64748b;
+            margin-top: 4px;
+        }
+        .balance-modal-actions {
+            display: flex;
+            gap: 12px;
+        }
+        .balance-modal-btn {
+            flex: 1;
+            padding: 13px;
+            border: none;
+            border-radius: 11px;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            transition: background .15s, transform .1s, box-shadow .15s;
+        }
+        .balance-modal-btn:active { transform: scale(.97); }
+        .balance-modal-btn-shop {
+            background: #10b981;
+            color: #fff;
+        }
+        .balance-modal-btn-shop:hover { background: #059669; box-shadow: 0 4px 14px rgba(16,185,129,.35); }
+        .balance-modal-btn-logout {
+            background: #f1f5f9;
+            color: #475569;
+        }
+        .balance-modal-btn-logout:hover { background: #ef4444; color: #fff; }
+
+        /* ── Wrapper ───────────────────────────────── */
+        .page-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 32px;
+            padding: 36px 20px 60px;
+        }
+        .copies-grid {
+            display: flex;
+            gap: 28px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        /* ── Receipt card ──────────────────────────── */
+        .receipt-card {
+            width: 100%;
+            max-width: {{ receipt_paper_width|default:"57mm" }};
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,.12), 0 1px 4px rgba(0,0,0,.08);
+            overflow: hidden;
+            position: relative;
+        }
+        /* Perforation top */
+        .receipt-card::before {
+            content: '';
+            position: absolute;
+            top: 80px;
+            left: -8px; right: -8px;
+            height: 0;
+            border-top: 2px dashed #d1d5db;
+        }
+
+        /* ── Card header ───────────────────────────── */
+        .rc-header {
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            padding: 24px 24px 20px;
+            text-align: center;
+            color: #fff;
+        }
+        .rc-store-icon {
+            width: 44px; height: 44px;
+            background: rgba(255,255,255,.12);
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 10px;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,.2);
+        }
+        .rc-store-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            background: #ffffff;
+            padding: 4px;
+        }
+        .rc-store-fallback {
+            width: 100%;
+            height: 100%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.7px;
+            color: #e2e8f0;
+            text-transform: uppercase;
+            background: linear-gradient(145deg, rgba(255,255,255,.1), rgba(255,255,255,.04));
+        }
+        .rc-store-name {
+            font-size: 16px;
+            font-weight: 700;
+            letter-spacing: .5px;
+            margin-bottom: 4px;
+        }
+        .rc-store-description {
+            font-size: 11px;
+            color: #94a3b8;
+            line-height: 1.5;
+            margin-bottom: 4px;
+            padding: 0 8px;
+        }
+        .rc-store-meta {
+            font-size: 11.5px;
+            color: #94a3b8;
+            line-height: 1.6;
+        }
+
+        /* ── Copy badge ────────────────────────────── */
+        .copy-badge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 7px 24px;
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+        }
+        .copy-badge.customer {
+            background: #eff6ff;
+            color: #1d4ed8;
+            border-bottom: 1px solid #dbeafe;
+        }
+        .copy-badge.merchant {
+            background: #f0fdf4;
+            color: #15803d;
+            border-bottom: 1px solid #bbf7d0;
+        }
+        .copy-badge .dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        /* ── Receipt type strip ────────────────────── */
+        .receipt-type-strip {
+            background: #f5f3ff;
+            border-bottom: 1px solid #ddd6fe;
+            padding: 10px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .receipt-type-label {
+            font-size: 13px;
+            font-weight: 700;
+            color: #5b21b6;
+            letter-spacing: .8px;
+            text-transform: uppercase;
+        }
+        .receipt-type-badge {
+            background: #ede9fe;
+            color: #5b21b6;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 20px;
+            letter-spacing: .5px;
+        }
+
+        /* ── Body ──────────────────────────────────── */
+        .rc-body { padding: 16px 24px 20px; }
+
+        /* ── Info rows ─────────────────────────────── */
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px 16px;
+            margin-bottom: 16px;
+        }
+        .info-block { }
+        .info-block.full { grid-column: 1 / -1; }
+        .info-label {
+            font-size: 10.5px;
+            font-weight: 600;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: .8px;
+            margin-bottom: 2px;
+        }
+        .info-value {
+            font-size: 12.5px;
+            font-weight: 600;
+            color: #1e293b;
+            word-break: break-all;
+        }
+        .info-value.mono {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 11px;
+        }
+        .info-value.approved {
+            color: #15803d;
+        }
+
+        /* ── Divider ───────────────────────────────── */
+        .divider {
+            border: none;
+            border-top: 1px dashed #cbd5e1;
+            margin: 14px 0;
+        }
+        .divider.solid {
+            border-top: 1px solid #e2e8f0;
+        }
+
+        /* ── Items table ───────────────────────────── */
+        .items-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        .items-table thead tr {
+            border-bottom: 1.5px solid #e2e8f0;
+        }
+        .items-table thead th {
+            padding: 5px 4px 8px;
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .8px;
+            color: #64748b;
+        }
+        .items-table thead th:first-child { text-align: left; }
+        .items-table thead th:not(:first-child) { text-align: right; }
+        .items-table tbody tr { }
+        .items-table tbody tr:last-child td { border-bottom: none; }
+        .items-table tbody td {
+            padding: 7px 4px;
+            font-size: 12.5px;
+            color: #1e293b;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: top;
+        }
+        .items-table tbody td:first-child { text-align: left; }
+        .items-table tbody td:not(:first-child) { text-align: right; white-space: nowrap; }
+        .item-name { font-weight: 500; }
+        .item-qty {
+            font-size: 11px;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        /* ── Totals block ──────────────────────────── */
+        .totals-block {
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 12px 14px;
+        }
+        .totals-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 4px 0;
+            font-size: 12.5px;
+            color: #475569;
+        }
+        .totals-row.grand {
+            border-top: 1.5px solid #e2e8f0;
+            margin-top: 6px;
+            padding-top: 10px;
+            font-size: 14.5px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+        .totals-row .val-green { color: #15803d; font-weight: 600; }
+        .totals-row .val-purple { color: #5b21b6; font-weight: 700; }
+        .totals-row.discount .val { color: #c2410c; font-weight: 600; }
+        .totals-discount-detail {
+            font-size: 10.5px;
+            line-height: 1.45;
+            color: #64748b;
+            padding: 0 0 10px;
+            margin: -2px 0 6px;
+            border-bottom: 1px dashed #e2e8f0;
+        }
+
+        /* ── Footer ────────────────────────────────── */
+        .rc-footer {
+            padding: 16px 24px 20px;
+            text-align: center;
+        }
+        .thank-you {
+            font-size: 14px;
+            font-weight: 700;
+            color: #1e293b;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-bottom: 3px;
+        }
+        .footer-tagline {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-bottom: 14px;
+        }
+        .barcode-wrap {
+            background: #fff;
+            display: inline-block;
+            padding: 8px 12px 4px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+        .barcode-wrap svg { display: block; }
+        .txn-mono {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 9.5px;
+            color: #94a3b8;
+            margin-top: 5px;
+            letter-spacing: .5px;
+        }
+
+        /* ── Tear-here separator ───────────────────── */
+        .tear-separator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #94a3b8;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin: 4px 0;
+        }
+        .tear-separator::before, .tear-separator::after {
+            content: '';
+            flex: 1;
+            border-top: 1.5px dashed #cbd5e1;
+        }
+
+        /* ── Uniform black receipt text ─────────────── */
+        .receipt-card,
+        .receipt-card * {
+            color: #000 !important;
+        }
+        .receipt-card .rc-header,
+        .receipt-card .copy-badge.customer,
+        .receipt-card .copy-badge.merchant,
+        .receipt-card .receipt-type-strip,
+        .receipt-card .receipt-type-badge,
+        .receipt-card .totals-block {
+            background: #fff !important;
+        }
+        .receipt-card .rc-header {
+            border-bottom: 1px solid #000;
+        }
+        .receipt-card .copy-badge.customer,
+        .receipt-card .copy-badge.merchant {
+            border-bottom: 1px solid #000;
+        }
+        .receipt-card .receipt-type-badge {
+            border: 1px solid #000;
+        }
+
+        /* ── Compact receipt sizing (thermal paper) ─── */
+        .receipt-card { line-height: 1.2; }
+        .receipt-card .rc-header { padding: 8px 3.5mm 6px; }
+        .receipt-card .rc-store-icon { width: 32px; height: 32px; margin-bottom: 6px; }
+        .receipt-card .rc-store-fallback { font-size: 8px; }
+        .receipt-card .rc-store-name { font-size: 12px; }
+        .receipt-card .rc-store-description { font-size: 8px; line-height: 1.35; }
+        .receipt-card .rc-store-meta { font-size: 9px; line-height: 1.35; }
+        .receipt-card .copy-badge { padding: 4px 3.5mm; font-size: 8px; letter-spacing: 0.5px; }
+        .receipt-card .receipt-type-strip { padding: 6px 3.5mm; }
+        .receipt-card .receipt-type-label { font-size: 10px; }
+        .receipt-card .receipt-type-badge { font-size: 8px; padding: 2px 8px; }
+        .receipt-card .rc-body { padding: 8px 3.5mm 10px; }
+        .receipt-card .info-grid { gap: 6px 10px; margin-bottom: 10px; }
+        .receipt-card .info-label { font-size: 8px; letter-spacing: 0.5px; }
+        .receipt-card .info-value { font-size: 9.5px; }
+        .receipt-card .info-value.mono { font-size: 8.5px; }
+        .receipt-card .divider { margin: 8px 0; }
+        .receipt-card .items-table thead th { font-size: 8px; padding: 3px 2px 5px; }
+        .receipt-card .items-table tbody td { font-size: 9.5px; padding: 4px 2px; }
+        .receipt-card .item-qty { font-size: 8px; }
+        .receipt-card .totals-block { padding: 8px 10px; border-radius: 6px; }
+        .receipt-card .totals-row { font-size: 9.5px; padding: 2px 0; }
+        .receipt-card .totals-row.grand { font-size: 11px; padding-top: 6px; margin-top: 4px; }
+        .receipt-card .totals-discount-detail { font-size: 8px; padding: 0 0 6px; margin: -2px 0 4px; }
+        .receipt-card .rc-footer { padding: 8px 3.5mm 10px; }
+        .receipt-card .thank-you { font-size: 11px; letter-spacing: 0.5px; }
+        .receipt-card .footer-tagline { font-size: 8.5px; margin-bottom: 8px; }
+        .receipt-card .txn-mono { font-size: 7.5px; }
+        .receipt-card .tear-separator { font-size: 8px; }
+        .receipt-card .items-table { width: 100%; table-layout: fixed; }
+        .receipt-card .items-table th:nth-child(1),
+        .receipt-card .items-table td:nth-child(1) {
+            width: 52%;
+            word-wrap: break-word;
+            overflow-wrap: anywhere;
+            white-space: normal !important;
+        }
+        .receipt-card .items-table th:nth-child(2),
+        .receipt-card .items-table td:nth-child(2) { width: 16%; }
+        .receipt-card .items-table th:nth-child(3),
+        .receipt-card .items-table td:nth-child(3) { width: 28%; }
+
+        {% include "admin_panel/partials/receipt_logo_styles.html" %}
+
+        {% include "admin_panel/partials/receipt_amount_center.html" %}
+
+        /* ── Print styles ──────────────────────────── */
+        {% include "admin_panel/partials/receipt_thermal_print.html" %}
+    </style>
+</head>
+
+<body>
+
+    <!-- ── Toolbar ─────────────────────────────────── -->
+    <div class="toolbar">
+        <div class="toolbar-brand">
+            <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#94a3b8" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 4H7a2 2 0 01-2-2V6a2 2 0 012-2h5l5 5v11a2 2 0 01-2 2z"/>
+            </svg>
+            Credit Receipt
+        </div>
+        <div class="toolbar-actions">
+            <span class="kbd-hint">
+                {% if printer_settings %}
+                    🖨 {{ printer_settings.printer_name|default:"Windows default printer" }} ({{ printer_settings.get_paper_size_display }})
+                    &nbsp;|&nbsp;
+                {% endif %}
+                Ctrl+P to print &nbsp;|&nbsp; Esc to close
+            </span>
+            <button class="btn-toolbar btn-print" onclick="doPrint()">
+                <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z"/>
+                </svg>
+                Print Receipt
+            </button>
+            <button class="btn-toolbar btn-shop" onclick="navigateTo('/kiosk/')">
+                <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h18l-2 9H5L3 3zm0 0L1 1m4 20a1 1 0 100-2 1 1 0 000 2zm14 0a1 1 0 100-2 1 1 0 000 2z"/>
+                </svg>
+                Shop
+            </button>
+            <button class="btn-toolbar btn-logout" onclick="navigateTo('/kiosk/logout/')">
+                <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1"/>
+                </svg>
+                Logout
+            </button>
+        </div>
+    </div>
+
+    <!-- ── Print Prompt Modal ───────────────────────── -->
+    <!-- ── Balance Modal ──────────────────────────────── -->
+    {% if transaction.member %}
+    <div class="balance-modal-overlay" id="balanceModal">
+        <div class="balance-modal-box">
+            <div class="balance-modal-icon">
+                <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#10b981" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                </svg>
+            </div>
+            <div class="balance-modal-title">Transaction Complete!</div>
+            <div class="balance-modal-member">Welcome back, <strong>{{ transaction.member.full_name }}</strong></div>
+            <div class="balance-card">
+                <div class="balance-card-label">Available Balance</div>
+                <div class="balance-card-amount">&#8369;{{ transaction.member.available_balance|currency }}</div>
+                <div class="balance-card-sub">After this transaction</div>
+            </div>
+            <div class="balance-modal-actions">
+                <button class="balance-modal-btn balance-modal-btn-shop" onclick="navigateTo('/kiosk/')">
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h18l-2 9H5L3 3zm0 0L1 1m4 20a1 1 0 100-2 1 1 0 000 2zm14 0a1 1 0 100-2 1 1 0 000 2z"/>
+                    </svg>
+                    Shop Again
+                </button>
+                <button class="balance-modal-btn balance-modal-btn-logout" onclick="navigateTo('/kiosk/logout/')">
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1"/>
+                    </svg>
+                    Logout
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="modal-overlay" id="printModal" style="display:none;">
+        <div class="modal-box">
+            <div class="modal-icon">
+                <svg width="26" height="26" fill="none" viewBox="0 0 24 24" stroke="#3b82f6" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z"/>
+                </svg>
+            </div>
+            <div class="modal-title">Print Receipt?</div>
+            <div class="modal-sub">Transaction <strong>{{ transaction.transaction_number }}</strong><br>Do you want to print a copy of this receipt?</div>
+            <div class="modal-actions">
+                <button class="modal-btn modal-btn-print" onclick="doPrint()">
+                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" style="display:inline;vertical-align:middle;margin-right:4px">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z"/>
+                    </svg>
+                    Yes, Print
+                </button>
+                <button class="modal-btn modal-btn-skip" onclick="skipAndClose()">
+                    No, Skip
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Page ────────────────────────────────────── -->
+    <div class="page-wrapper">
+        <div class="copies-grid">
+
+            {% comment %} ━━━━━━━━━━  CUSTOMER COPY  ━━━━━━━━━━ {% endcomment %}
+            <div class="receipt-card">
+
+                <!-- Store header -->
+                <div class="rc-header">
+                    <div class="rc-store-icon">
+                        {% if store_logo_url %}
+                        <img src="{{ store_logo_url }}" alt="{{ shop_name }} logo">
+                        {% else %}
+                        <span class="rc-store-fallback">Logo</span>
+                        {% endif %}
+                    </div>
+                    <div class="rc-store-name">{{ shop_name }}</div>
+                    {% if shop_description %}<div class="rc-store-description">{{ shop_description|linebreaksbr }}</div>{% endif %}
+                    <div class="rc-store-meta">
+                        {% if shop_address %}{{ shop_address }}<br>{% endif %}
+                        {% if shop_phone %}{{ shop_phone }}{% endif %}
+                    </div>
+                </div>
+
+                <!-- Copy badge -->
+                <div class="copy-badge customer">
+                    <span class="dot"></span> Customer Copy <span class="dot"></span>
+                </div>
+
+                <!-- Receipt type -->
+                <div class="receipt-type-strip">
+                    <span class="receipt-type-label">Credit Receipt</span>
+                    <span class="receipt-type-badge">APPROVED</span>
+                </div>
+
+                <div class="rc-body">
+
+                    <!-- Transaction info -->
+                    <div class="info-grid">
+                        <div class="info-block full">
+                            <div class="info-label">Transaction No.</div>
+                            <div class="info-value mono">{{ transaction.transaction_number }}</div>
+                        </div>
+                        <div class="info-block">
+                            <div class="info-label">Date</div>
+                            <div class="info-value">{{ transaction.created_at|date:"M d, Y" }}</div>
+                        </div>
+                        <div class="info-block">
+                            <div class="info-label">Time</div>
+                            <div class="info-value">{{ transaction.created_at|date:"h:i A" }}</div>
+                        </div>
+                        <div class="info-block">
+                            <div class="info-label">Payment</div>
+                            <div class="info-value" style="color:#5b21b6; font-weight:700;">Credit</div>
+                        </div>
+                        <div class="info-block">
+                            <div class="info-label">Status</div>
+                            <div class="info-value approved">Approved</div>
+                        </div>
+                        {% if transaction.member %}
+                        <div class="info-block full">
+                            <div class="info-label">Member</div>
+                            <div class="info-value">{{ transaction.member.full_name }}</div>
+                        </div>
+                        {% if transaction.member.rfid_card_number %}
+                        <div class="info-block full">
+                            <div class="info-label">Card Number</div>
+                            <div class="info-value mono">{{ transaction.member.rfid_card_number|mask_rfid }}</div>
+                        </div>
+                        {% endif %}
+                        {% endif %}
+                        <div class="info-block">
+                            <div class="info-label">Entry Mode</div>
+                            <div class="info-value">{% if transaction.member %}RFID{% else %}Manual{% endif %}</div>
+                        </div>
+                        <div class="info-block">
+                            <div class="info-label">Response</div>
+                            <div class="info-value approved">APPROVED</div>
+                        </div>
+                        {% if approval_code %}
+                        <div class="info-block full">
+                            <div class="info-label">Approval Code</div>
+                            <div class="info-value mono">{{ approval_code }}</div>
+                        </div>
+                        {% endif %}
+                        {% include "admin_panel/partials/receipt_processed_by_field.html" %}
+                    </div>
+
+                    <hr class="divider solid">
+
+                    <!-- Items -->
+                    <table class="items-table">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Qty</th>
+                                <th>Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in transaction.items.all %}
+                            <tr>
+                                <td><span class="item-name">{{ item.product_name }}</span></td>
+                                <td><span class="item-qty">×{{ item.quantity_display }}</span></td>
+                                <td>₱{{ item.total_price|currency }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                    <hr class="divider">
+
+                    <!-- Totals -->
+                    <div class="totals-block">
+                        {% if receipt_has_discount %}
+                        <div class="totals-row">
+                            <span>List subtotal</span>
+                            <span class="val">₱{{ receipt_gross_subtotal|currency }}</span>
+                        </div>
+                        <div class="totals-row discount">
+                            <span>Discount</span>
+                            <span class="val">−₱{{ receipt_discount_total|currency }}</span>
+                        </div>
+                        {% if receipt_discount_summary %}
+                        <div class="totals-discount-detail">{{ receipt_discount_summary }}</div>
+                        {% endif %}
+                        {% endif %}
+                        <div class="totals-row">
+                            <span>Subtotal</span>
+                            <span class="val">₱{{ transaction.subtotal|currency }}</span>
+                        </div>
+                        {% if transaction.vat_amount %}
+                        <div class="totals-row" style="border-top:1px dashed #e2e8f0; margin-top:4px; padding-top:4px; font-size:9px;">
+                            <span style="color:#374151; font-weight:600;">Tax Breakdown (included in subtotal)</span>
+                        </div>
+                        <div class="totals-row" style="font-size:9px;">
+                            <span style="color:#374151;">Vatable Sale</span>
+                            <span class="val" style="color:#374151;">₱{{ transaction.vatable_sale|currency }}</span>
+                        </div>
+                        <div class="totals-row" style="font-size:9px; border-bottom:1px dashed #e2e8f0; padding-bottom:4px; margin-bottom:4px;">
+                            <span style="color:#374151; font-weight:600;">{{ active_tax_label|default:"VAT (12%)" }}</span>
+                            <span class="val" style="color:#374151; font-weight:600;">₱{{ transaction.vat_amount|currency }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="totals-row">
+                            <span>Credit Amount</span>
+                            <span class="val val-purple">₱{{ transaction.total_amount|currency }}</span>
+                        </div>
+                        <div class="totals-row" style="font-size:9px; color:#64748b;">
+                            <span>Amount Charged to Account</span>
+                            <span class="val" style="font-weight:600;">On Credit</span>
+                        </div>
+                        <div class="totals-row grand">
+                            <span>Total (PHP)</span>
+                            <span class="val">₱{{ transaction.total_amount|currency }}</span>
+                        </div>
+                        {% if transaction.member %}
+                        <div class="totals-row" style="margin-top:8px; padding-top:8px; border-top:1px dashed #e2e8f0;">
+                            <span style="font-size:9px; color:#64748b;">Available Balance</span>
+                            <span class="val val-green" style="font-size:9px;">₱{{ transaction.member.available_balance|currency }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                </div><!-- /rc-body -->
+
+                <!-- Footer -->
+                <div class="rc-footer">
+                    <div class="thank-you">{{ receipt_thank_you }}</div>
+                    <div class="footer-tagline">{{ receipt_footer_customer_tagline }}</div>
+                    <div class="barcode-wrap">
+                        <svg id="barcode-customer"></svg>
+                        <div class="txn-mono">{{ transaction.transaction_number }}</div>
+                    </div>
+                </div>
+
+            </div><!-- /receipt-card customer -->
+
+            <!-- Tear-here -->
+            <div class="tear-separator">✂ &nbsp; Tear Here</div>
+
+            {% comment %} ━━━━━━━━━━  MERCHANT COPY  ━━━━━━━━━━ {% endcomment %}
+            <div class="receipt-card">
+
+                <!-- Store header -->
+                <div class="rc-header">
+                    <div class="rc-store-icon">
+                        {% if store_logo_url %}
+                        <img src="{{ store_logo_url }}" alt="{{ shop_name }} logo">
+                        {% else %}
+                        <span class="rc-store-fallback">Logo</span>
+                        {% endif %}
+                    </div>
+                    <div class="rc-store-name">{{ shop_name }}</div>
+                    {% if shop_description %}<div class="rc-store-description">{{ shop_description|linebreaksbr }}</div>{% endif %}
+                    <div class="rc-store-meta">
+                        {% if shop_address %}{{ shop_address }}<br>{% endif %}
+                        {% if shop_phone %}{{ shop_phone }}{% endif %}
+                    </div>
+                </div>
+
+                <!-- Copy badge -->
+                <div class="copy-badge merchant">
+                    <span class="dot"></span> Merchant Copy <span class="dot"></span>
+                </div>
+
+                <!-- Receipt type -->
+                <div class="receipt-type-strip">
+                    <span class="receipt-type-label">Credit Receipt</span>
+                    <span class="receipt-type-badge">APPROVED</span>
+                </div>
+
+                <div class="rc-body">
+
+                    <!-- Transaction info -->
+                    <div class="info-grid">
+                        <div class="info-block full">
+                            <div class="info-label">Transaction No.</div>
+                            <div class="info-value mono">{{ transaction.transaction_number }}</div>
+                        </div>
+                        <div class="info-block">
+                            <div class="info-label">Date</div>
+                            <div class="info-value">{{ transaction.created_at|date:"M d, Y" }}</div>
+                        </div>
+                        <div class="info-block">
+                            <div class="info-label">Time</div>
+                            <div class="info-value">{{ transaction.created_at|date:"h:i A" }}</div>
+                        </div>
+                        <div class="info-block">
+                            <div class="info-label">Payment</div>
+                            <div class="info-value">Credit</div>
+                        </div>
+                        <div class="info-block">
+                            <div class="info-label">Status</div>
+                            <div class="info-value approved">Approved</div>
+                        </div>
+                        {% if transaction.member %}
+                        <div class="info-block full">
+                            <div class="info-label">Member</div>
+                            <div class="info-value">{{ transaction.member.full_name }}</div>
+                        </div>
+                        {% if transaction.member.rfid_card_number %}
+                        <div class="info-block full">
+                            <div class="info-label">Card Number</div>
+                            <div class="info-value mono">{{ transaction.member.rfid_card_number|mask_rfid }}</div>
+                        </div>
+                        {% endif %}
+                        {% endif %}
+                        <div class="info-block">
+                            <div class="info-label">Entry Mode</div>
+                            <div class="info-value">{% if transaction.member %}RFID{% else %}Manual{% endif %}</div>
+                        </div>
+                        <div class="info-block">
+                            <div class="info-label">Response</div>
+                            <div class="info-value approved">APPROVED</div>
+                        </div>
+                        {% if approval_code %}
+                        <div class="info-block full">
+                            <div class="info-label">Approval Code</div>
+                            <div class="info-value mono">{{ approval_code }}</div>
+                        </div>
+                        {% endif %}
+                        {% if merchant_id %}
+                        <div class="info-block">
+                            <div class="info-label">Merchant ID</div>
+                            <div class="info-value mono">{{ merchant_id }}</div>
+                        </div>
+                        {% endif %}
+                        {% if terminal_id %}
+                        <div class="info-block">
+                            <div class="info-label">Terminal ID</div>
+                            <div class="info-value mono">{{ terminal_id }}</div>
+                        </div>
+                        {% endif %}
+                        {% include "admin_panel/partials/receipt_processed_by_field.html" %}
+                    </div>
+
+                    <hr class="divider solid">
+
+                    <!-- Items -->
+                    <table class="items-table">
+                        <thead>
+                            <tr>
+                                <th>Item</th>
+                                <th>Qty</th>
+                                <th>Amount</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in transaction.items.all %}
+                            <tr>
+                                <td><span class="item-name">{{ item.product_name }}</span></td>
+                                <td><span class="item-qty">×{{ item.quantity_display }}</span></td>
+                                <td>₱{{ item.total_price|currency }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+
+                    <hr class="divider">
+
+                    <!-- Totals -->
+                    <div class="totals-block">
+                        {% if receipt_has_discount %}
+                        <div class="totals-row">
+                            <span>List subtotal</span>
+                            <span class="val">₱{{ receipt_gross_subtotal|currency }}</span>
+                        </div>
+                        <div class="totals-row discount">
+                            <span>Discount</span>
+                            <span class="val">−₱{{ receipt_discount_total|currency }}</span>
+                        </div>
+                        {% if receipt_discount_summary %}
+                        <div class="totals-discount-detail">{{ receipt_discount_summary }}</div>
+                        {% endif %}
+                        {% endif %}
+                        <div class="totals-row">
+                            <span>Subtotal</span>
+                            <span class="val">₱{{ transaction.subtotal|currency }}</span>
+                        </div>
+                        {% if transaction.vat_amount %}
+                        <div class="totals-row" style="border-top:1px dashed #e2e8f0; margin-top:4px; padding-top:4px; font-size:9px;">
+                            <span style="color:#374151; font-weight:600;">Tax Breakdown (included in subtotal)</span>
+                        </div>
+                        <div class="totals-row" style="font-size:9px;">
+                            <span style="color:#374151;">Vatable Sale</span>
+                            <span class="val" style="color:#374151;">₱{{ transaction.vatable_sale|currency }}</span>
+                        </div>
+                        <div class="totals-row" style="font-size:9px; border-bottom:1px dashed #e2e8f0; padding-bottom:4px; margin-bottom:4px;">
+                            <span style="color:#374151; font-weight:600;">{{ active_tax_label|default:"VAT (12%)" }}</span>
+                            <span class="val" style="color:#374151; font-weight:600;">₱{{ transaction.vat_amount|currency }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="totals-row">
+                            <span>Credit Amount</span>
+                            <span class="val val-purple">₱{{ transaction.total_amount|currency }}</span>
+                        </div>
+                        <div class="totals-row" style="font-size:9px; color:#64748b;">
+                            <span>Amount Charged to Account</span>
+                            <span class="val" style="font-weight:600;">On Credit</span>
+                        </div>
+                        <div class="totals-row grand">
+                            <span>Total (PHP)</span>
+                            <span class="val">₱{{ transaction.total_amount|currency }}</span>
+                        </div>
+                        {% if transaction.member %}
+                        <div class="totals-row" style="margin-top:8px; padding-top:8px; border-top:1px dashed #e2e8f0;">
+                            <span style="font-size:9px; color:#64748b;">Available Balance</span>
+                            <span class="val val-green" style="font-size:9px;">₱{{ transaction.member.available_balance|currency }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                </div><!-- /rc-body -->
+
+                <!-- Footer -->
+                <div class="rc-footer">
+                    <div class="thank-you">{{ receipt_thank_you }}</div>
+                    <div class="footer-tagline">{{ receipt_footer_merchant_note }}</div>
+                    <div class="barcode-wrap">
+                        <svg id="barcode-merchant"></svg>
+                        <div class="txn-mono">{{ transaction.transaction_number }}</div>
+                    </div>
+                </div>
+
+            </div><!-- /receipt-card merchant -->
+
+        </div><!-- /copies-grid -->
+
+        <!-- ── Action buttons below receipts ──────── -->
+        <div class="action-bar">
+            <button class="action-btn action-btn-shop" onclick="navigateTo('/kiosk/')">
+                <svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 3h18l-2 9H5L3 3zm0 0L1 1m4 20a1 1 0 100-2 1 1 0 000 2zm14 0a1 1 0 100-2 1 1 0 000 2z"/>
+                </svg>
+                Continue Shopping
+            </button>
+            <button class="action-btn action-btn-logout" onclick="navigateTo('/kiosk/logout/')">
+                <svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h6a2 2 0 012 2v1"/>
+                </svg>
+                Logout
+            </button>
+        </div>
+
+    </div><!-- /page-wrapper -->
+
+    {% include "partials/jsbarcode_scripts.html" %}
+    <script>
+        // ── Navigation helper ───────────────────────
+        // If this page is open as a popup (window.opener exists),
+        // route the PARENT window and close this popup — never open a 2nd kiosk window.
+        function navigateTo(url) {
+            if (window.opener && !window.opener.closed) {
+                try {
+                    window.opener.location.href = url;
+                } catch (e) {
+                    // Cross-origin safety fallback
+                    window.location.href = url;
+                    return;
+                }
+                window.close();
+            } else {
+                window.location.href = url;
+            }
+        }
+
+        const REPRINT_MODE = {{ reprint_mode|yesno:'true,false' }};
+
+        // ── Barcode generation ──────────────────────
+        window.addEventListener('load', function () {
+            try {
+                const raw = '{{ transaction.transaction_number }}';
+                const val = raw.replace(/[^A-Za-z0-9]/g, '').substring(0, 20) || '{{ transaction.id }}';
+                const opts = { format: "CODE128", width: 1.2, height: 44, displayValue: false, margin: 4 };
+                JsBarcode("#barcode-customer", val, opts);
+                JsBarcode("#barcode-merchant", val, opts);
+            } catch (e) { console.warn('Barcode error:', e); }
+
+            if (!REPRINT_MODE) {
+                // Kiosk checkout: ask before printing. Dashboard reprint: show receipt only.
+                setTimeout(function () {
+                    document.getElementById('printModal').style.display = 'flex';
+                    lockHistory();
+                }, 350);
+            }
+        });
+
+        // ── Modal helpers ──────────────────────────
+        const HAS_MEMBER = {{ transaction.member|yesno:'true,false' }};
+
+        async function printViaConfiguredPrinter() {
+            const payload = {
+                text: `{{ raw_print_text|default:''|escapejs }}`,
+                html: document.documentElement.outerHTML,
+                strict_html: true
+            };
+            const resp = await fetch('/api/print-receipt-local/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            if (!resp.ok) {
+                throw new Error('Print API request failed');
+            }
+            const data = await resp.json();
+            if (!data || !data.success) {
+                throw new Error((data && data.error) || 'Local printing failed');
+            }
+            return data;
+        }
+
+        async function doPrint() {
+            closePrintModal();
+            try {
+                await printViaConfiguredPrinter();
+                if (!REPRINT_MODE && HAS_MEMBER) {
+                    setTimeout(showBalanceModal, 200);
+                } else if (!REPRINT_MODE) {
+                    setTimeout(function () { window.close(); }, 200);
+                }
+            } catch (err) {
+                // Fallback to browser dialog if local printer API is unavailable.
+                setTimeout(function () {
+                    window.print();
+                }, 150);
+            }
+        }
+
+        // After print dialog closes → show balance or redirect
+        window.onafterprint = function () {
+            if (!REPRINT_MODE && HAS_MEMBER) {
+                showBalanceModal();
+            }
+        };
+
+        function skipAndClose() {
+            closePrintModal();
+            if (!REPRINT_MODE && HAS_MEMBER) {
+                setTimeout(showBalanceModal, 200);
+            } else if (!REPRINT_MODE) {
+                setTimeout(function () { window.close(); }, 200);
+            }
+        }
+
+        function closePrintModal() {
+            const m = document.getElementById('printModal');
+            m.style.animation = 'fadeOut .18s ease forwards';
+            setTimeout(function () { m.style.display = 'none'; }, 170);
+        }
+
+        function showBalanceModal() {
+            const bm = document.getElementById('balanceModal');
+            if (!bm) return;
+            bm.style.display = 'flex';
+            bm.style.animation = 'fadeIn .2s ease';
+        }
+
+        // Overlay click does NOT close the modal — user must choose an option
+        document.getElementById('printModal').addEventListener('click', function (e) {
+            e.stopPropagation();
+        });
+
+        // ── Block browser back button while print modal is visible ──
+        function lockHistory() {
+            history.pushState({ printModalOpen: true }, '');
+        }
+        window.addEventListener('popstate', function (e) {
+            const pm = document.getElementById('printModal');
+            if (pm && pm.style.display !== 'none') {
+                // Push state again so back button is re-blocked
+                lockHistory();
+            }
+        });
+
+        // ── Keyboard shortcuts ─────────────────────
+        document.addEventListener('keydown', function (e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'p') { e.preventDefault(); doPrint(); }
+            // Escape is disabled while modal is open — user must choose
+            if (e.key === 'Escape') {
+                const pm = document.getElementById('printModal');
+                if (pm && pm.style.display !== 'none') { e.preventDefault(); return; }
+            }
+            if (e.key === 'Enter') {
+                const modal = document.getElementById('printModal');
+                if (modal && modal.style.display !== 'none') doPrint();
+            }
+        });
+    </script>
+    <style>
+        @keyframes fadeOut { from { opacity:1; } to { opacity:0; } }
+    </style>
+</body>
+</html>
+

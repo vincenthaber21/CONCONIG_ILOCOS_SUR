@@ -1,0 +1,105 @@
+{# Admin-only: open Django admin to edit SegmentProductGroupDiscount (same staff session as dashboard when applicable). #}
+<div class="mt-4 pt-3 border-top">
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-2">
+    <h3 class="h6 fw-semibold mb-0">
+      <i class="bi bi-sliders me-1"></i>Manage store rules
+    </h3>
+    <button
+      type="button"
+      class="btn btn-success btn-sm rounded-pill"
+      data-bs-toggle="modal"
+      data-bs-target="#segmentStoreRulesAdminModal"
+    >
+      <i class="bi bi-box-arrow-up-right me-1"></i>Open in Django admin
+    </button>
+  </div>
+  <p class="text-muted small mb-0">
+    Editing uses <strong>Django admin</strong> (segment product discounts, product picker, and permissions).
+    Sign in at <code class="small">/admin/</code> if a rule link asks for login; then return to this dashboard as needed.
+  </p>
+</div>
+
+<div class="modal fade" id="segmentStoreRulesAdminModal" tabindex="-1" aria-labelledby="segmentStoreRulesAdminModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+    <div class="modal-content" style="border-radius: 16px;">
+      <div class="modal-header border-0 pb-0">
+        <h5 class="modal-title fw-semibold" id="segmentStoreRulesAdminModalLabel">
+          <i class="bi bi-tags me-2 text-success"></i>Segment product discounts
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body pt-2">
+        <p class="text-muted small mb-3">
+          Choose a rule to edit in admin (full form including <strong>Products</strong> assignment), or add a new rule.
+          Changes apply at the kiosk on the next checkout.
+        </p>
+        <div class="d-flex flex-wrap gap-2 mb-3">
+          <a
+            class="btn btn-outline-success btn-sm rounded-pill"
+            href="{% url 'admin:members_segmentproductgroupdiscount_changelist' %}"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <i class="bi bi-list-ul me-1"></i>All rules
+          </a>
+          <a
+            class="btn btn-success btn-sm rounded-pill"
+            href="{% url 'admin:members_segmentproductgroupdiscount_add' %}"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <i class="bi bi-plus-lg me-1"></i>Add rule
+          </a>
+        </div>
+        <div class="table-responsive rounded-3 border" style="max-height: 280px;">
+          <table class="table table-sm align-middle mb-0" style="font-size: 0.875rem;">
+            <thead class="table-light">
+              <tr>
+                <th class="ps-3">Segment</th>
+                <th>Product group</th>
+                <th class="text-end" style="width: 6rem;">₱ off</th>
+                <th class="text-center" style="width: 5rem;">Active</th>
+                <th class="text-end pe-3" style="width: 7rem;">Admin</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in segment_discount_rules_all %}
+                <tr>
+                  <td class="ps-3">{{ row.get_segment_display }}</td>
+                  <td>{{ row.get_discount_group_display }}</td>
+                  <td class="text-end fw-semibold text-success">₱{{ row.amount_off|floatformat:2 }}</td>
+                  <td class="text-center">
+                    {% if row.is_active %}
+                      <span class="badge text-bg-success rounded-pill">Yes</span>
+                    {% else %}
+                      <span class="badge text-bg-secondary rounded-pill">No</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-end pe-3">
+                    <a
+                      class="btn btn-outline-primary btn-sm rounded-pill"
+                      href="{% url 'admin:members_segmentproductgroupdiscount_change' row.pk %}"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Edit
+                    </a>
+                  </td>
+                </tr>
+              {% empty %}
+                <tr>
+                  <td colspan="5" class="text-center text-muted small py-4">
+                    <i class="bi bi-info-circle me-1"></i>No rules yet. Use <strong>Add rule</strong> above.
+                  </td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <button type="button" class="btn btn-light rounded-pill px-3" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,402 @@
+{% extends "loans/base_loans.html" %}
+{% load currency_filters %}
+{% block title %}Credit Investigation{% endblock %}
+{% block content %}
+<div class="loan-investigate-page">
+  <header class="loan-investigate-page__header">
+    <a class="loan-investigate-page__back" href="{% url 'loans:application-detail' application.pk %}">
+      <i class="bi bi-arrow-left"></i> Application
+    </a>
+    <div class="loan-investigate-page__title-row">
+      <div>
+        <h1>Credit Investigation</h1>
+        <p class="subtitle loan-investigate-page__sub">
+          {{ application.member.get_full_name|default:application.member.username }}
+          &middot; {{ application.loan_product.name }}
+        </p>
+      </div>
+      <span class="status-pill status-pill--{{ application.status|lower }}">
+        {{ application.get_status_display }}
+      </span>
+    </div>
+  </header>
+
+  <div class="loan-investigate-page__stats">
+    <div class="loan-investigate-stat">
+      <span class="loan-investigate-stat__label">Amount</span>
+      <span class="loan-investigate-stat__value">&#8369;{{ application.amount_requested|currency }}</span>
+    </div>
+    <div class="loan-investigate-stat">
+      <span class="loan-investigate-stat__label">Term</span>
+      <span class="loan-investigate-stat__value">{{ application.term_months }} mo</span>
+    </div>
+    <div class="loan-investigate-stat">
+      <span class="loan-investigate-stat__label">Purpose</span>
+      <span class="loan-investigate-stat__value loan-investigate-stat__value--sm">
+        {{ application.purpose|truncatewords:8|default:"—" }}
+      </span>
+    </div>
+    <div class="loan-investigate-stat">
+      <span class="loan-investigate-stat__label">Submitted</span>
+      <span class="loan-investigate-stat__value loan-investigate-stat__value--sm">
+        {{ application.submitted_at|date:"M j, Y"|default:"—" }}
+      </span>
+    </div>
+  </div>
+
+  {% if score_info %}
+  <section class="card loan-investigate-page__card loan-investigate-score">
+    <div class="loan-investigate-score__main">
+      <div>
+        <h2><i class="bi bi-speedometer2"></i> Payment score (auto-calculated)</h2>
+        <p class="subtitle loan-investigate-section__sub">{{ score_info.explanation }}</p>
+      </div>
+      <div class="loan-investigate-score__badge{% if score_info.score >= 80 %} loan-investigate-score__badge--good{% elif score_info.score >= 60 %} loan-investigate-score__badge--warn{% else %} loan-investigate-score__badge--low{% endif %}">
+        {{ score_info.score }}
+      </div>
+    </div>
+    <div class="loan-investigate-score__breakdown">
+      <div class="loan-investigate-score__item">
+        <span class="loan-investigate-score__item-label">Base score</span>
+        <strong>100</strong>
+      </div>
+      <div class="loan-investigate-score__item">
+        <span class="loan-investigate-score__item-label">Prior loan applications</span>
+        <strong>{{ score_info.prior_loan_count }}</strong>
+      </div>
+      <div class="loan-investigate-score__item">
+        <span class="loan-investigate-score__item-label">Unpaid overdue installments</span>
+        <strong>{{ score_info.noncompliant_count }}</strong>
+      </div>
+      <div class="loan-investigate-score__item">
+        <span class="loan-investigate-score__item-label">Penalty applied</span>
+        <strong class="loan-investigate-score__penalty">&minus;{{ score_info.penalty }}</strong>
+      </div>
+    </div>
+    <p class="helptext loan-investigate-score__note">
+      This score is computed automatically and cannot be edited manually. It is saved when you submit the investigation.
+    </p>
+  </section>
+  {% endif %}
+
+  <section class="card loan-investigate-page__card">
+    <h2>Investigation form</h2>
+    <p class="subtitle loan-investigate-section__sub">
+      Assess the loan purpose, choose a recommendation, and add remarks before sending to the credit committee.
+    </p>
+
+    <form method="post" class="loan-investigate-form">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+      <div class="loan-investigate-form__errors">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      <div class="loan-investigate-form__field loan-investigate-form__field--score">
+        <label for="{{ form.repayment_capacity_score.id_for_label }}">{{ form.repayment_capacity_score.label }}</label>
+        {{ form.repayment_capacity_score }}
+        {% if form.repayment_capacity_score.help_text %}
+        <p class="helptext">{{ form.repayment_capacity_score.help_text }}</p>
+        {% endif %}
+        {% if form.repayment_capacity_score.errors %}
+        <div class="loan-investigate-form__errors">{{ form.repayment_capacity_score.errors }}</div>
+        {% endif %}
+      </div>
+
+      <div class="loan-investigate-form__field">
+        <label for="{{ form.loan_purpose_assessment.id_for_label }}">{{ form.loan_purpose_assessment.label }}</label>
+        {{ form.loan_purpose_assessment }}
+        <p class="helptext">Describe whether the stated purpose is reasonable and supported by the member's profile.</p>
+        {% if form.loan_purpose_assessment.errors %}
+        <div class="loan-investigate-form__errors">{{ form.loan_purpose_assessment.errors }}</div>
+        {% endif %}
+      </div>
+
+      <fieldset class="loan-investigate-form__field">
+        <legend class="loan-investigate-form__label">{{ form.recommendation.label }}</legend>
+        <div class="loan-investigate-form__choices">
+          {% for radio in form.recommendation %}
+          {% if radio.data.value == 'RECOMMEND_APPROVE' or radio.data.value == 'RECOMMEND_DENY' %}
+          <label class="loan-investigate-form__choice{% if radio.data.value == 'RECOMMEND_APPROVE' %} loan-investigate-form__choice--approve{% else %} loan-investigate-form__choice--deny{% endif %}{% if radio.data.selected %} is-selected{% endif %}" for="{{ radio.id_for_label }}">
+            <input type="radio" name="{{ radio.data.name }}" value="{{ radio.data.value }}" id="{{ radio.id_for_label }}"{% if radio.data.selected %} checked{% endif %}{% if forloop.first and form.recommendation.field.required %} required{% endif %}>
+            <span>
+              {% if radio.data.value == 'RECOMMEND_APPROVE' %}
+              <strong><i class="bi bi-check2-circle"></i> Recommend approve</strong>
+              <small>Member appears creditworthy — forward to committee</small>
+              {% else %}
+              <strong><i class="bi bi-x-circle"></i> Recommend deny</strong>
+              <small>Concerns found — recommend rejection to committee</small>
+              {% endif %}
+            </span>
+          </label>
+          {% endif %}
+          {% endfor %}
+        </div>
+        {% if form.recommendation.errors %}
+        <div class="loan-investigate-form__errors">{{ form.recommendation.errors }}</div>
+        {% endif %}
+      </fieldset>
+
+      <div class="loan-investigate-form__field">
+        <label for="{{ form.remarks.id_for_label }}">{{ form.remarks.label }}</label>
+        {{ form.remarks }}
+        <p class="helptext">Optional notes for the committee (findings, conditions, or concerns).</p>
+        {% if form.remarks.errors %}
+        <div class="loan-investigate-form__errors">{{ form.remarks.errors }}</div>
+        {% endif %}
+      </div>
+
+      <div class="loan-investigate-form__actions">
+        <button type="submit" class="btn-loan">
+          <i class="bi bi-send"></i> Save &amp; send to committee
+        </button>
+        <a class="btn--secondary" href="{% url 'loans:application-detail' application.pk %}">Cancel</a>
+      </div>
+    </form>
+  </section>
+</div>
+
+<style>
+  .loan-investigate-page {
+    width: 100%;
+    max-width: 980px;
+    margin-inline: auto;
+  }
+
+  .loan-investigate-page__header { margin-bottom: 1.25rem; }
+  .loan-investigate-page__back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    color: #64748b;
+    text-decoration: none;
+    font-size: .88rem;
+    font-weight: 600;
+    margin-bottom: .65rem;
+  }
+  .loan-investigate-page__back:hover { color: #0f172a; }
+
+  .loan-investigate-page__title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .loan-investigate-page__title-row h1 { margin: 0 0 .35rem; }
+  .loan-investigate-page__sub { margin-bottom: 0; }
+
+  .loan-investigate-page__stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .75rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .loan-investigate-stat {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: .9rem 1rem;
+  }
+  .loan-investigate-stat__label {
+    display: block;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: .3rem;
+  }
+  .loan-investigate-stat__value {
+    display: block;
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: #0f172a;
+  }
+  .loan-investigate-stat__value--sm { font-size: .92rem; font-weight: 700; }
+
+  .loan-investigate-page__card {
+    border-radius: 14px;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, .05);
+    padding: 1.4rem 1.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .loan-investigate-page__card h2 {
+    margin: 0 0 .35rem;
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+  }
+  .loan-investigate-page__card h2 i { color: #E6C200; }
+  .loan-investigate-section__sub { margin: 0 0 1rem; }
+
+  .loan-investigate-score__main {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+  }
+  .loan-investigate-score__badge {
+    min-width: 88px;
+    padding: .65rem 1rem;
+    border-radius: 14px;
+    font-size: 2rem;
+    font-weight: 800;
+    text-align: center;
+    line-height: 1;
+    background: #ecfdf5;
+    color: #166534;
+    border: 2px solid #86efac;
+  }
+  .loan-investigate-score__badge--good { background: #ecfdf5; color: #166534; border-color: #86efac; }
+  .loan-investigate-score__badge--warn { background: #fffbeb; color: #92400e; border-color: #fde68a; }
+  .loan-investigate-score__badge--low { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+
+  .loan-investigate-score__breakdown {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: .65rem;
+    margin-bottom: .75rem;
+  }
+  .loan-investigate-score__item {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: .75rem .85rem;
+  }
+  .loan-investigate-score__item-label {
+    display: block;
+    font-size: .72rem;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    margin-bottom: .2rem;
+  }
+  .loan-investigate-score__item strong { font-size: 1.05rem; color: #0f172a; }
+  .loan-investigate-score__penalty { color: #b91c1c; }
+  .loan-investigate-score__note { margin: 0; }
+
+  .loan-investigate-form__field { margin-bottom: 1.15rem; }
+  .loan-investigate-form__field legend,
+  .loan-investigate-form__field label,
+  .loan-investigate-form__label {
+    display: block;
+    margin-bottom: .4rem;
+    color: #334155;
+    font-size: .9rem;
+    font-weight: 700;
+  }
+  .loan-investigate-form__field legend {
+    float: left;
+    width: 100%;
+    padding: 0;
+    border: 0;
+  }
+  .loan-investigate-form__field textarea,
+  .loan-investigate-form__field select,
+  .loan-investigate-form__field input:not([type=radio]):not([type=checkbox]) {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #fff;
+    font-size: .92rem;
+  }
+  .loan-investigate-form__field textarea {
+    min-height: 96px;
+    resize: vertical;
+  }
+  .loan-investigate-form__field textarea:focus,
+  .loan-investigate-form__field input:focus,
+  .loan-investigate-form__field select:focus {
+    outline: none;
+    border-color: #E6C200;
+    box-shadow: 0 0 0 3px rgba(230, 194, 0, .15);
+  }
+  .loan-investigate-form__field--score input {
+    max-width: 140px;
+    font-size: 1.1rem;
+    font-weight: 800;
+    background: #f8fafc;
+    color: #166534;
+  }
+
+  .loan-investigate-form__choices {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .65rem;
+  }
+  .loan-investigate-form__choice {
+    display: flex;
+    align-items: flex-start;
+    gap: .7rem;
+    margin: 0;
+    padding: 1rem 1.05rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    background: #f8fafc;
+    cursor: pointer;
+    transition: border-color .15s, background .15s, box-shadow .15s;
+  }
+  .loan-investigate-form__choice:hover { border-color: #cbd5e1; background: #fff; }
+  .loan-investigate-form__choice input {
+    width: 18px;
+    height: 18px;
+    margin-top: 3px;
+    flex-shrink: 0;
+  }
+  .loan-investigate-form__choice--approve input { accent-color: #E6C200; }
+  .loan-investigate-form__choice--deny input { accent-color: #dc2626; }
+  .loan-investigate-form__choice strong {
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+    color: #0f172a;
+    font-size: .92rem;
+  }
+  .loan-investigate-form__choice--approve strong { color: #166534; }
+  .loan-investigate-form__choice--deny strong { color: #991b1b; }
+  .loan-investigate-form__choice small {
+    display: block;
+    margin-top: .2rem;
+    color: #64748b;
+    font-size: .8rem;
+    line-height: 1.4;
+  }
+  .loan-investigate-form__choice:has(input:checked),
+  .loan-investigate-form__choice.is-selected {
+    box-shadow: 0 0 0 3px rgba(230, 194, 0, .12);
+  }
+  .loan-investigate-form__choice--approve:has(input:checked),
+  .loan-investigate-form__choice--approve.is-selected {
+    border-color: #86efac;
+    background: #f0fdf4;
+  }
+  .loan-investigate-form__choice--deny:has(input:checked),
+  .loan-investigate-form__choice--deny.is-selected {
+    border-color: #fecaca;
+    background: #fef2f2;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, .1);
+  }
+
+  .loan-investigate-form__errors {
+    margin-bottom: .75rem;
+    color: #dc2626;
+    font-size: .88rem;
+  }
+
+  .loan-investigate-form__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .65rem;
+    align-items: center;
+    padding-top: .5rem;
+    border-top: 1px solid #e2e8f0;
+    margin-top: .5rem;
+  }
+</style>
+{% endblock %}

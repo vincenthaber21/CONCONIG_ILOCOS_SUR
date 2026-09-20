@@ -1,0 +1,20 @@
+[project]
+name = "repl-nix-workspace"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.11"
+dependencies = [
+    "apscheduler>=3.10.4",
+    "crispy-bootstrap5>=2025.6",
+    "django>=5.2.8",
+    "django-cors-headers>=4.3.1",
+    "django-crispy-forms>=2.5",
+    "django-widget-tweaks>=1.5.0",
+    "django-import-export>=4.0",
+    "djangorestframework>=3.16.1",
+    "openpyxl>=3.1.5",
+    "pillow>=12.0.0",
+    "psycopg2-binary>=2.9.11",
+    "python-barcode>=0.16.1",
+    "reportlab>=4.4.5",
+]

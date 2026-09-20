@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Transactions | {{ kiosk_system_name }}</title>
+    {% include "partials/bootstrap_head.html" %}
+    <style>
+        :root {
+            --dark: #0f172a;
+            --brand: #ED1C24;
+            --accent: #E6C200;
+            --muted: #94a3b8;
+            --panel: #ffffff;
+            --gradient: linear-gradient(135deg, #ED1C24 0%, #C4121A 40%, #8B0E14 100%);
+        }
+        body {
+            background: #f1f5f9;
+            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .header-section {
+            background: var(--gradient);
+            color: white;
+            padding: 28px 30px;
+            border-radius: 16px;
+            margin-bottom: 24px;
+            box-shadow: 0 10px 30px rgba(15,23,42,0.2);
+        }
+        .header-section h1 { font-size: 1.65rem; font-weight: 700; margin-bottom: 6px; }
+        .header-section p  { opacity: .9; margin: 0; }
+
+        .stat-row { margin-bottom: 24px; }
+        .stat-card {
+            background: var(--panel);
+            border-radius: 14px;
+            padding: 20px 22px;
+            box-shadow: 0 4px 16px rgba(15,23,42,.08);
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            height: 100%;
+        }
+        .stat-icon {
+            width: 52px; height: 52px; border-radius: 14px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.5rem; color: white; flex-shrink: 0;
+        }
+        .stat-title { font-size: .8rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+        .stat-val   { font-size: 1.5rem; font-weight: 700; color: var(--dark); line-height: 1.1; }
+
+        .content-card {
+            background: var(--panel);
+            border-radius: 16px;
+            padding: 28px 30px;
+            box-shadow: 0 4px 20px rgba(15,23,42,.09);
+        }
+        .nav-tabs-custom {
+            border-bottom: 2px solid #e2e8f0;
+            display: flex;
+            gap: 4px;
+            flex-wrap: wrap;
+            margin-bottom: 24px;
+        }
+        .nav-tab-btn {
+            padding: 9px 18px;
+            border: none;
+            background: transparent;
+            border-radius: 10px 10px 0 0;
+            font-weight: 600;
+            font-size: .88rem;
+            color: var(--muted);
+            cursor: pointer;
+            transition: all .2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            white-space: nowrap;
+        }
+        .nav-tab-btn:hover { background: #f8fafc; color: var(--brand); }
+        .nav-tab-btn.active { background: var(--brand); color: white; border-bottom: 2px solid var(--brand); }
+        .badge-count { background: rgba(255,255,255,.25); border-radius: 20px; padding: 1px 7px; font-size: .75rem; }
+        .nav-tab-btn:not(.active) .badge-count { background: #e2e8f0; color: var(--dark); }
+
+        .txn-item {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 18px 20px;
+            margin-bottom: 14px;
+            transition: all .2s;
+        }
+        .txn-item:hover { border-color: var(--brand); box-shadow: 0 4px 12px rgba(237,28,36,.08); }
+        .txn-item:last-child { margin-bottom: 0; }
+
+        .txn-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .txn-number { font-weight: 700; color: var(--dark); font-size: .97rem; }
+        .txn-date   { color: var(--muted); font-size: .84rem; margin-top: 3px; }
+        .txn-amount { font-size: 1.2rem; font-weight: 700; }
+        .txn-amount.debit   { color: #dc2626; }
+        .txn-amount.credit  { color: #16a34a; }
+        .txn-amount.neutral { color: var(--accent); }
+
+        .txn-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 10px;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid #f1f5f9;
+        }
+        .detail-label { color: var(--muted); font-size: .8rem; margin-bottom: 2px; }
+        .detail-val   { font-weight: 600; color: var(--dark); font-size: .9rem; }
+
+        .badge-type {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 11px;
+            border-radius: 8px;
+            font-size: .78rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+        .badge-purchase          { background: #d1fae5; color: #065f46; }
+        .badge-refund            { background: #fce7f3; color: #9d174d; }
+        .badge-pending           { background: #fef3c7; color: #92400e; }
+        .badge-cancelled         { background: #fee2e2; color: #991b1b; }
+        .badge-transfer-sent     { background: #fee2e2; color: #b91c1c; }
+        .badge-transfer-received { background: #d1fae5; color: #065f46; }
+        .badge-top-up            { background: #dbeafe; color: #1e40af; }
+        .badge-deduction         { background: #fef3c7; color: #92400e; }
+
+        .items-toggle { cursor: pointer; color: var(--brand); font-size: .85rem; font-weight: 600; user-select: none; }
+        .items-toggle:hover { text-decoration: underline; }
+        .items-list { display: none; margin-top: 10px; }
+        .items-list.open { display: block; }
+        .item-row { display: flex; justify-content: space-between; padding: 6px 10px; border-radius: 8px; font-size: .85rem; }
+        .item-row:nth-child(odd)  { background: #f8fafc; }
+        .item-row:nth-child(even) { background: #ffffff; }
+
+        .empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+        .empty-state i { font-size: 3.5rem; margin-bottom: 14px; opacity: .45; }
+
+        .action-row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-top: 28px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+        }
+        .btn-action { border-radius: 12px; padding: 11px 22px; font-weight: 600; transition: all .2s; }
+        .btn-brand  { background: var(--gradient); border: none; color: white; }
+        .btn-brand:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(237,28,36,.3); color: white; }
+
+        .balance-pill {
+            display: inline-block;
+            background: rgba(255,255,255,.18);
+            border: 1px solid rgba(255,255,255,.35);
+            border-radius: 50px;
+            padding: 4px 16px;
+            font-size: 1.05rem;
+            font-weight: 700;
+        }
+
+        #logoutConfirmModal .modal-content { border-radius: 18px; border: none; }
+        #logoutConfirmModal .modal-header  { background: linear-gradient(135deg,#f8f9fa,#e9ecef); border-bottom: 2px solid #dee2e6; padding: 22px 28px; }
+        #logoutConfirmModal .modal-title   { font-weight: 700; font-size: 1.3rem; }
+        #logoutConfirmModal .modal-body    { padding: 30px; text-align: center; }
+        #logoutConfirmModal .warning-icon  { font-size: 3.5rem; color: #ED1C24; display: block; margin-bottom: 16px; }
+        #logoutConfirmModal .modal-footer  { border-top: 2px solid #e9ecef; padding: 18px 28px; display: flex; justify-content: center; gap: 12px; background: #f8f9fa; }
+        #logoutConfirmModal .modal-footer .btn { min-width: 110px; padding: 10px 22px; font-weight: 600; border-radius: 8px; }
+        #logoutConfirmModal .btn-cancel  { background: #6c757d; border: 2px solid #6c757d; color: white; }
+        #logoutConfirmModal .btn-confirm { background: linear-gradient(135deg,#ED1C24,#C4121A); border: 2px solid #ED1C24; color: white; }
+
+        @media (max-width: 576px) {
+            .header-section { padding: 20px; }
+            .content-card   { padding: 20px 16px; }
+            .txn-head       { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+<div class="container-fluid" style="max-width:1000px;">
+
+    <!-- Header -->
+    <div class="header-section mb-4">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div>
+                <h1><i class="bi bi-receipt-cutoff me-2"></i>My Transactions</h1>
+                {% if member %}
+                    <p>{{ member.full_name }} &nbsp;&middot;&nbsp; Balance:
+                        <span class="balance-pill">&#8369;{{ member.balance|floatformat:2 }}</span>
+                    </p>
+                {% else %}
+                    <p>All your activity &mdash; purchases, refunds, transfers &amp; top-ups</p>
+                {% endif %}
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+                <a href="{% url 'user_choice' %}" class="btn btn-light btn-action">
+                    <i class="bi bi-arrow-left me-1"></i>Back
+                </a>
+                <a href="javascript:void(0);" id="logoutLink" class="btn btn-outline-light btn-action">
+                    <i class="bi bi-box-arrow-right me-1"></i>Logout
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% if member %}
+
+    <!-- Tab card -->
+    <div class="content-card">
+
+        <div class="nav-tabs-custom">
+            <button class="nav-tab-btn active" data-tab="all">
+                <i class="bi bi-grid-3x3-gap"></i> All Activity
+                <span class="badge-count">{{ all_activity|length }}</span>
+            </button>
+            <button class="nav-tab-btn" data-tab="purchases">
+                <i class="bi bi-bag-check"></i> Purchases
+                <span class="badge-count">{{ purchases|length }}</span>
+            </button>
+            <button class="nav-tab-btn" data-tab="refunds">
+                <i class="bi bi-arrow-counterclockwise"></i> Refunds
+                <span class="badge-count">{{ refunds|length }}</span>
+            </button>
+            <button class="nav-tab-btn" data-tab="transfers">
+                <i class="bi bi-arrow-left-right"></i> Transfers
+                <span class="badge-count">{{ transfer_entries|length }}</span>
+            </button>
+            <button class="nav-tab-btn" data-tab="topups">
+                <i class="bi bi-wallet2"></i> Top-ups
+                <span class="badge-count">{{ top_ups|length }}</span>
+            </button>
+            {% if pending %}
+            <button class="nav-tab-btn" data-tab="pending">
+                <i class="bi bi-clock-history"></i> Pending
+                <span class="badge-count">{{ pending|length }}</span>
+            </button>
+            {% endif %}
+        </div>
+
+        <!-- TAB: ALL -->
+        <div id="tab-all" class="tab-pane">
+            {% if all_activity %}
+                {% for entry in all_activity %}
+                    {% if entry.kind == 'purchase' %}{% with t=entry.obj %}
+                    <div class="txn-item">
+                        <div class="txn-head">
+                            <div>
+                                <div class="txn-number"><i class="bi bi-receipt me-1"></i>{{ t.transaction_number }}</div>
+                                <div class="txn-date"><i class="bi bi-calendar3 me-1"></i>{{ t.created_at|date:"M d, Y H:i" }}</div>
+                            </div>
+                            <div class="text-end">
+                                <div class="txn-amount debit">- &#8369;{{ t.total_amount|floatformat:2 }}</div>
+                                <span class="badge-type badge-purchase mt-1">Purchase</span>
+                            </div>
+                        </div>
+                        <div class="txn-details">
+                            <div><div class="detail-label">Payment</div><div class="detail-val">{{ t.get_payment_method_display }}</div></div>
+                            {% if t.amount_from_balance > 0 %}<div><div class="detail-label">From Balance</div><div class="detail-val">&#8369;{{ t.amount_from_balance|floatformat:2 }}</div></div>{% endif %}
+                            {% if t.amount_paid > 0 %}<div><div class="detail-label">Cash Paid</div><div class="detail-val">&#8369;{{ t.amount_paid|floatformat:2 }}</div></div>{% endif %}
+                        </div>
+                        {% if t.items.all %}
+                        <div class="mt-2 pt-2">
+                            <span class="items-toggle" onclick="toggleItems(this)"><i class="bi bi-chevron-down me-1"></i>{{ t.items.count }} item{{ t.items.count|pluralize }}</span>
+                            <div class="items-list">{% for item in t.items.all %}<div class="item-row"><span>{{ item.product_name }} <strong>&times;{{ item.quantity }}</strong></span><span>&#8369;{{ item.total_price|floatformat:2 }}</span></div>{% endfor %}</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endwith %}{% elif entry.kind == 'refund' %}{% with t=entry.obj %}
+                    <div class="txn-item">
+                        <div class="txn-head">
+                            <div>
+                                <div class="txn-number"><i class="bi bi-arrow-counterclockwise me-1"></i>{{ t.transaction_number }}</div>
+                                <div class="txn-date"><i class="bi bi-calendar3 me-1"></i>{{ t.created_at|date:"M d, Y H:i" }}</div>
+                            </div>
+                            <div class="text-end">
+                                <div class="txn-amount credit">+ &#8369;{{ t.total_amount|floatformat:2 }}</div>
+                                <span class="badge-type badge-refund mt-1">Refunded</span>
+                            </div>
+                        </div>
+                        {% if t.notes %}<p class="mt-2 mb-0 text-muted" style="font-size:.85rem;"><i class="bi bi-chat-left-text me-1"></i>{{ t.notes }}</p>{% endif %}
+                    </div>
+                    {% endwith %}{% elif entry.kind == 'pending' %}{% with t=entry.obj %}
+                    <div class="txn-item">
+                        <div class="txn-head">
+                            <div>
+                                <div class="txn-number"><i class="bi bi-clock-history me-1"></i>{{ t.transaction_number }}</div>
+                                <div class="txn-date"><i class="bi bi-calendar3 me-1"></i>{{ t.created_at|date:"M d, Y H:i" }}</div>
+                            </div>
+                            <div class="text-end">
+                                <div class="txn-amount neutral">&#8369;{{ t.total_amount|floatformat:2 }}</div>
+                                <span class="badge-type badge-{{ t.status }} mt-1">{{ t.get_status_display }}</span>
+                            </div>
+                        </div>
+                    </div>
+                    {% endwith %}{% elif entry.kind == 'transfer_sent' %}{% with bt=entry.obj %}
+                    <div class="txn-item">
+                        <div class="txn-head">
+                            <div>
+                                <div class="txn-number"><i class="bi bi-send me-1"></i>Transfer Sent</div>
+                                <div class="txn-date"><i class="bi bi-calendar3 me-1"></i>{{ bt.created_at|date:"M d, Y H:i" }}</div>
+                            </div>
+                            <div class="text-end">
+                                <div class="txn-amount debit">- &#8369;{{ bt.amount|floatformat:2 }}</div>
+                                <span class="badge-type badge-transfer-sent mt-1">Sent</span>
+                            </div>
+                        </div>
+                        <div class="txn-details">
+                            <div><div class="detail-label">Balance Before</div><div class="detail-val">&#8369;{{ bt.balance_before|floatformat:2 }}</div></div>
+                            <div><div class="detail-label">Balance After</div><div class="detail-val">&#8369;{{ bt.balance_after|floatformat:2 }}</div></div>
+                        </div>
+                        {% if bt.notes %}<p class="mt-2 mb-0 text-muted" style="font-size:.85rem;"><i class="bi bi-chat-left-text me-1"></i>{{ bt.notes }}</p>{% endif %}
+                    </div>
+                    {% endwith %}{% elif entry.kind == 'transfer_received' %}{% with bt=entry.obj %}
+                    <div class="txn-item">
+                        <div class="txn-head">
+                            <div>
+                                <div class="txn-number"><i class="bi bi-inbox-fill me-1"></i>Transfer Received</div>
+                                <div class="txn-date"><i class="bi bi-calendar3 me-1"></i>{{ bt.created_at|date:"M d, Y H:i" }}</div>
+                            </div>
+                            <div class="text-end">
+                                <div class="txn-amount credit">+ &#8369;{{ bt.amount|floatformat:2 }}</div>
+                                <span class="badge-type badge-transfer-received mt-1">Received</span>
+                            </div>
+                        </div>
+                        <div class="txn-details">
+                            <div><div class="detail-label">Balance Before</div><div class="detail-val">&#8369;{{ bt.balance_before|floatformat:2 }}</div></div>
+                            <div><div class="detail-label">Balance After</div><div class="detail-val">&#8369;{{ bt.balance_after|floatformat:2 }}</div></div>
+                        </div>
+                        {% if bt.notes %}<p class="mt-2 mb-0 text-muted" style="font-size:.85rem;"><i class="bi bi-chat-left-text me-1"></i>{{ bt.notes }}</p>{% endif %}
+                    </div>
+                    {% endwith %}{% elif entry.kind == 'top_up' %}{% with bt=entry.obj %}
+                    <div class="txn-item">
+                        <div class="txn-head">
+                            <div>
+                                <div class="txn-number"><i class="bi bi-wallet2 me-1"></i>Balance Top-up</div>
+                                <div class="txn-date"><i class="bi bi-calendar3 me-1"></i>{{ bt.created_at|date:"M d, Y H:i" }}</div>
+                            </div>
+                            <div class="text-end">
+                                <div class="txn-amount credit">+ &#8369;{{ bt.amount|floatformat:2 }}</div>
+                                <span class="badge-type badge-top-up mt-1">Top-up</span>
+                            </div>
+                        </div>
+                        <div class="txn-details">
+                            <div><div class="detail-label">Balance Before</div><div class="detail-val">&#8369;{{ bt.balance_before|floatformat:2 }}</div></div>
+                            <div><div class="detail-label">Balance After</div><div class="detail-val">&#8369;{{ bt.balance_after|floatformat:2 }}</div></div>
+                        </div>
+                        {% if bt.notes %}<p class="mt-2 mb-0 text-muted" style="font-size:.85rem;"><i class="bi bi-chat-left-text me-1"></i>{{ bt.notes }}</p>{% endif %}
+                    </div>
+                    {% endwith %}{% else %}{% with bt=entry.obj %}
+                    <div class="txn-item">
+                        <div class="txn-head">
+                            <div>
+                                <div class="txn-number"><i class="bi bi-arrow-down-circle me-1"></i>Balance Deduction</div>
+                                <div class="txn-date"><i class="bi bi-calendar3 me-1"></i>{{ bt.created_at|date:"M d, Y H:i" }}</div>
+                            </div>
+                            <div class="text-end">
+                                <div class="txn-amount debit">- &#8369;{{ bt.amount|floatformat:2 }}</div>
+                                <span class="badge-type badge-deduction mt-1">Deduction</span>
+                            </div>
+                        </div>
+                        <div class="txn-details">
+                            <div><div class="detail-label">Balance Before</div><div class="detail-val">&#8369;{{ bt.balance_before|floatformat:2 }}</div></div>
+                            <div><div class="detail-label">Balance After</div><div class="detail-val">&#8369;{{ bt.balance_after|floatformat:2 }}</div></div>
+                        </div>
+                        {% if bt.notes %}<p class="mt-2 mb-0 text-muted" style="font-size:.85rem;"><i class="bi bi-chat-left-text me-1"></i>{{ bt.notes }}</p>{% endif %}
+                    </div>
+                    {% endwith %}{% endif %}
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-inbox d-block"></i>
+                    <h5>No activity yet</h5>
+                    <p>Your transactions will appear here once you start using your account.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- TAB: PURCHASES -->
+        <div id="tab-purchases" class="tab-pane d-none">
+            {% if purchases %}
+                {% for t in purchases %}
+                <div class="txn-item">
+                    <div class="txn-head">
+                        <div>
+                            <div class="txn-number"><i class="bi bi-receipt me-1"></i>{{ t.transaction_number }}</div>
+                            <div class="txn-date"><i class="bi bi-calendar3 me-1"></i>{{ t.created_at|date:"M d, Y H:i" }}</div>
+                        </div>
+                        <div class="text-end">
+                            <div class="txn-amount debit">- &#8369;{{ t.total_amount|floatformat:2 }}</div>
+                            <span class="badge-type badge-purchase mt-1">Completed</span>
+                        </div>
+                    </div>
+                    <div class="txn-details">
+                        <div><div class="detail-label">Payment</div><div class="detail-val">{{ t.get_payment_method_display }}</div></div>
+                        {% if t.amount_from_balance > 0 %}<div><div class="detail-label">From Balance</div><div class="detail-val">&#8369;{{ t.amount_from_balance|floatformat:2 }}</div></div>{% endif %}
+                        {% if t.amount_paid > 0 %}<div><div class="detail-label">Cash Paid</div><div class="detail-val">&#8369;{{ t.amount_paid|floatformat:2 }}</div></div>{% endif %}
+                    </div>
+                    {% if t.items.all %}
+                    <div class="mt-2 pt-2">
+                        <span class="items-toggle" onclick="toggleItems(this)"><i class="bi bi-chevron-down me-1"></i>{{ t.items.count }} item{{ t.items.count|pluralize }}</span>
+                        <div class="items-list">
+                            {% for item in t.items.all %}
+                            <div class="item-row"><span>{{ item.product_name }} <strong>&times;{{ item.quantity }}</strong></span><span>&#8369;{{ item.total_price|floatformat:2 }}</span></div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-bag-x d-block"></i>
+                    <h5>No purchases yet</h5>
+                    <p>Your completed purchases will appear here.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- TAB: REFUNDS -->
+        <div id="tab-refunds" class="tab-pane d-none">
+            {% if refunds %}
+                {% for t in refunds %}
+                <div class="txn-item">
+                    <div class="txn-head">
+                        <div>
+                            <div class="txn-number"><i class="bi bi-arrow-counterclockwise me-1"></i>{{ t.transaction_number }}</div>
+                            <div class="txn-date"><i class="bi bi-calendar3 me-1"></i>{{ t.created_at|date:"M d, Y H:i" }}</div>
+                        </div>
+                        <div class="text-end">
+                            <div class="txn-amount credit">+ &#8369;{{ t.total_amount|floatformat:2 }}</div>
+                            <span class="badge-type badge-refund mt-1">Refunded</span>
+                        </div>
+                    </div>
+                    <div class="txn-details">
+                        <div><div class="detail-label">Original Total</div><div class="detail-val">&#8369;{{ t.total_amount|floatformat:2 }}</div></div>
+                        <div><div class="detail-label">Payment</div><div class="detail-val">{{ t.get_payment_method_display }}</div></div>
+                    </div>
+                    {% if t.notes %}<p class="mt-2 mb-0 text-muted" style="font-size:.85rem;"><i class="bi bi-chat-left-text me-1"></i>{{ t.notes }}</p>{% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-arrow-counterclockwise d-block"></i>
+                    <h5>No refunds</h5>
+                    <p>Refunded transactions will appear here.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- TAB: TRANSFERS (10 latest combined sent + received) -->
+        <div id="tab-transfers" class="tab-pane d-none">
+            {% if transfer_entries %}
+                {% for entry in transfer_entries %}
+                {% with bt=entry.1 %}
+                <div class="txn-item">
+                    <div class="txn-head">
+                        <div>
+                            {% if entry.0 == 'sent' %}
+                            <div class="txn-number"><i class="bi bi-send me-1"></i>Transfer Sent</div>
+                            {% else %}
+                            <div class="txn-number"><i class="bi bi-inbox-fill me-1"></i>Transfer Received</div>
+                            {% endif %}
+                            <div class="txn-date"><i class="bi bi-calendar3 me-1"></i>{{ bt.created_at|date:"M d, Y H:i" }}</div>
+                        </div>
+                        <div class="text-end">
+                            {% if entry.0 == 'sent' %}
+                            <div class="txn-amount debit">- &#8369;{{ bt.amount|floatformat:2 }}</div>
+                            <span class="badge-type badge-transfer-sent mt-1">Sent</span>
+                            {% else %}
+                            <div class="txn-amount credit">+ &#8369;{{ bt.amount|floatformat:2 }}</div>
+                            <span class="badge-type badge-transfer-received mt-1">Received</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="txn-details">
+                        <div><div class="detail-label">Balance Before</div><div class="detail-val">&#8369;{{ bt.balance_before|floatformat:2 }}</div></div>
+                        <div><div class="detail-label">Balance After</div><div class="detail-val">&#8369;{{ bt.balance_after|floatformat:2 }}</div></div>
+                    </div>
+                    {% if bt.notes %}<p class="mt-2 mb-0 text-muted" style="font-size:.85rem;"><i class="bi bi-chat-left-text me-1"></i>{{ bt.notes }}</p>{% endif %}
+                </div>
+                {% endwith %}
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-arrow-left-right d-block"></i>
+                    <h5>No transfers</h5>
+                    <p>Fund transfers sent or received will appear here.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- TAB: TOP-UPS -->
+        <div id="tab-topups" class="tab-pane d-none">
+            {% if top_ups %}
+                {% for bt in top_ups %}
+                <div class="txn-item">
+                    <div class="txn-head">
+                        <div>
+                            <div class="txn-number"><i class="bi bi-wallet2 me-1"></i>Balance Top-up</div>
+                            <div class="txn-date"><i class="bi bi-calendar3 me-1"></i>{{ bt.created_at|date:"M d, Y H:i" }}</div>
+                        </div>
+                        <div class="text-end">
+                            <div class="txn-amount credit">+ &#8369;{{ bt.amount|floatformat:2 }}</div>
+                            <span class="badge-type badge-top-up mt-1">Deposited</span>
+                        </div>
+                    </div>
+                    <div class="txn-details">
+                        <div><div class="detail-label">Balance Before</div><div class="detail-val">&#8369;{{ bt.balance_before|floatformat:2 }}</div></div>
+                        <div><div class="detail-label">Balance After</div><div class="detail-val">&#8369;{{ bt.balance_after|floatformat:2 }}</div></div>
+                    </div>
+                    {% if bt.notes %}<p class="mt-2 mb-0 text-muted" style="font-size:.85rem;"><i class="bi bi-chat-left-text me-1"></i>{{ bt.notes }}</p>{% endif %}
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="empty-state">
+                    <i class="bi bi-wallet2 d-block"></i>
+                    <h5>No top-ups</h5>
+                    <p>Balance top-ups added by cashier or admin will appear here.</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- TAB: PENDING (conditional) -->
+        {% if pending %}
+        <div id="tab-pending" class="tab-pane d-none">
+            {% for t in pending %}
+            <div class="txn-item">
+                <div class="txn-head">
+                    <div>
+                        <div class="txn-number"><i class="bi bi-clock-history me-1"></i>{{ t.transaction_number }}</div>
+                        <div class="txn-date"><i class="bi bi-calendar3 me-1"></i>{{ t.created_at|date:"M d, Y H:i" }}</div>
+                    </div>
+                    <div class="text-end">
+                        <div class="txn-amount neutral">&#8369;{{ t.total_amount|floatformat:2 }}</div>
+                        <span class="badge-type badge-{{ t.status }} mt-1">{{ t.get_status_display }}</span>
+                    </div>
+                </div>
+                <div class="txn-details">
+                    <div><div class="detail-label">Payment</div><div class="detail-val">{{ t.get_payment_method_display }}</div></div>
+                </div>
+                {% if t.notes %}<p class="mt-2 mb-0 text-muted" style="font-size:.85rem;"><i class="bi bi-chat-left-text me-1"></i>{{ t.notes }}</p>{% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- Action buttons -->
+        <div class="action-row">
+            <a href="{% url 'kiosk_home' %}" class="btn btn-brand btn-action">
+                <i class="bi bi-cart-check me-2"></i>Start Shopping
+            </a>
+            <a href="{% url 'user_choice' %}" class="btn btn-outline-secondary btn-action">
+                <i class="bi bi-arrow-left me-2"></i>Back to Menu
+            </a>
+            <a href="javascript:void(0);" id="logoutLink2" class="btn btn-outline-danger btn-action">
+                <i class="bi bi-box-arrow-right me-2"></i>Logout
+            </a>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="content-card text-center py-5">
+        <i class="bi bi-exclamation-triangle" style="font-size:3rem;color:var(--muted);"></i>
+        <h5 class="mt-3">Member account not found</h5>
+        <p class="text-muted">Unable to retrieve your member information. Please contact support.</p>
+        <a href="{% url 'user_choice' %}" class="btn btn-brand btn-action mt-2">
+            <i class="bi bi-arrow-left me-2"></i>Back to Menu
+        </a>
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- Logout Confirmation Modal -->
+<div class="modal fade" id="logoutConfirmModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill me-2" style="color:#ED1C24;"></i>Confirm Logout</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <i class="bi bi-exclamation-triangle-fill warning-icon"></i>
+                <p>Are you sure you want to logout?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-cancel" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-confirm">OK</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% include "partials/bootstrap_scripts.html" %}
+<script>
+document.querySelectorAll('.nav-tab-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.nav-tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.add('d-none'));
+        this.classList.add('active');
+        var pane = document.getElementById('tab-' + this.dataset.tab);
+        if (pane) pane.classList.remove('d-none');
+    });
+});
+
+function toggleItems(el) {
+    var list = el.nextElementSibling;
+    var icon = el.querySelector('i');
+    if (list.classList.toggle('open')) {
+        icon.classList.replace('bi-chevron-down', 'bi-chevron-up');
+    } else {
+        icon.classList.replace('bi-chevron-up', 'bi-chevron-down');
+    }
+}
+
+(function() {
+    var logoutUrl = '{% url "kiosk_logout" %}';
+    var modal = document.getElementById('logoutConfirmModal');
+    var bsModal;
+    function showModal() {
+        if (!bsModal) bsModal = new bootstrap.Modal(modal);
+        var btn = modal.querySelector('.btn-confirm');
+        var fresh = btn.cloneNode(true);
+        btn.parentNode.replaceChild(fresh, btn);
+        fresh.addEventListener('click', function() {
+            bsModal.hide();
+            setTimeout(function() { window.location.href = logoutUrl; }, 250);
+        });
+        bsModal.show();
+    }
+    ['logoutLink', 'logoutLink2'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('click', function(e) { e.preventDefault(); showModal(); });
+    });
+})();
+</script>
+
+{% include 'admin_panel/partials/footer.html' %}
+</body>
+</html>

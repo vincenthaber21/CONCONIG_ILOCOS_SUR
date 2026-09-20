@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}My Savings{% endblock %} | {{ kiosk_system_name|default:"Coop" }}</title>
+  {% include "partials/bootstrap_head.html" %}
+  <style>
+    body { margin: 0; min-height: 100vh; font-family: "Segoe UI", system-ui, sans-serif; color: #0f172a; background: #f1f5f9; }
+    .member-shell { width: 100%; max-width: 960px; margin: 1.5rem auto 2.5rem; padding: 0 1rem; }
+    .member-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
+    .member-top a { color: #64748b; text-decoration: none; font-weight: 600; font-size: .88rem; }
+    .member-card { background: #fff; border-radius: 16px; padding: 1.5rem 1.4rem; border: 1px solid #e2e8f0; }
+    h1 { font-size: 1.55rem; font-weight: 800; margin: 0 0 .35rem; }
+    .subtitle { color: #64748b; margin-bottom: 1.1rem; }
+    h2.section-title { font-size: 1rem; font-weight: 800; margin: 1.5rem 0 .75rem; }
+    .product-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: .85rem; }
+    .product-tile { border: 1px solid #e2e8f0; border-radius: 12px; padding: 1rem; background: #f8fafc; }
+    .product-tile h3 { font-size: 1rem; font-weight: 700; margin: 0 0 .35rem; }
+    .product-tile p { margin: 0; color: #64748b; font-size: .82rem; }
+    .loan-row { display: flex; justify-content: space-between; gap: 1rem; padding: 1rem; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: .65rem; background: #fff; }
+    .status-pill { display: inline-block; padding: .2rem .7rem; border-radius: 999px; font-size: .75rem; font-weight: 700; background: #dcfce7; color: #166534; }
+  </style>
+</head>
+<body>
+  <div class="member-shell">
+    <div class="member-top">
+      <a href="{% url 'user_choice' %}"><i class="bi bi-arrow-left"></i> Back</a>
+    </div>
+    <div class="member-card">
+      {% block content %}{% endblock %}
+    </div>
+  </div>
+  {% include "partials/bootstrap_scripts.html" %}
+  {% include "partials/money_input_script.html" %}
+</body>
+</html>

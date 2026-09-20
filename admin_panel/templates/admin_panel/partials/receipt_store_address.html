@@ -1,0 +1,10 @@
+{% if store_profile %}
+  {% if store_profile.branch_name %}{{ store_profile.branch_name }}<br>{% endif %}
+  {% if store_profile.address_line1 %}{{ store_profile.address_line1 }}{% endif %}
+  {% if store_profile.address_line2 %}{% if store_profile.address_line1 %}, {% endif %}{{ store_profile.address_line2 }}{% endif %}
+  {% if store_profile.city %}{% if store_profile.address_line1 or store_profile.address_line2 %}, {% endif %}{{ store_profile.city }}{% endif %}
+  {% if store_profile.contact_number %}<br>Tel: {{ store_profile.contact_number }}{% endif %}
+  {% if store_profile.email %}<br>{{ store_profile.email }}{% endif %}
+{% elif fallback_address %}
+  {{ fallback_address }}
+{% endif %}

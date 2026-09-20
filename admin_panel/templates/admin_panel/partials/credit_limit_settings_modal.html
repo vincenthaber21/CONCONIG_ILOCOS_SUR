@@ -1,0 +1,59 @@
+{# Credit limit (max utang per member) — opened from Members nav dropdown #}
+<div class="modal fade" id="creditLimitSettingsModal" tabindex="-1" aria-labelledby="creditLimitSettingsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header text-white" style="background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 100%);">
+        <h5 class="modal-title" id="creditLimitSettingsModalLabel">
+          <i class="bi bi-sliders me-2"></i>Credit Limit Settings
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="creditLimitSettingsForm" novalidate>
+        <div class="modal-body">
+          <p class="text-muted small mb-3">
+            Set the maximum total outstanding credit (utang) each member may carry at the kiosk.
+            Enter <strong>0</strong> for no limit.
+          </p>
+          <div id="creditLimitLoadAlert" class="alert alert-secondary py-2 small mb-3" role="status">
+            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Loading current settings…
+          </div>
+          <div class="mb-3">
+            <label for="creditLimitMaxInput" class="form-label fw-semibold">Max utang per member (₱)</label>
+            <div class="input-group">
+              <span class="input-group-text">₱</span>
+              <input
+                type="number"
+                class="form-control"
+                id="creditLimitMaxInput"
+                name="member_max_credit"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                required
+                disabled
+              >
+            </div>
+            <div class="form-text" id="creditLimitStatusHint">—</div>
+          </div>
+          <div class="mb-2">
+            <label class="form-label fw-semibold">Admin PIN</label>
+            <p class="text-muted small mb-2">Enter the 4-digit PIN of an active Admin member to save changes.</p>
+            <div class="d-flex justify-content-center gap-2" id="creditLimitPinBoxes">
+              <input type="password" class="form-control text-center credit-limit-pin-box" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" style="width:48px;height:48px;font-size:1.25rem;font-weight:700;" disabled>
+              <input type="password" class="form-control text-center credit-limit-pin-box" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" style="width:48px;height:48px;font-size:1.25rem;font-weight:700;" disabled>
+              <input type="password" class="form-control text-center credit-limit-pin-box" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" style="width:48px;height:48px;font-size:1.25rem;font-weight:700;" disabled>
+              <input type="password" class="form-control text-center credit-limit-pin-box" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" style="width:48px;height:48px;font-size:1.25rem;font-weight:700;" disabled>
+            </div>
+          </div>
+          <div id="creditLimitFormAlert" style="display:none;"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="creditLimitSaveBtn" style="background:#5b21b6;border-color:#5b21b6;" disabled>
+            <i class="bi bi-check-circle me-1"></i>Save Settings
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

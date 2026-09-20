@@ -1,0 +1,1006 @@
+{% load currency_filters %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discount insights | Inventory | {{ kiosk_system_name }}</title>
+  {% include "partials/bootstrap_head.html" %}
+  {% include "partials/chartjs_scripts.html" %}
+  <style>
+    :root {
+      --dark: #0f172a;
+      --brand: #ED1C24;
+      --accent: #E6C200;
+      --muted: #94a3b8;
+      --panel: #ffffff;
+      --gradient: linear-gradient(135deg, #ED1C24 0%, #C4121A 40%, #8B0E14 100%);
+    }
+    body {
+      background: #f1f5f9;
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    }
+    .super-nav {
+      background: var(--dark);
+      color: #fff;
+      box-shadow: 0 10px 30px rgba(15,23,42,0.4);
+    }
+    .hero-card {
+      background: var(--gradient);
+      color: #fff;
+      border-radius: 24px;
+      padding: 32px;
+      box-shadow: 0 25px 55px rgba(15,23,42,0.35);
+    }
+    .chart-card {
+      border-radius: 20px;
+      padding: 24px;
+      background: var(--panel);
+      box-shadow: 0 15px 30px rgba(15,23,42,0.07);
+    }
+    .chart-wrap {
+      position: relative;
+      min-height: 320px;
+      max-height: min(70vh, 720px);
+    }
+    .table-card-inner thead {
+      color: var(--muted);
+      text-transform: uppercase;
+      font-size: 0.75rem;
+    }
+    .period-toolbar {
+      background: var(--panel);
+      border-radius: 20px;
+      padding: 20px 22px;
+      box-shadow: 0 15px 30px rgba(15,23,42,0.07);
+      margin-bottom: 1.5rem;
+    }
+    .period-tabs {
+      display: inline-flex;
+      background: #e2e8f0;
+      border-radius: 999px;
+      padding: 4px;
+      gap: 2px;
+      flex-wrap: wrap;
+    }
+    .period-tab {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 14px;
+      border-radius: 999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #475569;
+      text-decoration: none;
+      transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+      white-space: nowrap;
+      border: none;
+      background: transparent;
+      cursor: pointer;
+    }
+    .period-tab:hover {
+      background: rgba(237, 28, 36, 0.12);
+      color: #ED1C24;
+    }
+    .period-tab--active {
+      background: #ED1C24;
+      color: #fff !important;
+      box-shadow: 0 2px 8px rgba(237, 28, 36, 0.35);
+    }
+    .period-picker-input {
+      border: 1.5px solid #ED1C24;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      color: #0f172a;
+      background: #fff;
+      padding: 5px 10px;
+    }
+    .period-custom-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.5rem 0.75rem;
+    }
+    .period-custom-row label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: #64748b;
+      text-transform: uppercase;
+      margin: 0;
+    }
+    .period-custom-row input[type="date"].period-date-input {
+      width: auto;
+      min-width: 11ch;
+    }
+    .period-custom-presets .btn {
+      font-size: 0.75rem;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+    }
+    .reg-discount-summary {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.75rem;
+      width: 100%;
+    }
+    @media (min-width: 768px) {
+      .reg-discount-summary {
+        flex-direction: row;
+        align-items: center;
+        justify-content: flex-end;
+        flex-wrap: wrap;
+        width: auto;
+        max-width: 100%;
+        gap: 1rem;
+      }
+    }
+    .reg-discount-stats {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .reg-discount-chip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      padding: 0.5rem 0.9rem;
+      border-radius: 999px;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      line-height: 1;
+      white-space: nowrap;
+      border: 1px solid transparent;
+    }
+    .reg-discount-chip i {
+      font-size: 1rem;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .reg-discount-chip strong {
+      font-weight: 700;
+    }
+    .reg-discount-chip--senior {
+      background: #fef3c7;
+      color: #92400e;
+      border-color: #fde68a;
+    }
+    .reg-discount-chip--pwd {
+      background: #dbeafe;
+      color: #1e40af;
+      border-color: #bfdbfe;
+    }
+    .reg-discount-chip--registered {
+      background: #dcfce7;
+      color: #166534;
+      border-color: #bbf7d0;
+    }
+    .reg-discount-total {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 0.15rem;
+      padding: 0.65rem 1rem;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+      border: 1px solid #fde68a;
+      min-width: 11rem;
+    }
+    @media (min-width: 768px) {
+      .reg-discount-total {
+        align-items: flex-end;
+        text-align: right;
+      }
+    }
+    .reg-discount-total-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #92400e;
+      line-height: 1.2;
+    }
+    .reg-discount-total-value {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #b45309;
+      line-height: 1.1;
+    }
+    .walkin-discount-total {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 0.15rem;
+      padding: 0.65rem 1rem;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+      border: 1px solid #bae6fd;
+      min-width: 11rem;
+    }
+    @media (min-width: 768px) {
+      .walkin-discount-total {
+        align-items: flex-end;
+        text-align: right;
+      }
+    }
+    .walkin-discount-total-label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #0c4a6e;
+      line-height: 1.2;
+    }
+    .walkin-discount-total-value {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: #0369a1;
+      line-height: 1.1;
+    }
+    .walkin-customer-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.45rem 0.85rem;
+      border-radius: 999px;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      background: #e0f2fe;
+      color: #0369a1;
+      border: 1px solid #bae6fd;
+    }
+    .walkin-product-pill {
+      display: inline-block;
+      font-size: 0.72rem;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      background: #f1f5f9;
+      color: #475569;
+      border: 1px solid #e2e8f0;
+      margin: 0.15rem 0.25rem 0.15rem 0;
+    }
+  </style>
+</head>
+<body>
+  {% include 'admin_panel/partials/admin_top_navbar.html' %}
+
+  <main class="container-fluid px-4 py-5">
+    <section class="hero-card mb-4">
+      <div class="row align-items-center">
+        <div class="col-lg-8">
+          <p class="mb-2 text-uppercase fw-semibold" style="letter-spacing:0.2em;">Inventory</p>
+          <h1 class="fw-bold mb-2">Discount insights{% include 'admin_panel/partials/admin_role_badge.html' %}</h1>
+          <p class="mb-0 lead text-white-50">
+            Members registered for <strong>Senior / PWD</strong> segment pricing, <strong>walk-in</strong> buyer manual discounts, and kiosk <strong>Discount ₱</strong> on completed sales.
+            <span id="discountHeroAsOf">As of {{ now|date:"Y-m-d H:i" }}.</span>
+            <span class="d-block mt-2 small text-white-50" id="discountHeroRange">Sale period: <strong class="text-white">{{ range_label }}</strong> (completed transactions by sale date).</span>
+          </p>
+        </div>
+        <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+          <a href="{% url 'inventory_management' %}" class="btn btn-light rounded-pill px-4 me-2 mb-2">
+            <i class="bi bi-box-seam me-1"></i>Product catalog
+          </a>
+          <a href="{% url 'dashboard' %}" class="btn btn-outline-light rounded-pill px-4 mb-2">
+            <i class="bi bi-arrow-left me-1"></i>Dashboard
+          </a>
+        </div>
+      </div>
+    </section>
+
+    {% include 'admin_panel/partials/admin_main_nav.html' with nav_active='inventory' %}
+
+    <div class="alert alert-light border shadow-sm mb-4" role="note">
+      <strong class="text-dark"><i class="bi bi-info-circle me-1"></i>What this page shows</strong>
+      <p class="mb-0 mt-2 small text-secondary">
+        <strong>Registered members</strong> have an active Senior or PWD profile in Members — they receive senior/PWD segment fixed-peso rules at checkout.
+        The table lists only members who used segment or manual discounts in the selected period.
+        The <strong>walk-in</strong> table lists only non-member buyers who received kiosk <strong>Discount ₱</strong> in the selected period.
+        Totals use completed and partially refunded sales; voided/refunded lines are excluded. Automatic promos and segment rules are applied to <em>unit price</em> before the line is saved.
+      </p>
+    </div>
+
+    <div class="period-toolbar">
+      <form method="get" action="{% url 'inventory_discount_dashboard' %}" id="discountPeriodForm" class="d-flex flex-column gap-3">
+        <input type="hidden" name="range" id="discountRangeInput" value="{{ selected_range }}">
+        <div class="d-flex flex-wrap align-items-center gap-2">
+          <span class="small text-muted text-uppercase fw-semibold me-1">Sale period</span>
+          <div class="period-tabs" role="tablist">
+            <button type="button" class="period-tab {% if selected_range == 'all' %}period-tab--active{% endif %}" data-range="all" aria-pressed="{% if selected_range == 'all' %}true{% else %}false{% endif %}">All</button>
+            <button type="button" class="period-tab {% if selected_range == 'week' %}period-tab--active{% endif %}" data-range="week">Week</button>
+            <button type="button" class="period-tab {% if selected_range == 'month' %}period-tab--active{% endif %}" data-range="month">Month</button>
+            <button type="button" class="period-tab {% if selected_range == 'year' %}period-tab--active{% endif %}" data-range="year">Year</button>
+            <button type="button" class="period-tab {% if selected_range == 'custom' %}period-tab--active{% endif %}" data-range="custom">Custom</button>
+          </div>
+          <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2 ms-auto" style="font-size:0.8rem;">
+            <i class="bi bi-clock-history me-1"></i><span id="discountRangeBadge">{{ range_label }}</span>
+          </span>
+        </div>
+        <div id="discountWeekWrap" class="d-flex flex-wrap align-items-center gap-2 {% if selected_range != 'week' %}d-none{% endif %}">
+          <label class="small text-muted mb-0" for="discountWeekInput">Week</label>
+          <input type="week" name="week" id="discountWeekInput" class="period-picker-input" value="{{ selected_week }}" max="{{ max_week }}"
+                 {% if selected_range != 'week' %}disabled{% endif %}>
+        </div>
+        <div id="discountMonthWrap" class="d-flex flex-wrap align-items-center gap-2 {% if selected_range != 'month' %}d-none{% endif %}">
+          <label class="small text-muted mb-0" for="discountMonthInput">Month</label>
+          <input type="month" name="month" id="discountMonthInput" class="period-picker-input" value="{{ selected_month }}" max="{{ max_month }}"
+                 {% if selected_range != 'month' %}disabled{% endif %}>
+        </div>
+        <div id="discountYearWrap" class="d-flex flex-wrap align-items-center gap-2 {% if selected_range != 'year' %}d-none{% endif %}">
+          <label class="small text-muted mb-0" for="discountYearInput">Year</label>
+          <select name="year" id="discountYearInput" class="form-select form-select-sm period-picker-input w-auto"
+                  {% if selected_range != 'year' %}disabled{% endif %}>
+            {% for yr in available_years %}
+            <option value="{{ yr }}" {% if yr == selected_year %}selected{% endif %}>{{ yr }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div id="discountCustomWrap" class="{% if selected_range != 'custom' %}d-none{% endif %}">
+          <div class="period-custom-row mb-2">
+            <div class="d-flex align-items-center gap-2">
+              <label for="discountDateFrom">From</label>
+              <input type="date" name="date_from" id="discountDateFrom" class="form-control form-control-sm period-picker-input period-date-input"
+                     value="{{ selected_date_from }}" min="{{ min_date_iso }}" max="{{ today_iso }}"
+                     {% if selected_range != 'custom' %}disabled{% endif %}>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <label for="discountDateTo">To</label>
+              <input type="date" name="date_to" id="discountDateTo" class="form-control form-control-sm period-picker-input period-date-input"
+                     value="{{ selected_date_to }}" min="{{ min_date_iso }}" max="{{ today_iso }}"
+                     {% if selected_range != 'custom' %}disabled{% endif %}>
+            </div>
+            <button type="submit" class="btn btn-success btn-sm rounded-pill px-3">
+              <i class="bi bi-check2-circle me-1"></i>Apply
+            </button>
+          </div>
+          <div class="period-custom-presets d-flex flex-wrap align-items-center gap-1">
+            <span class="text-muted small me-1">Quick</span>
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-preset-days="0">Today</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-preset-days="7">Last 7 days</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-preset-days="30">Last 30 days</button>
+          </div>
+        </div>
+      </form>
+      <div class="d-flex flex-wrap align-items-center gap-2 pt-3 mt-1 border-top" style="border-color: rgba(15,23,42,0.08) !important;">
+        <span class="small text-muted"><i class="bi bi-download me-1"></i>Export manual discount (this period)</span>
+        <button type="button" class="btn btn-outline-success btn-sm rounded-pill" id="discountExportPdf" title="Download PDF for the sale period above">
+          <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+        </button>
+        <button type="button" class="btn btn-outline-success btn-sm rounded-pill" id="discountExportExcel" title="Download Excel for the sale period above">
+          <i class="bi bi-file-earmark-spreadsheet me-1"></i>Excel
+        </button>
+        <span class="small text-secondary ms-md-auto">Member discount totals and the chart below use the same sale period.</span>
+      </div>
+    </div>
+
+    <div class="chart-card mb-4">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-start gap-3 mb-3">
+        <div>
+          <h2 class="h5 fw-bold mb-1">
+            <i class="bi bi-person-badge me-2 text-success"></i>Members registered for Senior / PWD pricing
+          </h2>
+          <p class="small text-muted mb-0">
+            Active concession profiles. Discount used for <strong id="registeredDiscountRangeInline">{{ range_label }}</strong> (completed sales).
+          </p>
+        </div>
+        <div class="reg-discount-summary">
+          <div class="reg-discount-stats">
+          <span class="reg-discount-chip reg-discount-chip--senior">
+            <i class="bi bi-person-heart" aria-hidden="true"></i>
+            <span>Senior <strong>{{ registered_discount_senior_count }}</strong></span>
+          </span>
+          <span class="reg-discount-chip reg-discount-chip--pwd">
+            <i class="bi bi-universal-access" aria-hidden="true"></i>
+            <span>PWD <strong>{{ registered_discount_pwd_count }}</strong></span>
+          </span>
+          <span class="reg-discount-chip reg-discount-chip--registered">
+            <i class="bi bi-person-check" aria-hidden="true"></i>
+            <span>Registered <strong>{{ registered_discount_total_count }}</strong></span>
+          </span>
+          </div>
+          <div class="reg-discount-total">
+            <div class="reg-discount-total-label">Total discount used</div>
+            <div class="reg-discount-total-value" id="registeredDiscountUsageTotal">₱{{ registered_discount_usage_total|currency }}</div>
+          </div>
+        </div>
+      </div>
+
+      {% if senior_pwd_segment_rules %}
+      <p class="small text-muted mb-3">
+        <i class="bi bi-tags me-1"></i>Store rules for this segment:
+        {% for row in senior_pwd_segment_rules %}
+        <span class="badge bg-light text-dark border me-1 mb-1">{{ row.get_discount_group_display }} — ₱{{ row.amount_off|floatformat:2 }} off</span>
+        {% endfor %}
+      </p>
+      {% endif %}
+
+      <div class="table-responsive table-card-inner">
+        <table class="table table-sm align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Member</th>
+              <th>RFID</th>
+              <th>Discount type</th>
+              <th>ID reference</th>
+              <th>Role</th>
+              <th class="text-end">Segment ₱</th>
+              <th class="text-end">Manual ₱</th>
+              <th class="text-end">Total used</th>
+              <th class="text-end">Sales</th>
+              <th>Account</th>
+            </tr>
+          </thead>
+          <tbody id="registeredDiscountTableBody">
+            {% for row in registered_discount_members %}
+            <tr>
+              <td class="fw-semibold">{{ row.full_name }}</td>
+              <td><code class="small">{{ row.rfid_masked }}</code></td>
+              <td>
+                {% if row.kind == 'senior' %}
+                <span class="badge rounded-pill" style="background:#fef3c7;color:#92400e;font-size:0.75rem;">Senior</span>
+                {% else %}
+                <span class="badge rounded-pill" style="background:#dbeafe;color:#1e40af;font-size:0.75rem;">PWD</span>
+                {% endif %}
+              </td>
+              <td class="small text-muted">{% if row.id_reference %}{{ row.id_reference }}{% else %}—{% endif %}</td>
+              <td class="small">{{ row.role_name|default:"—" }}</td>
+              <td class="text-end text-muted">₱{{ row.segment_discount_php|currency }}</td>
+              <td class="text-end text-muted">₱{{ row.manual_discount_php|currency }}</td>
+              <td class="text-end fw-semibold text-warning">₱{{ row.total_discount_php|currency }}</td>
+              <td class="text-end small text-muted">{{ row.transaction_count }}</td>
+              <td>
+                {% if row.member_is_active %}
+                <span class="badge bg-success">Active</span>
+                {% else %}
+                <span class="badge bg-secondary">Inactive</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="10" class="text-muted py-4 text-center">
+                <i class="bi bi-person-x me-1"></i>No Senior or PWD members used segment or manual discounts in this period.
+                <a href="{% url 'member_management' %}">Manage members</a>.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="d-flex flex-wrap align-items-center gap-2 mt-3 pt-3 border-top" style="border-color: rgba(15,23,42,0.08) !important;">
+        <a href="{% url 'member_management' %}" class="btn btn-outline-success btn-sm rounded-pill">
+          <i class="bi bi-people me-1"></i>Manage members &amp; registrations
+        </a>
+        <span class="small text-secondary">Edit Senior / PWD on a member profile under concession pricing.</span>
+      </div>
+    </div>
+
+    <div class="chart-card mb-4">
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-start gap-3 mb-3">
+        <div>
+          <h2 class="h5 fw-bold mb-1">
+            <i class="bi bi-person-walking me-2 text-info"></i>Walk-in customers with manual Discount ₱
+          </h2>
+          <p class="small text-muted mb-2">
+            Buyers who received kiosk <strong>Discount ₱</strong> for <strong id="walkInDiscountRangeInline">{{ range_label }}</strong>.
+          </p>
+          <span class="walkin-customer-badge" id="walkInDiscountedCountBadge">
+            <i class="bi bi-people-fill" aria-hidden="true"></i>
+            <span id="walkInDiscountedCountHint">{% if walk_in_with_discount_count %}{{ walk_in_with_discount_count }} customer{{ walk_in_with_discount_count|pluralize }} with discount{% else %}No customers with discount{% endif %}</span>
+          </span>
+        </div>
+        <div class="walkin-discount-total">
+          <div class="walkin-discount-total-label">Total walk-in discount</div>
+          <div class="walkin-discount-total-value" id="walkInManualDiscountTotal">₱{{ walk_in_manual_discount_total|currency }}</div>
+          <div class="small text-muted" id="walkInPeriodTxnHint">{{ walk_in_discounted_txn_count }} sale{{ walk_in_discounted_txn_count|pluralize }} with discount</div>
+        </div>
+      </div>
+
+      <div class="table-responsive table-card-inner">
+        <table class="table table-sm align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Customer</th>
+              <th>Products discounted</th>
+              <th class="text-end">Total Discount ₱</th>
+              <th class="text-end">Sales</th>
+            </tr>
+          </thead>
+          <tbody id="walkInDiscountTableBody">
+            {% for row in walk_in_discount_customers %}
+            <tr>
+              <td class="fw-semibold">{{ row.display_name }}</td>
+              <td>
+                {% for p in row.products %}
+                <span class="walkin-product-pill" title="Discount on this product">
+                  {{ p.product_name }} <strong class="text-warning">₱{{ p.manual_discount_php|currency }}</strong>
+                </span>
+                {% empty %}
+                <span class="small text-muted">—</span>
+                {% endfor %}
+              </td>
+              <td class="text-end fw-semibold text-warning">₱{{ row.manual_discount_php|currency }}</td>
+              <td class="text-end small text-muted">{{ row.transaction_count }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="4" class="text-muted py-4 text-center">
+                <i class="bi bi-tag me-1"></i>No walk-in customers received manual Discount ₱ in this period.
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <p class="small text-uppercase text-muted fw-semibold mb-3" style="letter-spacing:0.06em;">Completed sales — manual line discount</p>
+      <div class="d-flex flex-column flex-md-row justify-content-between align-items-start gap-3 mb-3">
+        <div>
+          <h2 class="h5 fw-bold mb-1">
+            <i class="bi bi-bar-chart-line me-2 text-success"></i>Top products by manual Discount ₱
+          </h2>
+          <p class="small text-muted mb-0" id="discountChartSubtitle">Up to 25 products ranked by total manual discount for <strong id="discountChartRangeInline">{{ range_label }}</strong>.</p>
+        </div>
+        <div class="text-md-end">
+          <div class="small text-muted text-uppercase">Total manual discount</div>
+          <div class="fs-4 fw-bold text-warning" id="discountTotalManualDisplay">₱{{ total_manual_discount_php|currency }}</div>
+        </div>
+      </div>
+
+      <div id="manualDiscountChartWrap" class="chart-wrap {% if not manual_chart_points %}d-none{% endif %}">
+        <canvas id="manualDiscountChart" aria-label="Bar chart of manual discount by product"></canvas>
+      </div>
+      <p id="manualDiscountEmptyMsg" class="text-muted small mb-3 {% if manual_chart_points %}d-none{% endif %}">
+        <i class="bi bi-info-circle me-1"></i>No manual line discounts in this period — nothing to plot.
+      </p>
+      {{ manual_chart_points|json_script:"manual-discount-chart-data" }}
+
+      <hr class="my-4">
+
+      <h3 class="h6 fw-bold text-uppercase text-muted mb-3">
+        <i class="bi bi-list-ul me-2 text-success"></i>Product names &amp; totals (same ranking as chart)
+      </h3>
+      <div class="table-responsive table-card-inner">
+        <table class="table table-sm align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Product</th>
+              <th class="text-end">Total Discount ₱</th>
+            </tr>
+          </thead>
+          <tbody id="manualDiscountTableBody">
+            {% for row in top_manual_by_product %}
+            <tr>
+              <td>
+                {{ row.product_name }}
+                {% if row.product_id %}
+                <span class="small text-muted">#{{ row.product_id }}</span>
+                {% else %}
+                <span class="small text-muted">(unlinked)</span>
+                {% endif %}
+              </td>
+              <td class="text-end fw-semibold text-warning">₱{{ row.total_manual|currency }}</td>
+            </tr>
+            {% empty %}
+            <tr id="manualDiscountTableEmptyRow">
+              <td colspan="2" class="text-muted py-4 text-center">No products with manual discount in this period.</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  {% include "partials/bootstrap_scripts.html" %}
+  {% include 'admin_panel/partials/admin_nav_footer.html' %}
+  <script>
+    const discountPeriodApiUrl = "{% url 'api_inventory_manual_discount_period' %}";
+    const discountExportUrlBase = "{% url 'export_inventory_manual_discount_report' %}";
+    const discountMaxDate = "{{ today_iso }}";
+    const discountMinDate = "{{ min_date_iso }}";
+
+    var manualDiscountChartInstance = null;
+
+    function formatPeso(value) {
+      const n = Number(String(value == null ? '' : value).replace(/,/g, '')) || 0;
+      return '₱' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function escapeHtml(str) {
+      const d = document.createElement('div');
+      d.textContent = str == null ? '' : String(str);
+      return d.innerHTML;
+    }
+
+    function setDiscountPickerState(activeRange) {
+      const wWrap = document.getElementById('discountWeekWrap');
+      const mWrap = document.getElementById('discountMonthWrap');
+      const yWrap = document.getElementById('discountYearWrap');
+      const cWrap = document.getElementById('discountCustomWrap');
+      const w = document.getElementById('discountWeekInput');
+      const m = document.getElementById('discountMonthInput');
+      const y = document.getElementById('discountYearInput');
+      const df = document.getElementById('discountDateFrom');
+      const dt = document.getElementById('discountDateTo');
+      if (!w || !m || !y || !df || !dt) return;
+      w.disabled = activeRange !== 'week';
+      m.disabled = activeRange !== 'month';
+      y.disabled = activeRange !== 'year';
+      df.disabled = dt.disabled = activeRange !== 'custom';
+      if (wWrap) wWrap.classList.toggle('d-none', activeRange !== 'week');
+      if (mWrap) mWrap.classList.toggle('d-none', activeRange !== 'month');
+      if (yWrap) yWrap.classList.toggle('d-none', activeRange !== 'year');
+      if (cWrap) cWrap.classList.toggle('d-none', activeRange !== 'custom');
+    }
+
+    function highlightDiscountRangeTab(range) {
+      document.querySelectorAll('#discountPeriodForm .period-tab').forEach(function (btn) {
+        const r = btn.getAttribute('data-range');
+        const on = r === range;
+        btn.classList.toggle('period-tab--active', on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    }
+
+    function buildManualDiscountChart(points) {
+      const chartWrap = document.getElementById('manualDiscountChartWrap');
+      const emptyMsg = document.getElementById('manualDiscountEmptyMsg');
+      const ctx = document.getElementById('manualDiscountChart');
+      if (!ctx || !chartWrap || !emptyMsg) return;
+
+      if (!Array.isArray(points)) points = [];
+      if (!points.length) {
+        if (manualDiscountChartInstance) {
+          manualDiscountChartInstance.destroy();
+          manualDiscountChartInstance = null;
+        }
+        chartWrap.classList.add('d-none');
+        emptyMsg.classList.remove('d-none');
+        return;
+      }
+      emptyMsg.classList.add('d-none');
+      chartWrap.classList.remove('d-none');
+
+      points = points.slice().reverse();
+      const labels = points.map(function (p) { return p.label; });
+      const totals = points.map(function (p) { return p.total; });
+      const parent = ctx.parentElement;
+      const n = labels.length;
+      const h = Math.min(720, Math.max(320, 48 + n * 36));
+      parent.style.height = h + 'px';
+
+      const brand = '#ED1C24';
+      if (manualDiscountChartInstance) {
+        manualDiscountChartInstance.destroy();
+      }
+      manualDiscountChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Total Discount ₱',
+            data: totals,
+            backgroundColor: brand,
+            borderRadius: 6,
+            maxBarThickness: 28,
+          }],
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: function (context) {
+                  const v = context.parsed.x;
+                  return ' ₱' + Number(v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                },
+              },
+            },
+          },
+          scales: {
+            x: {
+              beginAtZero: true,
+              ticks: {
+                callback: function (value) {
+                  return '₱' + Number(value).toLocaleString();
+                },
+              },
+              grid: { color: 'rgba(15,23,42,0.06)' },
+            },
+            y: {
+              grid: { display: false },
+              ticks: {
+                autoSkip: false,
+                font: { size: 11 },
+              },
+            },
+          },
+        },
+      });
+    }
+
+    function renderDiscountTable(rows) {
+      const tb = document.getElementById('manualDiscountTableBody');
+      if (!tb) return;
+      tb.innerHTML = '';
+      if (!rows || !rows.length) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td colspan="2" class="text-muted py-4 text-center">No products with manual discount in this period.</td>';
+        tb.appendChild(tr);
+        return;
+      }
+      rows.forEach(function (row) {
+        const tr = document.createElement('tr');
+        const name = row.product_name || '—';
+        const pid = row.product_id;
+        const meta = pid
+          ? '<span class="small text-muted">#' + escapeHtml(String(pid)) + '</span>'
+          : '<span class="small text-muted">(unlinked)</span>';
+        tr.innerHTML =
+          '<td>' + escapeHtml(name) + ' ' + meta + '</td>' +
+          '<td class="text-end fw-semibold text-warning">' + formatPeso(row.total_manual) + '</td>';
+        tb.appendChild(tr);
+      });
+    }
+
+    function updateDiscountRangeUi(rangeLabel) {
+      const badge = document.getElementById('discountRangeBadge');
+      const heroStrong = document.querySelector('#discountHeroRange strong');
+      const chartInline = document.getElementById('discountChartRangeInline');
+      const regInline = document.getElementById('registeredDiscountRangeInline');
+      const wiInline = document.getElementById('walkInDiscountRangeInline');
+      if (badge) badge.textContent = rangeLabel;
+      if (heroStrong) heroStrong.textContent = rangeLabel;
+      if (chartInline) chartInline.textContent = rangeLabel;
+      if (regInline) regInline.textContent = rangeLabel;
+      if (wiInline) wiInline.textContent = rangeLabel;
+    }
+
+    function renderWalkInProductPills(products) {
+      if (!products || !products.length) {
+        return '<span class="small text-muted">—</span>';
+      }
+      return products.map(function (p) {
+        return '<span class="walkin-product-pill" title="Discount on this product">' +
+          escapeHtml(p.product_name || '—') + ' <strong class="text-warning">' +
+          formatPeso(p.manual_discount_php) + '</strong></span>';
+      }).join('');
+    }
+
+    function renderWalkInDiscountTable(rows, stats) {
+      const tb = document.getElementById('walkInDiscountTableBody');
+      const totalEl = document.getElementById('walkInManualDiscountTotal');
+      const countHint = document.getElementById('walkInDiscountedCountHint');
+      const txnHint = document.getElementById('walkInPeriodTxnHint');
+      if (stats) {
+        if (totalEl && stats.walk_in_manual_discount_total != null) {
+          totalEl.textContent = formatPeso(stats.walk_in_manual_discount_total);
+        }
+        if (countHint && stats.walk_in_with_discount_count != null) {
+          const c = Number(stats.walk_in_with_discount_count) || 0;
+          countHint.textContent = c
+            ? c + ' customer' + (c === 1 ? '' : 's') + ' with discount'
+            : 'No customers with discount';
+        }
+        if (txnHint && stats.walk_in_discounted_txn_count != null) {
+          const n = Number(stats.walk_in_discounted_txn_count) || 0;
+          txnHint.textContent = n + ' sale' + (n === 1 ? '' : 's') + ' with discount';
+        }
+      }
+      if (!tb) return;
+      tb.innerHTML = '';
+      if (!rows || !rows.length) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td colspan="4" class="text-muted py-4 text-center"><i class="bi bi-tag me-1"></i>No walk-in customers received manual Discount ₱ in this period.</td>';
+        tb.appendChild(tr);
+        return;
+      }
+      rows.forEach(function (row) {
+        const tr = document.createElement('tr');
+        tr.innerHTML =
+          '<td class="fw-semibold">' + escapeHtml(row.display_name || '—') + '</td>' +
+          '<td>' + renderWalkInProductPills(row.products) + '</td>' +
+          '<td class="text-end fw-semibold text-warning">' + formatPeso(row.manual_discount_php) + '</td>' +
+          '<td class="text-end small text-muted">' + escapeHtml(String(row.transaction_count || 0)) + '</td>';
+        tb.appendChild(tr);
+      });
+    }
+
+    function renderRegisteredDiscountTable(rows, usageTotal) {
+      const tb = document.getElementById('registeredDiscountTableBody');
+      const totalEl = document.getElementById('registeredDiscountUsageTotal');
+      if (totalEl && usageTotal != null) totalEl.textContent = formatPeso(usageTotal);
+      if (!tb) return;
+      tb.innerHTML = '';
+      if (!rows || !rows.length) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = '<td colspan="10" class="text-muted py-4 text-center"><i class="bi bi-person-x me-1"></i>No Senior or PWD members used segment or manual discounts in this period.</td>';
+        tb.appendChild(tr);
+        return;
+      }
+      rows.forEach(function (row) {
+        const tr = document.createElement('tr');
+        const kindBadge = row.kind === 'senior'
+          ? '<span class="badge rounded-pill" style="background:#fef3c7;color:#92400e;font-size:0.75rem;">Senior</span>'
+          : '<span class="badge rounded-pill" style="background:#dbeafe;color:#1e40af;font-size:0.75rem;">PWD</span>';
+        const acct = row.member_is_active
+          ? '<span class="badge bg-success">Active</span>'
+          : '<span class="badge bg-secondary">Inactive</span>';
+        tr.innerHTML =
+          '<td class="fw-semibold">' + escapeHtml(row.full_name || '—') + '</td>' +
+          '<td><code class="small">' + escapeHtml(row.rfid_masked || '') + '</code></td>' +
+          '<td>' + kindBadge + '</td>' +
+          '<td class="small text-muted">' + escapeHtml(row.id_reference || '—') + '</td>' +
+          '<td class="small">' + escapeHtml(row.role_name || '—') + '</td>' +
+          '<td class="text-end text-muted">' + formatPeso(row.segment_discount_php) + '</td>' +
+          '<td class="text-end text-muted">' + formatPeso(row.manual_discount_php) + '</td>' +
+          '<td class="text-end fw-semibold text-warning">' + formatPeso(row.total_discount_php) + '</td>' +
+          '<td class="text-end small text-muted">' + escapeHtml(String(row.transaction_count || 0)) + '</td>' +
+          '<td>' + acct + '</td>';
+        tb.appendChild(tr);
+      });
+    }
+
+    function triggerDiscountExport(format) {
+      var form = document.getElementById('discountPeriodForm');
+      if (!form) return;
+      var params = new URLSearchParams(new FormData(form));
+      params.set('format', format);
+      var url = discountExportUrlBase + '?' + params.toString();
+      var link = document.createElement('a');
+      link.href = url;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    var isLoadingDiscountPeriod = false;
+
+    async function submitDiscountPeriod() {
+      if (isLoadingDiscountPeriod) return;
+      const form = document.getElementById('discountPeriodForm');
+      if (!form) return;
+      const formData = new FormData(form);
+      const params = new URLSearchParams(formData);
+      isLoadingDiscountPeriod = true;
+      try {
+        const response = await fetch(discountPeriodApiUrl + '?' + params.toString(), {
+          headers: { 'X-Requested-With': 'XMLHttpRequest' },
+          credentials: 'same-origin',
+        });
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const payload = await response.json();
+        if (!payload.success) throw new Error(payload.error || 'Request failed');
+
+        const rangeLabel = payload.range_label || '';
+        document.getElementById('discountRangeInput').value = payload.selected_range || 'all';
+        highlightDiscountRangeTab(payload.selected_range || 'all');
+        setDiscountPickerState(payload.selected_range || 'all');
+        updateDiscountRangeUi(rangeLabel);
+
+        const totalEl = document.getElementById('discountTotalManualDisplay');
+        if (totalEl) totalEl.textContent = formatPeso(payload.total_manual_discount_php);
+
+        buildManualDiscountChart(payload.manual_chart_points || []);
+        renderDiscountTable(payload.top_manual_by_product || []);
+        renderRegisteredDiscountTable(
+          payload.registered_discount_members || [],
+          payload.registered_discount_usage_total
+        );
+        renderWalkInDiscountTable(payload.walk_in_discount_customers || [], {
+          walk_in_manual_discount_total: payload.walk_in_manual_discount_total,
+          walk_in_with_discount_count: payload.walk_in_with_discount_count,
+          walk_in_discounted_txn_count: payload.walk_in_discounted_txn_count,
+        });
+
+        window.history.replaceState({}, '', window.location.pathname + '?' + params.toString());
+      } catch (err) {
+        console.error('Discount period load failed:', err);
+      } finally {
+        isLoadingDiscountPeriod = false;
+      }
+    }
+
+    function formatLocalYMD(d) {
+      var y = d.getFullYear();
+      var m = String(d.getMonth() + 1).padStart(2, '0');
+      var day = String(d.getDate()).padStart(2, '0');
+      return y + '-' + m + '-' + day;
+    }
+
+    function applyDiscountPresetRange(days) {
+      var fromEl = document.getElementById('discountDateFrom');
+      var toEl = document.getElementById('discountDateTo');
+      if (!fromEl || !toEl) return;
+      fromEl.disabled = false;
+      toEl.disabled = false;
+      var maxStr = discountMaxDate;
+      var minStr = discountMinDate;
+      var endParts = maxStr.split('-');
+      var endDate = new Date(Number(endParts[0]), Number(endParts[1]) - 1, Number(endParts[2]));
+      var startDate;
+      if (days === 0) {
+        startDate = new Date(endDate);
+      } else {
+        startDate = new Date(endDate);
+        startDate.setDate(startDate.getDate() - (days - 1));
+      }
+      var minParts = minStr.split('-');
+      var minD = new Date(Number(minParts[0]), Number(minParts[1]) - 1, Number(minParts[2]));
+      if (startDate < minD) startDate = minD;
+      fromEl.value = formatLocalYMD(startDate);
+      toEl.value = formatLocalYMD(endDate);
+      document.getElementById('discountRangeInput').value = 'custom';
+      highlightDiscountRangeTab('custom');
+      setDiscountPickerState('custom');
+      submitDiscountPeriod();
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+      var dataEl = document.getElementById('manual-discount-chart-data');
+      var initial = [];
+      if (dataEl) {
+        try {
+          initial = JSON.parse(dataEl.textContent || '[]');
+        } catch (e) {
+          initial = [];
+        }
+      }
+      if (typeof Chart !== 'undefined') {
+        buildManualDiscountChart(initial);
+      }
+
+      document.querySelectorAll('#discountPeriodForm .period-tab').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var r = btn.getAttribute('data-range');
+          document.getElementById('discountRangeInput').value = r;
+          highlightDiscountRangeTab(r);
+          setDiscountPickerState(r);
+          submitDiscountPeriod();
+        });
+      });
+
+      var wk = document.getElementById('discountWeekInput');
+      var mo = document.getElementById('discountMonthInput');
+      var yr = document.getElementById('discountYearInput');
+      if (wk) wk.addEventListener('change', function () { submitDiscountPeriod(); });
+      if (mo) mo.addEventListener('change', function () { submitDiscountPeriod(); });
+      if (yr) yr.addEventListener('change', function () { submitDiscountPeriod(); });
+
+      var periodForm = document.getElementById('discountPeriodForm');
+      if (periodForm) {
+        periodForm.addEventListener('submit', function (e) {
+          e.preventDefault();
+          submitDiscountPeriod();
+        });
+      }
+
+      document.querySelectorAll('[data-preset-days]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var d = parseInt(btn.getAttribute('data-preset-days'), 10);
+          if (isNaN(d)) return;
+          applyDiscountPresetRange(d);
+        });
+      });
+
+      var pdfBtn = document.getElementById('discountExportPdf');
+      var xlsBtn = document.getElementById('discountExportExcel');
+      if (pdfBtn) pdfBtn.addEventListener('click', function () { triggerDiscountExport('pdf'); });
+      if (xlsBtn) xlsBtn.addEventListener('click', function () { triggerDiscountExport('excel'); });
+
+      var initialRange = document.getElementById('discountRangeInput');
+      if (initialRange) setDiscountPickerState(initialRange.value);
+    });
+  </script>
+</body>
+</html>

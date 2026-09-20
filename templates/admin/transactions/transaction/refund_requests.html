@@ -1,0 +1,542 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+{% load currency_filters %}
+
+{% block title %}Refund Requests | {{ site_title|default:"Django site admin" }}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">Home</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='transactions' %}">Transactions</a>
+    &rsaquo; <a href="{% url 'admin:transactions_transaction_changelist' %}">Transactions</a>
+    &rsaquo; Refund Requests
+</div>
+{% endblock %}
+
+{% block content %}
+<style>
+    .refund-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    .refund-header h1 {
+        font-size: 1.4rem;
+        font-weight: 700;
+        margin: 0;
+        color: #1a202c;
+    }
+    .badge-count {
+        display: inline-block;
+        background: #c0392b;
+        color: #fff;
+        font-size: 0.78rem;
+        font-weight: 700;
+        padding: 2px 10px;
+        border-radius: 20px;
+        vertical-align: middle;
+        margin-left: 8px;
+    }
+    .refund-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    }
+    .refund-table thead tr { background: #417690; color: #fff; }
+    .refund-table th {
+        padding: 11px 14px;
+        text-align: left;
+        font-size: 0.82rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        white-space: nowrap;
+    }
+    .refund-table td {
+        padding: 12px 14px;
+        border-bottom: 1px solid #e8ecef;
+        font-size: 0.9rem;
+        vertical-align: middle;
+    }
+    .refund-table tbody tr:last-child td { border-bottom: none; }
+    .refund-table tbody tr:hover { background: #f0f7fb; }
+    .txn-number { font-weight: 700; color: #205067; font-family: monospace; font-size: 0.9rem; }
+    .member-name { font-weight: 600; color: #1a202c; }
+    .member-type { font-size: 0.75rem; color: #718096; }
+    .amount { font-weight: 700; color: #2d6a4f; white-space: nowrap; }
+    .payment-badge {
+        display: inline-block; padding: 2px 9px; border-radius: 12px;
+        font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.03em;
+    }
+    .payment-badge.debit { background: #e0f2fe; color: #0369a1; }
+    .payment-badge.cash  { background: #dcfce7; color: #166534; }
+    .status-badge {
+        display: inline-block; padding: 3px 10px; border-radius: 12px;
+        font-size: 0.75rem; font-weight: 700; background: #fef9c3; color: #854d0e; white-space: nowrap;
+    }
+    .items-preview { font-size: 0.78rem; color: #4a5568; line-height: 1.6; }
+    .items-count { font-size: 0.75rem; color: #718096; margin-top: 2px; }
+
+    /* --- Reason cell --- */
+    .reason-cell { max-width: 200px; }
+    .reason-tag {
+        display: inline-block; padding: 3px 9px; border-radius: 12px;
+        font-size: 0.75rem; font-weight: 600; background: #ede9fe; color: #5b21b6;
+        white-space: nowrap; margin-bottom: 4px;
+    }
+    .reason-details { font-size: 0.78rem; color: #4a5568; line-height: 1.4; word-break: break-word; }
+    .btn-set-reason {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 4px 10px; background: #f5f3ff; color: #5b21b6;
+        border: 1.5px solid #c4b5fd; border-radius: 6px; font-size: 0.75rem;
+        font-weight: 600; cursor: pointer; transition: background 0.15s; white-space: nowrap;
+    }
+    .btn-set-reason:hover { background: #ede9fe; }
+    .btn-edit-reason {
+        display: inline-flex; align-items: center; gap: 3px;
+        padding: 2px 8px; background: none; color: #7c3aed;
+        border: 1px solid #c4b5fd; border-radius: 5px; font-size: 0.72rem;
+        cursor: pointer; margin-top: 4px; transition: background 0.12s;
+    }
+    .btn-edit-reason:hover { background: #ede9fe; }
+
+    .action-btns { display: flex; gap: 8px; align-items: center; flex-wrap: nowrap; }
+    .btn-approve {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 6px 14px; background: #2d6a4f; color: #fff; border: none;
+        border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer;
+        text-decoration: none; transition: background 0.15s, transform 0.1s; white-space: nowrap;
+    }
+    .btn-approve:hover { background: #1b4332; color: #fff; transform: translateY(-1px); }
+    .btn-cancel {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 6px 14px; background: #fff; color: #9b2226;
+        border: 1.5px solid #9b2226; border-radius: 6px; font-size: 0.8rem;
+        font-weight: 600; cursor: pointer; text-decoration: none;
+        transition: background 0.15s, color 0.15s, transform 0.1s; white-space: nowrap;
+    }
+    .btn-cancel:hover { background: #9b2226; color: #fff; transform: translateY(-1px); }
+    .btn-view {
+        display: inline-flex; align-items: center; gap: 4px;
+        padding: 6px 10px; background: #f1f5f9; color: #334155;
+        border: 1.5px solid #cbd5e1; border-radius: 6px; font-size: 0.8rem;
+        font-weight: 500; cursor: pointer; text-decoration: none;
+        transition: background 0.15s, transform 0.1s; white-space: nowrap;
+    }
+    .btn-view:hover { background: #e2e8f0; color: #0f172a; transform: translateY(-1px); }
+
+    .empty-state {
+        text-align: center; padding: 60px 20px; background: #fff;
+        border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+    }
+    .empty-icon { font-size: 3rem; margin-bottom: 12px; opacity: 0.5; }
+    .empty-state h3 { font-size: 1.1rem; color: #4a5568; margin: 0 0 6px; font-weight: 600; }
+    .empty-state p { color: #718096; font-size: 0.88rem; margin: 0; }
+
+    .summary-bar { display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+    .summary-card {
+        background: #fff; border-radius: 8px; padding: 14px 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06); min-width: 160px; flex: 1;
+    }
+    .summary-card-label {
+        font-size: 0.75rem; color: #718096; text-transform: uppercase;
+        letter-spacing: 0.05em; font-weight: 600; margin-bottom: 4px;
+    }
+    .summary-card-value { font-size: 1.4rem; font-weight: 700; color: #1a202c; }
+    .summary-card-value.red   { color: #c0392b; }
+    .summary-card-value.green { color: #2d6a4f; }
+    .date-cell { font-size: 0.8rem; color: #4a5568; white-space: nowrap; }
+    .date-cell-sub { font-size: 0.73rem; color: #a0aec0; }
+
+    /* --- Modals --- */
+    .modal-overlay {
+        display: none; position: fixed; inset: 0;
+        background: rgba(0,0,0,0.45); z-index: 9999;
+        align-items: center; justify-content: center;
+    }
+    .modal-overlay.active { display: flex; }
+    .modal-box {
+        background: #fff; border-radius: 12px; padding: 28px 32px;
+        max-width: 460px; width: 92%;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+    }
+    .modal-box h3 { margin: 0 0 6px; font-size: 1.1rem; font-weight: 700; color: #1a202c; }
+    .modal-box .sub { font-size: 0.82rem; color: #718096; margin-bottom: 18px; }
+    .modal-box label { font-size: 0.85rem; font-weight: 600; color: #374151; display: block; margin-bottom: 5px; }
+    .modal-box select, .modal-box textarea {
+        width: 100%; padding: 8px 10px; border: 1.5px solid #d1d5db;
+        border-radius: 6px; font-size: 0.88rem; color: #1a202c; background: #fff;
+        box-sizing: border-box;
+    }
+    .modal-box select:focus, .modal-box textarea:focus {
+        outline: none; border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124,58,237,0.1);
+    }
+    .modal-box textarea { resize: vertical; min-height: 80px; }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; align-items: center; }
+    .btn-modal-secondary {
+        padding: 8px 18px; border: 1.5px solid #cbd5e1; background: #fff;
+        color: #334155; border-radius: 6px; font-size: 0.88rem; cursor: pointer; font-weight: 500;
+    }
+    .btn-modal-save {
+        padding: 8px 20px; background: #5b21b6; color: #fff;
+        border: none; border-radius: 6px; font-size: 0.88rem; cursor: pointer; font-weight: 600;
+    }
+    .btn-modal-save:hover { background: #4c1d95; }
+    .btn-confirm-approve {
+        padding: 8px 18px; background: #2d6a4f; color: #fff;
+        border: none; border-radius: 6px; font-size: 0.88rem; cursor: pointer; font-weight: 600;
+    }
+    .btn-confirm-cancel {
+        padding: 8px 18px; background: #9b2226; color: #fff;
+        border: none; border-radius: 6px; font-size: 0.88rem; cursor: pointer; font-weight: 600;
+    }
+    .saving-spinner { font-size: 0.82rem; color: #7c3aed; }
+</style>
+
+<div class="refund-header">
+    <h1>
+        &#8635; Refund Requests
+        {% if refund_transactions %}
+        <span class="badge-count">{{ refund_transactions|length }}</span>
+        {% endif %}
+    </h1>
+    <a href="{% url 'admin:transactions_transaction_changelist' %}" class="btn-view">
+        &#8592; Back to Transactions
+    </a>
+</div>
+
+{% deduped_messages as flash_messages %}
+{% if flash_messages %}
+    {% for message in flash_messages %}
+        <div class="{% if message.tags == 'success' %}success{% else %}errornote{% endif %}"
+             style="padding:10px 16px;border-radius:6px;margin-bottom:16px;">
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+{% if refund_transactions %}
+
+<div class="summary-bar">
+    <div class="summary-card">
+        <div class="summary-card-label">Pending Refunds</div>
+        <div class="summary-card-value red">{{ refund_transactions|length }}</div>
+    </div>
+    <div class="summary-card">
+        <div class="summary-card-label">Total Refund Value</div>
+        <div class="summary-card-value green">&#8369;<span id="totalRefundAmount">—</span></div>
+    </div>
+    <div class="summary-card">
+        <div class="summary-card-label">With Reason Filed</div>
+        <div class="summary-card-value" id="reasonFiledCount">—</div>
+    </div>
+</div>
+
+<table class="refund-table">
+    <thead>
+        <tr>
+            <th>#</th>
+            <th>Transaction</th>
+            <th>Member</th>
+            <th>Items</th>
+            <th>Amount</th>
+            <th>Payment</th>
+            <th>Refund Reason</th>
+            <th>Requested On</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for txn in refund_transactions %}
+        <tr id="row-{{ txn.pk }}">
+            <td style="color:#a0aec0;font-size:0.82rem;">{{ forloop.counter }}</td>
+            <td>
+                <div class="txn-number">{{ txn.transaction_number }}</div>
+                <div class="status-badge" style="margin-top:4px;">Refund Requested</div>
+            </td>
+            <td>
+                {% if txn.member %}
+                <div class="member-name">{{ txn.member.full_name }}</div>
+                <div class="member-type">{{ txn.member.member_type }}</div>
+                {% else %}
+                <span style="color:#a0aec0;font-style:italic;">Guest</span>
+                {% endif %}
+            </td>
+            <td>
+                <div class="items-preview">
+                    {% for item in txn.items.all|slice:":3" %}
+                    <div>{{ item.product_name }} &times; {{ item.quantity }}</div>
+                    {% endfor %}
+                    {% if txn.items.count > 3 %}
+                    <div style="color:#a0aec0;font-size:0.72rem;">+{{ txn.items.count|add:"-3" }} more</div>
+                    {% endif %}
+                </div>
+                <div class="items-count">{{ txn.items.count }} item(s)</div>
+            </td>
+            <td>
+                <div class="amount" data-amount="{{ txn.total_amount }}">&#8369;{{ txn.total_amount }}</div>
+            </td>
+            <td>
+                <span class="payment-badge {{ txn.payment_method }}">{{ txn.get_payment_method_display }}</span>
+            </td>
+
+            {# ---- Refund Reason Cell ---- #}
+            <td class="reason-cell" id="reason-cell-{{ txn.pk }}">
+                {% if txn.refund_reason %}
+                    <div class="reason-tag" id="reason-tag-{{ txn.pk }}">
+                        {{ txn.refund_reason.get_reason_type_display }}
+                    </div>
+                    {% if txn.refund_reason.details %}
+                    <div class="reason-details" id="reason-details-{{ txn.pk }}">{{ txn.refund_reason.details }}</div>
+                    {% else %}
+                    <div class="reason-details" id="reason-details-{{ txn.pk }}" style="display:none;"></div>
+                    {% endif %}
+                    <button class="btn-edit-reason"
+                            data-txnid="{{ txn.pk }}"
+                            data-txnnum="{{ txn.transaction_number }}"
+                            data-rtype="{{ txn.refund_reason.reason_type }}"
+                            data-details="{{ txn.refund_reason.details|default:'' }}">
+                        &#9998; Edit Reason
+                    </button>
+                {% else %}
+                    <div id="reason-tag-{{ txn.pk }}" class="reason-tag" style="display:none;"></div>
+                    <div id="reason-details-{{ txn.pk }}" class="reason-details" style="display:none;"></div>
+                    <button class="btn-set-reason"
+                            data-txnid="{{ txn.pk }}"
+                            data-txnnum="{{ txn.transaction_number }}"
+                            data-rtype=""
+                            data-details="">
+                        &#43; Set Reason
+                    </button>
+                {% endif %}
+            </td>
+
+            <td>
+                <div class="date-cell">{{ txn.updated_at|date:"M d, Y" }}</div>
+                <div class="date-cell-sub">{{ txn.updated_at|date:"h:i A" }}</div>
+            </td>
+            <td>
+                <div class="action-btns">
+                    <a href="{% url 'admin:transactions_transaction_change' txn.pk %}"
+                       class="btn-view" title="View transaction detail">&#128269;</a>
+                    <button type="button" class="btn-approve"
+                            onclick="confirmAction('approve', {{ txn.pk }}, '{{ txn.transaction_number }}')">
+                        &#10003; Approve
+                    </button>
+                    <button type="button" class="btn-cancel"
+                            onclick="confirmAction('cancel', {{ txn.pk }}, '{{ txn.transaction_number }}')">
+                        &#10007; Decline
+                    </button>
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% else %}
+<div class="empty-state">
+    <div class="empty-icon">&#9989;</div>
+    <h3>No Pending Refund Requests</h3>
+    <p>There are currently no transactions waiting for a refund decision.</p>
+</div>
+{% endif %}
+
+<!-- ===== Reason Modal ===== -->
+<div class="modal-overlay" id="reasonOverlay">
+    <div class="modal-box">
+        <h3 id="reasonModalTitle">Set Refund Reason</h3>
+        <div class="sub">Select a category and optionally describe the reason.</div>
+
+        <input type="hidden" id="reasonTxnId">
+
+        <div style="margin-bottom:14px;">
+            <label for="reasonTypeSelect">Reason Category <span style="color:#c0392b;">*</span></label>
+            <select id="reasonTypeSelect">
+                {% for value, label in reason_choices %}
+                <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div>
+            <label for="reasonDetailsInput">
+                Additional Details
+                <span style="color:#9ca3af;font-weight:400;">(optional)</span>
+            </label>
+            <textarea id="reasonDetailsInput" placeholder="Describe the specific issue or situation…"></textarea>
+        </div>
+
+        <div class="modal-actions">
+            <span class="saving-spinner" id="savingSpinner" style="display:none;">Saving…</span>
+            <button class="btn-modal-secondary" type="button" onclick="closeReasonModal()">Cancel</button>
+            <button class="btn-modal-save" type="button" onclick="saveReason()">&#10003; Save Reason</button>
+        </div>
+    </div>
+</div>
+
+<!-- ===== Confirm Modal ===== -->
+<div class="modal-overlay" id="confirmOverlay">
+    <div class="modal-box">
+        <h3 id="confirmTitle">Confirm Action</h3>
+        <p id="confirmMessage" style="color:#4a5568;font-size:0.9rem;margin:0 0 20px;"></p>
+        <div class="modal-actions">
+            <button class="btn-modal-secondary" type="button" onclick="closeConfirm()">Cancel</button>
+            <button id="confirmBtn" type="button" onclick="submitConfirm()">Confirm</button>
+        </div>
+    </div>
+</div>
+
+<script>
+var SET_REASON_URL_TPL = '{% url "admin:transactions_transaction_set_reason" 0 %}'.replace('0/', '{id}/');
+var APPROVE_URL_TPL    = '{% url "admin:transactions_transaction_approve_refund" 0 %}'.replace('0/', '{id}/');
+var CANCEL_URL_TPL     = '{% url "admin:transactions_transaction_cancel_refund"  0 %}'.replace('0/', '{id}/');
+var CSRF_TOKEN         = '{{ csrf_token }}';
+
+// ── Wire reason buttons via delegation ──
+document.addEventListener('click', function (e) {
+    var btn = e.target.closest('.btn-set-reason, .btn-edit-reason');
+    if (!btn) return;
+    openReasonModal(
+        btn.dataset.txnid,
+        btn.dataset.txnnum,
+        btn.dataset.rtype  || '',
+        btn.dataset.details || ''
+    );
+});
+
+// ── Summary totals ──
+(function () {
+    var cells = document.querySelectorAll('[data-amount]');
+    var total = 0;
+    cells.forEach(function (c) { total += parseFloat(c.getAttribute('data-amount')) || 0; });
+    var el = document.getElementById('totalRefundAmount');
+    if (el) el.textContent = total.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+
+    var reasonCount = document.querySelectorAll('.reason-tag:not([style*="display:none"])').length;
+    var rcEl = document.getElementById('reasonFiledCount');
+    if (rcEl) rcEl.textContent = reasonCount;
+})();
+
+// ── Reason Modal ──
+function openReasonModal(txnId, txnNumber, reasonType, details) {
+    document.getElementById('reasonTxnId').value = txnId;
+    document.getElementById('reasonModalTitle').textContent = 'Refund Reason — ' + txnNumber;
+    document.getElementById('reasonTypeSelect').value = reasonType || 'other';
+    document.getElementById('reasonDetailsInput').value = details || '';
+    document.getElementById('reasonOverlay').classList.add('active');
+}
+
+function closeReasonModal() {
+    document.getElementById('reasonOverlay').classList.remove('active');
+}
+
+function saveReason() {
+    var txnId      = document.getElementById('reasonTxnId').value;
+    var reasonType = document.getElementById('reasonTypeSelect').value;
+    var details    = document.getElementById('reasonDetailsInput').value.trim();
+    var spinner    = document.getElementById('savingSpinner');
+
+    spinner.style.display = 'inline';
+
+    var url = SET_REASON_URL_TPL.replace('{id}', txnId);
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': CSRF_TOKEN,
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'reason_type=' + encodeURIComponent(reasonType) + '&details=' + encodeURIComponent(details),
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+        spinner.style.display = 'none';
+        if (!data.ok) { alert('Error saving reason.'); return; }
+
+        // Update reason tag
+        var tag = document.getElementById('reason-tag-' + txnId);
+        if (tag) { tag.textContent = data.reason_label; tag.style.display = 'inline-block'; }
+
+        // Update details text
+        var detEl = document.getElementById('reason-details-' + txnId);
+        if (detEl) { detEl.textContent = data.details; detEl.style.display = data.details ? 'block' : 'none'; }
+
+        // Swap Set → Edit button
+        var cell   = document.getElementById('reason-cell-' + txnId);
+        var setBtn = cell && cell.querySelector('.btn-set-reason');
+        if (setBtn) {
+            setBtn.className     = 'btn-edit-reason';
+            setBtn.innerHTML     = '&#9998; Edit Reason';
+            setBtn.dataset.rtype   = data.reason_type;
+            setBtn.dataset.details = data.details;
+        } else {
+            // update existing edit button data
+            var editBtn = cell && cell.querySelector('.btn-edit-reason');
+            if (editBtn) { editBtn.dataset.rtype = data.reason_type; editBtn.dataset.details = data.details; }
+        }
+
+        // Refresh count
+        var reasonCount = document.querySelectorAll('.reason-tag:not([style*="display:none"])').length;
+        var rcEl = document.getElementById('reasonFiledCount');
+        if (rcEl) rcEl.textContent = reasonCount;
+
+        closeReasonModal();
+    })
+    .catch(function () { spinner.style.display = 'none'; alert('Network error. Please try again.'); });
+}
+
+document.getElementById('reasonOverlay').addEventListener('click', function (e) {
+    if (e.target === this) closeReasonModal();
+});
+
+// ── Confirm Modal ──
+var pendingAction = null;
+var pendingId = null;
+
+function confirmAction(action, txnId, txnNumber) {
+    pendingAction = action;
+    pendingId = txnId;
+    var title = document.getElementById('confirmTitle');
+    var msg   = document.getElementById('confirmMessage');
+    var btn   = document.getElementById('confirmBtn');
+
+    if (action === 'approve') {
+        title.textContent = 'Approve Refund';
+        msg.textContent   = 'Are you sure you want to approve the refund for transaction ' + txnNumber + '? The status will be changed to "Refunded".';
+        btn.className     = 'btn-confirm-approve';
+        btn.textContent   = 'Approve Refund';
+    } else {
+        title.textContent = 'Decline Refund Request';
+        msg.textContent   = 'Are you sure you want to decline the refund request for transaction ' + txnNumber + '? It will be restored to "Completed".';
+        btn.className     = 'btn-confirm-cancel';
+        btn.textContent   = 'Decline Request';
+    }
+    document.getElementById('confirmOverlay').classList.add('active');
+}
+
+function closeConfirm() {
+    document.getElementById('confirmOverlay').classList.remove('active');
+    pendingAction = null;
+    pendingId = null;
+}
+
+function submitConfirm() {
+    if (!pendingAction || !pendingId) return;
+    var urlMap = {
+        approve: APPROVE_URL_TPL.replace('{id}', pendingId),
+        cancel:  CANCEL_URL_TPL.replace('{id}', pendingId),
+    };
+    window.location.href = urlMap[pendingAction];
+}
+
+document.getElementById('confirmOverlay').addEventListener('click', function (e) {
+    if (e.target === this) closeConfirm();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Loan Documentation{% endblock %}
+{% block content %}
+<h1>Loan Documentation</h1>
+<p class="subtitle">Application #{{ application.id }} &middot; {{ application.member }}</p>
+<div class="card">
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit" class="btn">Save &amp; Mark Signed</button>
+    </form>
+</div>
+<p><a href="{% url 'loans:application-detail' application.pk %}">&larr; Back to application</a></p>
+{% endblock %}

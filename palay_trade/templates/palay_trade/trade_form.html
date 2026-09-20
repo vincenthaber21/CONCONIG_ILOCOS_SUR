@@ -1,0 +1,1256 @@
+{% extends "palay_trade/base_palay.html" %}
+{% load currency_filters %}
+{% block title %}New Palay Trade{% endblock %}
+{% block extra_head %}
+  {% include "partials/tom_select_head.html" %}
+{% endblock %}
+{% block content %}
+<div class="pt-trade-page">
+  <header class="pt-trade-page__header">
+    <a class="pt-trade-page__back" href="{% url 'palay_trade:overview' %}">
+      <i class="bi bi-arrow-left"></i> Palay desk
+    </a>
+    <div class="pt-trade-page__title-row">
+      <div>
+        <h1>New trade ticket</h1>
+        <p class="subtitle">Select Rice Palay or Bigas, choose buy or sell, enter party and weight, then review before posting.</p>
+      </div>
+      <span class="pt-trade-badge">
+        <i class="bi bi-receipt"></i>
+        <span>Buy &amp; sell</span>
+      </span>
+    </div>
+  </header>
+
+  <ol class="pt-trade-steps" aria-label="Posting steps" id="palayTradeSteps">
+    <li class="pt-trade-step is-active" data-step="product">
+      <span class="pt-trade-step__num">1</span>
+      <span class="pt-trade-step__copy">
+        <strong>Product</strong>
+        <small>Rice Palay or Bigas</small>
+      </span>
+    </li>
+    <li class="pt-trade-step" data-step="type">
+      <span class="pt-trade-step__num">2</span>
+      <span class="pt-trade-step__copy">
+        <strong>Trade type</strong>
+        <small>Buy or sell</small>
+      </span>
+    </li>
+    <li class="pt-trade-step" data-step="party">
+      <span class="pt-trade-step__num">3</span>
+      <span class="pt-trade-step__copy">
+        <strong>Party</strong>
+        <small>Farmer or buyer</small>
+      </span>
+    </li>
+    <li class="pt-trade-step" data-step="details">
+      <span class="pt-trade-step__num">4</span>
+      <span class="pt-trade-step__copy">
+        <strong>Weight &amp; price</strong>
+        <small>Kg and rate</small>
+      </span>
+    </li>
+    <li class="pt-trade-step" data-step="review">
+      <span class="pt-trade-step__num">5</span>
+      <span class="pt-trade-step__copy">
+        <strong>Review</strong>
+        <small>Confirm &amp; post</small>
+      </span>
+    </li>
+  </ol>
+
+  <div class="pt-trade-page__layout">
+    <section class="card pt-trade-page__card">
+      <form method="post" id="palay-trade-form" class="pt-trade-form" autocomplete="off" novalidate>
+        {% csrf_token %}
+
+        {% if form.errors %}
+        <div class="pt-trade-form__alert" role="alert">
+          <i class="bi bi-exclamation-circle"></i>
+          <div>
+            <strong>Could not post trade.</strong>
+            Check the highlighted fields and try again.
+            {{ form.non_field_errors }}
+            {% if form.errors.items %}
+            <ul>
+              {% for field, errors in form.errors.items %}
+                {% if field != "__all__" %}
+                <li>{{ errors|striptags }}</li>
+                {% endif %}
+              {% endfor %}
+            </ul>
+            {% endif %}
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="pt-trade-form__section" data-section="product">
+          <div class="pt-trade-form__section-head">
+            <h2 class="pt-trade-form__section-title">
+              <span class="pt-trade-form__section-icon"><i class="bi bi-box-seam"></i></span>
+              Product
+            </h2>
+            <p>Only two products are available for trading on the palay desk.</p>
+          </div>
+          <div class="pt-trade-products" role="radiogroup" aria-label="Product">
+            {% for product in products %}
+            <label class="pt-trade-product-opt">
+              <input
+                type="radio"
+                name="{{ form.product.html_name }}"
+                value="{{ product.pk }}"
+                id="product-{{ product.pk }}"
+                {% if form.product.value|stringformat:"s" == product.pk|stringformat:"s" %}checked{% elif not form.product.value and forloop.first %}checked{% endif %}
+              >
+              <span class="pt-trade-product-card">
+                <span class="pt-trade-product-card__name">
+                  {{ product.name }}
+                  {% if product.code == "rice-palay" %}<i class="bi bi-flower1"></i>{% else %}<i class="bi bi-basket2"></i>{% endif %}
+                </span>
+                <span class="pt-trade-product-card__meta">
+                  Buy &#8369;{{ product.buy_price_per_kg|currency }}/kg · Sell &#8369;{{ product.sell_price_per_kg|currency }}/kg
+                </span>
+                <span class="pt-trade-product-card__stock{% if product.is_low_stock %} is-low{% endif %}" data-product-stock="{{ product.pk }}">
+                  <i class="bi bi-box-seam"></i> {{ product.stock_kg|currency }} kg on hand
+                </span>
+              </span>
+            </label>
+            {% empty %}
+            <p class="pt-trade-form__hint">Default products are not ready yet. Refresh the page.</p>
+            {% endfor %}
+          </div>
+          {% if form.product.errors %}<div class="pt-trade-form__errors">{{ form.product.errors }}</div>{% endif %}
+        </div>
+
+        <div class="pt-trade-form__section" data-section="type">
+          <div class="pt-trade-form__section-head">
+            <h2 class="pt-trade-form__section-title">
+              <span class="pt-trade-form__section-icon"><i class="bi bi-arrow-left-right"></i></span>
+              Trade type
+            </h2>
+            <p>Buy adds stock from a farmer. Sell deducts stock when selling to a buyer.</p>
+          </div>
+          <div class="pt-trade-types" role="radiogroup" aria-label="Trade type">
+            <label class="pt-trade-type-opt">
+              <input
+                type="radio"
+                name="{{ form.trade_type.html_name }}"
+                value="buy"
+                id="trade-type-buy"
+                {% if form.trade_type.value == "buy" or not form.trade_type.value %}checked{% endif %}
+              >
+              <span class="pt-trade-type-card pt-trade-type-card--buy">
+                <span class="pt-trade-type-card__icon"><i class="bi bi-arrow-down-circle"></i></span>
+                <span class="pt-trade-type-card__name">Buy from farmer</span>
+                <span class="pt-trade-type-card__meta">Coop purchases kilos and adds them to stock.</span>
+              </span>
+            </label>
+            <label class="pt-trade-type-opt">
+              <input
+                type="radio"
+                name="{{ form.trade_type.html_name }}"
+                value="sell"
+                id="trade-type-sell"
+                {% if form.trade_type.value == "sell" %}checked{% endif %}
+              >
+              <span class="pt-trade-type-card pt-trade-type-card--sell">
+                <span class="pt-trade-type-card__icon"><i class="bi bi-arrow-up-circle"></i></span>
+                <span class="pt-trade-type-card__name">Sell from stock</span>
+                <span class="pt-trade-type-card__meta">Coop sells kilos and deducts them from stock.</span>
+              </span>
+            </label>
+          </div>
+          {% if form.trade_type.errors %}<div class="pt-trade-form__errors">{{ form.trade_type.errors }}</div>{% endif %}
+        </div>
+
+        <div class="pt-trade-form__section" data-section="party">
+          <div class="pt-trade-form__section-head">
+            <h2 class="pt-trade-form__section-title">
+              <span class="pt-trade-form__section-icon"><i class="bi bi-person"></i></span>
+              Party
+            </h2>
+            <p>Link a member if available, or type the farmer or buyer name.</p>
+          </div>
+          <div class="pt-trade-form__row">
+            <div class="pt-trade-form__field">
+              <label for="{{ form.member.id_for_label }}">{{ form.member.label }}</label>
+              {{ form.member }}
+              <p class="pt-trade-form__hint">Optional — type to search member name or username.</p>
+              {% if form.member.errors %}<div class="pt-trade-form__errors">{{ form.member.errors }}</div>{% endif %}
+            </div>
+            <div class="pt-trade-form__field">
+              <label for="{{ form.party_name.id_for_label }}">{{ form.party_name.label }}</label>
+              {{ form.party_name }}
+              {% if form.party_name.help_text %}<p class="pt-trade-form__hint">{{ form.party_name.help_text }}</p>{% endif %}
+              {% if form.party_name.errors %}<div class="pt-trade-form__errors">{{ form.party_name.errors }}</div>{% endif %}
+            </div>
+          </div>
+        </div>
+
+        {% if credit_settings.is_enabled %}
+        <div class="pt-trade-form__section" id="payment-method-section" data-section="payment">
+          <div class="pt-trade-form__section-head">
+            <h2 class="pt-trade-form__section-title">
+              <span class="pt-trade-form__section-icon"><i class="bi bi-credit-card"></i></span>
+              Payment
+            </h2>
+            <p>Palay credit requires a member. Cash is always available.</p>
+          </div>
+          <div class="pt-trade-payment">
+            {% for radio in form.payment_method %}
+            <label class="pt-trade-payment-opt">
+              {{ radio.tag }}
+              <span class="pt-trade-payment-card {% if radio.choice_value == 'credit' %}pt-trade-payment-card--credit{% else %}pt-trade-payment-card--cash{% endif %}">
+                <span class="pt-trade-payment-card__icon">
+                  {% if radio.choice_value == "credit" %}
+                  <i class="bi bi-credit-card"></i>
+                  {% else %}
+                  <i class="bi bi-cash-coin"></i>
+                  {% endif %}
+                </span>
+                <span class="pt-trade-payment-card__name">{{ radio.choice_label }}</span>
+              </span>
+            </label>
+            {% endfor %}
+          </div>
+          {% if form.payment_method.errors %}<div class="pt-trade-form__errors">{{ form.payment_method.errors }}</div>{% endif %}
+        </div>
+        {% endif %}
+
+        <div class="pt-trade-form__section" data-section="details">
+          <div class="pt-trade-form__section-head">
+            <h2 class="pt-trade-form__section-title">
+              <span class="pt-trade-form__section-icon"><i class="bi bi-speedometer2"></i></span>
+              Weight &amp; price
+            </h2>
+            <p>Amount = weight × unit price. Default rate loads from product features.</p>
+          </div>
+          <div class="pt-trade-form__row pt-trade-form__row--details">
+            <div class="pt-trade-form__field">
+              <label for="{{ form.gross_kg.id_for_label }}">{{ form.gross_kg.label }}</label>
+              <div class="pt-trade-form__kg">
+                {{ form.gross_kg }}
+                <span class="pt-trade-form__kg-unit">kg</span>
+              </div>
+              {% if form.gross_kg.errors %}<div class="pt-trade-form__errors">{{ form.gross_kg.errors }}</div>{% endif %}
+            </div>
+            <div class="pt-trade-form__field">
+              <label for="{{ form.unit_price.id_for_label }}">{{ form.unit_price.label }}</label>
+              <div class="pt-trade-form__money">
+                <span>&#8369;</span>
+                {{ form.unit_price }}
+              </div>
+              <p class="pt-trade-form__hint" id="unit-price-hint">{% if form.unit_price.help_text %}{{ form.unit_price.help_text }}{% endif %}</p>
+              {% if form.unit_price.errors %}<div class="pt-trade-form__errors">{{ form.unit_price.errors }}</div>{% endif %}
+            </div>
+          </div>
+          <div class="pt-trade-form__field">
+            <label for="{{ form.notes.id_for_label }}">{{ form.notes.label }}</label>
+            {{ form.notes }}
+            <p class="pt-trade-form__hint">Optional — e.g. walk-in, partial delivery, reference.</p>
+          </div>
+        </div>
+
+        <div class="pt-trade-form__actions">
+          <button type="button" class="pt-trade-submit" id="post-trade-btn">
+            <i class="bi bi-check-lg"></i> Review &amp; post trade
+          </button>
+          <a class="btn--secondary" href="{% url 'palay_trade:overview' %}" id="cancel-trade-btn">Cancel</a>
+        </div>
+      </form>
+    </section>
+
+    <aside class="pt-trade-page__aside">
+      <section class="card pt-trade-ticket" aria-live="polite">
+        <div class="pt-trade-ticket__head">
+          <h2>Trade ticket</h2>
+          <span class="pt-trade-ticket__status" id="ticketStatus">Incomplete</span>
+        </div>
+        <span class="pt-trade-ticket__badge is-buy" id="summary-type-badge"><i class="bi bi-arrow-down-circle"></i> Buy</span>
+        <div class="pt-trade-ticket__product" id="summary-product-name">Select a product</div>
+        <dl class="pt-trade-ticket__list">
+          <div>
+            <dt>Party</dt>
+            <dd id="ticketParty">Enter party name</dd>
+          </div>
+          <div>
+            <dt>On-hand stock</dt>
+            <dd id="summary-stock">—</dd>
+          </div>
+          <div>
+            <dt>Rate used</dt>
+            <dd id="summary-rate">—</dd>
+          </div>
+          <div>
+            <dt>Weight</dt>
+            <dd id="summary-weight">—</dd>
+          </div>
+          <div>
+            <dt>Amount</dt>
+            <dd id="summary-amount">—</dd>
+          </div>
+          <div>
+            <dt>Stock after</dt>
+            <dd id="ticketStockAfter">—</dd>
+          </div>
+        </dl>
+        <p class="pt-trade-ticket__note" id="stock-hint">Select a product to see stock and pricing.</p>
+      </section>
+
+      <section class="card pt-trade-page__tips">
+        <h2>Desk checklist</h2>
+        <ul class="pt-trade-tips">
+          <li>
+            <i class="bi bi-arrow-down-circle"></i>
+            <span>Buys increase stock after posting.</span>
+          </li>
+          <li>
+            <i class="bi bi-arrow-up-circle"></i>
+            <span>Sells are blocked if stock is not enough.</span>
+          </li>
+          <li>
+            <i class="bi bi-printer"></i>
+            <span>Receipt opens automatically after a successful post.</span>
+          </li>
+        </ul>
+      </section>
+    </aside>
+  </div>
+</div>
+
+{# Confirm post trade #}
+<div class="modal fade" id="confirmPalayTradeModal" tabindex="-1" aria-labelledby="confirmPalayTradeModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content pt-trade-modal">
+      <div class="modal-header pt-trade-modal__header" id="confirmPalayTradeHeader">
+        <h5 class="modal-title" id="confirmPalayTradeModalLabel">
+          <i class="bi bi-shield-check me-2"></i>Confirm trade
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cancel"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-3" id="confirmTradeLead">
+          Review this ticket, then click <strong>Proceed</strong> to post it.
+        </p>
+        <dl class="pt-trade-confirm-summary">
+          <div>
+            <dt>Trade type</dt>
+            <dd id="confirmTradeType">—</dd>
+          </div>
+          <div>
+            <dt>Product</dt>
+            <dd id="confirmTradeProduct">—</dd>
+          </div>
+          <div>
+            <dt>Party</dt>
+            <dd id="confirmTradeParty">—</dd>
+          </div>
+          <div>
+            <dt>Weight</dt>
+            <dd id="confirmTradeWeight">—</dd>
+          </div>
+          <div>
+            <dt>Unit price</dt>
+            <dd id="confirmTradePrice">—</dd>
+          </div>
+          <div>
+            <dt>Amount</dt>
+            <dd id="confirmTradeAmount">—</dd>
+          </div>
+          <div>
+            <dt>Stock after</dt>
+            <dd id="confirmTradeStockAfter">—</dd>
+          </div>
+        </dl>
+      </div>
+      <div class="modal-footer pt-trade-modal__footer">
+        <button type="button" class="btn--secondary" data-bs-dismiss="modal" id="confirmTradeBackBtn">Cancel</button>
+        <button type="button" class="btn-loan" id="confirmPalayTradeBtn">
+          <i class="bi bi-check-lg me-1"></i>Proceed
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Confirm cancel / leave #}
+<div class="modal fade" id="confirmCancelTradeModal" tabindex="-1" aria-labelledby="confirmCancelTradeModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content pt-trade-modal">
+      <div class="modal-header pt-trade-modal__header pt-trade-modal__header--neutral">
+        <h5 class="modal-title" id="confirmCancelTradeModalLabel">
+          <i class="bi bi-x-circle me-2"></i>Leave this page?
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Stay"></button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-0">
+          Any weight, price, or party details you entered will not be saved.
+        </p>
+      </div>
+      <div class="modal-footer pt-trade-modal__footer">
+        <button type="button" class="btn--secondary" data-bs-dismiss="modal">Stay on page</button>
+        <a class="btn-loan pt-trade-modal__danger-btn" id="confirmCancelTradeBtn" href="{% url 'palay_trade:overview' %}">
+          Yes, leave
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  #confirmPalayTradeModal,
+  #confirmCancelTradeModal { z-index: 10050 !important; }
+  .modal-backdrop.show { z-index: 10040 !important; }
+  .pt-trade-modal { border: none; border-radius: 16px; overflow: hidden; }
+  .pt-trade-modal__header { background: #166534; color: #fff; }
+  .pt-trade-modal__header.is-sell { background: #9a3412; }
+  .pt-trade-modal__header--neutral { background: #334155; }
+  .pt-trade-modal__footer { background: #f8fafc; gap: .5rem; }
+  .pt-trade-modal__danger-btn { background: #b91c1c; color: #fff; text-decoration: none; }
+  .pt-trade-modal__danger-btn:hover { background: #991b1b; color: #fff; }
+  .pt-trade-confirm-summary { margin: 0; }
+  .pt-trade-confirm-summary > div {
+    display: flex; justify-content: space-between; gap: .75rem;
+    padding: .55rem 0; border-bottom: 1px solid #f1f5f9; font-size: .9rem;
+  }
+  .pt-trade-confirm-summary > div:last-child { border-bottom: none; }
+  .pt-trade-confirm-summary dt { margin: 0; color: #64748b; font-weight: 500; }
+  .pt-trade-confirm-summary dd { margin: 0; font-weight: 700; color: #0f172a; text-align: right; }
+  .pt-field-error-flash { border-color: #dc2626 !important; box-shadow: 0 0 0 3px rgba(220, 38, 38, .12); }
+  #confirmPalayTradeBtn.is-sell { background: #9a3412; }
+  #confirmPalayTradeBtn.is-sell:hover { background: #7c2d12; color: #fff; }
+
+  .pt-trade-page {
+    width: 100%;
+    max-width: 1280px;
+    margin-inline: auto;
+    box-sizing: border-box;
+  }
+  .pt-trade-page__header { margin-bottom: 1.25rem; }
+  .pt-trade-page__title-row {
+    display: flex; flex-wrap: wrap; align-items: flex-start;
+    justify-content: space-between; gap: .85rem 1.25rem;
+  }
+  .pt-trade-page__header h1 {
+    margin: 0 0 .35rem;
+    font-size: clamp(1.35rem, 1.1rem + 1vw, 1.85rem);
+  }
+  .pt-trade-page__header .subtitle {
+    margin: 0; max-width: 42rem; color: #64748b; font-size: .92rem;
+  }
+  .pt-trade-page__back {
+    display: inline-flex; align-items: center; gap: .4rem;
+    color: #64748b; text-decoration: none; font-size: .88rem; font-weight: 500; margin-bottom: .65rem;
+  }
+  .pt-trade-page__back:hover { color: #334155; }
+  .pt-trade-badge {
+    display: inline-flex; align-items: center; gap: .45rem;
+    padding: .55rem .9rem; border-radius: 999px;
+    background: #fff; border: 1px solid #e2e8f0;
+    color: #0f172a; font-weight: 700; font-size: .84rem;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, .06);
+  }
+  .pt-trade-badge i { color: #ED1C24; }
+
+  .pt-trade-steps {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: .75rem;
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1.35rem;
+  }
+  .pt-trade-step {
+    display: flex; align-items: center; gap: .7rem;
+    padding: .85rem 1rem;
+    border-radius: 14px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    color: #94a3b8;
+  }
+  .pt-trade-step.is-active {
+    border-color: #fecaca;
+    box-shadow: 0 0 0 3px rgba(237, 28, 36, .08);
+    color: #0f172a;
+  }
+  .pt-trade-step.is-done {
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+    color: #166534;
+  }
+  .pt-trade-step__num {
+    width: 30px; height: 30px; border-radius: 999px; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: .8rem; font-weight: 800;
+    background: #e2e8f0; color: #64748b;
+  }
+  .pt-trade-step.is-active .pt-trade-step__num { background: #ED1C24; color: #fff; }
+  .pt-trade-step.is-done .pt-trade-step__num { background: #16a34a; color: #fff; }
+  .pt-trade-step__copy { display: flex; flex-direction: column; gap: .05rem; min-width: 0; }
+  .pt-trade-step__copy strong { font-size: .88rem; font-weight: 700; line-height: 1.2; }
+  .pt-trade-step__copy small { font-size: .75rem; color: #94a3b8; font-weight: 500; }
+  .pt-trade-step.is-done .pt-trade-step__copy small { color: #4ade80; }
+
+  .pt-trade-page__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(280px, .8fr);
+    gap: 1.25rem;
+    align-items: start;
+  }
+  .pt-trade-page__card,
+  .pt-trade-page__tips,
+  .pt-trade-ticket {
+    padding: 1.4rem 1.5rem;
+    margin-bottom: 0;
+  }
+  .pt-trade-page__aside {
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+    position: sticky;
+    top: 1rem;
+  }
+
+  .pt-trade-form__alert {
+    display: flex; gap: .65rem; align-items: flex-start;
+    margin-bottom: 1.25rem; padding: .85rem 1rem;
+    border-radius: 12px; background: #fee2e2; color: #991b1b; font-size: .88rem;
+  }
+  .pt-trade-form__alert i { font-size: 1.1rem; margin-top: .1rem; flex-shrink: 0; }
+  .pt-trade-form__alert ul { margin: .35rem 0 0; padding-left: 1.1rem; }
+
+  .pt-trade-form__section {
+    padding-bottom: 1.35rem;
+    margin-bottom: 1.35rem;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .pt-trade-form__section:last-of-type {
+    border-bottom: none; margin-bottom: 0; padding-bottom: 0;
+  }
+  .pt-trade-form__section-head { margin-bottom: 1rem; }
+  .pt-trade-form__section-head p {
+    margin: .35rem 0 0; color: #64748b; font-size: .84rem; line-height: 1.45;
+  }
+  .pt-trade-form__section-title {
+    display: flex; align-items: center; gap: .55rem;
+    font-size: 1.02rem; font-weight: 700; color: #0f172a; margin: 0;
+  }
+  .pt-trade-form__section-icon {
+    width: 34px; height: 34px; border-radius: 10px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: #fef2f2; color: #ED1C24; font-size: 1rem;
+  }
+
+  .pt-trade-form__field { margin-bottom: .85rem; }
+  .pt-trade-form__field:last-child { margin-bottom: 0; }
+  .pt-trade-form__field > label:first-child {
+    display: block; margin-bottom: .4rem;
+    font-weight: 600; font-size: .9rem; color: #334155;
+  }
+  .pt-trade-form__hint { margin: .4rem 0 0; font-size: .78rem; color: #94a3b8; }
+  .pt-trade-form__row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem 1.25rem;
+    align-items: start;
+  }
+  .pt-trade-form__row--details {
+    grid-template-columns: minmax(200px, 280px) minmax(200px, 280px);
+  }
+  .pt-trade-form__kg { position: relative; display: flex; align-items: center; }
+  .pt-trade-form__kg input {
+    padding-right: 44px !important;
+    min-height: 52px; font-size: 1.25rem; font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .pt-trade-form__kg-unit {
+    position: absolute; right: 14px; color: #64748b; font-weight: 700; font-size: .9rem;
+  }
+  .pt-trade-form__money { position: relative; display: flex; align-items: center; }
+  .pt-trade-form__money > span {
+    position: absolute; left: 14px; color: #64748b; font-weight: 700; z-index: 1;
+  }
+  .pt-trade-form__money input {
+    padding-left: 34px !important; min-height: 52px;
+    font-size: 1.1rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+  .pt-trade-form__field textarea { min-height: 52px; resize: vertical; }
+  .pt-trade-form__errors { color: #dc2626; font-size: .82rem; margin-top: .35rem; }
+  .pt-trade-form__errors ul { margin: 0; padding-left: 1rem; }
+
+  .pt-trade-products,
+  .pt-trade-types,
+  .pt-trade-payment {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .75rem;
+  }
+  .pt-trade-product-opt,
+  .pt-trade-type-opt,
+  .pt-trade-payment-opt { position: relative; }
+  .pt-trade-product-opt input,
+  .pt-trade-type-opt input,
+  .pt-trade-payment-opt input {
+    position: absolute; opacity: 0; width: 0; height: 0;
+  }
+  .pt-trade-product-card,
+  .pt-trade-type-card,
+  .pt-trade-payment-card {
+    display: block; border: 2px solid #e2e8f0; border-radius: 14px;
+    padding: .95rem 1rem; cursor: pointer; background: #f8fafc; height: 100%;
+    transition: border-color .15s, background .15s, box-shadow .15s;
+  }
+  .pt-trade-product-opt input:checked + .pt-trade-product-card {
+    border-color: #ED1C24; background: #fff7f7;
+    box-shadow: 0 0 0 3px rgba(237, 28, 36, .08);
+  }
+  .pt-trade-type-opt input:checked + .pt-trade-type-card--buy {
+    border-color: #16a34a; background: #ecfdf5;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, .12);
+  }
+  .pt-trade-type-opt input:checked + .pt-trade-type-card--sell {
+    border-color: #ea580c; background: #fff7ed;
+    box-shadow: 0 0 0 3px rgba(234, 88, 12, .12);
+  }
+  .pt-trade-payment-opt input:checked + .pt-trade-payment-card--cash {
+    border-color: #16a34a; background: #ecfdf5;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, .12);
+  }
+  .pt-trade-payment-opt input:checked + .pt-trade-payment-card--credit {
+    border-color: #ea580c; background: #fff7ed;
+    box-shadow: 0 0 0 3px rgba(234, 88, 12, .12);
+  }
+  .pt-trade-product-card__name,
+  .pt-trade-type-card__name,
+  .pt-trade-payment-card__name {
+    display: flex; align-items: center; justify-content: space-between; gap: .5rem;
+    font-weight: 800; color: #0f172a; font-size: .98rem;
+  }
+  .pt-trade-product-card__meta,
+  .pt-trade-type-card__meta {
+    margin-top: .35rem; font-size: .78rem; color: #64748b; line-height: 1.4;
+  }
+  .pt-trade-product-card__stock {
+    margin-top: .55rem; display: inline-flex; align-items: center; gap: .35rem;
+    padding: .25rem .6rem; border-radius: 999px;
+    background: #fff; border: 1px solid #e2e8f0;
+    font-size: .76rem; font-weight: 700; color: #334155;
+  }
+  .pt-trade-product-card__stock.is-low {
+    background: #fef3c7; border-color: #fde68a; color: #92400e;
+  }
+  .pt-trade-type-card__icon,
+  .pt-trade-payment-card__icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; margin-bottom: .5rem;
+  }
+  .pt-trade-type-card--buy .pt-trade-type-card__icon,
+  .pt-trade-payment-card--cash .pt-trade-payment-card__icon {
+    background: #dcfce7; color: #166534;
+  }
+  .pt-trade-type-card--sell .pt-trade-type-card__icon,
+  .pt-trade-payment-card--credit .pt-trade-payment-card__icon {
+    background: #ffedd5; color: #9a3412;
+  }
+
+  .pt-trade-form__actions {
+    display: flex; flex-wrap: wrap; gap: .65rem; align-items: center;
+    margin-top: 1.4rem; padding-top: 1.2rem; border-top: 1px solid #f1f5f9;
+  }
+  .pt-trade-submit {
+    display: inline-flex; align-items: center; justify-content: center; gap: .45rem;
+    border: none; border-radius: 999px; padding: 13px 24px;
+    background: #15803d; color: #fff; font-weight: 700; font-size: .95rem; cursor: pointer;
+  }
+  .pt-trade-submit:hover { background: #166534; color: #fff; }
+  .pt-trade-submit:disabled { opacity: .65; cursor: not-allowed; }
+
+  .pt-trade-ticket { background: linear-gradient(180deg, #fff 0%, #f8fafc 100%); }
+  .pt-trade-ticket__head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: .75rem; margin-bottom: .65rem;
+  }
+  .pt-trade-ticket__head h2,
+  .pt-trade-page__tips h2 { font-size: 1rem; margin: 0; }
+  .pt-trade-ticket__status {
+    display: inline-flex; padding: .25rem .65rem; border-radius: 999px;
+    font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    background: #fef3c7; color: #92400e;
+  }
+  .pt-trade-ticket__status.is-ready { background: #dcfce7; color: #166534; }
+  .pt-trade-ticket__badge {
+    display: inline-flex; align-items: center; gap: .35rem;
+    padding: .3rem .7rem; border-radius: 999px; font-size: .75rem; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .04em; margin-bottom: .5rem;
+  }
+  .pt-trade-ticket__badge.is-buy { background: #dcfce7; color: #166534; }
+  .pt-trade-ticket__badge.is-sell { background: #ffedd5; color: #9a3412; }
+  .pt-trade-ticket__product {
+    font-size: 1.15rem; font-weight: 800; color: #0f172a; margin-bottom: .35rem;
+  }
+  .pt-trade-ticket__list { margin: 0; }
+  .pt-trade-ticket__list > div {
+    display: flex; justify-content: space-between; gap: .75rem;
+    padding: .55rem 0; border-bottom: 1px solid #eef2f7; font-size: .86rem;
+  }
+  .pt-trade-ticket__list > div:last-child { border-bottom: none; }
+  .pt-trade-ticket__list dt { color: #64748b; font-weight: 500; margin: 0; }
+  .pt-trade-ticket__list dd {
+    margin: 0; font-weight: 700; color: #0f172a; text-align: right;
+    max-width: 60%; word-break: break-word;
+  }
+  .pt-trade-ticket__note {
+    display: flex; align-items: flex-start; gap: .45rem;
+    margin: 1rem 0 0; padding: .75rem .85rem;
+    border-radius: 12px; background: #eef2f7; color: #475569;
+    font-size: .8rem; line-height: 1.4;
+  }
+
+  .pt-trade-tips {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; gap: .8rem;
+  }
+  .pt-trade-tips li {
+    display: flex; align-items: flex-start; gap: .55rem;
+    font-size: .84rem; color: #64748b; line-height: 1.45;
+  }
+  .pt-trade-tips i {
+    color: #E6C200; font-size: 1.05rem; flex-shrink: 0; margin-top: .05rem;
+  }
+
+  .pt-trade-page .ts-wrapper.single .ts-control {
+    min-height: 48px; padding: 11px 14px;
+  }
+  .pt-trade-page .ts-wrapper.single .ts-control:focus-within {
+    border-color: #16a34a;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, .12);
+  }
+  .pt-trade-page form select:focus,
+  .pt-trade-page form input:focus,
+  .pt-trade-page form textarea:focus {
+    outline: none;
+    border-color: #16a34a;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, .12);
+  }
+
+  @media (max-width: 980px) {
+    .pt-trade-page__layout { grid-template-columns: 1fr; }
+    .pt-trade-page__aside { position: static; }
+    .pt-trade-steps { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 700px) {
+    .pt-trade-steps { grid-template-columns: 1fr; }
+    .pt-trade-products,
+    .pt-trade-types,
+    .pt-trade-payment,
+    .pt-trade-form__row,
+    .pt-trade-form__row--details { grid-template-columns: 1fr; }
+    .pt-trade-submit { width: 100%; }
+    .pt-trade-page__card,
+    .pt-trade-page__tips,
+    .pt-trade-ticket { padding: 1.15rem; }
+  }
+</style>
+
+{{ product_rates|json_script:"palay-product-rates" }}
+{% endblock %}
+
+{% block extra_scripts %}
+  {% include "partials/tom_select_scripts.html" %}
+  <script>
+(function () {
+  var form = document.getElementById("palay-trade-form");
+  var memberSelect = document.getElementById("{{ form.member.id_for_label }}");
+  var partyName = document.getElementById("{{ form.party_name.id_for_label }}");
+  var unitPrice = document.getElementById("{{ form.unit_price.id_for_label }}");
+  var weight = document.getElementById("{{ form.gross_kg.id_for_label }}");
+  var postBtn = document.getElementById("post-trade-btn");
+  var cancelBtn = document.getElementById("cancel-trade-btn");
+  var steps = document.querySelectorAll("#palayTradeSteps .pt-trade-step");
+  var ticketStatus = document.getElementById("ticketStatus");
+  var ticketParty = document.getElementById("ticketParty");
+  var ticketStockAfter = document.getElementById("ticketStockAfter");
+
+  if (!form || !unitPrice) return;
+
+  try {
+    if (memberSelect && window.TomSelect) {
+      Array.from(memberSelect.options).forEach(function (opt) {
+        if (!opt.value) opt.textContent = "";
+      });
+      var memberTomSelect = new TomSelect(memberSelect, {
+        allowEmptyOption: true,
+        placeholder: "Type to search member (optional)...",
+        maxOptions: 200,
+        dropdownParent: "body",
+        create: false,
+        sortField: { field: "text", direction: "asc" },
+        render: {
+          option: function (data, escape) {
+            if (!data.value) return null;
+            return '<div class="option">' + escape(data.text) + "</div>";
+          },
+          item: function (data, escape) {
+            if (!data.value) return '<div class="item placeholder"></div>';
+            return '<div class="item">' + escape(data.text) + "</div>";
+          },
+        },
+        onInitialize: function () {
+          var sel = this.input;
+          if (!sel) return;
+          sel.classList.add("ts-hidden-accessible");
+          sel.style.setProperty("display", "none", "important");
+          sel.setAttribute("aria-hidden", "true");
+          sel.tabIndex = -1;
+        },
+        onDropdownOpen: function () {
+          var root = this.dropdown_content;
+          if (!root) return;
+          var blank = root.querySelector('[data-value=""]');
+          if (blank) blank.style.display = "none";
+        },
+      });
+      if (memberTomSelect.options[""]) memberTomSelect.removeOption("");
+      if (!memberSelect.value) memberTomSelect.clear(true);
+      memberTomSelect.on("change", function (value) {
+        if (!partyName || !value) return;
+        var opt = memberSelect.options[memberSelect.selectedIndex];
+        if (!opt) return;
+        var label = (opt.textContent || "").trim();
+        var nameOnly = label.replace(/\s*\([^)]*\)\s*$/, "").trim();
+        if (nameOnly) partyName.value = nameOnly;
+        refreshSummary();
+      });
+    }
+  } catch (err) {
+    console.warn("Tom Select init failed; continuing without it.", err);
+  }
+
+  var ratesEl = document.getElementById("palay-product-rates");
+  var rates = {};
+  try { rates = ratesEl ? JSON.parse(ratesEl.textContent) : {}; } catch (e) { rates = {}; }
+
+  var hint = document.getElementById("unit-price-hint");
+  var stockHint = document.getElementById("stock-hint");
+  var summaryBadge = document.getElementById("summary-type-badge");
+  var summaryProduct = document.getElementById("summary-product-name");
+  var summaryStock = document.getElementById("summary-stock");
+  var summaryRate = document.getElementById("summary-rate");
+  var summaryWeight = document.getElementById("summary-weight");
+  var summaryAmount = document.getElementById("summary-amount");
+
+  var lastAutoPrice = "";
+  var submitting = false;
+
+  function getModal(el) {
+    if (!el || typeof bootstrap === "undefined" || !bootstrap.Modal) return null;
+    return bootstrap.Modal.getInstance(el) || new bootstrap.Modal(el, {
+      backdrop: true, keyboard: true, focus: true
+    });
+  }
+
+  function selectedProductId() {
+    var el = document.querySelector('input[name="{{ form.product.html_name }}"]:checked');
+    return el ? String(el.value) : "";
+  }
+
+  function selectedTradeType() {
+    var el = document.querySelector('input[name="{{ form.trade_type.html_name }}"]:checked');
+    return el ? el.value : "buy";
+  }
+
+  function formatMoney(value) {
+    var n = Number(String(value == null ? "" : value).replace(/,/g, ""));
+    if (!Number.isFinite(n)) return "0.00";
+    return n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function formatKg(value) {
+    var n = Number(String(value == null ? "" : value).replace(/,/g, ""));
+    if (!Number.isFinite(n)) return "0.00";
+    return n.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function parseMoney(raw) {
+    if (window.MoneyInput && typeof window.MoneyInput.parse === "function") {
+      return window.MoneyInput.parse(raw);
+    }
+    var n = Number(String(raw == null ? "" : raw).replace(/,/g, "").trim());
+    return Number.isFinite(n) ? n : NaN;
+  }
+
+  function setMoneyValue(el, value) {
+    if (!el) return;
+    if (window.MoneyInput && typeof window.MoneyInput.format === "function") {
+      el.value = window.MoneyInput.format(value, 2);
+    } else {
+      el.value = formatMoney(value);
+    }
+  }
+
+  function formatPeso(value) { return "₱" + formatMoney(value); }
+
+  function currentFeaturePrice() {
+    var row = rates[selectedProductId()];
+    if (!row) return null;
+    var key = selectedTradeType() === "sell" ? "sell" : "buy";
+    return formatMoney(row[key]);
+  }
+
+  function partyLabel() {
+    var typed = partyName ? String(partyName.value || "").trim() : "";
+    if (typed) return typed;
+    if (memberSelect && memberSelect.value) {
+      var opt = memberSelect.options[memberSelect.selectedIndex];
+      if (opt) {
+        var label = (opt.textContent || "").trim();
+        return label.replace(/\s*\([^)]*\)\s*$/, "").trim() || label;
+      }
+    }
+    return "";
+  }
+
+  function syncSteps(hasProduct, hasType, hasParty, hasDetails, ready) {
+    steps.forEach(function (step) {
+      var key = step.getAttribute("data-step");
+      var done = false;
+      var active = false;
+      if (key === "product") {
+        done = hasProduct;
+        active = !hasProduct;
+      } else if (key === "type") {
+        done = hasType;
+        active = hasProduct && !hasType;
+      } else if (key === "party") {
+        done = hasParty;
+        active = hasProduct && hasType && !hasParty;
+      } else if (key === "details") {
+        done = hasDetails;
+        active = hasProduct && hasType && hasParty && !hasDetails;
+      } else if (key === "review") {
+        done = false;
+        active = ready;
+      }
+      step.classList.toggle("is-done", done && !active);
+      step.classList.toggle("is-active", active);
+    });
+  }
+
+  function refreshSummary() {
+    var type = selectedTradeType();
+    var row = rates[selectedProductId()];
+    var isSell = type === "sell";
+    var hasProduct = !!row;
+    var hasType = true;
+    var party = partyLabel();
+    var hasParty = !!party;
+    var kg = parseMoney(weight && weight.value);
+    var price = parseMoney(unitPrice.value);
+    var hasKg = Number.isFinite(kg) && kg > 0;
+    var hasPrice = Number.isFinite(price) && price > 0;
+    var hasDetails = hasKg && hasPrice;
+    var stock = row ? Number(row.stock) : NaN;
+    var withinStock = !isSell || !hasKg || !Number.isFinite(stock) || kg <= stock + 1e-9;
+    var ready = hasProduct && hasType && hasParty && hasDetails && withinStock;
+
+    if (summaryBadge) {
+      summaryBadge.className = "pt-trade-ticket__badge " + (isSell ? "is-sell" : "is-buy");
+      summaryBadge.innerHTML = isSell
+        ? '<i class="bi bi-arrow-up-circle"></i> Sell'
+        : '<i class="bi bi-arrow-down-circle"></i> Buy';
+    }
+
+    if (summaryProduct) {
+      summaryProduct.textContent = row ? row.name : "Select a product";
+    }
+
+    if (ticketParty) {
+      ticketParty.textContent = hasParty ? party : "Enter party name";
+    }
+
+    if (summaryStock) {
+      summaryStock.textContent = row ? (formatKg(row.stock) + " kg") : "—";
+    }
+
+    var featurePrice = currentFeaturePrice();
+    if (summaryRate) {
+      summaryRate.textContent = featurePrice != null ? ("₱" + featurePrice + " / kg") : "—";
+    }
+
+    if (summaryWeight) {
+      summaryWeight.textContent = hasKg ? (formatKg(kg) + " kg") : "—";
+    }
+
+    if (summaryAmount) {
+      if (hasDetails) {
+        summaryAmount.textContent = formatPeso(kg * price);
+        summaryAmount.style.color = !withinStock ? "#b91c1c" : "";
+      } else {
+        summaryAmount.textContent = "—";
+        summaryAmount.style.color = "";
+      }
+    }
+
+    if (ticketStockAfter) {
+      if (row && hasKg && Number.isFinite(stock)) {
+        var after = isSell ? (stock - kg) : (stock + kg);
+        ticketStockAfter.textContent = formatKg(after) + " kg";
+        ticketStockAfter.style.color = !withinStock ? "#b91c1c" : "";
+      } else {
+        ticketStockAfter.textContent = "—";
+        ticketStockAfter.style.color = "";
+      }
+    }
+
+    if (stockHint) {
+      if (!row) {
+        stockHint.textContent = "Select a product to see stock and pricing.";
+      } else if (isSell) {
+        stockHint.textContent = "Sell will deduct from " + formatKg(row.stock) + " kg available stock.";
+      } else {
+        stockHint.textContent = "Buy will add kilos to the current " + formatKg(row.stock) + " kg stock.";
+      }
+    }
+
+    if (ticketStatus) {
+      ticketStatus.textContent = ready ? "Ready" : "Incomplete";
+      ticketStatus.classList.toggle("is-ready", ready);
+    }
+
+    if (postBtn && !submitting) {
+      postBtn.innerHTML = isSell
+        ? '<i class="bi bi-check-lg"></i> Review &amp; post sell'
+        : '<i class="bi bi-check-lg"></i> Review &amp; post buy';
+    }
+
+    syncSteps(hasProduct, hasType, hasParty, hasDetails && withinStock, ready);
+  }
+
+  function syncUnitPrice(force) {
+    var featurePrice = currentFeaturePrice();
+    if (featurePrice == null) {
+      if (hint) hint.textContent = "Select a product to load its rate.";
+      refreshSummary();
+      return;
+    }
+    var current = (unitPrice.value || "").trim();
+    if (force || !current || current === lastAutoPrice) {
+      setMoneyValue(unitPrice, featurePrice);
+      lastAutoPrice = unitPrice.value;
+    }
+    var label = selectedTradeType() === "sell" ? "sell" : "buy";
+    if (hint) {
+      hint.textContent = "Default " + label + " rate ₱" + featurePrice + "/kg. Override if needed.";
+    }
+    refreshSummary();
+  }
+
+  function clearFieldFlash() {
+    [weight, unitPrice, partyName].forEach(function (el) {
+      if (el) el.classList.remove("pt-field-error-flash");
+    });
+  }
+
+  function flashField(el) {
+    if (!el) return;
+    el.classList.add("pt-field-error-flash");
+    try { el.focus(); } catch (e) {}
+  }
+
+  function validateTrade() {
+    clearFieldFlash();
+    var productId = selectedProductId();
+    var row = rates[productId];
+    if (!productId || !row) {
+      window.alert("Select a product (Rice Palay or Bigas) before posting.");
+      return null;
+    }
+
+    var kg = parseMoney(weight && weight.value);
+    if (!Number.isFinite(kg) || kg <= 0) {
+      flashField(weight);
+      window.alert("Enter a valid weight greater than zero.");
+      return null;
+    }
+
+    var price = parseMoney(unitPrice.value);
+    if (!Number.isFinite(price) || price <= 0) {
+      flashField(unitPrice);
+      window.alert("Enter a valid unit price greater than zero.");
+      return null;
+    }
+
+    var party = partyLabel();
+    if (!party) {
+      flashField(partyName);
+      window.alert("Enter the farmer/buyer name, or select a member.");
+      return null;
+    }
+
+    var isSell = selectedTradeType() === "sell";
+    var stock = Number(row.stock);
+    if (isSell && Number.isFinite(stock) && kg > stock + 1e-9) {
+      flashField(weight);
+      window.alert(
+        "Not enough stock. Available: " + formatKg(stock) + " kg. Sell weight: " + formatKg(kg) + " kg."
+      );
+      return null;
+    }
+
+    return {
+      productName: row.name,
+      isSell: isSell,
+      kg: kg,
+      price: price,
+      amount: kg * price,
+      party: party,
+      stock: stock,
+      stockAfter: isSell ? (stock - kg) : (stock + kg),
+    };
+  }
+
+  function setText(id, text) {
+    var el = document.getElementById(id);
+    if (el) el.textContent = text;
+  }
+
+  function openPostConfirm() {
+    if (submitting) return;
+    var data = validateTrade();
+    if (!data) return;
+
+    var modalEl = document.getElementById("confirmPalayTradeModal");
+    var bsModal = getModal(modalEl);
+    var header = document.getElementById("confirmPalayTradeHeader");
+    var title = document.getElementById("confirmPalayTradeModalLabel");
+    var confirmBtn = document.getElementById("confirmPalayTradeBtn");
+
+    setText("confirmTradeType", data.isSell ? "Sell from stock" : "Buy from farmer");
+    setText("confirmTradeProduct", data.productName);
+    setText("confirmTradeParty", data.party);
+    setText("confirmTradeWeight", formatKg(data.kg) + " kg");
+    setText("confirmTradePrice", formatPeso(data.price) + " / kg");
+    setText("confirmTradeAmount", formatPeso(data.amount));
+    setText(
+      "confirmTradeStockAfter",
+      formatKg(data.stockAfter) + " kg (" + (data.isSell ? "−" : "+") + formatKg(data.kg) + ")"
+    );
+
+    if (header) header.classList.toggle("is-sell", data.isSell);
+    if (title) {
+      title.innerHTML = data.isSell
+        ? '<i class="bi bi-arrow-up-circle me-2"></i>Confirm sell ticket'
+        : '<i class="bi bi-arrow-down-circle me-2"></i>Confirm buy ticket';
+    }
+    if (confirmBtn) {
+      confirmBtn.classList.toggle("is-sell", data.isSell);
+      confirmBtn.disabled = false;
+      confirmBtn.innerHTML = data.isSell
+        ? '<i class="bi bi-check-lg me-1"></i>Proceed — post sell'
+        : '<i class="bi bi-check-lg me-1"></i>Proceed — post buy';
+    }
+
+    if (!bsModal) {
+      if (window.confirm("Post this trade ticket now?")) submitTrade();
+      return;
+    }
+    try { bsModal.show(); }
+    catch (err) {
+      if (window.confirm("Post this trade ticket now?")) submitTrade();
+    }
+  }
+
+  function submitTrade() {
+    if (submitting) return;
+    submitting = true;
+    if (postBtn) {
+      postBtn.disabled = true;
+      postBtn.innerHTML =
+        '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Posting…';
+    }
+    var confirmBtn = document.getElementById("confirmPalayTradeBtn");
+    if (confirmBtn) {
+      confirmBtn.disabled = true;
+      confirmBtn.innerHTML =
+        '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Posting…';
+    }
+    if (window.MoneyInput && typeof window.MoneyInput.stripForm === "function") {
+      window.MoneyInput.stripForm(form);
+    }
+    HTMLFormElement.prototype.submit.call(form);
+  }
+
+  function proceedFromConfirm() {
+    if (submitting) return;
+    var modalEl = document.getElementById("confirmPalayTradeModal");
+    var bsModal = getModal(modalEl);
+    if (bsModal) { try { bsModal.hide(); } catch (e) {} }
+    window.setTimeout(submitTrade, 120);
+  }
+
+  document.getElementById("confirmPalayTradeBtn").addEventListener("click", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    proceedFromConfirm();
+  });
+
+  postBtn.addEventListener("click", function (e) {
+    e.preventDefault();
+    e.stopPropagation();
+    openPostConfirm();
+  });
+
+  form.addEventListener("submit", function (e) {
+    if (!submitting) {
+      e.preventDefault();
+      openPostConfirm();
+    }
+  });
+
+  function formHasDraft() {
+    var kg = parseMoney(weight && weight.value);
+    var price = parseMoney(unitPrice && unitPrice.value);
+    var party = partyLabel();
+    var notesEl = document.getElementById("{{ form.notes.id_for_label }}");
+    var notes = notesEl ? String(notesEl.value || "").trim() : "";
+    return (
+      (Number.isFinite(kg) && kg > 0) ||
+      (Number.isFinite(price) && price > 0 && String(unitPrice.value || "").trim() !== lastAutoPrice) ||
+      !!party || !!notes || !!(memberSelect && memberSelect.value)
+    );
+  }
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener("click", function (e) {
+      if (!formHasDraft()) return;
+      e.preventDefault();
+      var modalEl = document.getElementById("confirmCancelTradeModal");
+      var bsModal = getModal(modalEl);
+      if (!bsModal) {
+        if (window.confirm("Leave this page? Entered details will not be saved.")) {
+          window.location.href = cancelBtn.href;
+        }
+        return;
+      }
+      bsModal.show();
+    });
+  }
+
+  document.querySelectorAll('input[name="{{ form.product.html_name }}"]').forEach(function (el) {
+    el.addEventListener("change", function () { syncUnitPrice(true); });
+  });
+  document.querySelectorAll('input[name="{{ form.trade_type.html_name }}"]').forEach(function (el) {
+    el.addEventListener("change", function () { syncUnitPrice(true); });
+  });
+  unitPrice.addEventListener("input", refreshSummary);
+  if (weight) weight.addEventListener("input", refreshSummary);
+  if (partyName) partyName.addEventListener("input", refreshSummary);
+
+  syncUnitPrice(false);
+  refreshSummary();
+})();
+  </script>
+{% endblock %}

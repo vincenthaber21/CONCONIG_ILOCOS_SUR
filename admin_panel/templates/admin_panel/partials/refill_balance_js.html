@@ -1,0 +1,308 @@
+<script>
+  (function() {
+    function getCsrfToken() {
+      // Server-rendered token: required when CSRF_COOKIE_HTTPONLY=True (cookie not readable from JS).
+      const fromContext = '{{ csrf_token|escapejs }}';
+      if (fromContext) return fromContext;
+      const hidden = document.querySelector('[name=csrfmiddlewaretoken]');
+      if (hidden && hidden.value) return hidden.value;
+      const name = 'csrftoken';
+      const cookies = document.cookie.split(';');
+      for (let c of cookies) {
+        c = c.trim();
+        if (c.startsWith(name + '=')) return decodeURIComponent(c.substring(name.length + 1));
+      }
+      return '';
+    }
+    const csrftoken = getCsrfToken();
+    let searchTimeout = null, selectedMember = null;
+    const memberSearchInput = document.getElementById('memberSearch');
+    const searchMemberBtn = document.getElementById('searchMemberBtn');
+    const memberSearchResults = document.getElementById('memberSearchResults');
+    const memberResultsList = document.getElementById('memberResultsList');
+    const selectedMemberInfo = document.getElementById('selectedMemberInfo');
+    const selectedMemberName = document.getElementById('selectedMemberName');
+    const selectedMemberRfid = document.getElementById('selectedMemberRfid');
+    const selectedMemberBalance = document.getElementById('selectedMemberBalance');
+    const selectedMemberId = document.getElementById('selectedMemberId');
+    const clearSelectedMemberBtn = document.getElementById('clearSelectedMemberBtn');
+    const refillAmount = document.getElementById('refillAmount');
+    const submitRefillBtn = document.getElementById('submitRefillBtn');
+    const refillCancelBtn = document.getElementById('refillCancelBtn');
+    const refillDoneBtn = document.getElementById('refillDoneBtn');
+    const refillAlert = document.getElementById('refillAlert');
+    const refillBalanceModal = document.getElementById('refillBalanceModal');
+    const refillSuccessSummary = document.getElementById('refillSuccessSummary');
+    const refillBalanceForm = document.getElementById('refillBalanceForm');
+
+    // PIN box logic
+    const pinBoxes = Array.from(document.querySelectorAll('#refillPinBoxes .pin-box'));
+    const refillAdminPinHidden = document.getElementById('refillAdminPin');
+    const refillPinError = document.getElementById('refillPinError');
+
+    function getPinValue() { return pinBoxes.map(b => b.value).join(''); }
+    function hidePinError() {
+      if (refillPinError) { refillPinError.style.display = 'none'; refillPinError.textContent = ''; }
+    }
+    function showPinError(message) {
+      hidePinError();
+      if (refillPinError) {
+        refillPinError.textContent = message;
+        refillPinError.style.display = 'block';
+        refillPinError.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+      pinBoxes.forEach(b => { b.value = ''; b.style.borderColor = '#dc3545'; });
+      if (refillAdminPinHidden) refillAdminPinHidden.value = '';
+      if (pinBoxes[0]) pinBoxes[0].focus();
+      updateSubmitButton();
+    }
+    function isPinErrorResponse(data) {
+      return !!(data && (data.pin_wrong || (data.error && /pin/i.test(data.error))));
+    }
+    function clearPinBoxes() {
+      hidePinError();
+      pinBoxes.forEach(b => { b.value = ''; b.style.borderColor = '#dee2e6'; });
+      if (refillAdminPinHidden) refillAdminPinHidden.value = '';
+    }
+    pinBoxes.forEach((box, idx) => {
+      box.addEventListener('input', e => {
+        hidePinError();
+        box.value = box.value.replace(/[^0-9]/g, '').slice(-1);
+        box.style.borderColor = box.value ? '#0d6efd' : '#dee2e6';
+        if (refillAdminPinHidden) refillAdminPinHidden.value = getPinValue();
+        if (box.value && idx < pinBoxes.length - 1) pinBoxes[idx + 1].focus();
+        updateSubmitButton();
+      });
+      box.addEventListener('keydown', e => {
+        if (e.key === 'Backspace' && !box.value && idx > 0) { pinBoxes[idx - 1].focus(); pinBoxes[idx - 1].value = ''; pinBoxes[idx - 1].style.borderColor = '#dee2e6'; if (refillAdminPinHidden) refillAdminPinHidden.value = getPinValue(); updateSubmitButton(); }
+        if (e.key === 'ArrowLeft' && idx > 0) pinBoxes[idx - 1].focus();
+        if (e.key === 'ArrowRight' && idx < pinBoxes.length - 1) pinBoxes[idx + 1].focus();
+      });
+      box.addEventListener('paste', e => {
+        e.preventDefault();
+        const pasted = (e.clipboardData || window.clipboardData).getData('text').replace(/[^0-9]/g, '').slice(0, 4);
+        pasted.split('').forEach((ch, i) => { if (pinBoxes[i]) { pinBoxes[i].value = ch; pinBoxes[i].style.borderColor = '#0d6efd'; } });
+        if (refillAdminPinHidden) refillAdminPinHidden.value = getPinValue();
+        const next = pinBoxes[Math.min(pasted.length, pinBoxes.length - 1)]; if (next) next.focus();
+        updateSubmitButton();
+      });
+    });
+
+    function showAlert(message, type = 'success') {
+      refillAlert.className = `alert alert-${type} alert-dismissible fade show`;
+      refillAlert.innerHTML = `${message}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>`;
+      refillAlert.style.display = 'block';
+      if (type !== 'danger') { setTimeout(() => { refillAlert.style.display = 'none'; }, 6000); }
+    }
+
+    function resetRefillModal() {
+      if (memberSearchInput) memberSearchInput.value = '';
+      if (refillAmount) refillAmount.value = '';
+      const notesEl = document.getElementById('refillNotes');
+      if (notesEl) notesEl.value = '';
+      clearPinBoxes();
+      selectedMember = null;
+      if (selectedMemberInfo) selectedMemberInfo.style.display = 'none';
+      if (memberSearchResults) memberSearchResults.style.display = 'none';
+      if (refillAlert) refillAlert.style.display = 'none';
+      if (refillBalanceForm) refillBalanceForm.style.display = 'block';
+      if (refillSuccessSummary) refillSuccessSummary.style.display = 'none';
+      if (submitRefillBtn) { submitRefillBtn.disabled = true; submitRefillBtn.style.display = ''; submitRefillBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Refill Balance'; }
+      if (refillCancelBtn) { refillCancelBtn.style.display = ''; refillCancelBtn.disabled = false; }
+      if (refillDoneBtn) refillDoneBtn.style.display = 'none';
+    }
+
+    // Clear selected member button
+    if (clearSelectedMemberBtn) {
+      clearSelectedMemberBtn.addEventListener('click', () => {
+        selectedMember = null;
+        if (selectedMemberInfo) selectedMemberInfo.style.display = 'none';
+        if (memberSearchInput) { memberSearchInput.value = ''; memberSearchInput.focus(); }
+        if (memberSearchResults) memberSearchResults.style.display = 'none';
+        updateSubmitButton();
+      });
+    }
+
+    function searchMembers(query) {
+      if (!query || query.length < 2) { if (memberSearchResults) memberSearchResults.style.display = 'none'; return; }
+      // Show loading state
+      memberResultsList.innerHTML = '<div class="list-group-item text-muted text-center"><span class="spinner-border spinner-border-sm me-1"></span>Searching…</div>';
+      memberSearchResults.style.display = 'block';
+      fetch(`/api/search-members/?q=${encodeURIComponent(query)}`, { headers: { 'X-CSRFToken': csrftoken } })
+        .then(r => r.json()).then(data => {
+          if (data.success && data.members && data.members.length > 0) {
+            memberResultsList.innerHTML = '';
+            data.members.forEach(m => {
+              const item = document.createElement('a');
+              item.href = '#'; item.className = 'list-group-item list-group-item-action';
+              item.innerHTML = `
+                <div class="d-flex w-100 justify-content-between align-items-start gap-2 flex-wrap">
+                  <div style="min-width:0;">
+                    <div class="fw-semibold small refill-member-result-name">${m.name}</div>
+                    <div class="refill-member-result-meta" style="font-size:0.75rem;color:#6c757d;">
+                      RFID: ${m.rfid}${m.email ? ' &nbsp;|&nbsp; ' + m.email : ''}
+                    </div>
+                  </div>
+                  <span class="text-success fw-bold small text-nowrap">₱${parseFloat(m.current_balance).toFixed(2)}</span>
+                </div>`;
+              item.addEventListener('click', e => { e.preventDefault(); selectMember(m); });
+              memberResultsList.appendChild(item);
+            });
+            memberSearchResults.style.display = 'block';
+          } else {
+            memberResultsList.innerHTML = '<div class="list-group-item text-muted text-center">No members found</div>';
+            memberSearchResults.style.display = 'block';
+          }
+        }).catch(() => showAlert('Error searching members', 'danger'));
+    }
+
+    function selectMember(m) {
+      selectedMember = m;
+      selectedMemberName.textContent = m.name;
+      selectedMemberRfid.textContent = m.rfid;
+      selectedMemberBalance.textContent = `₱${parseFloat(m.current_balance).toFixed(2)}`;
+      selectedMemberId.value = m.id;
+      selectedMemberInfo.style.display = 'block';
+      memberSearchResults.style.display = 'none';
+      memberSearchInput.value = m.name;
+      updateSubmitButton();
+    }
+
+    function updateSubmitButton() {
+      if (submitRefillBtn) {
+        submitRefillBtn.disabled = !(selectedMember && refillAmount && refillAmount.value && parseFloat(refillAmount.value) > 0 && getPinValue().length === 4);
+      }
+    }
+
+    if (memberSearchInput) {
+      memberSearchInput.addEventListener('input', e => {
+        clearTimeout(searchTimeout); const q = e.target.value.trim();
+        if (q.length >= 2) { searchTimeout = setTimeout(() => searchMembers(q), 300); }
+        else { memberSearchResults.style.display = 'none'; selectedMember = null; if (selectedMemberInfo) selectedMemberInfo.style.display = 'none'; updateSubmitButton(); }
+      });
+    }
+    if (searchMemberBtn) {
+      searchMemberBtn.addEventListener('click', () => { const q = memberSearchInput.value.trim(); if (q.length >= 2) searchMembers(q); });
+    }
+    if (refillAmount) { refillAmount.addEventListener('input', updateSubmitButton); }
+
+    if (submitRefillBtn) {
+      submitRefillBtn.addEventListener('click', () => {
+        if (!selectedMember || !refillAmount.value) { showAlert('Please select a member and enter an amount.', 'warning'); return; }
+        const amount = parseFloat(refillAmount.value);
+        if (isNaN(amount) || amount <= 0) { showAlert('Please enter a valid amount.', 'warning'); return; }
+        const adminPwd = getPinValue();
+        if (adminPwd.length !== 4) {
+          showPinError('Please enter the full 4-digit Admin PIN.');
+          return;
+        }
+        hidePinError();
+
+        submitRefillBtn.disabled = true;
+        submitRefillBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Verifying & Processing...';
+        if (refillCancelBtn) refillCancelBtn.disabled = true;
+
+        fetch('/api/refill-balance/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrftoken },
+          body: JSON.stringify({
+            member_id: selectedMember.id,
+            amount: amount,
+            notes: (document.getElementById('refillNotes') || {}).value || '',
+            admin_pin: adminPwd
+          })
+        })
+        .then(async (r) => {
+          const text = await r.text();
+          let data;
+          try {
+            data = JSON.parse(text);
+          } catch (e) {
+            if (refillCancelBtn) refillCancelBtn.disabled = false;
+            showAlert(
+              r.status === 403
+                ? 'Security check failed or your session expired. Refresh the page and try again.'
+                : 'Unexpected server response. Please try again.',
+              'danger'
+            );
+            submitRefillBtn.disabled = false;
+            submitRefillBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Refill Balance';
+            return;
+          }
+          if (refillCancelBtn) refillCancelBtn.disabled = false;
+          if (data.success) {
+            if (refillSuccessSummary && refillBalanceForm) {
+              document.getElementById('summaryMemberName').textContent = data.member.name;
+              document.getElementById('summaryMemberRfid').textContent = data.member.rfid;
+              document.getElementById('summaryAmount').textContent = `₱${amount.toFixed(2)}`;
+              document.getElementById('summaryNewBalance').textContent = `₱${parseFloat(data.member.new_balance).toFixed(2)}`;
+              const notifEl = document.getElementById('summaryMemberNotified');
+              if (notifEl) notifEl.style.display = data.member_notified ? 'block' : 'none';
+              refillBalanceForm.style.display = 'none';
+              refillSuccessSummary.style.display = 'block';
+              if (refillCancelBtn) refillCancelBtn.style.display = 'none';
+              submitRefillBtn.style.display = 'none';
+              if (refillDoneBtn) refillDoneBtn.style.display = '';
+            } else {
+              showAlert(data.message || 'Balance refilled successfully.', 'success');
+              resetRefillModal();
+              setTimeout(() => window.location.reload(), 1500);
+            }
+          } else if (isPinErrorResponse(data)) {
+            showPinError(data.error || 'Incorrect PIN. Please try again.');
+            submitRefillBtn.disabled = false;
+            submitRefillBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Refill Balance';
+          } else {
+            hidePinError();
+            showAlert(`<strong>Error:</strong> ${data.error || 'Failed to refill balance.'}`, 'danger');
+            submitRefillBtn.disabled = false;
+            submitRefillBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Refill Balance';
+          }
+        })
+        .catch(() => {
+          if (refillCancelBtn) refillCancelBtn.disabled = false;
+          showAlert('Network error. Please try again.', 'danger');
+          submitRefillBtn.disabled = false;
+          submitRefillBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Refill Balance';
+        });
+      });
+    }
+
+    if (refillDoneBtn) {
+      refillDoneBtn.addEventListener('click', () => {
+        bootstrap.Modal.getInstance(refillBalanceModal).hide();
+        setTimeout(() => window.location.reload(), 200);
+      });
+    }
+
+    if (refillBalanceModal) {
+      refillBalanceModal.addEventListener('hidden.bs.modal', () => { resetRefillModal(); });
+    }
+
+    // Expose quickRefill for pages that use per-row refill buttons (e.g. members page)
+    window.quickRefill = function(memberId, memberName, rfid, currentBalance) {
+      selectedMember = { id: memberId, name: memberName, rfid: rfid, current_balance: String(currentBalance) };
+      if (selectedMemberName) selectedMemberName.textContent = memberName;
+      if (selectedMemberRfid) selectedMemberRfid.textContent = rfid;
+      if (selectedMemberBalance) selectedMemberBalance.textContent = `₱${parseFloat(currentBalance).toFixed(2)}`;
+      if (selectedMemberId) selectedMemberId.value = memberId;
+      if (selectedMemberInfo) selectedMemberInfo.style.display = 'block';
+      if (memberSearchInput) memberSearchInput.value = memberName;
+      if (memberSearchResults) memberSearchResults.style.display = 'none';
+      updateSubmitButton();
+      bootstrap.Modal.getOrCreateInstance(refillBalanceModal).show();
+    };
+
+    // Wire up any quick-refill buttons in the page
+    document.querySelectorAll('.quick-refill-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        window.quickRefill(
+          this.dataset.memberId,
+          this.dataset.memberName,
+          this.dataset.memberRfid,
+          parseFloat(this.dataset.memberBalance)
+        );
+      });
+    });
+  })();
+</script>

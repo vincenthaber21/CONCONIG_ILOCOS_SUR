@@ -1,0 +1,116 @@
+{% load currency_filters %}
+{# Expects: disbursement, application, member_name, store_profile, disbursed_by_name #}
+<article class="or-sheet">
+  <header class="or-head">
+    <div class="or-brand">
+      {% include "admin_panel/partials/receipt_or_store_brand.html" with fallback_title="Cooperative Loan Office" %}
+    </div>
+    <div class="or-badge">
+      <div class="label">Disbursement Voucher</div>
+      <div class="or-no">{{ disbursement.voucher_number }}</div>
+      <div class="copy">Member / Office copy</div>
+    </div>
+  </header>
+
+  <h2 class="or-title">Loan Disbursement Voucher</h2>
+
+  <dl class="meta-grid">
+    <div>
+      <dt>Date / time</dt>
+      <dd>{{ disbursement.disbursement_date|date:"M j, Y g:i A" }}</dd>
+    </div>
+    <div>
+      <dt>Disbursement method</dt>
+      <dd>{{ disbursement.get_disbursement_method_display }}</dd>
+    </div>
+    <div>
+      <dt>Released to</dt>
+      <dd>{{ member_name }}</dd>
+    </div>
+    <div>
+      <dt>Member account</dt>
+      <dd>{{ application.member }}</dd>
+    </div>
+    <div>
+      <dt>Loan product</dt>
+      <dd>{{ application.loan_product.name }}</dd>
+    </div>
+    <div>
+      <dt>Loan application</dt>
+      <dd style="font-family:ui-monospace,Consolas,monospace;font-size:.82rem;">{{ application.id }}</dd>
+    </div>
+    {% if disbursement.reference_number %}
+    <div>
+      <dt>Check / transfer ref.</dt>
+      <dd>{{ disbursement.reference_number }}</dd>
+    </div>
+    {% endif %}
+    <div>
+      <dt>Loan principal (repayment basis)</dt>
+      <dd>&#8369;{{ application.amount_requested|currency }}</dd>
+    </div>
+  </dl>
+
+  <table class="breakdown">
+    <thead>
+      <tr>
+        <th>Description</th>
+        <th class="breakdown__amount">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Approved loan principal</td>
+        <td class="breakdown__amount">&#8369;{{ application.amount_requested|currency }}</td>
+      </tr>
+      {% if disbursement.transaction_fee and disbursement.transaction_fee > 0 %}
+      <tr class="breakdown__deduction">
+        <td>Less: Transaction fee</td>
+        <td class="breakdown__amount">&#8722;&#8369;{{ disbursement.transaction_fee|currency }}</td>
+      </tr>
+      {% endif %}
+      {% if disbursement.other_deduction_amount and disbursement.other_deduction_amount > 0 %}
+      <tr class="breakdown__deduction">
+        <td>Less: {{ disbursement.other_deduction_label|default:"Other deduction" }}</td>
+        <td class="breakdown__amount">&#8722;&#8369;{{ disbursement.other_deduction_amount|currency }}</td>
+      </tr>
+      {% endif %}
+      <tr class="breakdown__total">
+        <td><strong>Net amount released to member</strong></td>
+        <td class="breakdown__amount"><strong>&#8369;{{ disbursement.amount_released|currency }}</strong></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="amount-box">
+    <div>
+      <div class="lbl">Net cash / check / transfer released</div>
+      <div style="font-size:.82rem;color:#64748b;margin-top:.2rem;">
+        Member repays principal &#8369;{{ application.amount_requested|currency }}
+      </div>
+    </div>
+    <div class="val">&#8369;{{ disbursement.amount_released|currency }}</div>
+  </div>
+
+  <div class="notes">
+    <strong>Note:</strong> The loan principal remains &#8369;{{ application.amount_requested|currency }} for repayment
+    and interest calculation. Deductions above were withheld at disbursement only.
+  </div>
+
+  <div class="sign-row">
+    <div class="sign-box">
+      <div class="sign-line">Member / Borrower</div>
+      <div class="sign-sub">{{ member_name }}</div>
+    </div>
+    <div class="sign-box">
+      <div class="sign-line">Released by</div>
+      <div class="sign-sub">{{ disbursed_by_name }}</div>
+    </div>
+  </div>
+
+  <p class="security">
+    This disbursement voucher is issued for transparency and audit purposes.
+    Keep this copy as proof of the net amount received. Voucher number must match the disbursement record in the system.
+    Generated {{ disbursement.created_at|date:"M j, Y g:i A" }}.
+  </p>
+</article>

@@ -1,0 +1,277 @@
+<script>
+(function () {
+  const modalEl = document.getElementById('creditInterestSettingsModal');
+  const form = document.getElementById('creditInterestSettingsForm');
+  if (!modalEl || !form || modalEl.dataset.creditInterestReady === '1') return;
+  modalEl.dataset.creditInterestReady = '1';
+
+  const rateInput = document.getElementById('creditInterestRateInput');
+  const graceInput = document.getElementById('creditGraceDaysInput');
+  const enabledInput = document.getElementById('creditInterestEnabledInput');
+  const rateHint = document.getElementById('creditInterestRateHint');
+  const loadAlert = document.getElementById('creditInterestLoadAlert');
+  const formAlert = document.getElementById('creditInterestFormAlert');
+  const saveBtn = document.getElementById('creditInterestSaveBtn');
+  const pinBoxes = Array.from(document.querySelectorAll('.credit-interest-pin-box'));
+
+  const apiUrl = '{% url "api_credit_settings" %}';
+
+  function getCsrf() {
+    const fromContext = '{{ csrf_token|escapejs }}';
+    if (fromContext) return fromContext;
+    const hidden = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (hidden && hidden.value) return hidden.value;
+    const m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+
+  function parseJsonResponse(r) {
+    return r.text().then(function (text) {
+      try {
+        return { ok: r.ok, status: r.status, data: JSON.parse(text) };
+      } catch (e) {
+        var message = 'Unexpected server response. Please refresh the page and try again.';
+        if (r.status === 403) {
+          message = 'Security check failed or your session expired. Refresh the page and try again.';
+        } else if (r.status === 401 || (r.redirected && r.url && r.url.indexOf('login') >= 0)) {
+          message = 'Your session expired. Please log in again.';
+        } else if (r.status === 404) {
+          message = 'Credit settings API is unavailable. Restart the server and try again.';
+        }
+        throw new Error(message);
+      }
+    });
+  }
+
+  function showFormAlert(message, type) {
+    if (!formAlert) return;
+    type = type || 'danger';
+    formAlert.className = 'alert alert-' + type + ' alert-dismissible fade show mt-2';
+    formAlert.innerHTML =
+      message +
+      '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>';
+    formAlert.style.display = 'block';
+  }
+
+  function hideFormAlert() {
+    if (formAlert) formAlert.style.display = 'none';
+  }
+
+  function setLoading(loading) {
+    if (rateInput) rateInput.disabled = loading;
+    if (graceInput) graceInput.disabled = loading;
+    if (enabledInput) enabledInput.disabled = loading;
+    pinBoxes.forEach(function (b) { b.disabled = loading; });
+    if (saveBtn) saveBtn.disabled = loading;
+  }
+
+  function getPin() {
+    return pinBoxes.map(function (b) { return (b.value || '').trim(); }).join('');
+  }
+
+  function clearPin() {
+    pinBoxes.forEach(function (b) { b.value = ''; });
+    if (pinBoxes[0]) pinBoxes[0].focus();
+  }
+
+  function updateRateHint(rate, enabled) {
+    if (!rateHint) return;
+    const v = parseFloat(rate);
+    if (!enabled || isNaN(v) || v <= 0) {
+      rateHint.textContent = 'Interest is off — unpaid utang will not get an interest charge.';
+      rateHint.className = 'form-text text-warning';
+    } else {
+      rateHint.textContent =
+        'Each unpaid month adds (principal × ' + v.toFixed(3) + '). Example: ₱500 → ₱507.50 (month 1), then +₱7.50 each later month.';
+      rateHint.className = 'form-text text-muted';
+    }
+  }
+
+  function wirePinBoxes() {
+    pinBoxes.forEach(function (box, idx) {
+      box.addEventListener('input', function () {
+        box.value = (box.value || '').replace(/\D/g, '').slice(0, 1);
+        if (box.value && idx < pinBoxes.length - 1) pinBoxes[idx + 1].focus();
+      });
+      box.addEventListener('keydown', function (e) {
+        if (e.key === 'Backspace' && !box.value && idx > 0) {
+          pinBoxes[idx - 1].focus();
+        }
+      });
+      box.addEventListener('paste', function (e) {
+        e.preventDefault();
+        const digits = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 4);
+        digits.split('').forEach(function (d, i) {
+          if (pinBoxes[i]) pinBoxes[i].value = d;
+        });
+        if (pinBoxes[Math.min(digits.length, 3)]) {
+          pinBoxes[Math.min(digits.length, 3)].focus();
+        }
+      });
+    });
+  }
+
+  function loadSettings() {
+    hideFormAlert();
+    if (loadAlert) {
+      loadAlert.className = 'alert alert-secondary py-2 small mb-3';
+      loadAlert.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Loading current settings…';
+      loadAlert.style.display = 'block';
+    }
+    setLoading(true);
+
+    fetch(apiUrl, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+      credentials: 'same-origin',
+    })
+      .then(parseJsonResponse)
+      .then(function (res) {
+        if (!res.ok || !res.data.success) {
+          throw new Error((res.data && res.data.error) || 'Could not load settings');
+        }
+        if (rateInput) rateInput.value = res.data.interest_rate;
+        if (graceInput) graceInput.value = res.data.grace_period_days;
+        if (enabledInput) enabledInput.checked = !!res.data.is_enabled;
+        updateRateHint(res.data.interest_rate, res.data.is_enabled);
+        if (loadAlert) loadAlert.style.display = 'none';
+        setLoading(false);
+        if (rateInput) rateInput.focus();
+      })
+      .catch(function (err) {
+        if (loadAlert) {
+          loadAlert.className = 'alert alert-danger py-2 small mb-3';
+          loadAlert.textContent = err.message || 'Failed to load settings';
+        }
+        setLoading(true);
+      });
+  }
+
+  function syncHint() {
+    updateRateHint(rateInput && rateInput.value, enabledInput && enabledInput.checked);
+  }
+
+  if (rateInput) rateInput.addEventListener('input', syncHint);
+  if (enabledInput) enabledInput.addEventListener('change', syncHint);
+
+  form.addEventListener('submit', function (e) {
+    e.preventDefault();
+    hideFormAlert();
+
+    const rate = parseFloat((rateInput && rateInput.value !== '') ? rateInput.value : '0');
+    if (isNaN(rate) || rate < 0 || rate > 100) {
+      showFormAlert('Enter a valid interest rate between 0 and 100.', 'warning');
+      return;
+    }
+
+    const grace = parseInt((graceInput && graceInput.value !== '') ? graceInput.value : '0', 10);
+    if (isNaN(grace) || grace < 0) {
+      showFormAlert('Enter a valid grace period (0 or more days).', 'warning');
+      return;
+    }
+
+    const pin = getPin();
+    if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
+      showFormAlert('Enter a valid 4-digit Admin PIN.', 'warning');
+      return;
+    }
+
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving…';
+    }
+
+    const enabled = !!(enabledInput && enabledInput.checked) && rate > 0;
+
+    fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-CSRFToken': getCsrf(),
+        'Accept': 'application/json',
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify({
+        interest_rate: rate.toFixed(3),
+        grace_period_days: grace,
+        is_enabled: enabled,
+        admin_pin: pin,
+      }),
+    })
+      .then(parseJsonResponse)
+      .then(function (res) {
+        if (!res.ok || !res.data.success) {
+          throw new Error((res.data && res.data.error) || 'Save failed');
+        }
+        showFormAlert(
+          '<i class="bi bi-check-circle me-1"></i>Saved. ' +
+            (res.data.is_enabled
+              ? ('Interest rate <strong>' + res.data.interest_rate + '</strong> — (principal × rate) each unpaid month after <strong>' +
+                  res.data.grace_period_days + '</strong> day grace.')
+              : 'Credit interest is <strong>disabled</strong>.'),
+          'success'
+        );
+        if (rateInput) rateInput.value = res.data.interest_rate;
+        if (graceInput) graceInput.value = res.data.grace_period_days;
+        if (enabledInput) enabledInput.checked = !!res.data.is_enabled;
+        updateRateHint(res.data.interest_rate, res.data.is_enabled);
+        clearPin();
+        document.dispatchEvent(new CustomEvent('creditInterestSettingsUpdated', {
+          detail: res.data,
+        }));
+        setTimeout(function () {
+          if (typeof bootstrap !== 'undefined') {
+            const inst = bootstrap.Modal.getInstance(modalEl);
+            if (inst) inst.hide();
+          }
+          window.location.reload();
+        }, 1000);
+      })
+      .catch(function (err) {
+        showFormAlert(err.message || 'Could not save settings.', 'danger');
+        clearPin();
+      })
+      .finally(function () {
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Save Settings';
+        }
+      });
+  });
+
+  modalEl.addEventListener('show.bs.modal', function () {
+    clearPin();
+    hideFormAlert();
+    loadSettings();
+  });
+
+  modalEl.addEventListener('hidden.bs.modal', function () {
+    clearPin();
+    hideFormAlert();
+    if (loadAlert) {
+      loadAlert.style.display = 'block';
+      loadAlert.className = 'alert alert-secondary py-2 small mb-3';
+      loadAlert.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Loading current settings…';
+    }
+    setLoading(true);
+  });
+
+  document.querySelectorAll('[data-open-credit-interest-modal]').forEach(function (el) {
+    el.addEventListener('click', function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var dropdownRoot = el.closest('.dropdown');
+      var dropdownToggle = dropdownRoot && dropdownRoot.querySelector(':scope > [data-bs-toggle="dropdown"]');
+      if (dropdownToggle && typeof bootstrap !== 'undefined') {
+        var dd = bootstrap.Dropdown.getInstance(dropdownToggle);
+        if (dd) dd.hide();
+      }
+      if (typeof bootstrap !== 'undefined') {
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+      }
+    });
+  });
+
+  wirePinBoxes();
+})();
+</script>

@@ -1,0 +1,3358 @@
+{% load currency_filters %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Transaction History | {{ kiosk_system_name }}</title>
+  {% include "partials/bootstrap_head.html" %}
+  <style>
+    :root {
+      --dark: #0f172a;
+      --brand: #ED1C24;
+      --accent: #E6C200;
+      --muted: #94a3b8;
+      --panel: #ffffff;
+      --gradient: linear-gradient(135deg, #ED1C24 0%, #C4121A 40%, #8B0E14 100%);
+    }
+
+    body {
+      background: #f1f5f9;
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    }
+
+    .super-nav {
+      background: var(--dark);
+      color: #fff;
+      box-shadow: 0 10px 30px rgba(15,23,42,0.4);
+    }
+
+    .nav-pill {
+      border-radius: 999px;
+      padding: 8px 18px;
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
+    }
+
+    .nav-pill.active, .nav-pill:hover {
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+    }
+
+    .hero-card {
+      background: var(--gradient);
+      color: #fff;
+      border-radius: 24px;
+      padding: 32px;
+      box-shadow: 0 25px 55px rgba(15,23,42,0.35);
+    }
+
+    .stat-card {
+      border: none;
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 18px 36px rgba(15,23,42,0.08);
+      background: var(--panel);
+      height: 100%;
+    }
+
+    .stat-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      color: #fff;
+    }
+
+    .stat-title {
+      color: var(--muted);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .table-card {
+      border-radius: 20px;
+      padding: 20px;
+      background: var(--panel);
+      box-shadow: 0 15px 30px rgba(15,23,42,0.07);
+    }
+
+    .table-card table {
+      font-size: 0.9rem;
+    }
+
+    .table-card thead {
+      color: var(--muted);
+      text-transform: uppercase;
+      font-size: 0.75rem;
+    }
+
+    .badge-payment {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+    }
+
+    .badge-debit {
+      background: #d1fae5;
+      color: var(--accent);
+    }
+
+
+    .badge-cash {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+
+    .badge-credit {
+      background: #ede9fe;
+      color: #5b21b6;
+    }
+
+    .txn-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.65rem;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.72rem;
+      line-height: 1.2;
+      white-space: nowrap;
+      border: 1px solid transparent;
+    }
+
+    .txn-status-badge .bi {
+      font-size: 0.85rem;
+      flex-shrink: 0;
+    }
+
+    .txn-status-completed {
+      background: #d1fae5;
+      color: #065f46;
+      border-color: #a7f3d0;
+    }
+
+    .txn-status-pending {
+      background: #fef3c7;
+      color: #92400e;
+      border-color: #fde68a;
+    }
+
+    .txn-status-cancelled {
+      background: #fee2e2;
+      color: #991b1b;
+      border-color: #fecaca;
+    }
+
+    .txn-status-refunded {
+      background: #ede9fe;
+      color: #5b21b6;
+      border-color: #ddd6fe;
+    }
+
+    .txn-status-refund_requested {
+      background: #FEF7D5;
+      color: #c2410c;
+      border-color: #fed7aa;
+    }
+
+    .txn-status-return_window {
+      background: #fef9c3;
+      color: #854d0e;
+      border-color: #fde047;
+    }
+
+    .txn-status-partially_refunded {
+      background: linear-gradient(135deg, #e0f2fe 0%, #ffedd5 100%);
+      color: #0c4a6e;
+      border-color: #7dd3fc;
+    }
+
+    .txn-status-return_expired {
+      background: #fce7f3;
+      color: #9d174d;
+      border-color: #f9a8d4;
+    }
+
+    .txn-table thead th {
+      background: #f8fafc;
+      border-bottom: 2px solid #e2e8f0;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      padding-top: 0.85rem;
+      padding-bottom: 0.85rem;
+    }
+
+    .txn-table tbody tr.txn-row-main:hover {
+      background: #f8fafc;
+    }
+
+    .txn-table tbody tr.txn-row-main td {
+      vertical-align: middle;
+      padding-top: 0.75rem;
+      padding-bottom: 0.75rem;
+    }
+
+    .txn-table .txn-num code {
+      background: #f1f5f9;
+      padding: 0.2rem 0.45rem;
+      border-radius: 6px;
+      font-size: 0.82rem;
+    }
+
+    .txn-export-bar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.65rem 0.85rem;
+      padding: 0.85rem 1rem;
+      margin-bottom: 1rem;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+    }
+
+    .txn-export-bar .form-control[type="date"] {
+      border: 1.5px solid #ED1C24;
+      border-radius: 999px;
+      width: auto;
+      min-width: 10.5rem;
+    }
+
+    .txn-filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      align-items: center;
+      padding: 0.75rem 0;
+      margin-bottom: 0.5rem;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    .txn-filter-bar .filter-label {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-right: 0.25rem;
+    }
+
+    .txn-filter-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      text-decoration: none;
+      border: 1px solid #e2e8f0;
+      color: #475569;
+      background: #fff;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+    }
+
+    .txn-filter-pill:hover {
+      background: #f1f5f9;
+      color: var(--dark);
+      border-color: #cbd5e1;
+    }
+
+    .txn-filter-pill.active {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: #fff;
+    }
+
+    .txn-filter-pill .filter-count {
+      background: rgba(0,0,0,0.08);
+      padding: 0.1rem 0.45rem;
+      border-radius: 999px;
+      font-size: 0.7rem;
+    }
+
+    .txn-filter-pill.active .filter-count {
+      background: rgba(255,255,255,0.25);
+    }
+
+    .item-row-refunded {
+      opacity: 0.75;
+      text-decoration: line-through;
+      text-decoration-color: #94a3b8;
+    }
+
+    .item-refunded-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.2rem;
+      margin-left: 0.35rem;
+      padding: 0.1rem 0.45rem;
+      border-radius: 999px;
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      background: #ede9fe;
+      color: #5b21b6;
+      text-decoration: none;
+    }
+
+    .partial-refund-hint {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      margin-top: 0.5rem;
+      padding: 0.4rem 0.65rem;
+      border-radius: 8px;
+      font-size: 0.8rem;
+      background: #e0f2fe;
+      color: #0c4a6e;
+      border: 1px solid #7dd3fc;
+    }
+
+    .return-deadline-urgent {
+      color: #dc2626;
+      font-weight: 700;
+    }
+
+    .return-deadline-ok {
+      color: #16a34a;
+      font-weight: 600;
+    }
+
+    .refund-tab-badge {
+      font-size: 0.7rem;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: #c2410c;
+      color: #fff;
+      font-weight: 700;
+      vertical-align: middle;
+    }
+
+    .refill-pagination-rail {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      max-width: 100%;
+      gap: 2px;
+    }
+
+    .refill-pagination-rail .page-link {
+      white-space: nowrap;
+    }
+
+    .transaction-details {
+      background: #f8fafc;
+      border-radius: 8px;
+      padding: 12px;
+      margin-top: 8px;
+      font-size: 0.85rem;
+    }
+
+    .transaction-details-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .transaction-details-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .detail-label {
+      color: var(--muted);
+      font-size: 0.8rem;
+    }
+
+    .detail-value {
+      font-weight: 600;
+      color: var(--dark);
+    }
+
+    .items-list {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .item-row {
+      padding: 4px 0;
+      font-size: 0.85rem;
+    }
+
+    .expand-btn {
+      cursor: pointer;
+      color: var(--brand);
+    }
+
+    .expand-btn:hover {
+      color: var(--accent);
+    }
+
+    /* Custom Logout Confirmation Modal */
+    #logoutConfirmModal {
+      z-index: 9999 !important;
+    }
+    #logoutConfirmModal .modal-dialog {
+      max-width: 480px;
+      margin: 10vh auto;
+      display: flex;
+      align-items: center;
+      min-height: calc(100vh - 20vh);
+    }
+    #logoutConfirmModal .modal-content {
+      border-radius: 18px;
+      border: none;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
+      animation: modalSlideIn 0.3s ease-out;
+    }
+    @keyframes modalSlideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-30px) scale(0.95);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+    }
+    #logoutConfirmModal .modal-backdrop {
+      background-color: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(4px);
+      z-index: 9998 !important;
+    }
+    #logoutConfirmModal .modal-header {
+      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+      border-bottom: 2px solid #dee2e6;
+      padding: 24px 32px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    #logoutConfirmModal .modal-header .modal-title {
+      font-weight: 700;
+      font-size: 1.5rem;
+      color: #1a1a1a;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 0;
+    }
+    #logoutConfirmModal .modal-header .modal-title i {
+      color: #ED1C24;
+      font-size: 1.8rem;
+    }
+    #logoutConfirmModal .modal-body {
+      padding: 32px;
+      text-align: center;
+    }
+    #logoutConfirmModal .modal-body .warning-icon {
+      font-size: 4rem;
+      color: #ED1C24;
+      margin-bottom: 20px;
+      display: block;
+    }
+    #logoutConfirmModal .modal-body p {
+      font-size: 1.1rem;
+      color: #495057;
+      line-height: 1.6;
+      margin: 0;
+      font-weight: 400;
+    }
+    #logoutConfirmModal .modal-footer {
+      border-top: 2px solid #e9ecef;
+      padding: 20px 32px;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      background: #f8f9fa;
+    }
+    #logoutConfirmModal .modal-footer .btn {
+      min-width: 120px;
+      padding: 12px 24px;
+      font-weight: 600;
+      font-size: 1rem;
+      border-radius: 8px;
+      transition: all 0.2s ease;
+    }
+    #logoutConfirmModal .modal-footer .btn-cancel {
+      background: #6c757d;
+      border: 2px solid #6c757d;
+      color: white;
+    }
+    #logoutConfirmModal .modal-footer .btn-cancel:hover {
+      background: #5a6268;
+      border-color: #5a6268;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+    }
+    #logoutConfirmModal .modal-footer .btn-confirm {
+      background: linear-gradient(135deg, #ED1C24, #C4121A);
+      border: 2px solid #ED1C24;
+      color: white;
+    }
+    #logoutConfirmModal .modal-footer .btn-confirm:hover {
+      background: linear-gradient(135deg, #C4121A, #A10F16);
+      border-color: #A10F16;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(237, 28, 36, 0.4);
+    }
+  </style>
+</head>
+<body>
+  {% include 'admin_panel/partials/admin_top_navbar.html' %}
+
+  <main class="container-fluid px-4 py-5">
+    <section class="hero-card mb-4">
+      <div class="row align-items-center">
+        <div class="col-lg-8">
+          <p class="mb-2 text-uppercase fw-semibold" style="letter-spacing:0.2em;">Transaction Management</p>
+          <h1 class="fw-bold mb-2">All Transactions{% include 'admin_panel/partials/admin_role_badge.html' %}</h1>
+          <p class="mb-0 lead text-white-50">
+            View and manage all transaction records from this centralized console.
+          </p>
+        </div>
+        <div class="col-lg-4 text-end">
+          <a href="{% url 'dashboard' %}" class="btn btn-light rounded-pill px-4">
+            <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+          </a>
+        </div>
+      </div>
+    </section>
+
+    {% include 'admin_panel/partials/admin_main_nav.html' with nav_active='transactions' %}
+
+    <section class="row g-4 mb-4">
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#ED1C24;">
+              <i class="bi bi-receipt-cutoff"></i>
+            </div>
+            <div>
+              <div class="stat-title">Total Transactions</div>
+              <h3 class="mb-0">{{ total_transactions }}</h3>
+              <small class="text-muted">All records</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#6366f1;">
+              <i class="bi bi-cash-coin"></i>
+            </div>
+            <div>
+              <div class="stat-title">Net Revenue</div>
+              <h3 class="mb-0">₱{{ total_revenue|floatformat:2 }}</h3>
+              <small class="text-muted">Completed &amp; partial (net)</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#059669;">
+              <i class="bi bi-check-circle"></i>
+            </div>
+            <div>
+              <div class="stat-title">Completed</div>
+              <h3 class="mb-0">{{ completed_transactions }}</h3>
+              <small class="text-muted">Successful sales</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#7c3aed;">
+              <i class="bi bi-pie-chart"></i>
+            </div>
+            <div>
+              <div class="stat-title">Partial Refund</div>
+              <h3 class="mb-0">{{ partially_refunded_transactions }}</h3>
+              <small class="text-muted">₱{{ partial_refund_net_amount|floatformat:2 }} net kept</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#dc2626;">
+              <i class="bi bi-arrow-counterclockwise"></i>
+            </div>
+            <div>
+              <div class="stat-title">Refunded</div>
+              <h3 class="mb-0">{{ refunded_transactions }}</h3>
+              <small class="text-muted">Fully refunded</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#be185d;">
+              <i class="bi bi-calendar-x"></i>
+            </div>
+            <div>
+              <div class="stat-title">Return Expired</div>
+              <h3 class="mb-0">{{ return_expired_transactions }}</h3>
+              <small class="text-muted">No refund issued</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#c2410c;">
+              <i class="bi bi-arrow-repeat"></i>
+            </div>
+            <div>
+              <div class="stat-title">Refund Requests</div>
+              <h3 class="mb-0">{{ refund_requested_count }}</h3>
+              <small class="text-muted">Awaiting approval</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-3">
+        <div class="stat-card">
+          <div class="d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#FFF200;color:#111;">
+              <i class="bi bi-wallet2"></i>
+            </div>
+            <div>
+              <div class="stat-title">Balance refills</div>
+              <h3 class="mb-0">{{ total_refills }}</h3>
+              <small class="text-muted">Card top-ups logged</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tabs -->
+    <ul class="nav nav-pills mb-3" id="txnTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="all-tab" data-bs-toggle="pill" data-bs-target="#all-transactions" type="button" role="tab">
+          <i class="bi bi-list-ul me-1"></i>All Transactions
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="refund-req-tab" data-bs-toggle="pill" data-bs-target="#refund-requests" type="button" role="tab">
+          <i class="bi bi-arrow-repeat me-1"></i>Refund Requests
+          {% if refund_requested_count %}<span class="refund-tab-badge ms-1">{{ refund_requested_count }}</span>{% endif %}
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="return-window-tab" data-bs-toggle="pill" data-bs-target="#return-window" type="button" role="tab">
+          <i class="bi bi-hourglass-split me-1"></i>Return Window
+          {% if return_window_count %}<span class="refund-tab-badge ms-1" style="background:#d97706;">{{ return_window_count }}</span>{% endif %}
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="balance-refills-tab" data-bs-toggle="pill" data-bs-target="#balance-refills" type="button" role="tab">
+          <i class="bi bi-wallet2 me-1"></i>Balance refills
+          {% if unseen_refills_count %}<span class="refund-tab-badge ms-1 balance-refills-notify-badge" style="background:#ED1C24;">{{ unseen_refills_count }}</span>{% endif %}
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="pay-credit-tab" data-bs-toggle="pill" data-bs-target="#pay-credit" type="button" role="tab">
+          <i class="bi bi-cash-coin me-1"></i>Pay Credit (Utang)
+          {% if total_credit_payments %}<span class="refund-tab-badge ms-1" style="background:#7c3aed;">{{ total_credit_payments }}</span>{% endif %}
+        </button>
+      </li>
+    </ul>
+
+    <div class="tab-content" id="txnTabsContent">
+
+    <!-- All Transactions Tab -->
+    <div class="tab-pane fade show active" id="all-transactions" role="tabpanel">
+    <section class="row g-4">
+      <div class="col-12">
+        <div class="table-card">
+          {% if payment_method_filter or status_filter %}
+          <div class="alert alert-light border d-flex flex-wrap align-items-center gap-2 py-2 px-3 mb-3" style="border-color:#ddd6fe !important;background:#f5f3ff;">
+            <i class="bi bi-funnel text-primary"></i>
+            <span class="small mb-0">
+              {% if status_filter and payment_method_filter %}
+              Showing <strong>{{ status_filter_label }}</strong> · <strong>{{ payment_method_filter|title }}</strong> only.
+              {% elif status_filter %}
+              Showing <strong>{{ status_filter_label }}</strong> transactions only.
+              {% else %}
+              Showing <strong>{{ payment_method_filter|title }}</strong> transactions only.
+              {% endif %}
+            </span>
+            <a href="{% if payment_method_filter and status_filter %}{% url 'transaction_history' %}?payment_method={{ payment_method_filter }}{% else %}{% url 'transaction_history' %}{% endif %}" class="btn btn-sm btn-outline-secondary rounded-pill ms-auto">
+              {% if status_filter and payment_method_filter %}Clear status{% else %}Clear filters{% endif %}
+            </a>
+          </div>
+          {% endif %}
+          <div class="txn-filter-bar">
+            <span class="filter-label"><i class="bi bi-funnel me-1"></i>Status</span>
+            <a href="{% url 'transaction_history' %}{% if payment_method_filter %}?payment_method={{ payment_method_filter }}{% endif %}" class="txn-filter-pill {% if not status_filter %}active{% endif %}">
+              All <span class="filter-count">{{ total_transactions }}</span>
+            </a>
+            <a href="?status=completed{% if payment_method_filter %}&payment_method={{ payment_method_filter }}{% endif %}" class="txn-filter-pill {% if status_filter == 'completed' %}active{% endif %}">
+              Completed <span class="filter-count">{{ completed_transactions }}</span>
+            </a>
+            <a href="?status=partially_refunded{% if payment_method_filter %}&payment_method={{ payment_method_filter }}{% endif %}" class="txn-filter-pill {% if status_filter == 'partially_refunded' %}active{% endif %}">
+              Partial refund <span class="filter-count">{{ partially_refunded_transactions }}</span>
+            </a>
+            <a href="?status=refunded{% if payment_method_filter %}&payment_method={{ payment_method_filter }}{% endif %}" class="txn-filter-pill {% if status_filter == 'refunded' %}active{% endif %}">
+              Refunded <span class="filter-count">{{ refunded_transactions }}</span>
+            </a>
+            <a href="?status=refund_requested{% if payment_method_filter %}&payment_method={{ payment_method_filter }}{% endif %}" class="txn-filter-pill {% if status_filter == 'refund_requested' %}active{% endif %}">
+              Refund requested <span class="filter-count">{{ refund_requested_count }}</span>
+            </a>
+            <a href="?status=return_window{% if payment_method_filter %}&payment_method={{ payment_method_filter }}{% endif %}" class="txn-filter-pill {% if status_filter == 'return_window' %}active{% endif %}">
+              Return window <span class="filter-count">{{ return_window_count }}</span>
+            </a>
+            <a href="?status=return_expired{% if payment_method_filter %}&payment_method={{ payment_method_filter }}{% endif %}" class="txn-filter-pill {% if status_filter == 'return_expired' %}active{% endif %}">
+              Return expired <span class="filter-count">{{ return_expired_transactions }}</span>
+            </a>
+            {% if pending_transactions %}
+            <a href="?status=pending{% if payment_method_filter %}&payment_method={{ payment_method_filter }}{% endif %}" class="txn-filter-pill {% if status_filter == 'pending' %}active{% endif %}">
+              Pending <span class="filter-count">{{ pending_transactions }}</span>
+            </a>
+            {% endif %}
+            {% if cancelled_transactions %}
+            <a href="?status=cancelled{% if payment_method_filter %}&payment_method={{ payment_method_filter }}{% endif %}" class="txn-filter-pill {% if status_filter == 'cancelled' %}active{% endif %}">
+              Cancelled <span class="filter-count">{{ cancelled_transactions }}</span>
+            </a>
+            {% endif %}
+          </div>
+          <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <h5 class="mb-0">Transaction History</h5>
+            <div class="d-flex gap-2">
+              <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill" id="manageAdminBtn" data-bs-toggle="modal" data-bs-target="#manageAdminModal">
+                  <i class="bi bi-gear me-1"></i>Manage Transactions
+                </button>
+            </div>
+          </div>
+          <form method="get" action="{% url 'export_transaction_history' %}" class="txn-export-bar" id="txnExportForm">
+            <span class="fw-semibold text-secondary" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;">
+              <i class="bi bi-download me-1"></i>Download
+            </span>
+            <div class="d-flex align-items-center gap-2">
+              <label for="txnExportDateFrom" class="small fw-semibold text-secondary mb-0">From</label>
+              <input type="date" name="date_from" id="txnExportDateFrom" value="{{ txn_export_date_from }}"
+                     class="form-control form-control-sm" required>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <label for="txnExportDateTo" class="small fw-semibold text-secondary mb-0">To</label>
+              <input type="date" name="date_to" id="txnExportDateTo" value="{{ txn_export_date_to }}"
+                     class="form-control form-control-sm" required>
+            </div>
+            {% if payment_method_filter %}
+            <input type="hidden" name="payment_method" value="{{ payment_method_filter }}">
+            {% endif %}
+            {% if status_filter %}
+            <input type="hidden" name="status" value="{{ status_filter }}">
+            {% endif %}
+            <button type="submit" name="format" value="excel" class="btn btn-sm btn-outline-success rounded-pill px-3">
+              <i class="bi bi-file-earmark-spreadsheet me-1"></i>Excel
+            </button>
+            <button type="submit" name="format" value="pdf" class="btn btn-sm btn-outline-danger rounded-pill px-3">
+              <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+            </button>
+            <span class="small text-muted">Uses the dates you select{% if payment_method_filter or status_filter %}, plus the filters above{% endif %}.</span>
+          </form>
+          <div class="table-responsive">
+            <table class="table align-middle txn-table mb-0">
+              <thead>
+                <tr>
+                  <th>Transaction #</th>
+                  <th>Member</th>
+                  <th>Date & Time</th>
+                  <th>Amount</th>
+                  <th>Payment</th>
+                  <th>Status</th>
+                  <th class="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for transaction in page_obj %}
+                <tr class="txn-row-main">
+                  <td class="txn-num">
+                    <code class="text-dark">{{ transaction.transaction_number }}</code>
+                  </td>
+                  <td>
+                    {% if transaction.member %}
+                    <div class="fw-semibold">{{ transaction.member.full_name }}</div>
+                    <small class="text-muted">{{ transaction.member.rfid_card_number|mask_rfid }}</small>
+                    {% elif transaction.guest_customer_name %}
+                    <div class="fw-semibold">{{ transaction.guest_customer_name }}</div>
+                    <small class="text-muted">Walk-in customer</small>
+                    {% else %}
+                    <span class="text-muted">Guest / No Member</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <div>{{ transaction.created_at|date:"M d, Y" }}</div>
+                    <small class="text-muted">{{ transaction.created_at|date:"H:i" }}</small>
+                  </td>
+                  <td>
+                    <div class="fw-bold text-success">₱{{ transaction.total_amount|floatformat:2 }}</div>
+                  </td>
+                  <td>
+                    <span class="badge-payment badge-{{ transaction.payment_method }}">
+                      {{ transaction.get_payment_method_display }}
+                    </span>
+                  </td>
+                  <td>
+                    {% include 'admin_panel/partials/transaction_status_badge.html' with status=transaction.status label=transaction.get_status_display %}
+                  </td>
+                  <td class="text-end text-nowrap">
+                    <button type="button" class="btn btn-sm btn-outline-primary rounded-pill expand-btn" 
+                            data-transaction-id="{{ transaction.id }}"
+                            id="btn-{{ transaction.id }}">
+                      <i class="bi bi-chevron-down" id="icon-{{ transaction.id }}"></i> Details
+                    </button>
+                    {% if is_admin_user %}
+                    <button type="button" class="btn btn-sm btn-outline-danger rounded-pill delete-transaction-btn ms-1"
+                            data-transaction-id="{{ transaction.id }}"
+                            data-transaction-number="{{ transaction.transaction_number|escapejs }}"
+                            title="Delete this transaction permanently">
+                      <i class="bi bi-trash me-1"></i>Delete
+                    </button>
+                    {% endif %}
+                  </td>
+                </tr>
+                <tr id="details-{{ transaction.id }}" style="display: none;">
+                  <td colspan="7">
+                    <div class="transaction-details">
+                      <div class="transaction-details-row">
+                        <div>
+                          <div class="detail-label">Subtotal</div>
+                          <div class="detail-value">₱{{ transaction.subtotal|floatformat:2 }}</div>
+                        </div>
+                      </div>
+                      {% if transaction.amount_from_balance > 0 or transaction.amount_paid > 0 %}
+                      <div class="transaction-details-row">
+                        {% if transaction.amount_from_balance > 0 %}
+                        <div>
+                          <div class="detail-label">From Balance</div>
+                          <div class="detail-value">₱{{ transaction.amount_from_balance|floatformat:2 }}</div>
+                        </div>
+                        {% endif %}
+                        {% if transaction.amount_paid > 0 %}
+                        <div>
+                          <div class="detail-label">Cash Paid</div>
+                          <div class="detail-value">₱{{ transaction.amount_paid|floatformat:2 }}</div>
+                        </div>
+                        {% endif %}
+                      </div>
+                      {% endif %}
+                      {% if transaction.status == 'partially_refunded' %}
+                      <div class="partial-refund-hint">
+                        <i class="bi bi-info-circle"></i>
+                        Some items were refunded; remaining lines are still active on this sale.
+                      </div>
+                      {% endif %}
+                      {% if transaction.items.all %}
+                      <div class="items-list">
+                        <div class="detail-label mb-2"><strong>Items:</strong></div>
+                        {% for item in transaction.items.all %}
+                        <div class="item-row{% if item.refunded_at %} item-row-refunded{% endif %}">
+                          <span class="fw-semibold">{{ item.product_name }}</span>
+                          <span class="text-muted">({{ item.product_barcode }})</span>
+                          - <strong>x{{ item.quantity }}</strong> @ ₱{{ item.unit_price|floatformat:2 }}
+                          = <span class="{% if item.refunded_at %}text-muted{% else %}text-success{% endif %} fw-bold">₱{{ item.total_price|floatformat:2 }}</span>
+                          {% if item.refunded_at %}
+                          <span class="item-refunded-tag"><i class="bi bi-arrow-counterclockwise"></i> Refunded</span>
+                          {% endif %}
+                        </div>
+                        {% endfor %}
+                      </div>
+                      {% endif %}
+                      {% if transaction.notes %}
+                      <div class="mt-2 pt-2 border-top">
+                        <div class="detail-label"><strong>Notes:</strong></div>
+                        <div class="text-muted">{{ transaction.notes }}</div>
+                      </div>
+                      {% endif %}
+                      {% if transaction.status == 'refund_requested' or transaction.status == 'refunded' or transaction.status == 'partially_refunded' %}
+                      <div class="mt-2 pt-2 border-top">
+                        <div class="detail-label mb-1"><strong>Refund Reason:</strong></div>
+                        {% with rr=transaction.refund_reason %}
+                        {% if rr %}
+                        <span class="badge rounded-pill text-bg-warning" style="font-size:0.82rem;">
+                          <i class="bi bi-tag-fill me-1"></i>{{ rr.get_reason_type_display }}
+                        </span>
+                        {% if rr.details %}
+                        <div class="text-muted mt-1" style="font-size:0.85rem;">{{ rr.details }}</div>
+                        {% endif %}
+                        {% else %}
+                        <span class="text-muted fst-italic">No reason provided</span>
+                        {% endif %}
+                        {% endwith %}
+                      </div>
+                      {% endif %}
+                      <div class="mt-2 pt-2 border-top">
+                        {% include 'admin_panel/partials/transaction_receipt_actions.html' with show_refund_action=True %}
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="7" class="text-center text-muted py-4">
+                    <i class="bi bi-inbox me-2"></i>No transactions found.
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mt-3 gap-3">
+            <div class="text-muted">
+              Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }}{% if status_filter %} (filtered){% endif %}
+            </div>
+            <nav aria-label="Transaction pagination">
+              <ul class="pagination pagination-sm mb-0 flex-wrap">
+                <li class="page-item {% if not page_obj.has_previous %}disabled{% endif %}">
+                  {% if page_obj.has_previous %}
+                  <a class="page-link" href="?page={{ page_obj.previous_page_number }}&refill_page={{ refills_page.number }}{% if request.GET.tab %}&tab={{ request.GET.tab }}{% endif %}{% if payment_method_filter %}&payment_method={{ payment_method_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" aria-label="Previous">Previous</a>
+                  {% else %}
+                  <span class="page-link" aria-label="Previous">Previous</span>
+                  {% endif %}
+                </li>
+                {% for num in page_obj.paginator.page_range %}
+                <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                  <a class="page-link" href="?page={{ num }}&refill_page={{ refills_page.number }}{% if request.GET.tab %}&tab={{ request.GET.tab }}{% endif %}{% if payment_method_filter %}&payment_method={{ payment_method_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}">{{ num }}</a>
+                </li>
+                {% endfor %}
+                <li class="page-item {% if not page_obj.has_next %}disabled{% endif %}">
+                  {% if page_obj.has_next %}
+                  <a class="page-link" href="?page={{ page_obj.next_page_number }}&refill_page={{ refills_page.number }}{% if request.GET.tab %}&tab={{ request.GET.tab }}{% endif %}{% if payment_method_filter %}&payment_method={{ payment_method_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}" aria-label="Next">Next</a>
+                  {% else %}
+                  <span class="page-link" aria-label="Next">Next</span>
+                  {% endif %}
+                </li>
+              </ul>
+            </nav>
+          </div>
+        </div>
+      </div>
+    </section>
+    </div><!-- /all-transactions tab -->
+
+    <!-- Refund Requests Tab -->
+    <div class="tab-pane fade" id="refund-requests" role="tabpanel">
+    <section class="row g-4">
+      <div class="col-12">
+        <div class="table-card">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0"><i class="bi bi-arrow-repeat me-2 text-warning"></i>Pending Refund Requests</h5>
+            <small class="text-muted">{{ refund_requested_count }} request{{ refund_requested_count|pluralize }} awaiting approval</small>
+          </div>
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th>Transaction #</th>
+                  <th>Member</th>
+                  <th>Date & Time</th>
+                  <th>Amount</th>
+                  <th>Payment Method</th>
+                  <th>Refund Reason</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for txn in refund_requested_transactions %}
+                <tr>
+                  <td><code class="text-dark">{{ txn.transaction_number }}</code></td>
+                  <td>
+                    {% if txn.member %}
+                    <div class="fw-semibold">{{ txn.member.full_name }}</div>
+                    <small class="text-muted">{{ txn.member.rfid_card_number|mask_rfid }}</small>
+                    {% elif txn.guest_customer_name %}
+                    <div class="fw-semibold">{{ txn.guest_customer_name }}</div>
+                    <small class="text-muted">Walk-in customer</small>
+                    {% else %}
+                    <span class="text-muted">Guest / No Member</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <div>{{ txn.created_at|date:"M d, Y" }}</div>
+                    <small class="text-muted">{{ txn.created_at|date:"H:i" }}</small>
+                  </td>
+                  <td><div class="fw-bold text-success">₱{{ txn.total_amount|floatformat:2 }}</div></td>
+                  <td>
+                    <span class="badge-payment badge-{{ txn.payment_method }}">
+                      {{ txn.get_payment_method_display }}
+                    </span>
+                  </td>
+                  <td>
+                    {% with rr=txn.refund_reason %}
+                    {% if rr %}
+                    <span class="badge rounded-pill text-bg-warning" style="font-size:0.78rem;">
+                      <i class="bi bi-tag-fill me-1"></i>{{ rr.get_reason_type_display }}
+                    </span>
+                    {% else %}
+                    <span class="text-muted fst-italic" style="font-size:0.82rem;">—</span>
+                    {% endif %}
+                    {% endwith %}
+                  </td>
+                  <td>
+                    <button type="button"
+                            class="btn btn-sm btn-outline-primary rounded-pill me-1 rr-expand-btn"
+                            data-txn-id="{{ txn.id }}"
+                            id="rr-btn-{{ txn.id }}">
+                      <i class="bi bi-chevron-down" id="rr-icon-{{ txn.id }}"></i> Details
+                    </button>
+                    <button type="button"
+                            class="btn btn-sm btn-success rounded-pill me-1 approve-refund-btn"
+                            data-txn-id="{{ txn.id }}"
+                            data-txn-number="{{ txn.transaction_number }}"
+                            data-reason-type="{% with rr=txn.refund_reason %}{% if rr %}{{ rr.reason_type }}{% endif %}{% endwith %}"
+                            data-reason-label="{% with rr=txn.refund_reason %}{% if rr %}{{ rr.get_reason_type_display }}{% else %}—{% endif %}{% endwith %}">
+                      <i class="bi bi-check-circle me-1"></i>Approve
+                    </button>
+                    <button type="button"
+                            class="btn btn-sm btn-outline-danger rounded-pill reject-refund-btn"
+                            data-txn-id="{{ txn.id }}"
+                            data-txn-number="{{ txn.transaction_number }}">
+                      <i class="bi bi-x-circle me-1"></i>Reject
+                    </button>
+                  </td>
+                </tr>
+                <tr id="rr-details-{{ txn.id }}" style="display:none;">
+                  <td colspan="7">
+                    <div class="transaction-details">
+                      <div class="transaction-details-row">
+                        <div>
+                          <div class="detail-label">Subtotal</div>
+                          <div class="detail-value">₱{{ txn.subtotal|floatformat:2 }}</div>
+                        </div>
+                      </div>
+                      {% with rr=txn.refund_reason %}
+                      {% if rr and rr.refund_items.all %}
+                      <div class="items-list">
+                        <div class="detail-label mb-2">
+                          <strong>Items to Refund:</strong>
+                          <span class="badge bg-warning text-dark ms-2" style="font-size:0.75rem;">
+                            {{ rr.refund_items.count }} of {{ txn.items.count }} item{{ txn.items.count|pluralize }}
+                          </span>
+                        </div>
+                        {% for item in rr.refund_items.all %}
+                        <div class="item-row">
+                          <span class="fw-semibold">{{ item.product_name }}</span>
+                          <span class="text-muted">({{ item.product_barcode }})</span>
+                          - <strong>x{{ item.quantity }}</strong> @ ₱{{ item.unit_price|floatformat:2 }}
+                          = <span class="text-success fw-bold">₱{{ item.total_price|floatformat:2 }}</span>
+                        </div>
+                        {% endfor %}
+                      </div>
+                      {% elif txn.items.all %}
+                      <div class="items-list">
+                        <div class="detail-label mb-2"><strong>Items to Refund:</strong> <span class="text-muted" style="font-size:0.82rem;">(all items)</span></div>
+                        {% for item in txn.items.all %}
+                        <div class="item-row">
+                          <span class="fw-semibold">{{ item.product_name }}</span>
+                          <span class="text-muted">({{ item.product_barcode }})</span>
+                          - <strong>x{{ item.quantity }}</strong> @ ₱{{ item.unit_price|floatformat:2 }}
+                          = <span class="text-success fw-bold">₱{{ item.total_price|floatformat:2 }}</span>
+                        </div>
+                        {% endfor %}
+                      </div>
+                      {% endif %}
+                      {% endwith %}
+                      {% if txn.notes %}
+                      <div class="mt-2 pt-2 border-top">
+                        <div class="detail-label"><strong>Notes:</strong></div>
+                        <div class="text-muted">{{ txn.notes }}</div>
+                      </div>
+                      {% endif %}
+                      <div class="mt-2 pt-2 border-top">
+                        <div class="detail-label mb-1"><strong>Refund Reason:</strong></div>
+                        {% with rr=txn.refund_reason %}
+                        {% if rr %}
+                        <span class="badge rounded-pill text-bg-warning" style="font-size:0.82rem;">
+                          <i class="bi bi-tag-fill me-1"></i>{{ rr.get_reason_type_display }}
+                        </span>
+                        {% if rr.details %}
+                        <div class="text-muted mt-1" style="font-size:0.85rem;">{{ rr.details }}</div>
+                        {% endif %}
+                        {% else %}
+                        <span class="text-muted fst-italic">No reason provided</span>
+                        {% endif %}
+                        {% endwith %}
+                      </div>
+                      <div class="mt-2 pt-2 border-top">
+                        {% include 'admin_panel/partials/transaction_receipt_actions.html' with transaction=txn %}
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="7" class="text-center text-muted py-5">
+                    <i class="bi bi-check2-circle fs-2 d-block mb-2 text-success"></i>
+                    No pending refund requests.
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+    </div><!-- /refund-requests tab -->
+
+    <!-- Return Window Tab -->
+    <div class="tab-pane fade" id="return-window" role="tabpanel">
+    <section class="row g-4">
+      <div class="col-12">
+        <div class="table-card">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="mb-0"><i class="bi bi-hourglass-split me-2 text-warning"></i>Awaiting Item Return ({{ return_window_days }}-Day Window)</h5>
+            <small class="text-muted">{{ return_window_count }} transaction{{ return_window_count|pluralize }} pending return</small>
+          </div>
+          <div class="alert alert-warning mb-3" style="border-radius:12px;">
+            <i class="bi bi-info-circle-fill me-2"></i>
+            <strong>How it works:</strong> When you approve a refund request, the member has
+            <strong>{{ return_window_days }} day{{ return_window_days|pluralize }}</strong> to physically return the purchased item(s). Only after you confirm
+            the item has been received will the refund money be credited. If the member does not
+            return the item within {{ return_window_days }} day{{ return_window_days|pluralize }}, the refund is automatically voided.
+          </div>
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th>Transaction #</th>
+                  <th>Member</th>
+                  <th>Amount</th>
+                  <th>Payment</th>
+                  <th>Return Deadline</th>
+                  <th>Days Left</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for txn in return_window_transactions %}
+                {% with rw=txn.return_window %}
+                <tr>
+                  <td><code class="text-dark">{{ txn.transaction_number }}</code></td>
+                  <td>
+                    {% if txn.member %}
+                    <div class="fw-semibold">{{ txn.member.full_name }}</div>
+                    <small class="text-muted">{{ txn.member.rfid_card_number|mask_rfid }}</small>
+                    {% elif txn.guest_customer_name %}
+                    <div class="fw-semibold">{{ txn.guest_customer_name }}</div>
+                    <small class="text-muted">Walk-in customer</small>
+                    {% else %}
+                    <span class="text-muted">Guest / No Member</span>
+                    {% endif %}
+                  </td>
+                  <td><div class="fw-bold text-success">₱{{ txn.total_amount|floatformat:2 }}</div></td>
+                  <td>
+                    <span class="badge-payment badge-{{ txn.payment_method }}">
+                      {{ txn.get_payment_method_display }}
+                    </span>
+                  </td>
+                  <td>
+                    {% if rw %}
+                    <div>{{ rw.return_deadline|date:"M d, Y" }}</div>
+                    <small class="text-muted">{{ rw.return_deadline|date:"H:i" }}</small>
+                    {% else %}—{% endif %}
+                  </td>
+                  <td>
+                    {% if rw %}
+                      {% with days=rw.days_remaining %}
+                      {% if days == 0 %}
+                      <span class="return-deadline-urgent"><i class="bi bi-exclamation-triangle-fill me-1"></i>Expires today</span>
+                      {% elif days <= 1 %}
+                      <span class="return-deadline-urgent"><i class="bi bi-exclamation-triangle-fill me-1"></i>{{ days }} day left</span>
+                      {% else %}
+                      <span class="return-deadline-ok"><i class="bi bi-clock me-1"></i>{{ days }} days left</span>
+                      {% endif %}
+                      {% endwith %}
+                    {% else %}—{% endif %}
+                  </td>
+                  <td>
+                    <button type="button"
+                            class="btn btn-sm btn-outline-primary rounded-pill me-1 rw-expand-btn"
+                            data-txn-id="{{ txn.id }}">
+                      <i class="bi bi-chevron-down"></i> Details
+                    </button>
+                    <button type="button"
+                            class="btn btn-sm btn-success rounded-pill me-1 confirm-return-btn"
+                            data-txn-id="{{ txn.id }}"
+                            data-txn-number="{{ txn.transaction_number }}"
+                            data-reason-type="{% with rr=txn.refund_reason %}{% if rr %}{{ rr.reason_type }}{% endif %}{% endwith %}">
+                      <i class="bi bi-box-arrow-in-down-left me-1"></i>Item Returned
+                    </button>
+                    <button type="button"
+                            class="btn btn-sm btn-outline-danger rounded-pill expire-return-btn"
+                            data-txn-id="{{ txn.id }}"
+                            data-txn-number="{{ txn.transaction_number }}">
+                      <i class="bi bi-x-circle me-1"></i>No Return
+                    </button>
+                  </td>
+                </tr>
+                <tr id="rw-details-{{ txn.id }}" style="display:none;">
+                  <td colspan="7">
+                    <div class="transaction-details">
+                      {% with rr=txn.refund_reason %}
+                      {% if rr %}
+                      <div class="mb-2">
+                        <span class="badge rounded-pill text-bg-warning" style="font-size:0.82rem;">
+                          <i class="bi bi-tag-fill me-1"></i>{{ rr.get_reason_type_display }}
+                        </span>
+                        {% if rr.details %}
+                        <div class="text-muted mt-1" style="font-size:0.85rem;">{{ rr.details }}</div>
+                        {% endif %}
+                      </div>
+                      {% endif %}
+                      {% endwith %}
+                      {% if txn.items.all %}
+                      <div class="items-list">
+                        <div class="detail-label mb-2"><strong>Items to Return:</strong></div>
+                        {% for item in txn.items.all %}
+                        <div class="item-row">
+                          <span class="fw-semibold">{{ item.product_name }}</span>
+                          <span class="text-muted">({{ item.product_barcode }})</span>
+                          - <strong>x{{ item.quantity }}</strong> @ ₱{{ item.unit_price|floatformat:2 }}
+                          = <span class="text-success fw-bold">₱{{ item.total_price|floatformat:2 }}</span>
+                        </div>
+                        {% endfor %}
+                      </div>
+                      {% endif %}
+                      {% if rw %}
+                      <div class="mt-2 pt-2 border-top">
+                        <div class="detail-label"><strong>Approval Info:</strong></div>
+                        <div>Approved on {{ rw.approved_at|date:"M d, Y H:i" }}{% if rw.approved_by %} by {{ rw.approved_by.username }}{% endif %}</div>
+                        <div>Return deadline: <strong>{{ rw.return_deadline|date:"M d, Y H:i" }}</strong></div>
+                      </div>
+                      {% endif %}
+                      <div class="mt-2 pt-2 border-top">
+                        {% include 'admin_panel/partials/transaction_receipt_actions.html' with transaction=txn %}
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+                {% endwith %}
+                {% empty %}
+                <tr>
+                  <td colspan="7" class="text-center text-muted py-5">
+                    <i class="bi bi-check2-circle fs-2 d-block mb-2 text-success"></i>
+                    No transactions awaiting item return.
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+    </div><!-- /return-window tab -->
+
+    <!-- Balance refills (card top-ups; ledger transaction #) -->
+    <div class="tab-pane fade" id="balance-refills" role="tabpanel">
+    <section class="row g-4">
+      <div class="col-12">
+        <div class="table-card">
+          <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-3">
+            <div>
+              <h5 class="mb-1"><i class="bi bi-wallet2 me-2" style="color:#E6C200;"></i>Balance refills</h5>
+              <p class="mb-0 text-muted small">
+                Showing the <strong>10 latest</strong> refills per page (newest first).
+                Each row is a card top-up; <strong>Transaction #</strong> matches emails and the API.
+              </p>
+            </div>
+            <div class="d-flex flex-wrap gap-2 align-items-center">
+              {% if total_refills > 10 or refills_page.paginator.num_pages > 1 %}
+              <a class="btn btn-sm btn-outline-secondary rounded-pill" href="?tab=balance-refills&refill_page=1&page={{ page_obj.number }}" title="Jump to page 1 of all refills">
+                <i class="bi bi-collection me-1"></i>View all {{ total_refills }} refill{{ total_refills|pluralize }}
+              </a>
+              {% endif %}
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th>Transaction #</th>
+                  <th>Member</th>
+                  <th>Date &amp; Time</th>
+                  <th>Amount added</th>
+                  <th>Balance (before → after)</th>
+                  <th>Performed by</th>
+                  <th>Notes</th>
+                  <th class="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for refill in refills_page %}
+                <tr>
+                  <td>
+                    {% if refill.balance_transaction %}
+                    <code class="text-dark user-select-all">{{ refill.balance_transaction.transaction_number }}</code>
+                    {% else %}
+                    <span class="text-muted">—</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    <div class="fw-semibold">{{ refill.member.full_name }}</div>
+                    <small class="text-muted">{{ refill.member.rfid_card_number|mask_rfid }}</small>
+                  </td>
+                  <td>
+                    <div>{{ refill.created_at|date:"M d, Y" }}</div>
+                    <small class="text-muted">{{ refill.created_at|date:"H:i" }}</small>
+                  </td>
+                  <td><span class="fw-bold text-success">₱{{ refill.amount|floatformat:2 }}</span></td>
+                  <td>
+                    <span class="text-muted">₱{{ refill.balance_before|floatformat:2 }}</span>
+                    <span class="mx-1">→</span>
+                    <span class="fw-semibold">₱{{ refill.balance_after|floatformat:2 }}</span>
+                  </td>
+                  <td>
+                    {% if refill.performed_by %}
+                    <div>{{ refill.performed_by.get_full_name|default:refill.performed_by.username }}</div>
+                    <small class="text-muted">{{ refill.performed_by.username }}</small>
+                    {% else %}
+                    <span class="text-muted">—</span>
+                    {% endif %}
+                  </td>
+                  <td>
+                    {% if refill.notes %}
+                    <span class="text-muted small">{{ refill.notes|truncatechars:120 }}</span>
+                    {% else %}
+                    <span class="text-muted">—</span>
+                    {% endif %}
+                  </td>
+                  <td class="text-end text-nowrap">
+                    {% if refill.reversed_at %}
+                    <span class="badge bg-secondary">Reversed</span>
+                    {% if refill.reversal_balance_transaction %}
+                    <div class="small text-muted mt-1"><code class="user-select-all">{{ refill.reversal_balance_transaction.transaction_number }}</code></div>
+                    {% endif %}
+                    {% elif refill.balance_transaction %}
+                    <button type="button" class="btn btn-sm btn-outline-danger rounded-pill reverse-refill-btn"
+                      data-refill-id="{{ refill.id }}"
+                      data-member-name="{{ refill.member.full_name|escape }}"
+                      data-txn-number="{{ refill.balance_transaction.transaction_number }}"
+                      data-amount="{{ refill.amount }}">
+                      <i class="bi bi-arrow-counterclockwise me-1"></i>Reverse load
+                    </button>
+                    {% else %}
+                    <span class="text-muted small">—</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="8" class="text-center text-muted py-4">
+                    <i class="bi bi-wallet2 me-2"></i>No balance refills recorded yet.
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% if refills_page.paginator.num_pages > 1 %}
+          <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mt-3 gap-3">
+            <div class="text-muted small">
+              Page {{ refills_page.number }} of {{ refills_page.paginator.num_pages }} —
+              rows {{ refills_page.start_index }}–{{ refills_page.end_index }} of {{ total_refills }}
+            </div>
+            <nav aria-label="Balance refill pagination" class="w-100 w-md-auto">
+              <ul class="pagination pagination-sm mb-0 refill-pagination-rail justify-content-md-end">
+                <li class="page-item {% if not refills_page.has_previous %}disabled{% endif %}">
+                  {% if refills_page.has_previous %}
+                  <a class="page-link" href="?refill_page=1&page={{ page_obj.number }}&tab=balance-refills" aria-label="First page"><i class="bi bi-chevron-bar-left"></i></a>
+                  {% else %}
+                  <span class="page-link"><i class="bi bi-chevron-bar-left"></i></span>
+                  {% endif %}
+                </li>
+                <li class="page-item {% if not refills_page.has_previous %}disabled{% endif %}">
+                  {% if refills_page.has_previous %}
+                  <a class="page-link" href="?refill_page={{ refills_page.previous_page_number }}&page={{ page_obj.number }}&tab=balance-refills" aria-label="Previous">Prev</a>
+                  {% else %}
+                  <span class="page-link">Prev</span>
+                  {% endif %}
+                </li>
+                {% for p in refill_elided_pages %}
+                <li class="page-item {% if p == refills_page.paginator.ELLIPSIS %}disabled{% elif refills_page.number == p %}active{% endif %}">
+                  {% if p == refills_page.paginator.ELLIPSIS %}
+                  <span class="page-link">{{ p }}</span>
+                  {% else %}
+                  <a class="page-link" href="?refill_page={{ p }}&page={{ page_obj.number }}&tab=balance-refills">{{ p }}</a>
+                  {% endif %}
+                </li>
+                {% endfor %}
+                <li class="page-item {% if not refills_page.has_next %}disabled{% endif %}">
+                  {% if refills_page.has_next %}
+                  <a class="page-link" href="?refill_page={{ refills_page.next_page_number }}&page={{ page_obj.number }}&tab=balance-refills" aria-label="Next">Next</a>
+                  {% else %}
+                  <span class="page-link">Next</span>
+                  {% endif %}
+                </li>
+                <li class="page-item {% if not refills_page.has_next %}disabled{% endif %}">
+                  {% if refills_page.has_next %}
+                  <a class="page-link" href="?refill_page={{ refills_page.paginator.num_pages }}&page={{ page_obj.number }}&tab=balance-refills" aria-label="Last page"><i class="bi bi-chevron-bar-right"></i></a>
+                  {% else %}
+                  <span class="page-link"><i class="bi bi-chevron-bar-right"></i></span>
+                  {% endif %}
+                </li>
+              </ul>
+            </nav>
+          </div>
+          {% elif total_refills %}
+          <div class="text-muted small mt-2">Showing all {{ total_refills }} refill{{ total_refills|pluralize }} (10 or fewer).</div>
+          {% endif %}
+        </div>
+      </div>
+    </section>
+    </div><!-- /balance-refills tab -->
+
+    <!-- Pay Credit (Utang) Tab -->
+    <div class="tab-pane fade" id="pay-credit" role="tabpanel">
+    <section class="row g-4">
+      <div class="col-12">
+        <div class="table-card">
+          <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-3">
+            <div>
+              <h5 class="mb-1"><i class="bi bi-cash-coin me-2" style="color:#7c3aed;"></i>Pay Credit (Utang) Settlements</h5>
+              <p class="mb-0 text-muted small">
+                Showing <strong>10 per page</strong> (newest first). Each row is a credit settlement — a member paying off their outstanding utang.
+              </p>
+            </div>
+          </div>
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th>Settlement #</th>
+                  <th>Member</th>
+                  <th>Date &amp; Time</th>
+                  <th>Amount Paid</th>
+                  <th>Payment Method</th>
+                  <th>Performed By</th>
+                  <th class="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for cp in credit_payments_page %}
+                <tr>
+                  <td><code class="text-dark">{{ cp.settlement_number }}</code></td>
+                  <td>
+                    <div class="fw-semibold">{{ cp.member.full_name }}</div>
+                    <small class="text-muted">{{ cp.member.rfid_card_number|mask_rfid }}</small>
+                  </td>
+                  <td>
+                    <div>{{ cp.created_at|date:"M d, Y" }}</div>
+                    <small class="text-muted">{{ cp.created_at|date:"H:i" }}</small>
+                  </td>
+                  <td><div class="fw-bold text-success">₱{{ cp.amount_paid|floatformat:2 }}</div></td>
+                  <td>
+                    <span class="badge-payment badge-{{ cp.payment_method }}">
+                      {{ cp.get_payment_method_display }}
+                    </span>
+                  </td>
+                  <td>
+                    {% if cp.performed_by %}
+                    <small>{{ cp.performed_by.get_full_name|default:cp.performed_by.username }}</small>
+                    {% else %}
+                    <small class="text-muted">—</small>
+                    {% endif %}
+                  </td>
+                  <td class="text-end">
+                    <a href="{% url 'view_credit_payment_receipt' cp.pk %}" target="_blank"
+                       class="btn btn-sm btn-outline-primary rounded-pill">
+                      <i class="bi bi-receipt me-1"></i>Receipt
+                    </a>
+                  </td>
+                </tr>
+                <tr>
+                  <td colspan="7" class="p-0">
+                    <div class="px-3 pb-2 pt-1 bg-light border-top" style="font-size:0.82rem;">
+                      {% if cp.payment_lines.all %}
+                        <strong>Settled items:</strong>
+                        {% for line in cp.payment_lines.all %}
+                          <span class="badge bg-secondary me-1 mb-1">
+                            {{ line.item.transaction.transaction_number }} — {{ line.item.product_name }} x{{ line.item.quantity }} (₱{{ line.amount_applied|floatformat:2 }})
+                          </span>
+                        {% endfor %}
+                      {% else %}
+                        <span class="text-muted">No item detail recorded.</span>
+                      {% endif %}
+                      {% if cp.balance_before is not None %}
+                        <div class="mt-1 text-muted">Balance: ₱{{ cp.balance_before|floatformat:2 }} → ₱{{ cp.balance_after|floatformat:2 }}</div>
+                      {% endif %}
+                      {% if cp.notes %}
+                        <div class="mt-1 text-muted fst-italic">{{ cp.notes }}</div>
+                      {% endif %}
+                    </div>
+                  </td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="7" class="text-center text-muted py-5">
+                    <i class="bi bi-cash-coin fs-2 d-block mb-2" style="color:#7c3aed;opacity:.4;"></i>
+                    No credit (utang) settlements recorded yet.
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination -->
+          {% if credit_payments_page.paginator.num_pages > 1 %}
+          <nav class="mt-3">
+            <ul class="pagination pagination-sm justify-content-center mb-0">
+              {% if credit_payments_page.has_previous %}
+              <li class="page-item">
+                <a class="page-link" href="?credit_payment_page={{ credit_payments_page.previous_page_number }}&tab=pay-credit">Previous</a>
+              </li>
+              {% endif %}
+              {% for num in credit_payment_elided_pages %}
+                {% if num == credit_payments_page.number %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                {% elif num == '…' %}
+                <li class="page-item disabled"><span class="page-link">…</span></li>
+                {% else %}
+                <li class="page-item"><a class="page-link" href="?credit_payment_page={{ num }}&tab=pay-credit">{{ num }}</a></li>
+                {% endif %}
+              {% endfor %}
+              {% if credit_payments_page.has_next %}
+              <li class="page-item">
+                <a class="page-link" href="?credit_payment_page={{ credit_payments_page.next_page_number }}&tab=pay-credit">Next</a>
+              </li>
+              {% endif %}
+            </ul>
+          </nav>
+          {% else %}
+          {% if total_credit_payments > 0 %}
+          <div class="text-muted small mt-2">Showing all {{ total_credit_payments }} settlement{{ total_credit_payments|pluralize }}.</div>
+          {% endif %}
+          {% endif %}
+        </div>
+      </div>
+    </section>
+    </div><!-- /pay-credit tab -->
+
+    </div><!-- /tab-content -->
+  </main>
+
+  <!-- Delete transaction confirmation -->
+  <div class="modal fade" id="deleteTransactionModal" tabindex="-1" aria-labelledby="deleteTransactionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content border-0 shadow" style="border-radius:16px; overflow:hidden;">
+        <div class="modal-header text-white border-0" style="background:#b91c1c;">
+          <h5 class="modal-title" id="deleteTransactionModalLabel">
+            <i class="bi bi-trash me-2"></i>Delete transaction?
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cancel"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-2">
+            Delete <strong id="deleteTxnNumberLabel">this transaction</strong> permanently?
+          </p>
+          <ul class="small text-muted mb-0 ps-3">
+            <li>Stock and debit balance will be restored when applicable.</li>
+            <li>This cannot be undone.</li>
+            <li>The action will be recorded in the audit trail.</li>
+          </ul>
+          <input type="hidden" id="deleteTxnIdInput" value="">
+        </div>
+        <div class="modal-footer border-0 bg-light">
+          <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-danger rounded-pill" id="confirmDeleteTransactionBtn">
+            <i class="bi bi-check-lg me-1"></i>Proceed — delete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reverse balance refill (requires Admin PIN) -->
+  <div class="modal fade" id="reverseRefillModal" tabindex="-1" aria-labelledby="reverseRefillModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header border-0 pb-0">
+          <h5 class="modal-title" id="reverseRefillModalLabel">
+            <i class="bi bi-arrow-counterclockwise text-danger me-2"></i>Reverse balance refill
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body pt-2">
+          <p class="small text-muted mb-2" id="reverseRefillSummary"></p>
+          <div class="alert alert-warning small mb-3 py-2">
+            <i class="bi bi-shield-lock me-1"></i>This removes the credited amount from the member’s balance. Enter an active <strong>Admin</strong> PIN to proceed.
+          </div>
+          <label class="form-label small fw-semibold mb-1">Admin PIN</label>
+          <div class="d-flex gap-2 justify-content-center mb-2" id="reverseRefillPinBoxes" role="group" aria-label="Admin PIN digits">
+            <input type="password" class="form-control text-center reverse-refill-pin-box" data-idx="0" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" style="max-width:3rem;">
+            <input type="password" class="form-control text-center reverse-refill-pin-box" data-idx="1" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" style="max-width:3rem;">
+            <input type="password" class="form-control text-center reverse-refill-pin-box" data-idx="2" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" style="max-width:3rem;">
+            <input type="password" class="form-control text-center reverse-refill-pin-box" data-idx="3" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" style="max-width:3rem;">
+          </div>
+          <input type="hidden" id="reverseRefillId">
+          <div id="reverseRefillError" class="text-danger small text-center" style="display:none;"></div>
+        </div>
+        <div class="modal-footer border-0 pt-0">
+          <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-danger rounded-pill" id="reverseRefillConfirmBtn" disabled>
+            <i class="bi bi-check-lg me-1"></i>Confirm reverse
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Transaction Modal (for individual Edit in Admin buttons) -->
+  <div class="modal fade" id="editTransactionModal" tabindex="-1" aria-labelledby="editTransactionModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="editTransactionModalLabel">
+            <i class="bi bi-pencil me-2"></i>Edit Transaction
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="editTransactionSingleForm">
+            {% csrf_token %}
+            <input type="hidden" id="editTransactionSingleId" name="transaction_id">
+            
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label for="editTransactionSingleNumber" class="form-label">Transaction Number</label>
+                <input type="text" class="form-control" id="editTransactionSingleNumber" readonly>
+              </div>
+              <div class="col-md-6">
+                <label for="editTransactionSingleStatus" class="form-label">Status</label>
+                <select class="form-select" id="editTransactionSingleStatus" name="status" required>
+                  <option value="pending">Pending</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                  <option value="refund_requested">Refund Requested</option>
+                  <option value="refunded">Refunded</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="row g-3 mt-2">
+              <div class="col-md-6">
+                <label for="editTransactionSinglePaymentMethod" class="form-label">Payment Method</label>
+                <select class="form-select" id="editTransactionSinglePaymentMethod" name="payment_method" required>
+                  <option value="cash">Cash</option>
+                  <option value="debit">Debit (Member Account)</option>
+                  <option value="credit">Credit (Utang)</option>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label for="editTransactionSingleTotalAmount" class="form-label">Total Amount</label>
+                <input type="number" class="form-control" id="editTransactionSingleTotalAmount" name="total_amount" step="0.01" readonly>
+              </div>
+            </div>
+
+            <div class="row g-3 mt-2">
+              <div class="col-md-6">
+                <label for="editTransactionSingleAmountPaid" class="form-label">Amount Paid</label>
+                <input type="number" class="form-control" id="editTransactionSingleAmountPaid" name="amount_paid" step="0.01">
+              </div>
+              <div class="col-md-6">
+                <label for="editTransactionSingleAmountFromBalance" class="form-label">Amount From Balance</label>
+                <input type="number" class="form-control" id="editTransactionSingleAmountFromBalance" name="amount_from_balance" step="0.01">
+              </div>
+            </div>
+
+            <div class="mt-3">
+              <label for="editTransactionSingleNotes" class="form-label">Notes</label>
+              <textarea class="form-control" id="editTransactionSingleNotes" name="notes" rows="3"></textarea>
+            </div>
+
+            <!-- Transaction Items Display -->
+            <div class="mt-4">
+              <label class="form-label fw-bold">Transaction Items</label>
+              <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
+                <table class="table table-sm table-bordered">
+                  <thead class="table-light">
+                    <tr>
+                      <th>Product</th>
+                      <th>Barcode</th>
+                      <th>Quantity</th>
+                      <th>Unit Price</th>
+                      <th>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody id="editTransactionSingleItems">
+                    <!-- Items will be populated here -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Member Info -->
+            <div class="mt-3" id="editTransactionSingleMemberInfo" style="display: none;">
+              <label class="form-label fw-bold">Member Information</label>
+              <div class="card bg-light">
+                <div class="card-body">
+                  <div class="row">
+                    <div class="col-md-6">
+                      <small class="text-muted">Member Name:</small>
+                      <div id="editTransactionSingleMemberName" class="fw-semibold"></div>
+                    </div>
+                    <div class="col-md-6">
+                      <small class="text-muted">RFID Card:</small>
+                      <div id="editTransactionSingleMemberRfid" class="fw-semibold"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div id="editTransactionSingleMessage" class="alert mt-3" style="display: none;"></div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" form="editTransactionSingleForm" class="btn btn-success rounded-pill">
+            <i class="bi bi-check-circle me-1"></i>Update Transaction
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manage Admin Modal -->
+  <div class="modal fade" id="manageAdminModal" tabindex="-1" aria-labelledby="manageAdminModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="manageAdminModalLabel">
+            <i class="bi bi-gear me-2"></i>Manage Transactions
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <!-- Search Form -->
+          <div class="card mb-4">
+            <div class="card-body">
+              <h6 class="card-title mb-3">Search & Filter Transactions</h6>
+              <form id="transactionSearchForm">
+                <div class="row g-3">
+                  <div class="col-md-4">
+                    <label for="searchTransactionNumber" class="form-label">Transaction Number</label>
+                    <input type="text" class="form-control" id="searchTransactionNumber" placeholder="e.g., TXN-123">
+                  </div>
+                  <div class="col-md-4">
+                    <label for="searchStatus" class="form-label">Status</label>
+                    <select class="form-select" id="searchStatus">
+                      <option value="">All Statuses</option>
+                      <option value="pending">Pending</option>
+                      <option value="completed">Completed</option>
+                      <option value="cancelled">Cancelled</option>
+                      <option value="refund_requested">Refund Requested</option>
+                      <option value="partially_refunded">Partially Refunded</option>
+                      <option value="refunded">Refunded</option>
+                      <option value="return_window">Return Window</option>
+                      <option value="return_expired">Return Expired</option>
+                    </select>
+                  </div>
+                  <div class="col-md-4">
+                    <label for="searchPaymentMethod" class="form-label">Payment Method</label>
+                    <select class="form-select" id="searchPaymentMethod">
+                      <option value="">All Methods</option>
+                      <option value="cash">Cash</option>
+                      <option value="debit">Debit (Member Account)</option>
+                      <option value="credit">Credit (Utang)</option>
+                    </select>
+                  </div>
+                </div>
+                <div class="row g-3 mt-2">
+                  <div class="col-md-6">
+                    <label for="searchDateFrom" class="form-label">Date From</label>
+                    <input type="date" class="form-control" id="searchDateFrom">
+                  </div>
+                  <div class="col-md-6">
+                    <label for="searchDateTo" class="form-label">Date To</label>
+                    <input type="date" class="form-control" id="searchDateTo">
+                  </div>
+                </div>
+                <div class="mt-3">
+                  <button type="submit" class="btn btn-primary rounded-pill">
+                    <i class="bi bi-search me-1"></i>Search
+                  </button>
+                  <button type="button" class="btn btn-outline-secondary rounded-pill ms-2" id="resetSearchBtn">
+                    <i class="bi bi-arrow-clockwise me-1"></i>Reset
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <!-- Search Results -->
+          <div id="searchResults" style="display: none;">
+            <div class="card">
+              <div class="card-body">
+                <h6 class="card-title mb-3">Search Results</h6>
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                  <table class="table table-sm table-hover">
+                    <thead class="table-light sticky-top">
+                      <tr>
+                        <th>Transaction #</th>
+                        <th>Member</th>
+                        <th>Date</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="searchResultsBody">
+                      <!-- Results will be populated here -->
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Void Item Form -->
+          <div id="editTransactionForm" style="display: none;">
+            <div class="card">
+              <div class="card-body">
+                <h6 class="card-title mb-3">Void Item Request</h6>
+                <form id="updateTransactionForm">
+                  {% csrf_token %}
+                  <input type="hidden" id="editTransactionId" name="transaction_id">
+                  <input type="hidden" id="editTransactionStatus" name="transaction_status">
+                  
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <label for="editTransactionNumber" class="form-label">Transaction Number</label>
+                      <input type="text" class="form-control" id="editTransactionNumber" readonly>
+                    </div>
+                    <div class="col-md-6">
+                      <label for="editStatusDisplay" class="form-label">Current Status</label>
+                      <input type="text" class="form-control" id="editStatusDisplay" readonly>
+                    </div>
+                  </div>
+
+                  <div class="mt-3">
+                    <label for="voidItemSelect" class="form-label">Select Item to Void</label>
+                    <select class="form-select" id="voidItemSelect" name="item_id" required>
+                      <option value="">-- Select an item --</option>
+                    </select>
+                  </div>
+
+                  <div class="mt-3">
+                    <label for="voidReason" class="form-label">Void Reason</label>
+                    <textarea class="form-control" id="voidReason" name="reason" rows="3" placeholder="Enter reason for voiding this item..."></textarea>
+                    <div class="form-text">This creates a refund request for the selected item and sends it to the refund approval workflow.</div>
+                  </div>
+
+                  <div class="mt-4">
+                    <button type="submit" class="btn btn-success rounded-pill">
+                      <i class="bi bi-x-circle me-1"></i>Submit Void Request
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary rounded-pill ms-2" id="cancelEditBtn">
+                      <i class="bi bi-x-circle me-1"></i>Cancel
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <!-- Message Area -->
+          <div id="manageAdminMessage" class="alert" style="display: none;"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary rounded-pill" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% include 'admin_panel/partials/process_refund_modal.html' %}
+
+  {% include "partials/bootstrap_scripts.html" %}
+  <script>
+    // CSRF Token helper
+    function getCsrfToken() {
+      const token = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+      if (token) return token;
+      const cookies = document.cookie.split(';');
+      for (let cookie of cookies) {
+        const [key, value] = cookie.trim().split('=');
+        if (key === 'csrftoken') return value;
+      }
+      return '';
+    }
+
+    {% include 'admin_panel/partials/process_refund_modal_js.html' %}
+
+    // Logout confirmation handler
+    document.addEventListener('DOMContentLoaded', function() {
+      const txnExportForm = document.getElementById('txnExportForm');
+      if (txnExportForm) {
+        txnExportForm.addEventListener('submit', function (e) {
+          const fromEl = document.getElementById('txnExportDateFrom');
+          const toEl = document.getElementById('txnExportDateTo');
+          if (fromEl && toEl && fromEl.value && toEl.value && fromEl.value > toEl.value) {
+            e.preventDefault();
+            alert('Please choose a From date that is on or before the To date.');
+          }
+        });
+      }
+
+      const tabParam = new URLSearchParams(window.location.search).get('tab');
+      if (tabParam === 'balance-refills') {
+        const refillTab = document.getElementById('balance-refills-tab');
+        if (refillTab && typeof bootstrap !== 'undefined') {
+          bootstrap.Tab.getOrCreateInstance(refillTab).show();
+        }
+      }
+      if (tabParam === 'pay-credit') {
+        const payCreditTab = document.getElementById('pay-credit-tab');
+        if (payCreditTab && typeof bootstrap !== 'undefined') {
+          bootstrap.Tab.getOrCreateInstance(payCreditTab).show();
+        }
+      }
+
+      const balanceRefillsTabBtn = document.getElementById('balance-refills-tab');
+      if (balanceRefillsTabBtn) {
+        balanceRefillsTabBtn.addEventListener('shown.bs.tab', function() {
+          const badge = this.querySelector('.balance-refills-notify-badge');
+          fetch('{% url "api_mark_balance_refills_seen" %}', {
+            method: 'POST',
+            headers: {
+              'X-CSRFToken': getCsrfToken(),
+              'X-Requested-With': 'XMLHttpRequest',
+            },
+            credentials: 'same-origin',
+          })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+              if (data.success && badge) {
+                badge.remove();
+              }
+            })
+            .catch(function() { /* ignore */ });
+        });
+      }
+
+      // ── Reverse balance refill (Admin PIN) ──
+      const reverseRefillModalEl = document.getElementById('reverseRefillModal');
+      const reverseRefillPinBoxes = document.querySelectorAll('.reverse-refill-pin-box');
+      const reverseRefillConfirmBtn = document.getElementById('reverseRefillConfirmBtn');
+
+      function reverseRefillGetPin() {
+        return Array.from(reverseRefillPinBoxes).map(function(b) { return b.value || ''; }).join('');
+      }
+
+      function reverseRefillClearPin() {
+        reverseRefillPinBoxes.forEach(function(b) {
+          b.value = '';
+          b.style.borderColor = '';
+        });
+        const err = document.getElementById('reverseRefillError');
+        if (err) { err.style.display = 'none'; err.textContent = ''; }
+        if (reverseRefillConfirmBtn) reverseRefillConfirmBtn.disabled = true;
+      }
+
+      function reverseRefillUpdateConfirm() {
+        if (reverseRefillConfirmBtn) {
+          reverseRefillConfirmBtn.disabled = reverseRefillGetPin().length !== 4;
+        }
+      }
+
+      reverseRefillPinBoxes.forEach(function(box, idx) {
+        box.addEventListener('input', function() {
+          this.value = this.value.replace(/\D/g, '').slice(0, 1);
+          if (this.value && idx < reverseRefillPinBoxes.length - 1) {
+            reverseRefillPinBoxes[idx + 1].focus();
+          }
+          reverseRefillUpdateConfirm();
+        });
+        box.addEventListener('keydown', function(e) {
+          if (e.key === 'Backspace' && !box.value && idx > 0) {
+            reverseRefillPinBoxes[idx - 1].focus();
+            reverseRefillPinBoxes[idx - 1].value = '';
+            reverseRefillUpdateConfirm();
+          }
+        });
+      });
+
+      if (reverseRefillModalEl) {
+        reverseRefillModalEl.addEventListener('hidden.bs.modal', function() {
+          reverseRefillClearPin();
+          document.getElementById('reverseRefillId').value = '';
+        });
+      }
+
+      document.querySelectorAll('.reverse-refill-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          const rid = this.getAttribute('data-refill-id');
+          const name = this.getAttribute('data-member-name') || '';
+          const txn = this.getAttribute('data-txn-number') || '';
+          const amt = this.getAttribute('data-amount') || '';
+          document.getElementById('reverseRefillId').value = rid;
+          document.getElementById('reverseRefillSummary').innerHTML =
+            '<strong>' + name + '</strong><br>Transaction <code>' + txn + '</code> · ₱' + parseFloat(amt).toFixed(2) + ' will be deducted from their balance.';
+          reverseRefillClearPin();
+          if (reverseRefillConfirmBtn) {
+            reverseRefillConfirmBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Confirm reverse';
+          }
+          new bootstrap.Modal(reverseRefillModalEl).show();
+          if (reverseRefillPinBoxes[0]) reverseRefillPinBoxes[0].focus();
+        });
+      });
+
+      if (reverseRefillConfirmBtn) {
+        reverseRefillConfirmBtn.addEventListener('click', function() {
+          const rid = document.getElementById('reverseRefillId').value;
+          const pin = reverseRefillGetPin();
+          const errEl = document.getElementById('reverseRefillError');
+          if (!rid || pin.length !== 4) return;
+
+          if (errEl) {
+            errEl.style.display = 'none';
+            errEl.textContent = '';
+          }
+
+          reverseRefillConfirmBtn.disabled = true;
+          reverseRefillConfirmBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Processing…';
+
+          fetch('{% url "api_reverse_balance_refill" %}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+            body: JSON.stringify({ refill_id: parseInt(rid, 10), admin_pin: pin }),
+            credentials: 'same-origin'
+          })
+            .then(function(r) { return r.json(); })
+            .then(function(result) {
+              if (result.success) {
+                bootstrap.Modal.getInstance(reverseRefillModalEl).hide();
+                window.location.reload();
+                return;
+              }
+              if (errEl) {
+                errEl.textContent = result.error || 'Could not reverse this refill.';
+                errEl.style.display = 'block';
+              } else {
+                alert(result.error || 'Could not reverse this refill.');
+              }
+              reverseRefillConfirmBtn.disabled = false;
+              reverseRefillConfirmBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Confirm reverse';
+              reverseRefillClearPin();
+              if (reverseRefillPinBoxes[0]) reverseRefillPinBoxes[0].focus();
+            })
+            .catch(function() {
+              if (errEl) {
+                errEl.textContent = 'Network error. Please try again.';
+                errEl.style.display = 'block';
+              } else {
+                alert('Network error. Please try again.');
+              }
+              reverseRefillConfirmBtn.disabled = false;
+              reverseRefillConfirmBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Confirm reverse';
+            });
+        });
+      }
+
+      const logoutBtn = document.getElementById('logoutBtn');
+      const logoutForm = document.getElementById('logoutForm');
+      
+      if (logoutBtn && logoutForm) {
+        logoutBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          showLogoutConfirmModal();
+        });
+      }
+
+      function showLogoutConfirmModal() {
+        const modal = document.getElementById('logoutConfirmModal');
+        if (!modal) {
+          console.error('Logout confirmation modal not found');
+          // Fallback to browser confirm
+          if (confirm('Are you sure you want to logout?')) {
+            logoutForm.submit();
+          }
+          return;
+        }
+        
+        // Check if Bootstrap is available
+        if (typeof bootstrap === 'undefined') {
+          console.error('Bootstrap is not loaded');
+          // Fallback to browser confirm
+          if (confirm('Are you sure you want to logout?')) {
+            logoutForm.submit();
+          }
+          return;
+        }
+        
+        // Get or create modal instance
+        let bsModal = bootstrap.Modal.getInstance(modal);
+        if (!bsModal) {
+          bsModal = new bootstrap.Modal(modal, {
+            backdrop: true,
+            keyboard: true,
+            focus: true
+          });
+        }
+        
+        // Remove existing event listeners to prevent duplicates
+        const confirmBtn = modal.querySelector('.btn-confirm');
+        const cancelBtn = modal.querySelector('.btn-cancel');
+        
+        // Clone and replace buttons to remove old listeners
+        if (confirmBtn) {
+          const newConfirmBtn = confirmBtn.cloneNode(true);
+          confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+          newConfirmBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            bsModal.hide();
+            setTimeout(function() {
+              logoutForm.submit();
+            }, 300);
+          });
+        }
+        
+        if (cancelBtn) {
+          const newCancelBtn = cancelBtn.cloneNode(true);
+          cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+          newCancelBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            bsModal.hide();
+          });
+        }
+        
+        // Show modal
+        try {
+          bsModal.show();
+        } catch (error) {
+          console.error('Error showing modal:', error);
+          // Fallback to browser confirm
+          if (confirm('Are you sure you want to logout?')) {
+            logoutForm.submit();
+          }
+        }
+      }
+
+      // Handle Manage Admin Modal - Transaction Search Form
+      const transactionSearchForm = document.getElementById('transactionSearchForm');
+      const resetSearchBtn = document.getElementById('resetSearchBtn');
+      const searchResults = document.getElementById('searchResults');
+      const searchResultsBody = document.getElementById('searchResultsBody');
+      const editTransactionForm = document.getElementById('editTransactionForm');
+      const updateTransactionForm = document.getElementById('updateTransactionForm');
+      const cancelEditBtn = document.getElementById('cancelEditBtn');
+      const manageAdminMessage = document.getElementById('manageAdminMessage');
+
+      // Search form submission
+      if (transactionSearchForm) {
+        transactionSearchForm.addEventListener('submit', function(e) {
+          e.preventDefault();
+          searchTransactions();
+        });
+      }
+
+      // Reset search
+      if (resetSearchBtn) {
+        resetSearchBtn.addEventListener('click', function() {
+          transactionSearchForm.reset();
+          searchResults.style.display = 'none';
+          editTransactionForm.style.display = 'none';
+          hideMessage();
+        });
+      }
+
+      // Cancel void request form
+      if (cancelEditBtn) {
+        cancelEditBtn.addEventListener('click', function() {
+          editTransactionForm.style.display = 'none';
+          searchResults.style.display = 'block';
+          updateTransactionForm.reset();
+          hideMessage();
+        });
+      }
+
+      // Void request form submission
+      if (updateTransactionForm) {
+        updateTransactionForm.addEventListener('submit', function(e) {
+          e.preventDefault();
+          voidTransactionItem();
+        });
+      }
+
+      const TXN_STATUS_BADGE_CLASS = {
+        completed: 'txn-status-completed',
+        pending: 'txn-status-pending',
+        cancelled: 'txn-status-cancelled',
+        refunded: 'txn-status-refunded',
+        refund_requested: 'txn-status-refund_requested',
+        return_window: 'txn-status-return_window',
+        partially_refunded: 'txn-status-partially_refunded',
+        return_expired: 'txn-status-return_expired',
+      };
+
+      const TXN_STATUS_ICONS = {
+        completed: 'bi-check-circle-fill',
+        pending: 'bi-hourglass-split',
+        cancelled: 'bi-x-circle-fill',
+        refunded: 'bi-cash-stack',
+        refund_requested: 'bi-arrow-repeat',
+        return_window: 'bi-box-arrow-in-left',
+        partially_refunded: 'bi-arrow-counterclockwise',
+        return_expired: 'bi-calendar-x',
+      };
+
+      function renderTxnStatusBadge(status, label) {
+        const statusClass = TXN_STATUS_BADGE_CLASS[status] || 'txn-status-pending';
+        const icon = TXN_STATUS_ICONS[status] || 'bi-info-circle';
+        return `<span class="txn-status-badge ${statusClass}" role="status"><i class="bi ${icon}" aria-hidden="true"></i><span class="txn-status-label">${label}</span></span>`;
+      }
+
+      // Search transactions function
+      function searchTransactions() {
+        const transactionNumber = document.getElementById('searchTransactionNumber').value.trim();
+        const status = document.getElementById('searchStatus').value;
+        const paymentMethod = document.getElementById('searchPaymentMethod').value;
+        const dateFrom = document.getElementById('searchDateFrom').value;
+        const dateTo = document.getElementById('searchDateTo').value;
+
+        // Build query parameters
+        const params = new URLSearchParams();
+        if (transactionNumber) params.append('transaction_number', transactionNumber);
+        if (status) params.append('status', status);
+        if (paymentMethod) params.append('payment_method', paymentMethod);
+        if (dateFrom) params.append('date_from', dateFrom);
+        if (dateTo) params.append('date_to', dateTo);
+
+        // Show loading
+        searchResultsBody.innerHTML = '<tr><td colspan="6" class="text-center"><div class="spinner-border spinner-border-sm me-2"></div>Searching...</td></tr>';
+        searchResults.style.display = 'block';
+        editTransactionForm.style.display = 'none';
+        hideMessage();
+
+        // Fetch transactions via API
+        fetch(`/api/search-transactions/?${params.toString()}`, {
+          method: 'GET',
+          headers: {
+            'X-CSRFToken': getCsrfToken()
+          },
+          credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(result => {
+          if (!result.success) {
+            showMessage(result.error || 'Error searching transactions.', 'danger');
+            searchResultsBody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error loading results.</td></tr>';
+            return;
+          }
+
+          const transactions = result.transactions || [];
+
+          if (transactions.length === 0) {
+            searchResultsBody.innerHTML = '<tr><td colspan="6" class="text-center text-muted">No transactions found.</td></tr>';
+            return;
+          }
+
+          // Build results table
+          let resultsHtml = '';
+          transactions.forEach(txn => {
+            const canVoid = !!txn.can_void;
+            const canDeleteTxn = {{ is_admin_user|yesno:"true,false" }};
+            resultsHtml += `
+              <tr>
+                <td><code>${txn.transaction_number}</code></td>
+                <td>${txn.member_name}</td>
+                <td>${txn.date}<br><small class="text-muted">${txn.time}</small></td>
+                <td>₱${parseFloat(txn.amount).toFixed(2)}</td>
+                <td>${renderTxnStatusBadge(txn.status, txn.status_display)}</td>
+                <td class="text-nowrap">
+                  <button type="button" class="btn btn-sm rounded-pill void-item-btn ${canVoid ? 'btn-outline-danger' : 'btn-outline-secondary'}" 
+                          data-transaction-id="${txn.id}" ${canVoid ? '' : 'disabled title="Void is not available for this transaction"'}>
+                    <i class="bi bi-x-circle me-1"></i>Void Item
+                  </button>
+                  ${canDeleteTxn ? `
+                  <button type="button" class="btn btn-sm btn-outline-danger rounded-pill delete-transaction-btn ms-1"
+                          data-transaction-id="${txn.id}"
+                          data-transaction-number="${txn.transaction_number}">
+                    <i class="bi bi-trash me-1"></i>Delete
+                  </button>` : ''}
+                </td>
+              </tr>
+            `;
+          });
+
+          searchResultsBody.innerHTML = resultsHtml;
+
+          // Attach void button handlers
+          document.querySelectorAll('.void-item-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+              const transactionId = this.getAttribute('data-transaction-id');
+              loadTransactionForEdit(transactionId);
+            });
+          });
+        })
+        .catch(error => {
+          console.error('Search error:', error);
+          showMessage('Error searching transactions. Please try again.', 'danger');
+          searchResultsBody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error loading results.</td></tr>';
+        });
+      }
+
+      // Load transaction details for void request
+      function loadTransactionForEdit(transactionId) {
+        if (!transactionId) {
+          showMessage('Invalid transaction ID.', 'danger');
+          return;
+        }
+
+        // Show loading - disable form fields
+        editTransactionForm.style.display = 'block';
+        searchResults.style.display = 'none';
+        const formFields = updateTransactionForm.querySelectorAll('input, select, textarea');
+        formFields.forEach(field => {
+          field.disabled = true;
+        });
+        const submitBtn = updateTransactionForm.querySelector('button[type="submit"]');
+        const originalBtnHtml = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Loading...';
+
+        // Fetch transaction details via API
+        fetch(`/api/get-transaction/${transactionId}/`, {
+          method: 'GET',
+          headers: {
+            'X-CSRFToken': getCsrfToken()
+          },
+          credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(result => {
+          // Re-enable form fields
+          formFields.forEach(field => {
+            field.disabled = false;
+          });
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalBtnHtml;
+
+          if (!result.success) {
+            showMessage(result.error || 'Transaction not found.', 'danger');
+            editTransactionForm.style.display = 'none';
+            return;
+          }
+
+          const txn = result.transaction;
+
+          // Populate form
+          document.getElementById('editTransactionId').value = txn.id;
+          document.getElementById('editTransactionNumber').value = txn.transaction_number;
+          document.getElementById('editTransactionStatus').value = txn.status || '';
+          document.getElementById('editStatusDisplay').value = txn.status_display || txn.status;
+
+          const itemSelect = document.getElementById('voidItemSelect');
+          itemSelect.innerHTML = '<option value="">-- Select an item --</option>';
+          const voidableItems = (txn.items || []).filter(item => !item.refunded_at);
+          voidableItems.forEach(item => {
+            const option = document.createElement('option');
+            option.value = item.id;
+            option.textContent = `${item.product_name} (${item.product_barcode}) x${item.quantity} - ₱${parseFloat(item.total_price).toFixed(2)}`;
+            itemSelect.appendChild(option);
+          });
+
+          const submitBtnEl = updateTransactionForm.querySelector('button[type="submit"]');
+          const canVoid = !!txn.can_void && voidableItems.length > 0;
+          if (!canVoid) {
+            submitBtnEl.disabled = true;
+            document.getElementById('voidItemSelect').disabled = true;
+            document.getElementById('voidReason').disabled = true;
+            if (voidableItems.length === 0 && (txn.items || []).length > 0) {
+              showMessage('All items on this transaction have already been refunded.', 'warning');
+            } else {
+              showMessage(`Void is not allowed for transactions in ${txn.status_display} status.`, 'warning');
+            }
+          } else {
+            submitBtnEl.disabled = false;
+            document.getElementById('voidItemSelect').disabled = false;
+            document.getElementById('voidReason').disabled = false;
+            hideMessage();
+          }
+
+        })
+        .catch(error => {
+          console.error('Load error:', error);
+          showMessage('Error loading transaction details.', 'danger');
+          formFields.forEach(field => {
+            field.disabled = false;
+          });
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalBtnHtml;
+          editTransactionForm.style.display = 'none';
+        });
+      }
+
+      // Submit void item request
+      function voidTransactionItem() {
+        const formData = new FormData(updateTransactionForm);
+        const transactionId = formData.get('transaction_id');
+        const itemId = formData.get('item_id');
+        const currentStatus = (formData.get('transaction_status') || '').trim();
+
+        if (!transactionId) {
+          showMessage('Transaction ID is required.', 'danger');
+          return;
+        }
+        if (!['completed', 'partially_refunded'].includes(currentStatus)) {
+          showMessage('Void is not allowed for this transaction status.', 'warning');
+          return;
+        }
+        if (!itemId) {
+          showMessage('Please select an item to void.', 'danger');
+          return;
+        }
+
+        // Build JSON payload
+        const data = {
+          transaction_id: transactionId,
+          item_id: itemId,
+          reason: formData.get('reason') || ''
+        };
+
+        // Show loading
+        const submitBtn = updateTransactionForm.querySelector('button[type="submit"]');
+        const originalHtml = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Submitting...';
+
+        // Submit void request
+        fetch('/api/void-transaction-item/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+          },
+          body: JSON.stringify(data),
+          credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(result => {
+          if (result.success) {
+            showMessage(result.message || 'Void request submitted successfully!', 'success');
+            setTimeout(() => {
+              window.location.reload();
+            }, 1500);
+          } else {
+            showMessage(result.error || 'Failed to submit void request.', 'danger');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalHtml;
+          }
+        })
+        .catch(error => {
+          console.error('Void request error:', error);
+          showMessage('Error submitting void request. Please try again.', 'danger');
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalHtml;
+        });
+      }
+
+      // Show message
+      function showMessage(message, type) {
+        manageAdminMessage.className = `alert alert-${type}`;
+        manageAdminMessage.textContent = message;
+        manageAdminMessage.style.display = 'block';
+        setTimeout(() => {
+          hideMessage();
+        }, 5000);
+      }
+
+      // Hide message
+      function hideMessage() {
+        manageAdminMessage.style.display = 'none';
+      }
+
+      // Load transaction for single edit modal (Edit in Admin button)
+      function loadTransactionForSingleEdit(transactionId) {
+        console.log('Loading transaction:', transactionId);
+        
+        if (!transactionId) {
+          showSingleEditMessage('Invalid transaction ID.', 'danger');
+          return;
+        }
+
+        const form = document.getElementById('editTransactionSingleForm');
+        if (!form) {
+          console.error('Form not found');
+          return;
+        }
+        
+        const formFields = form.querySelectorAll('input, select, textarea');
+        const submitBtn = document.querySelector('#editTransactionModal button[type="submit"]');
+        
+        // Disable form and show loading
+        formFields.forEach(field => {
+          field.disabled = true;
+        });
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          const originalBtnHtml = submitBtn.innerHTML;
+          submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Loading...';
+        }
+        hideSingleEditMessage();
+
+        // Fetch transaction details via API
+        fetch(`/api/get-transaction/${transactionId}/`, {
+          method: 'GET',
+          headers: {
+            'X-CSRFToken': getCsrfToken()
+          },
+          credentials: 'same-origin'
+        })
+        .then(response => {
+          console.log('Response status:', response.status);
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(result => {
+          console.log('API result:', result);
+          
+          // Re-enable form fields
+          formFields.forEach(field => {
+            field.disabled = false;
+          });
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Update Transaction';
+          }
+
+          if (!result.success) {
+            console.error('API error:', result.error);
+            showSingleEditMessage(result.error || 'Transaction not found.', 'danger');
+            return;
+          }
+
+          const txn = result.transaction;
+          console.log('Transaction data:', txn);
+
+          // Populate form fields
+          const idField = document.getElementById('editTransactionSingleId');
+          const numberField = document.getElementById('editTransactionSingleNumber');
+          const statusField = document.getElementById('editTransactionSingleStatus');
+          const paymentMethodField = document.getElementById('editTransactionSinglePaymentMethod');
+          const totalAmountField = document.getElementById('editTransactionSingleTotalAmount');
+          const amountPaidField = document.getElementById('editTransactionSingleAmountPaid');
+          const amountFromBalanceField = document.getElementById('editTransactionSingleAmountFromBalance');
+          const notesField = document.getElementById('editTransactionSingleNotes');
+
+          if (idField) idField.value = txn.id || '';
+          if (numberField) numberField.value = txn.transaction_number || '';
+          if (statusField) statusField.value = txn.status || 'pending';
+          if (paymentMethodField) paymentMethodField.value = txn.payment_method || 'cash';
+          if (totalAmountField) totalAmountField.value = txn.total_amount || '0';
+          if (amountPaidField) amountPaidField.value = txn.amount_paid || '0';
+          if (amountFromBalanceField) amountFromBalanceField.value = txn.amount_from_balance || '0';
+          if (notesField) notesField.value = txn.notes || '';
+
+          console.log('Form populated:', {
+            id: idField?.value,
+            number: numberField?.value,
+            status: statusField?.value,
+            payment_method: paymentMethodField?.value
+          });
+
+          // Populate transaction items
+          const itemsTbody = document.getElementById('editTransactionSingleItems');
+          if (itemsTbody) {
+            if (txn.items && txn.items.length > 0) {
+              let itemsHtml = '';
+              txn.items.forEach(item => {
+                itemsHtml += `
+                  <tr>
+                    <td>${item.product_name || 'N/A'}</td>
+                    <td><code>${item.product_barcode || 'N/A'}</code></td>
+                    <td>${item.quantity || 0}</td>
+                    <td>₱${parseFloat(item.unit_price || 0).toFixed(2)}</td>
+                    <td>₱${parseFloat(item.total_price || 0).toFixed(2)}</td>
+                  </tr>
+                `;
+              });
+              itemsTbody.innerHTML = itemsHtml;
+            } else {
+              itemsTbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted">No items found.</td></tr>';
+            }
+          }
+
+          // Populate member info if available
+          const memberInfo = document.getElementById('editTransactionSingleMemberInfo');
+          if (memberInfo) {
+            if (txn.member_id && txn.member_name) {
+              const memberNameField = document.getElementById('editTransactionSingleMemberName');
+              const memberRfidField = document.getElementById('editTransactionSingleMemberRfid');
+              if (memberNameField) memberNameField.textContent = txn.member_name;
+              if (memberRfidField) memberRfidField.textContent = txn.member_rfid || 'N/A';
+              memberInfo.style.display = 'block';
+            } else {
+              memberInfo.style.display = 'none';
+            }
+          }
+
+          hideSingleEditMessage();
+        })
+        .catch(error => {
+          console.error('Load error:', error);
+          showSingleEditMessage('Error loading transaction details: ' + error.message, 'danger');
+          formFields.forEach(field => {
+            field.disabled = false;
+          });
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Update Transaction';
+          }
+        });
+      }
+
+      // Handle single edit form submission
+      const editTransactionSingleForm = document.getElementById('editTransactionSingleForm');
+      if (editTransactionSingleForm) {
+        editTransactionSingleForm.addEventListener('submit', function(e) {
+          e.preventDefault();
+          updateSingleTransaction();
+        });
+      }
+
+      // Update single transaction
+      function updateSingleTransaction() {
+        const form = document.getElementById('editTransactionSingleForm');
+        const formData = new FormData(form);
+        const transactionId = formData.get('transaction_id');
+
+        if (!transactionId) {
+          showSingleEditMessage('Transaction ID is required.', 'danger');
+          return;
+        }
+
+        // Build JSON payload
+        const data = {
+          transaction_id: transactionId,
+          status: formData.get('status'),
+          payment_method: formData.get('payment_method'),
+          amount_paid: formData.get('amount_paid') || '0',
+          amount_from_balance: formData.get('amount_from_balance') || '0',
+          notes: formData.get('notes') || ''
+        };
+
+        // Show loading
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalBtnHtml = submitBtn.innerHTML;
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Updating...';
+
+        // Submit update
+        fetch('/api/update-transaction/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+          },
+          body: JSON.stringify(data),
+          credentials: 'same-origin'
+        })
+        .then(response => response.json())
+        .then(result => {
+          if (result.success) {
+            showSingleEditMessage(result.message || 'Transaction updated successfully!', 'success');
+            setTimeout(() => {
+              // Close modal and reload page
+              const modal = bootstrap.Modal.getInstance(document.getElementById('editTransactionModal'));
+              if (modal) {
+                modal.hide();
+              }
+              window.location.reload();
+            }, 1500);
+          } else {
+            showSingleEditMessage(result.error || 'Failed to update transaction.', 'danger');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnHtml;
+          }
+        })
+        .catch(error => {
+          console.error('Update error:', error);
+          showSingleEditMessage('Error updating transaction. Please try again.', 'danger');
+          submitBtn.disabled = false;
+          submitBtn.innerHTML = originalBtnHtml;
+        });
+      }
+
+      // Show message in single edit modal
+      function showSingleEditMessage(message, type) {
+        const messageDiv = document.getElementById('editTransactionSingleMessage');
+        messageDiv.className = `alert alert-${type} mt-3`;
+        messageDiv.textContent = message;
+        messageDiv.style.display = 'block';
+        setTimeout(() => {
+          hideSingleEditMessage();
+        }, 5000);
+      }
+
+      // Hide message in single edit modal
+      function hideSingleEditMessage() {
+        const messageDiv = document.getElementById('editTransactionSingleMessage');
+        messageDiv.style.display = 'none';
+      }
+
+      // Handle Edit in Admin buttons - open modal and load data
+      document.querySelectorAll('.edit-transaction-modal-btn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.preventDefault();
+          const transactionId = this.getAttribute('data-transaction-id');
+          console.log('Button clicked, transaction ID:', transactionId);
+          
+          if (transactionId) {
+            // Manually show the modal
+            const modalElement = document.getElementById('editTransactionModal');
+            if (modalElement) {
+              const modal = new bootstrap.Modal(modalElement);
+              modal.show();
+              
+              // Load data when modal is fully shown
+              modalElement.addEventListener('shown.bs.modal', function loadData() {
+                loadTransactionForSingleEdit(transactionId);
+                // Remove listener after first use
+                modalElement.removeEventListener('shown.bs.modal', loadData);
+              }, { once: true });
+            }
+          }
+        });
+      });
+
+      // Reset single edit modal when closed
+      const editTransactionModal = document.getElementById('editTransactionModal');
+      if (editTransactionModal) {
+        editTransactionModal.addEventListener('hidden.bs.modal', function() {
+          const form = document.getElementById('editTransactionSingleForm');
+          if (form) {
+            form.reset();
+            const itemsTbody = document.getElementById('editTransactionSingleItems');
+            if (itemsTbody) itemsTbody.innerHTML = '';
+            const memberInfo = document.getElementById('editTransactionSingleMemberInfo');
+            if (memberInfo) memberInfo.style.display = 'none';
+            hideSingleEditMessage();
+          }
+        });
+      }
+
+      // Handle all admin page buttons - open in new tab (prevents navigation on current page)
+      document.querySelectorAll('.open-admin-btn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.preventDefault();
+          const url = this.getAttribute('data-url');
+          if (url) {
+            window.open(url, '_blank', 'noopener,noreferrer');
+          }
+        });
+      });
+
+      // Handle all new tab buttons (receipts, etc.) - open in new tab (prevents navigation on current page)
+      document.querySelectorAll('.open-new-tab-btn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.preventDefault();
+          const url = this.getAttribute('data-url');
+          if (url) {
+            window.open(url, '_blank', 'noopener,noreferrer');
+          }
+        });
+      });
+
+      document.querySelectorAll('.print-receipt-btn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.preventDefault();
+          printTransactionReceipt(
+            this.getAttribute('data-txn-id'),
+            this.getAttribute('data-payment-method')
+          );
+        });
+      });
+
+      // Handle expand/collapse details buttons
+      document.querySelectorAll('.expand-btn').forEach(function(btn) {
+        btn.addEventListener('click', function(e) {
+          e.preventDefault();
+          const transactionId = this.getAttribute('data-transaction-id');
+          toggleDetails(transactionId);
+        });
+      });
+
+      document.addEventListener('click', function(e) {
+        const deleteBtn = e.target.closest('.delete-transaction-btn');
+        if (!deleteBtn) return;
+        e.preventDefault();
+        const transactionId = parseInt(deleteBtn.getAttribute('data-transaction-id'), 10);
+        const txnNumber = deleteBtn.getAttribute('data-transaction-number') || 'this transaction';
+        if (!transactionId) return;
+
+        const modalEl = document.getElementById('deleteTransactionModal');
+        const idInput = document.getElementById('deleteTxnIdInput');
+        const label = document.getElementById('deleteTxnNumberLabel');
+        const confirmBtn = document.getElementById('confirmDeleteTransactionBtn');
+        if (idInput) idInput.value = String(transactionId);
+        if (label) label.textContent = txnNumber;
+        if (confirmBtn) {
+          confirmBtn.disabled = false;
+          confirmBtn.dataset.sourceBtn = '';
+          confirmBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Proceed — delete';
+          // Keep a weak reference to the clicked button for re-enable on error.
+          confirmBtn._sourceDeleteBtn = deleteBtn;
+        }
+
+        if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+          const bsModal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+          bsModal.show();
+          return;
+        }
+
+        // Fallback if Bootstrap modal is unavailable
+        if (!window.confirm(
+          `Delete ${txnNumber} permanently?\n\nStock and debit balance will be restored when applicable. This cannot be undone and will be recorded in the audit trail.`
+        )) {
+          return;
+        }
+        performDeleteTransaction(transactionId, deleteBtn);
+      });
+
+      function performDeleteTransaction(transactionId, deleteBtn) {
+        if (!transactionId) return;
+        if (deleteBtn) deleteBtn.disabled = true;
+        const confirmBtn = document.getElementById('confirmDeleteTransactionBtn');
+        if (confirmBtn) {
+          confirmBtn.disabled = true;
+          confirmBtn.innerHTML =
+            '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Deleting…';
+        }
+        fetch("{% url 'api_delete_transaction' %}", {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken(),
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify({ id: transactionId }),
+        })
+          .then(async (res) => {
+            const data = await res.json().catch(() => ({}));
+            return { ok: res.ok, data };
+          })
+          .then(({ ok, data }) => {
+            if (ok && data.success) {
+              window.location.reload();
+            } else {
+              alert(data?.error || 'Could not delete transaction.');
+              if (deleteBtn) deleteBtn.disabled = false;
+              if (confirmBtn) {
+                confirmBtn.disabled = false;
+                confirmBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Proceed — delete';
+              }
+            }
+          })
+          .catch(() => {
+            alert('Server error while deleting transaction.');
+            if (deleteBtn) deleteBtn.disabled = false;
+            if (confirmBtn) {
+              confirmBtn.disabled = false;
+              confirmBtn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Proceed — delete';
+            }
+          });
+      }
+
+      const confirmDeleteBtn = document.getElementById('confirmDeleteTransactionBtn');
+      if (confirmDeleteBtn) {
+        confirmDeleteBtn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          const idInput = document.getElementById('deleteTxnIdInput');
+          const transactionId = parseInt(idInput && idInput.value, 10);
+          if (!transactionId) return;
+          const sourceBtn = confirmDeleteBtn._sourceDeleteBtn || null;
+          const modalEl = document.getElementById('deleteTransactionModal');
+          if (modalEl && typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+            const bsModal = bootstrap.Modal.getInstance(modalEl);
+            if (bsModal) bsModal.hide();
+          }
+          window.setTimeout(function () {
+            performDeleteTransaction(transactionId, sourceBtn);
+          }, 120);
+        });
+      }
+    });
+
+    function printTransactionReceipt(txnId, paymentMethod) {
+      if (!txnId) return;
+      const method = (paymentMethod || 'cash').toLowerCase();
+      const base = method === 'cash'
+        ? '/cash-receipt/' + txnId + '/'
+        : method === 'credit'
+        ? '/credit-receipt/' + txnId + '/'
+        : '/debit-credit-receipt/' + txnId + '/';
+      const url = base + '?reprint=1';
+      const printWin = window.open(url, 'RECEIPT_PRINT', 'width=900,height=720,scrollbars=yes,resizable=yes');
+      if (!printWin) {
+        alert('Pop-up blocked — please allow pop-ups for this site to print receipts.');
+      }
+    }
+
+    // Toggle transaction details
+    function toggleDetails(transactionId) {
+      const detailsRow = document.getElementById('details-' + transactionId);
+      const icon = document.getElementById('icon-' + transactionId);
+      const btn = document.getElementById('btn-' + transactionId);
+      
+      if (detailsRow.style.display === 'none') {
+        detailsRow.style.display = 'table-row';
+        icon.className = 'bi bi-chevron-up';
+        btn.innerHTML = '<i class="bi bi-chevron-up" id="icon-' + transactionId + '"></i> Hide';
+      } else {
+        detailsRow.style.display = 'none';
+        icon.className = 'bi bi-chevron-down';
+        btn.innerHTML = '<i class="bi bi-chevron-down" id="icon-' + transactionId + '"></i> Details';
+      }
+    }
+
+    // Toggle refund request details
+    function toggleRrDetails(txnId) {
+      const row = document.getElementById('rr-details-' + txnId);
+      const icon = document.getElementById('rr-icon-' + txnId);
+      const btn = document.getElementById('rr-btn-' + txnId);
+      if (row.style.display === 'none') {
+        row.style.display = 'table-row';
+        icon.className = 'bi bi-chevron-up';
+        btn.innerHTML = '<i class="bi bi-chevron-up" id="rr-icon-' + txnId + '"></i> Hide';
+      } else {
+        row.style.display = 'none';
+        icon.className = 'bi bi-chevron-down';
+        btn.innerHTML = '<i class="bi bi-chevron-down" id="rr-icon-' + txnId + '"></i> Details';
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      // Refund request expand buttons
+      document.querySelectorAll('.rr-expand-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          toggleRrDetails(this.getAttribute('data-txn-id'));
+        });
+      });
+
+      // Approve refund — open modal
+      let _approveRefundTxnId = null;
+      let _approveRefundTriggerBtn = null;
+
+      // Reasons that should NOT restock by default (expired items go to waste, not shelf)
+      const NO_RESTOCK_REASONS = ['expired'];
+
+      document.querySelectorAll('.approve-refund-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          const txnId = this.getAttribute('data-txn-id');
+          const txnNumber = this.getAttribute('data-txn-number');
+          const reasonType = this.getAttribute('data-reason-type') || '';
+          const reasonLabel = this.getAttribute('data-reason-label') || '—';
+
+          _approveRefundTxnId = txnId;
+          _approveRefundTriggerBtn = this;
+
+          // Populate modal
+          document.getElementById('approveRefundTxnNumber').textContent = txnNumber;
+          document.getElementById('approveRefundReasonBadge').textContent = reasonLabel;
+
+          const toggle = document.getElementById('approveRefundRestockToggle');
+          const hint = document.getElementById('approveRefundRestockHint');
+          const shouldRestock = !NO_RESTOCK_REASONS.includes(reasonType);
+          toggle.checked = shouldRestock;
+
+          if (reasonType === 'expired') {
+            hint.innerHTML = '<i class="bi bi-exclamation-triangle-fill text-danger me-1"></i>'
+              + 'Reason is <strong>Expired Product</strong> — stock is <strong>not</strong> returned by default (expired items cannot be resold).';
+          } else if (shouldRestock) {
+            hint.innerHTML = '<i class="bi bi-box-arrow-in-down-left text-success me-1"></i>'
+              + 'Items will be added back to inventory stock.';
+          } else {
+            hint.innerHTML = '';
+          }
+
+          toggle.addEventListener('change', function() {
+            if (this.checked) {
+              hint.innerHTML = '<i class="bi bi-box-arrow-in-down-left text-success me-1"></i>'
+                + 'Items will be added back to inventory stock.';
+            } else {
+              hint.innerHTML = '<i class="bi bi-slash-circle text-danger me-1"></i>'
+                + 'Inventory stock will <strong>not</strong> be changed.';
+            }
+          }, { once: false });
+
+          const modal = new bootstrap.Modal(document.getElementById('approveRefundModal'));
+          modal.show();
+        });
+      });
+
+      document.getElementById('approveRefundConfirmBtn').addEventListener('click', function() {
+        if (!_approveRefundTxnId || !_approveRefundTriggerBtn) return;
+        const restock = document.getElementById('approveRefundRestockToggle').checked;
+        bootstrap.Modal.getInstance(document.getElementById('approveRefundModal')).hide();
+        updateRefundStatus(_approveRefundTxnId, 'refunded', _approveRefundTriggerBtn, restock);
+      });
+
+      window.updateRefundStatus = function updateRefundStatus(txnId, newStatus, triggerBtn, restock) {
+        const row = triggerBtn.closest('tr');
+        const allBtns = row.querySelectorAll('button');
+        allBtns.forEach(b => b.disabled = true);
+        triggerBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+        const payload = { transaction_id: txnId, status: newStatus };
+        if (newStatus === 'refunded' && typeof restock !== 'undefined') {
+          payload.restock = restock;
+        }
+
+        fetch('/api/update-transaction/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken()
+          },
+          body: JSON.stringify(payload),
+          credentials: 'same-origin'
+        })
+        .then(r => r.json())
+        .then(result => {
+          if (result.success) {
+            row.style.transition = 'opacity 0.4s';
+            row.style.opacity = '0';
+            const detailsRow = document.getElementById('rr-details-' + txnId);
+            if (detailsRow) {
+              detailsRow.style.transition = 'opacity 0.4s';
+              detailsRow.style.opacity = '0';
+            }
+            setTimeout(() => { window.location.reload(); }, 500);
+          } else {
+            alert(result.error || 'Failed to update transaction.');
+            allBtns.forEach(b => b.disabled = false);
+            triggerBtn.innerHTML = newStatus === 'refunded'
+              ? '<i class="bi bi-check-circle me-1"></i>Approve'
+              : '<i class="bi bi-x-circle me-1"></i>Reject';
+          }
+        })
+        .catch(() => {
+          alert('Network error. Please try again.');
+          allBtns.forEach(b => b.disabled = false);
+          triggerBtn.innerHTML = newStatus === 'refunded'
+            ? '<i class="bi bi-check-circle me-1"></i>Approve'
+            : '<i class="bi bi-x-circle me-1"></i>Reject';
+        });
+      };
+
+      // ── Return Window Tab: expand buttons ──
+      document.querySelectorAll('.rw-expand-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          const txnId = this.getAttribute('data-txn-id');
+          const row = document.getElementById('rw-details-' + txnId);
+          if (row.style.display === 'none') {
+            row.style.display = 'table-row';
+            this.innerHTML = '<i class="bi bi-chevron-up"></i> Hide';
+          } else {
+            row.style.display = 'none';
+            this.innerHTML = '<i class="bi bi-chevron-down"></i> Details';
+          }
+        });
+      });
+
+      // ── Confirm Item Returned ──
+      let _confirmReturnTxnId = null;
+      let _confirmReturnTriggerBtn = null;
+
+      document.querySelectorAll('.confirm-return-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          const txnId = this.getAttribute('data-txn-id');
+          const txnNumber = this.getAttribute('data-txn-number');
+          const reasonType = this.getAttribute('data-reason-type') || '';
+          _confirmReturnTxnId = txnId;
+          _confirmReturnTriggerBtn = this;
+
+          document.getElementById('confirmReturnTxnNumber').textContent = txnNumber;
+          const toggle = document.getElementById('confirmReturnRestockToggle');
+          toggle.checked = reasonType !== 'expired';
+          const hint = document.getElementById('confirmReturnRestockHint');
+          toggle.onchange = function() {
+            hint.innerHTML = this.checked
+              ? '<i class="bi bi-box-arrow-in-down-left text-success me-1"></i>Items will be added back to inventory stock.'
+              : '<i class="bi bi-slash-circle text-danger me-1"></i>Inventory stock will <strong>not</strong> be changed.';
+          };
+
+          new bootstrap.Modal(document.getElementById('confirmReturnModal')).show();
+        });
+      });
+
+      document.getElementById('confirmReturnConfirmBtn').addEventListener('click', function() {
+        if (!_confirmReturnTxnId || !_confirmReturnTriggerBtn) return;
+        const restock = document.getElementById('confirmReturnRestockToggle').checked;
+        bootstrap.Modal.getInstance(document.getElementById('confirmReturnModal')).hide();
+
+        const btn = _confirmReturnTriggerBtn;
+        const row = btn.closest('tr');
+        row.querySelectorAll('button').forEach(b => b.disabled = true);
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+        fetch('/api/confirm-return/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+          body: JSON.stringify({ transaction_id: _confirmReturnTxnId, restock }),
+          credentials: 'same-origin'
+        })
+        .then(r => r.json())
+        .then(result => {
+          if (result.success) {
+            row.style.transition = 'opacity 0.4s';
+            row.style.opacity = '0';
+            setTimeout(() => { window.location.reload(); }, 500);
+          } else {
+            alert(result.error || 'Failed to confirm return.');
+            row.querySelectorAll('button').forEach(b => b.disabled = false);
+            btn.innerHTML = '<i class="bi bi-box-arrow-in-down-left me-1"></i>Item Returned';
+          }
+        })
+        .catch(() => {
+          alert('Network error. Please try again.');
+          row.querySelectorAll('button').forEach(b => b.disabled = false);
+          btn.innerHTML = '<i class="bi bi-box-arrow-in-down-left me-1"></i>Item Returned';
+        });
+      });
+
+      // ── Expire Return Window (No Return) ──
+      let _expireReturnTxnId = null;
+      let _expireReturnTriggerBtn = null;
+
+      document.querySelectorAll('.expire-return-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          _expireReturnTxnId = this.getAttribute('data-txn-id');
+          _expireReturnTriggerBtn = this;
+          document.getElementById('expireReturnTxnNumber').textContent = this.getAttribute('data-txn-number');
+          new bootstrap.Modal(document.getElementById('expireReturnModal')).show();
+        });
+      });
+
+      document.getElementById('expireReturnConfirmBtn').addEventListener('click', function() {
+        if (!_expireReturnTxnId || !_expireReturnTriggerBtn) return;
+        bootstrap.Modal.getInstance(document.getElementById('expireReturnModal')).hide();
+
+        const btn = _expireReturnTriggerBtn;
+        const row = btn.closest('tr');
+        row.querySelectorAll('button').forEach(b => b.disabled = true);
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+
+        fetch('/api/expire-return-window/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+          body: JSON.stringify({ transaction_id: _expireReturnTxnId }),
+          credentials: 'same-origin'
+        })
+        .then(r => r.json())
+        .then(result => {
+          if (result.success) {
+            row.style.transition = 'opacity 0.4s';
+            row.style.opacity = '0';
+            setTimeout(() => { window.location.reload(); }, 500);
+          } else {
+            alert(result.error || 'Failed to expire return window.');
+            row.querySelectorAll('button').forEach(b => b.disabled = false);
+            btn.innerHTML = '<i class="bi bi-x-circle me-1"></i>No Return';
+          }
+        })
+        .catch(() => {
+          alert('Network error. Please try again.');
+          row.querySelectorAll('button').forEach(b => b.disabled = false);
+          btn.innerHTML = '<i class="bi bi-x-circle me-1"></i>No Return';
+        });
+      });
+
+      // Reject refund — open confirmation modal
+      let _rejectRefundTxnId = null;
+      let _rejectRefundTriggerBtn = null;
+
+      document.querySelectorAll('.reject-refund-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+          _rejectRefundTxnId = this.getAttribute('data-txn-id');
+          _rejectRefundTriggerBtn = this;
+          document.getElementById('rejectRefundTxnNumber').textContent =
+            this.getAttribute('data-txn-number') || '';
+          new bootstrap.Modal(document.getElementById('rejectRefundModal')).show();
+        });
+      });
+
+      document.getElementById('rejectRefundConfirmBtn').addEventListener('click', function() {
+        if (!_rejectRefundTxnId || !_rejectRefundTriggerBtn) return;
+        bootstrap.Modal.getInstance(document.getElementById('rejectRefundModal')).hide();
+        window.updateRefundStatus(_rejectRefundTxnId, 'completed', _rejectRefundTriggerBtn, undefined);
+      });
+
+    });
+  </script>
+
+  <!-- Approve Refund Modal -->
+  <div class="modal fade" id="approveRefundModal" tabindex="-1" aria-labelledby="approveRefundModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title" id="approveRefundModalLabel">
+            <i class="bi bi-check-circle me-2"></i>Approve Refund
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-2">Approving refund for transaction <strong id="approveRefundTxnNumber"></strong>.</p>
+
+          <div class="alert alert-warning mb-3" style="border-radius:10px;">
+            <i class="bi bi-hourglass-split me-2"></i>
+            <strong>{{ return_window_days }}-Day Return Window:</strong> Approving this refund will give the member
+            <strong>{{ return_window_days }} day{{ return_window_days|pluralize }}</strong> to physically return the purchased item(s). The refund money
+            will only be credited <strong>after you confirm the item has been received</strong>.
+            If the item is not returned within {{ return_window_days }} day{{ return_window_days|pluralize }}, no refund will be processed.
+          </div>
+
+          <!-- Reason badge -->
+          <div class="mb-3">
+            <span class="text-muted" style="font-size:0.85rem;">Refund reason:</span>
+            <span id="approveRefundReasonBadge" class="badge rounded-pill text-bg-warning ms-2" style="font-size:0.82rem;"></span>
+          </div>
+
+          <!-- Restock toggle -->
+          <div id="approveRefundRestockSection" class="alert alert-secondary p-3 mb-0" style="border-radius:10px;">
+            <div class="form-check form-switch mb-0">
+              <input class="form-check-input" type="checkbox" role="switch" id="approveRefundRestockToggle">
+              <label class="form-check-label fw-semibold" for="approveRefundRestockToggle">
+                Restore product stock to inventory (when item is returned)
+              </label>
+            </div>
+            <div id="approveRefundRestockHint" class="text-muted mt-1" style="font-size:0.82rem;"></div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-success" id="approveRefundConfirmBtn">
+            <i class="bi bi-hourglass-split me-1"></i>Approve & Start 3-Day Return Window
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Confirm Item Returned Modal -->
+  <div class="modal fade" id="confirmReturnModal" tabindex="-1" aria-labelledby="confirmReturnModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-success text-white">
+          <h5 class="modal-title" id="confirmReturnModalLabel">
+            <i class="bi bi-box-arrow-in-down-left me-2"></i>Confirm Item Returned
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p>Confirm that the member has physically returned the item(s) for transaction <strong id="confirmReturnTxnNumber"></strong>?</p>
+          <div class="alert alert-success" style="border-radius:10px;">
+            <i class="bi bi-check-circle-fill me-2"></i>
+            Once confirmed, the <strong>refund money will be credited</strong> to the member's account immediately.
+          </div>
+          <div class="alert alert-warning p-3 mb-0" style="border-radius:10px;">
+            <div class="form-check form-switch mb-0">
+              <input class="form-check-input" type="checkbox" role="switch" id="confirmReturnRestockToggle" checked>
+              <label class="form-check-label fw-semibold" for="confirmReturnRestockToggle">
+                Restore product stock to inventory
+              </label>
+            </div>
+            <div id="confirmReturnRestockHint" class="text-muted mt-1" style="font-size:0.82rem;">
+              <i class="bi bi-box-arrow-in-down-left text-success me-1"></i>Items will be added back to inventory stock.
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-success" id="confirmReturnConfirmBtn">
+            <i class="bi bi-check-circle me-1"></i>Confirm Return & Process Refund
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- No Return / Expire Window Modal -->
+  <div class="modal fade" id="expireReturnModal" tabindex="-1" aria-labelledby="expireReturnModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title" id="expireReturnModalLabel">
+            <i class="bi bi-x-circle me-2"></i>No Return — Void Refund
+          </h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <p>Mark transaction <strong id="expireReturnTxnNumber"></strong> as <strong>No Return</strong>?</p>
+          <div class="alert alert-danger" style="border-radius:10px;">
+            <i class="bi bi-shield-exclamation me-2"></i>
+            <strong>Security:</strong> Since the item was not returned within the 3-day window,
+            <strong>no refund money will be credited</strong> to the member's account.
+            This action cannot be undone.
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-danger" id="expireReturnConfirmBtn">
+            <i class="bi bi-x-circle me-1"></i>Confirm — No Refund
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Logout Confirmation Modal -->
+  <div class="modal fade" id="logoutConfirmModal" tabindex="-1" aria-labelledby="logoutConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="logoutConfirmModalLabel">
+            <i class="bi bi-exclamation-triangle-fill"></i>
+            Confirm Logout
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <i class="bi bi-exclamation-triangle-fill warning-icon"></i>
+          <p>Are you sure you want to logout?</p>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-cancel" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-confirm">OK</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% include 'admin_panel/partials/footer.html' %}
+  {% include 'admin_panel/partials/admin_nav_footer.html' %}
+</body>
+</html>
+

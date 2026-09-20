@@ -1,0 +1,70 @@
+<script>
+(function () {
+  if (window.__adminLogoutBound) return;
+  window.__adminLogoutBound = true;
+
+  function initAdminLogoutConfirm() {
+    const logoutBtn = document.getElementById('logoutBtn');
+    const logoutForm = document.getElementById('logoutForm');
+    if (!logoutBtn || !logoutForm) return;
+
+    logoutBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      showLogoutConfirmModal();
+    });
+
+    function submitLogout() {
+      logoutForm.submit();
+    }
+
+    function showLogoutConfirmModal() {
+      const modal = document.getElementById('logoutConfirmModal');
+      if (!modal || typeof bootstrap === 'undefined') {
+        if (confirm('Are you sure you want to logout?')) submitLogout();
+        return;
+      }
+
+      let bsModal = bootstrap.Modal.getInstance(modal);
+      if (!bsModal) {
+        bsModal = new bootstrap.Modal(modal, { backdrop: true, keyboard: true, focus: true });
+      }
+
+      const confirmBtn = modal.querySelector('.btn-confirm');
+      const cancelBtn = modal.querySelector('.btn-cancel');
+
+      if (confirmBtn) {
+        const newConfirmBtn = confirmBtn.cloneNode(true);
+        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
+        newConfirmBtn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          bsModal.hide();
+          setTimeout(submitLogout, 150);
+        });
+      }
+
+      if (cancelBtn) {
+        const newCancelBtn = cancelBtn.cloneNode(true);
+        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+        newCancelBtn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          bsModal.hide();
+        });
+      }
+
+      try {
+        bsModal.show();
+      } catch (err) {
+        if (confirm('Are you sure you want to logout?')) submitLogout();
+      }
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAdminLogoutConfirm);
+  } else {
+    initAdminLogoutConfirm();
+  }
+})();
+</script>

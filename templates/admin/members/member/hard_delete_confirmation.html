@@ -1,0 +1,75 @@
+{% extends "admin/base_site.html" %}
+{% load i18n %}
+
+{% block title %}Confirm Permanent Delete | {{ site_title|default:"Django site admin" }}{% endblock %}
+
+{% block content %}
+<div style="max-width:700px;">
+
+  <div style="background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:20px 24px;margin-bottom:24px;display:flex;gap:16px;align-items:flex-start;">
+    <span style="font-size:2rem;line-height:1;">⚠️</span>
+    <div>
+      <strong style="font-size:1.1rem;color:#856404;">Warning: Permanent Deletion</strong>
+      <p style="margin:6px 0 0;color:#856404;">
+        The following {{ queryset|length }} member{{ queryset|length|pluralize }} will be
+        <strong>permanently removed from the database</strong>. This action cannot be undone.<br>
+        A backup record will be stored in <em>Deleted Members</em> for audit purposes,
+        but the member account and all linked data (user login, transactions) will be gone.
+      </p>
+    </div>
+  </div>
+
+  <table style="width:100%;border-collapse:collapse;background:#fff;border:1px solid #dee2e6;border-radius:8px;overflow:hidden;margin-bottom:24px;">
+    <thead>
+      <tr style="background:#f8f9fa;">
+        <th style="padding:10px 14px;text-align:left;font-size:.8rem;text-transform:uppercase;color:#6c757d;border-bottom:1px solid #dee2e6;">#</th>
+        <th style="padding:10px 14px;text-align:left;font-size:.8rem;text-transform:uppercase;color:#6c757d;border-bottom:1px solid #dee2e6;">Member</th>
+        <th style="padding:10px 14px;text-align:left;font-size:.8rem;text-transform:uppercase;color:#6c757d;border-bottom:1px solid #dee2e6;">RFID</th>
+        <th style="padding:10px 14px;text-align:left;font-size:.8rem;text-transform:uppercase;color:#6c757d;border-bottom:1px solid #dee2e6;">Role</th>
+        <th style="padding:10px 14px;text-align:right;font-size:.8rem;text-transform:uppercase;color:#6c757d;border-bottom:1px solid #dee2e6;">Balance</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for obj in queryset %}
+      <tr style="border-bottom:1px solid #f0f0f0;">
+        <td style="padding:10px 14px;color:#999;font-size:.85rem;">{{ forloop.counter }}</td>
+        <td style="padding:10px 14px;">
+          <strong>{{ obj.full_name }}</strong>
+          {% if obj.user %}
+          <br><span style="font-size:.78rem;color:#6c757d;">👤 {{ obj.user.username }}</span>
+          {% endif %}
+        </td>
+        <td style="padding:10px 14px;font-family:monospace;font-size:.85rem;">
+          {{ obj.rfid_card_number|default:"—" }}
+        </td>
+        <td style="padding:10px 14px;font-size:.85rem;">{{ obj.role }}</td>
+        <td style="padding:10px 14px;text-align:right;font-weight:600;color:{% if obj.balance > 0 %}#198754{% else %}#6c757d{% endif %};">
+          ₱{{ obj.balance }}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="hard_delete_selected">
+    <input type="hidden" name="post" value="yes">
+    {% for obj in queryset %}
+    <input type="hidden" name="{{ action_checkbox_name }}" value="{{ obj.pk }}">
+    {% endfor %}
+
+    <div style="display:flex;gap:12px;align-items:center;">
+      <button type="submit"
+        style="background:#dc3545;color:#fff;border:none;padding:10px 24px;border-radius:6px;font-size:.95rem;font-weight:600;cursor:pointer;">
+        ⚠️ Yes, permanently delete {{ queryset|length }} member{{ queryset|length|pluralize }}
+      </button>
+      <a href="../"
+        style="background:#6c757d;color:#fff;padding:10px 24px;border-radius:6px;font-size:.95rem;font-weight:600;text-decoration:none;">
+        Cancel
+      </a>
+    </div>
+  </form>
+
+</div>
+{% endblock %}

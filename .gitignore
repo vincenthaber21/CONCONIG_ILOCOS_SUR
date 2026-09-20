@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Django
+db.sqlite3
+backups/sqlite_weekly/
+backups/mysql_weekly/
+*.log
+staticfiles/
+media/
+
+# Environment
+.env
+.venv
+google_drive_service_account.json
+google_drive_oauth_client.json
+google_drive_token.json
+client_secret*.json
+*-service-account*.json
+# env
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+.pythonlibs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,91 @@
+{# Credit interest (utang) settings — opened from Members Credit dropdown #}
+<div class="modal fade" id="creditInterestSettingsModal" tabindex="-1" aria-labelledby="creditInterestSettingsModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header text-white" style="background: linear-gradient(135deg, #5b21b6 0%, #7c3aed 100%);">
+        <h5 class="modal-title" id="creditInterestSettingsModalLabel">
+          <i class="bi bi-percent me-2"></i>Credit Interest Settings
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <form id="creditInterestSettingsForm" novalidate>
+        <div class="modal-body">
+          <p class="text-muted small mb-3">
+            Set the interest rate and grace period for unpaid credit (utang).
+            Members can pay within the grace period with <strong>no interest</strong>.
+            After that, wait <strong>one full month</strong>, then each unpaid month adds
+            <strong>principal × rate</strong>.
+            Example (principal <strong>₱500</strong>, rate <strong>0.015</strong>, grace 2 days):
+            first charge after grace + 1 month → <strong>₱507.50</strong>;
+            next month → <strong>₱507.50 + ₱7.50 = ₱515.00</strong>.
+            Set the rate to <strong>0</strong> to turn interest off.
+          </p>
+          <div id="creditInterestLoadAlert" class="alert alert-secondary py-2 small mb-3" role="status">
+            <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Loading current settings…
+          </div>
+          <div class="mb-3">
+            <label for="creditInterestRateInput" class="form-label fw-semibold">Interest rate</label>
+            <div class="input-group">
+              <input
+                type="number"
+                class="form-control"
+                id="creditInterestRateInput"
+                name="interest_rate"
+                min="0"
+                max="100"
+                step="0.001"
+                placeholder="0.015"
+                required
+                disabled
+              >
+              <span class="input-group-text">e.g. 0.015</span>
+            </div>
+            <div class="form-text" id="creditInterestRateHint">—</div>
+          </div>
+          <div class="mb-3">
+            <label for="creditGraceDaysInput" class="form-label fw-semibold">Grace period (days)</label>
+            <div class="input-group">
+              <input
+                type="number"
+                class="form-control"
+                id="creditGraceDaysInput"
+                name="grace_period_days"
+                min="0"
+                max="3650"
+                step="1"
+                placeholder="3"
+                required
+                disabled
+              >
+              <span class="input-group-text">days</span>
+            </div>
+            <div class="form-text">
+              Days after a credit sale before interest starts. Example: <strong>3</strong> = pay within 3 days with no interest; after that add (principal × rate) every unpaid month.
+            </div>
+          </div>
+          <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" id="creditInterestEnabledInput" disabled>
+            <label class="form-check-label" for="creditInterestEnabledInput">Enable credit interest</label>
+          </div>
+          <div class="mb-2">
+            <label class="form-label fw-semibold">Admin PIN</label>
+            <p class="text-muted small mb-2">Enter the 4-digit PIN of an active Admin member to save changes.</p>
+            <div class="d-flex justify-content-center gap-2" id="creditInterestPinBoxes">
+              <input type="password" class="form-control text-center credit-interest-pin-box" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" style="width:48px;height:48px;font-size:1.25rem;font-weight:700;" disabled>
+              <input type="password" class="form-control text-center credit-interest-pin-box" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" style="width:48px;height:48px;font-size:1.25rem;font-weight:700;" disabled>
+              <input type="password" class="form-control text-center credit-interest-pin-box" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" style="width:48px;height:48px;font-size:1.25rem;font-weight:700;" disabled>
+              <input type="password" class="form-control text-center credit-interest-pin-box" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="off" style="width:48px;height:48px;font-size:1.25rem;font-weight:700;" disabled>
+            </div>
+          </div>
+          <div id="creditInterestFormAlert" style="display:none;"></div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="creditInterestSaveBtn" style="background:#5b21b6;border-color:#5b21b6;" disabled>
+            <i class="bi bi-check-circle me-1"></i>Save Settings
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>

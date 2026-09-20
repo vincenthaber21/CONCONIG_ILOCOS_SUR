@@ -1,0 +1,117 @@
+{% load currency_filters %}
+{# Inventory value summary: buying / selling totals for the current product list. #}
+<div class="inventory-price-summary mb-3" id="inventory-price-summary">
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+    <div class="fw-semibold d-flex align-items-center gap-2">
+      <i class="bi bi-cash-stack me-1"></i>Price Summary
+      <button type="button"
+              class="btn btn-sm btn-outline-secondary rounded-pill"
+              id="togglePriceSummaryBtn"
+              aria-controls="inventory-price-summary-cards"
+              aria-expanded="true"
+              title="Hide price summary cards">
+        <i class="bi bi-eye-slash me-1" id="togglePriceSummaryIcon"></i>
+        <span id="togglePriceSummaryLabel">Hide</span>
+      </button>
+    </div>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+      <small class="text-muted" id="inventory-price-summary-meta">
+        {{ inventory_price_summary.product_count }} product{{ inventory_price_summary.product_count|pluralize }}
+        · {{ inventory_price_summary.total_units }} unit{{ inventory_price_summary.total_units|pluralize }} in stock
+        {% if search_query or filter_type != 'all' %}
+        · based on current filter/search
+        {% else %}
+        · all products
+        {% endif %}
+      </small>
+      <a class="btn btn-sm btn-outline-danger rounded-pill"
+         href="{% url 'export_inventory_price_report' %}?format=pdf{% if search_query %}&amp;search={{ search_query|urlencode }}{% endif %}{% if filter_type and filter_type != 'all' %}&amp;filter={{ filter_type }}{% endif %}"
+         title="Download PDF product price report">
+        <i class="bi bi-file-earmark-pdf me-1"></i>PDF
+      </a>
+      <a class="btn btn-sm btn-outline-success rounded-pill"
+         href="{% url 'export_inventory_price_report' %}?format=excel{% if search_query %}&amp;search={{ search_query|urlencode }}{% endif %}{% if filter_type and filter_type != 'all' %}&amp;filter={{ filter_type }}{% endif %}"
+         title="Download Excel product price report">
+        <i class="bi bi-file-earmark-excel me-1"></i>Excel
+      </a>
+      <a class="btn btn-sm btn-outline-secondary rounded-pill"
+         href="{% url 'export_inventory_purchase_history' %}?format=excel{% if search_query %}&amp;search={{ search_query|urlencode }}{% endif %}{% if filter_type and filter_type != 'all' %}&amp;filter={{ filter_type }}{% endif %}"
+         title="Download purchase &amp; sales history by event (Excel)">
+        <i class="bi bi-clock-history me-1"></i>Purchase &amp; Sales History
+      </a>
+    </div>
+  </div>
+  <div class="row g-3" id="inventory-price-summary-cards">
+    <div class="col-sm-6 col-lg-3">
+      <div class="inventory-price-summary-card">
+        <div class="inventory-price-summary-label">Total Buying Value</div>
+        <div class="inventory-price-summary-value text-buying">₱{{ inventory_price_summary.total_buying|currency }}</div>
+        <small class="text-muted">Buying price × stock</small>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+      <div class="inventory-price-summary-card">
+        <div class="inventory-price-summary-label">Total Selling Value</div>
+        <div class="inventory-price-summary-value text-selling">₱{{ inventory_price_summary.total_selling|currency }}</div>
+        <small class="text-muted">Selling price × stock</small>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+      <div class="inventory-price-summary-card">
+        <div class="inventory-price-summary-label">REVENUE PER ITEM</div>
+        <div class="inventory-price-summary-value text-margin-ok">
+          ₱{{ inventory_price_summary.total_subtotal|currency }}
+        </div>
+        <small class="text-muted">Selling value − buying value</small>
+      </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+      <div class="inventory-price-summary-card">
+        <div class="inventory-price-summary-label">Units in Stock</div>
+        <div class="inventory-price-summary-value">{{ inventory_price_summary.total_units }}</div>
+        <small class="text-muted">
+          Across {{ inventory_price_summary.product_count }} product{{ inventory_price_summary.product_count|pluralize }}
+          {% if inventory_price_summary.total_qty_sold %}
+          · {{ inventory_price_summary.total_qty_sold }} sold
+          {% endif %}
+        </small>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  const STORAGE_KEY = 'inventoryPriceSummaryHidden';
+  const btn = document.getElementById('togglePriceSummaryBtn');
+  const cards = document.getElementById('inventory-price-summary-cards');
+  const icon = document.getElementById('togglePriceSummaryIcon');
+  const label = document.getElementById('togglePriceSummaryLabel');
+  if (!btn || !cards) return;
+
+  function applyHidden(hidden) {
+    cards.classList.toggle('d-none', hidden);
+    btn.setAttribute('aria-expanded', hidden ? 'false' : 'true');
+    btn.title = hidden ? 'Show price summary cards' : 'Hide price summary cards';
+    if (icon) {
+      icon.className = hidden ? 'bi bi-eye me-1' : 'bi bi-eye-slash me-1';
+    }
+    if (label) {
+      label.textContent = hidden ? 'Show' : 'Hide';
+    }
+  }
+
+  let hidden = false;
+  try {
+    hidden = localStorage.getItem(STORAGE_KEY) === '1';
+  } catch (e) {}
+  applyHidden(hidden);
+
+  btn.addEventListener('click', function () {
+    hidden = !hidden;
+    applyHidden(hidden);
+    try {
+      localStorage.setItem(STORAGE_KEY, hidden ? '1' : '0');
+    } catch (e) {}
+  });
+})();
+</script>

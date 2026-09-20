@@ -1,0 +1,46 @@
+{% extends "savings/member/base_member_savings.html" %}
+{% load currency_filters %}
+{% block title %}My Savings{% endblock %}
+{% block content %}
+<div>
+  <h1>My savings</h1>
+  <p class="subtitle">Hello, {{ display_name }}. Review savings product features and your account balances.</p>
+</div>
+
+{% if accounts %}
+<p class="mb-3"><strong>Total savings:</strong> &#8369;{{ total_balance|currency }}</p>
+<h2 class="section-title">Your accounts</h2>
+{% for account in accounts %}
+<div class="loan-row">
+  <div>
+    <div style="font-weight:700;">{{ account.product.name }}</div>
+    <div style="color:#64748b;font-size:.85rem;">{{ account.account_number }} · opened {{ account.opened_at|date:"M j, Y" }} · {{ account.interest.effective_rate_display }} / yr</div>
+    <a href="{% url 'member_savings_account' account.pk %}">View transactions &amp; receipts</a>
+  </div>
+  <div class="text-end">
+    <div style="font-weight:800;">&#8369;{{ account.balance|currency }}</div>
+    <span class="status-pill">{{ account.get_status_display }}</span>
+  </div>
+</div>
+{% endfor %}
+{% else %}
+<p class="text-muted">You do not have a savings account yet. Visit the coop desk to open one.</p>
+{% endif %}
+
+<h2 class="section-title">Available savings features</h2>
+<div class="product-grid">
+  {% for product in products %}
+  <div class="product-tile">
+    <h3>{{ product.name }}</h3>
+    <p>{{ product.get_product_type_display }} · {{ savings_policy.annual_rate_display }} / yr</p>
+    <p style="margin-top:.35rem;">Opening min &#8369;{{ product.min_opening_deposit|currency }}
+      {% if product.term_months %} · {{ product.term_months }} months{% endif %}
+      · {% if product.allows_withdrawal %}withdrawals allowed{% else %}no withdrawals{% endif %}
+    </p>
+    {% if product.description %}<p style="margin-top:.4rem;">{{ product.description|truncatewords:18 }}</p>{% endif %}
+  </div>
+  {% empty %}
+  <p class="text-muted">No savings products are offered yet.</p>
+  {% endfor %}
+</div>
+{% endblock %}

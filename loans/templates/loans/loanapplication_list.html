@@ -1,0 +1,520 @@
+{% extends "loans/base_loans.html" %}
+{% load currency_filters %}
+{% block title %}Loan Applications{% endblock %}
+{% block content %}
+<style>
+  :root {
+    --dark: #0f172a;
+    --brand: #ED1C24;
+    --accent: #E6C200;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --panel: #ffffff;
+    --gradient: linear-gradient(135deg, #ED1C24 0%, #C4121A 40%, #8B0E14 100%);
+  }
+
+  .steps-page__hero {
+    background: var(--gradient);
+    color: #fff;
+    border-radius: 20px;
+    padding: 1.75rem 2rem;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 20px 45px rgba(15, 23, 42, .2);
+  }
+  .steps-page__hero-eyebrow {
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    opacity: .85;
+    margin-bottom: .35rem;
+  }
+  .steps-page__hero h1 {
+    color: #fff;
+    font-size: 1.65rem;
+    font-weight: 800;
+    margin: 0 0 .45rem;
+  }
+  .steps-page__hero-lead {
+    color: rgba(255, 255, 255, .82);
+    margin: 0;
+    font-size: .92rem;
+    max-width: 42rem;
+    line-height: 1.5;
+  }
+  .steps-page__hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .55rem;
+    justify-content: flex-end;
+  }
+  .steps-page__hero-actions .btn-light {
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: .86rem;
+    padding: .55rem 1.15rem;
+  }
+  .steps-page__hero-actions .btn-outline-light {
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: .86rem;
+    padding: .55rem 1.15rem;
+  }
+
+  .steps-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: .85rem;
+    margin-bottom: 1.5rem;
+  }
+  .steps-stat {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.1rem 1.15rem;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, .05);
+    display: flex;
+    align-items: center;
+    gap: .85rem;
+  }
+  .steps-stat__icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+  }
+  .steps-stat__label {
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: var(--muted);
+  }
+  .steps-stat__value {
+    font-size: 1.35rem;
+    font-weight: 800;
+    color: var(--dark);
+    line-height: 1.2;
+  }
+
+  .steps-panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, .05);
+    overflow: hidden;
+    margin-bottom: 1.25rem;
+  }
+  .steps-panel__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: #f8fafc;
+  }
+  .steps-panel__title {
+    margin: 0;
+    font-size: .95rem;
+    font-weight: 800;
+    color: var(--dark);
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+  }
+  .steps-panel__title i { color: var(--accent); }
+
+  .steps-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .55rem;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border);
+    background: #fff;
+  }
+  .steps-filter__input {
+    flex: 1;
+    min-width: 220px;
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    padding: .55rem 1rem;
+    font-size: .88rem;
+  }
+  .steps-filter__select {
+    border: 1px solid #cbd5e1;
+    border-radius: 999px;
+    padding: .55rem 1rem;
+    font-size: .88rem;
+    min-width: 180px;
+    background: #fff;
+  }
+  .steps-filter__btn {
+    border: none;
+    border-radius: 999px;
+    padding: .55rem 1.15rem;
+    font-size: .86rem;
+    font-weight: 700;
+    background: var(--brand);
+    color: #fff;
+    cursor: pointer;
+  }
+  .steps-filter__btn:hover { background: #C4121A; }
+  .steps-filter__clear {
+    color: var(--muted);
+    font-size: .84rem;
+    font-weight: 600;
+    text-decoration: none;
+  }
+  .steps-filter__clear:hover { color: var(--dark); }
+
+  .steps-table-wrap { overflow-x: auto; }
+  .steps-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .875rem;
+  }
+  .steps-table th {
+    padding: .8rem 1rem;
+    text-align: left;
+    color: var(--muted);
+    background: #f8fafc;
+    border-bottom: 2px solid var(--border);
+    font-size: .7rem;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+  .steps-table td {
+    padding: .9rem 1rem;
+    border-bottom: 1px solid #f1f5f9;
+    vertical-align: middle;
+    color: #334155;
+  }
+  .steps-table tbody tr:hover td { background: #f8fafc; }
+  .steps-table tbody tr:last-child td { border-bottom: none; }
+
+  .steps-table__member strong {
+    display: block;
+    font-weight: 700;
+    color: var(--dark);
+  }
+  .steps-table__member small {
+    color: var(--muted);
+    font-size: .76rem;
+  }
+  .steps-table__id {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--dark);
+    text-decoration: none;
+  }
+  .steps-table__id:hover { color: var(--accent); }
+  .steps-table__amount {
+    font-weight: 800;
+    color: var(--dark);
+    white-space: nowrap;
+  }
+  .steps-table__date {
+    color: var(--muted);
+    white-space: nowrap;
+    font-size: .82rem;
+  }
+  .steps-table__action { text-align: right; white-space: nowrap; }
+  .steps-table__action .btn--danger {
+    display: inline-block;
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-weight: 600;
+    font-size: .88rem;
+    text-decoration: none;
+    border: 1px solid #fecaca;
+    cursor: pointer;
+    margin: 2px 0 2px 4px;
+    background: #fff;
+    color: #b91c1c;
+  }
+  .steps-table__action .btn--danger:hover {
+    background: #fef2f2;
+    color: #991b1b;
+    border-color: #f87171;
+  }
+  .steps-table__action .btn--danger:disabled {
+    opacity: .65;
+    cursor: not-allowed;
+  }
+
+  .steps-empty {
+    text-align: center;
+    padding: 3rem 1.5rem;
+    color: var(--muted);
+  }
+  .steps-empty i {
+    font-size: 2.2rem;
+    color: #cbd5e1;
+    display: block;
+    margin-bottom: .65rem;
+  }
+  .steps-empty p { margin: 0 0 .75rem; }
+
+  .steps-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .65rem;
+    flex-wrap: wrap;
+    padding: .5rem 0;
+  }
+  .steps-pagination__status {
+    color: var(--muted);
+    font-size: .86rem;
+    font-weight: 600;
+  }
+</style>
+
+<section class="steps-page__hero">
+  <div class="row align-items-center g-3">
+    <div class="col-lg-8">
+      <div class="steps-page__hero-eyebrow">Loan Pipeline</div>
+      <h1>Loan Applications{% include 'admin_panel/partials/admin_role_badge.html' %}</h1>
+      <p class="steps-page__hero-lead">
+        {% if is_committee_only %}
+        Review and process loan applications through the credit pipeline.
+        {% else %}
+        Browse all loan applications, filter by status, and open any record to continue the workflow steps.
+        {% endif %}
+      </p>
+    </div>
+    <div class="col-lg-4">
+      <div class="steps-page__hero-actions">
+        {% if not is_committee_only %}
+        <a href="{% url 'loans:application-create' %}" class="btn btn-light">
+          <i class="bi bi-plus-lg"></i> New application
+        </a>
+        <a href="{% url 'loans:product-list' %}" class="btn btn-outline-light">
+          <i class="bi bi-box-seam"></i> Products
+        </a>
+        {% endif %}
+        <a href="{% url 'loans_overview' %}" class="btn btn-outline-light">
+          <i class="bi bi-arrow-left"></i> Overview
+        </a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="steps-stats">
+  <div class="steps-stat">
+    <div class="steps-stat__icon" style="background:#ED1C24;"><i class="bi bi-folder2-open"></i></div>
+    <div>
+      <div class="steps-stat__label">Total applications</div>
+      <div class="steps-stat__value">{{ total_count }}</div>
+    </div>
+  </div>
+  <div class="steps-stat">
+    <div class="steps-stat__icon" style="background:#FFF200;color:#111;"><i class="bi bi-check2-circle"></i></div>
+    <div>
+      <div class="steps-stat__label">Acquired / active</div>
+      <div class="steps-stat__value">{{ acquired_count }}</div>
+    </div>
+  </div>
+  <div class="steps-stat">
+    <div class="steps-stat__icon" style="background:#3b82f6;"><i class="bi bi-activity"></i></div>
+    <div>
+      <div class="steps-stat__label">Currently active</div>
+      <div class="steps-stat__value">{{ active_count }}</div>
+    </div>
+  </div>
+  <div class="steps-stat">
+    <div class="steps-stat__icon" style="background:#f59e0b;"><i class="bi bi-hourglass-split"></i></div>
+    <div>
+      <div class="steps-stat__label">In pipeline</div>
+      <div class="steps-stat__value">{{ pending_count }}</div>
+    </div>
+  </div>
+</div>
+
+<section class="steps-panel">
+  <div class="steps-panel__head">
+    <h2 class="steps-panel__title"><i class="bi bi-table"></i> All applications</h2>
+    {% if page_obj %}
+    <span class="status-pill">{{ page_obj.paginator.count }} result{{ page_obj.paginator.count|pluralize }}</span>
+    {% endif %}
+  </div>
+
+  <form class="steps-filter" method="get" role="search">
+    <input class="steps-filter__input" type="search" name="search" value="{{ search_query }}"
+           placeholder="Search member, product, or purpose…" aria-label="Search applications">
+    <select class="steps-filter__select" name="status" aria-label="Filter by status">
+      <option value="all"{% if status_filter == "all" %} selected{% endif %}>All statuses</option>
+      <option value="pending"{% if status_filter == "pending" %} selected{% endif %}>In pipeline</option>
+      <option value="acquired"{% if status_filter == "acquired" %} selected{% endif %}>Acquired loans</option>
+      {% for value, label in status_choices %}
+      <option value="{{ value|lower }}"{% if status_filter == value|lower %} selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="steps-filter__btn"><i class="bi bi-search"></i> Filter</button>
+    {% if search_query or status_filter != "all" %}
+    <a class="steps-filter__clear" href="{% url 'loans:application-list' %}">Clear filters</a>
+    {% endif %}
+  </form>
+
+  <div class="steps-table-wrap">
+    <table class="steps-table">
+      <thead>
+        <tr>
+          <th>Application</th>
+          <th>Member</th>
+          <th>Product</th>
+          <th>Amount</th>
+          <th>Term</th>
+          <th>Status</th>
+          <th>Submitted</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for application in applications %}
+        <tr>
+          <td>
+            <a class="steps-table__id" href="{% url 'loans:application-detail' application.pk %}">
+              {{ application.pk|truncatechars:13 }}
+            </a>
+          </td>
+          <td class="steps-table__member">
+            <strong>{{ application.member.get_full_name|default:application.member.username }}</strong>
+            <small>{{ application.member.username }}</small>
+          </td>
+          <td>{{ application.loan_product.name }}</td>
+          <td class="steps-table__amount">&#8369;{{ application.amount_requested|currency }}</td>
+          <td>{{ application.term_months }} mo.</td>
+          <td>
+            <span class="status-pill status-pill--{{ application.status|lower }}">
+              {{ application.get_status_display }}
+            </span>
+          </td>
+          <td class="steps-table__date">
+            {% if application.submitted_at %}
+              {{ application.submitted_at|date:"M j, Y" }}
+            {% else %}
+              {{ application.created_at|date:"M j, Y" }}
+            {% endif %}
+          </td>
+          <td class="steps-table__action">
+            <a class="btn--secondary" href="{% url 'loans:application-detail' application.pk %}">
+              Open <i class="bi bi-chevron-right"></i>
+            </a>
+            {% if is_admin_user %}
+            <button type="button"
+                    class="btn--danger delete-loan-application-btn"
+                    data-delete-url="{% url 'loans:application-delete' application.pk %}"
+                    data-member-name="{{ application.member.get_full_name|default:application.member.username|escapejs }}"
+                    data-application-id="{{ application.pk }}"
+                    title="Delete this loan application permanently">
+              <i class="bi bi-trash"></i> Delete
+            </button>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="8">
+            <div class="steps-empty">
+              <i class="bi bi-inbox"></i>
+              <p>No loan applications match your filters.</p>
+              {% if not is_committee_only %}
+              <a class="btn-loan" href="{% url 'loans:application-create' %}">
+                <i class="bi bi-plus-lg"></i> Create application
+              </a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% if is_paginated %}
+<nav class="steps-pagination" aria-label="Applications pages">
+  {% if page_obj.has_previous %}
+  <a class="btn--secondary" href="?page={{ page_obj.previous_page_number }}{% if search_query %}&amp;search={{ search_query|urlencode }}{% endif %}{% if status_filter != 'all' %}&amp;status={{ status_filter|urlencode }}{% endif %}">&laquo; Previous</a>
+  {% endif %}
+  <span class="steps-pagination__status">
+    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+  </span>
+  {% if page_obj.has_next %}
+  <a class="btn--secondary" href="?page={{ page_obj.next_page_number }}{% if search_query %}&amp;search={{ search_query|urlencode }}{% endif %}{% if status_filter != 'all' %}&amp;status={{ status_filter|urlencode }}{% endif %}">Next &raquo;</a>
+  {% endif %}
+</nav>
+{% endif %}
+{% endblock %}
+
+{% block extra_scripts %}
+{% if is_admin_user %}
+{% csrf_token %}
+<script>
+(function () {
+  function getCsrfToken() {
+    const token = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
+    if (token) return token;
+    const cookies = document.cookie.split(';');
+    for (let cookie of cookies) {
+      const [key, value] = cookie.trim().split('=');
+      if (key === 'csrftoken') return value;
+    }
+    return '';
+  }
+
+  document.addEventListener('click', function (e) {
+    const btn = e.target.closest('.delete-loan-application-btn');
+    if (!btn) return;
+    e.preventDefault();
+    const url = btn.getAttribute('data-delete-url');
+    const memberName = btn.getAttribute('data-member-name') || 'this member';
+    if (!url) return;
+    if (!window.confirm(
+      `Delete loan application for "${memberName}" permanently?\n\nThis cannot be undone. The deletion will be recorded in the audit trail.`
+    )) {
+      return;
+    }
+    btn.disabled = true;
+    fetch(url, {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': getCsrfToken(),
+        'Accept': 'application/json',
+      },
+      credentials: 'same-origin',
+    })
+      .then(async (res) => {
+        const data = await res.json().catch(() => ({}));
+        return { ok: res.ok, data };
+      })
+      .then(({ ok, data }) => {
+        if (ok && data.success) {
+          window.location.reload();
+        } else {
+          alert(data?.error || 'Could not delete loan application.');
+          btn.disabled = false;
+        }
+      })
+      .catch(() => {
+        alert('Server error while deleting loan application.');
+        btn.disabled = false;
+      });
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

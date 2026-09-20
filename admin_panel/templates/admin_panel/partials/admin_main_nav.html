@@ -1,0 +1,607 @@
+{# Main admin console nav. Pass nav_active: dashboard | inventory | members | transactions | loans | savings | share_capital | palay_trade | refunds | audit | staff_sales #}
+<style>
+  .admin-main-nav {
+    position: relative;
+    z-index: 1040;
+  }
+  .admin-main-nav .dropdown-toggle::after {
+    margin-left: 0.35rem;
+    vertical-align: 0.15em;
+  }
+  .admin-main-nav .dropdown-menu {
+    z-index: 1050;
+  }
+  .admin-nav-menu {
+    min-width: 17rem;
+    border-radius: 14px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+    padding: 0.35rem;
+  }
+  .admin-nav-menu--panel {
+    min-width: 18.5rem;
+    max-height: min(70vh, 36rem);
+    overflow-y: auto;
+  }
+  .admin-nav-submenu {
+    position: relative;
+  }
+  .admin-nav-submenu > .dropdown-item {
+    display: block;
+    padding-right: 1.75rem;
+  }
+  .admin-nav-submenu > .dropdown-toggle::after {
+    position: absolute;
+    right: 0.75rem;
+    top: 1.05rem;
+    margin: 0;
+    float: none;
+    vertical-align: 0;
+  }
+  .admin-nav-submenu > .dropdown-menu {
+    top: 0;
+    left: calc(100% + 0.2rem);
+    margin: 0;
+  }
+  .admin-nav-submenu.show > .dropdown-menu,
+  .admin-nav-submenu > .dropdown-menu.show {
+    display: block;
+  }
+  .admin-nav-menu .dropdown-header {
+    font-size: 0.68rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #64748b;
+    padding: 0.45rem 0.75rem 0.25rem;
+  }
+  .admin-nav-menu .dropdown-item {
+    border-radius: 10px;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.9rem;
+    white-space: normal;
+  }
+  .admin-nav-menu .dropdown-item small {
+    display: block;
+    color: #64748b;
+    font-size: 0.78rem;
+    margin-top: 0.1rem;
+    font-weight: 400;
+  }
+  .admin-nav-menu button.dropdown-item {
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: 0;
+  }
+  .admin-nav-menu .dropdown-item:hover,
+  .admin-nav-menu .dropdown-item:focus {
+    background: #FEF7D5;
+    color: #ED1C24;
+  }
+  .admin-nav-submenu.is-current > .dropdown-item {
+    background: #FEF7D5;
+    color: #ED1C24;
+  }
+  .admin-nav-menu .dropdown-item-product i {
+    color: #ED1C24;
+  }
+  .admin-nav-menu .dropdown-item-credit i {
+    color: #5b21b6;
+  }
+  .admin-nav-menu .dropdown-item-alert i {
+    color: #ea580c;
+  }
+  .admin-nav-menu .dropdown-item-discount i {
+    color: #E6C200;
+  }
+  .admin-nav-loan-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.15rem;
+    height: 1.15rem;
+    padding: 0 0.35rem;
+    margin-left: 0.35rem;
+    border-radius: 999px;
+    background: #ED1C24;
+    color: #fff;
+    font-size: 0.68rem;
+    font-weight: 800;
+    line-height: 1;
+    vertical-align: middle;
+    box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.85);
+  }
+  .admin-main-nav .btn-outline-success .admin-nav-loan-badge {
+    box-shadow: 0 0 0 2px #fff;
+  }
+  .admin-nav-loan-badge--menu {
+    float: right;
+    margin-top: 0.15rem;
+    margin-left: 0.5rem;
+  }
+  .admin-main-nav > .btn-success,
+  .admin-main-nav > .btn-success:hover,
+  .admin-main-nav > .btn-success:focus,
+  .admin-main-nav .dropdown > .btn-success,
+  .admin-main-nav .dropdown > .btn-success:hover,
+  .admin-main-nav .dropdown > .btn-success:focus {
+    background: #ED1C24;
+    border-color: #ED1C24;
+    color: #fff;
+  }
+  .admin-main-nav > .btn-outline-success,
+  .admin-main-nav .dropdown > .btn-outline-success {
+    color: #ED1C24;
+    border-color: #ED1C24;
+    background: #fff;
+  }
+  .admin-main-nav > .btn-outline-success:hover,
+  .admin-main-nav > .btn-outline-success:focus,
+  .admin-main-nav .dropdown > .btn-outline-success:hover,
+  .admin-main-nav .dropdown > .btn-outline-success:focus {
+    background: #ED1C24;
+    border-color: #ED1C24;
+    color: #fff;
+  }
+</style>
+<div class="d-flex gap-2 flex-wrap mb-4 admin-main-nav">
+  {% if not is_loans_only %}
+  <a href="{% url 'dashboard' %}" class="btn {% if nav_active == 'dashboard' %}btn-success active{% else %}btn-outline-success{% endif %} rounded-pill px-4">
+    <i class="bi bi-speedometer2 me-1"></i> Dashboard
+  </a>
+  <div class="dropdown">
+    <button
+      type="button"
+      class="btn {% if nav_active == 'inventory' %}btn-success active{% else %}btn-outline-success{% endif %} rounded-pill px-4 dropdown-toggle"
+      data-bs-toggle="dropdown"
+      data-bs-auto-close="outside"
+      aria-expanded="false"
+      aria-label="Inventory menu"
+    >
+      <i class="bi bi-box-seam me-1"></i> Inventory
+    </button>
+    <ul class="dropdown-menu admin-nav-menu">
+      <li><h6 class="dropdown-header">Inventory</h6></li>
+      <li>
+        <a class="dropdown-item" href="{% url 'inventory_management' %}#inventory-products-section">
+          <i class="bi bi-box-seam me-2"></i>All Products
+          <small>Browse and manage the product catalog</small>
+        </a>
+      </li>
+      <li>
+        <a class="dropdown-item" href="{% url 'inventory_management' %}#inventory-categories-section">
+          <i class="bi bi-tags me-2"></i>Categories
+          <small>View and edit product categories</small>
+        </a>
+      </li>
+      <li><hr class="dropdown-divider my-1"></li>
+      <li><h6 class="dropdown-header">Stock alerts</h6></li>
+      <li>
+        <a class="dropdown-item dropdown-item-alert" href="{% url 'inventory_management' %}?filter=low_stock#inventory-products-section">
+          <i class="bi bi-exclamation-triangle me-2"></i>Low Stock
+          <small>Products below the restock threshold</small>
+        </a>
+      </li>
+      <li>
+        <a class="dropdown-item dropdown-item-alert" href="{% url 'inventory_management' %}?filter=out_of_stock#inventory-products-section">
+          <i class="bi bi-x-octagon me-2"></i>Out of Stock
+          <small>Products with zero quantity</small>
+        </a>
+      </li>
+      <li><hr class="dropdown-divider my-1"></li>
+      <li><h6 class="dropdown-header">Discounts</h6></li>
+      <li>
+        <a class="dropdown-item dropdown-item-discount" href="{% url 'inventory_discount_dashboard' %}">
+          <i class="bi bi-percent me-2"></i>Discount insights
+          <small>Charts and reports for product discounts</small>
+        </a>
+      </li>
+    </ul>
+  </div>
+
+  <div class="dropdown">
+    <button
+      type="button"
+      class="btn {% if nav_active == 'members' %}btn-success active{% else %}btn-outline-success{% endif %} rounded-pill px-4 dropdown-toggle"
+      data-bs-toggle="dropdown"
+      data-bs-auto-close="outside"
+      aria-expanded="false"
+      aria-label="Members menu"
+    >
+      <i class="bi bi-people-fill me-1"></i> Members
+    </button>
+    <ul class="dropdown-menu admin-nav-menu">
+      <li><h6 class="dropdown-header">Members</h6></li>
+      <li>
+        <a class="dropdown-item" href="{% url 'member_management' %}#all-members-section">
+          <i class="bi bi-people me-2"></i>All Members
+          <small>Browse and manage accounts</small>
+        </a>
+      </li>
+      <li><hr class="dropdown-divider my-1"></li>
+      <li><h6 class="dropdown-header">Credit (Utang)</h6></li>
+      <li>
+        <a class="dropdown-item dropdown-item-credit" href="{% url 'member_management' %}#member-credit-summary">
+          <i class="bi bi-journal-text me-2"></i>Credit Overview
+          <small>Total owed and summary stats</small>
+        </a>
+      </li>
+      <li>
+        <a class="dropdown-item dropdown-item-credit" href="{% url 'member_management' %}?credit=owed#all-members-section">
+          <i class="bi bi-person-lines-fill me-2"></i>Members with Credit
+          <small>Filter list to unpaid utang only</small>
+        </a>
+      </li>
+      <li>
+        <a class="dropdown-item dropdown-item-credit" href="{% url 'credit_unpaid_history' %}">
+          <i class="bi bi-calendar2-week me-2"></i>Unpaid Credit History
+          <small>Dates and days since utang was not paid</small>
+        </a>
+      </li>
+      <li>
+        <a class="dropdown-item dropdown-item-credit" href="{% url 'member_management' %}?credit=owed#all-members-section">
+          <i class="bi bi-cash-coin me-2"></i>Pay Member Credit
+          <small>Settle utang — use Pay Credit on each row</small>
+        </a>
+      </li>
+      <li>
+        <a class="dropdown-item dropdown-item-credit" href="{% url 'transaction_history' %}?payment_method=credit">
+          <i class="bi bi-receipt me-2"></i>Credit Sales
+          <small>Transactions paid on credit</small>
+        </a>
+      </li>
+      <li>
+        <a class="dropdown-item dropdown-item-credit" href="#" data-open-credit-interest-modal>
+          <i class="bi bi-percent me-2"></i>Credit Interest Settings
+          <small>Interest rate and grace period</small>
+        </a>
+      </li>
+    </ul>
+  </div>
+
+  <a href="{% url 'transaction_history' %}" class="btn {% if nav_active == 'transactions' %}btn-success active{% else %}btn-outline-success{% endif %} rounded-pill px-4">
+    <i class="bi bi-receipt me-1"></i> Transactions
+  </a>
+  {% endif %}
+  {% if is_loans_only %}
+  <div class="dropdown">
+    <button
+      type="button"
+      class="btn {% if nav_active == 'loans' %}btn-success active{% else %}btn-outline-success{% endif %} rounded-pill px-4 dropdown-toggle"
+      data-bs-toggle="dropdown"
+      aria-expanded="false"
+      aria-label="{% if pending_loan_request_count %}Loans menu, {{ pending_loan_request_count }} pending request{{ pending_loan_request_count|pluralize }}{% else %}Loans menu{% endif %}"
+    >
+      <i class="bi bi-bank me-1"></i> Loans
+      {% if pending_loan_request_count %}
+      <span class="admin-nav-loan-badge" title="{{ pending_loan_request_count }} loan request{{ pending_loan_request_count|pluralize }} awaiting review">{{ pending_loan_request_count }}</span>
+      {% endif %}
+    </button>
+    <ul class="dropdown-menu admin-nav-menu admin-nav-menu--panel">
+      {% include 'admin_panel/partials/admin_nav_loans_items.html' %}
+    </ul>
+  </div>
+  {% else %}
+  <div class="dropdown">
+    <button
+      type="button"
+      class="btn {% if nav_active == 'refunds' or nav_active == 'audit' or nav_active == 'staff_sales' %}btn-success active{% else %}btn-outline-success{% endif %} rounded-pill px-4 dropdown-toggle"
+      data-bs-toggle="dropdown"
+      data-bs-auto-close="outside"
+      aria-expanded="false"
+      aria-label="Manage menu"
+    >
+      <i class="bi bi-sliders me-1"></i> Manage
+    </button>
+    <ul class="dropdown-menu admin-nav-menu admin-nav-menu--panel">
+      <li><h6 class="dropdown-header">Manage</h6></li>
+      <li>
+        <a class="dropdown-item" href="{% url 'process_refund' %}">
+          <i class="bi bi-arrow-counterclockwise me-2"></i>Refunds
+          <small>Process member or kiosk refunds</small>
+        </a>
+      </li>
+      {% if is_admin_user %}
+      <li>
+        <a class="dropdown-item" href="{% url 'website_audit_trail' %}">
+          <i class="bi bi-shield-lock me-2"></i>Audit Trail
+          <small>Monitor website activity and staff actions</small>
+        </a>
+      </li>
+      {% endif %}
+      <li>
+        <a class="dropdown-item" href="{% url 'kiosk_home' %}">
+          <i class="bi bi-cart3 me-2"></i>Buy Items
+          <small>Open the kiosk checkout</small>
+        </a>
+      </li>
+      <li><hr class="dropdown-divider my-1"></li>
+      <li><h6 class="dropdown-header">Tools</h6></li>
+      <li>
+        <button type="button" class="dropdown-item" data-admin-nav-modal="#refillBalanceModal">
+          <i class="bi bi-wallet2 me-2"></i>Refill Card Balance
+          <small>Add funds to a member RFID card</small>
+        </button>
+      </li>
+      <li>
+        <button type="button" class="dropdown-item" data-admin-nav-modal="#generateReportModal">
+          <i class="bi bi-file-earmark-bar-graph me-2"></i>Generate Report
+          <small>Export sales and activity reports</small>
+        </button>
+      </li>
+    </ul>
+  </div>
+  <div class="dropdown">
+    <button
+      type="button"
+      class="btn {% if nav_active == 'loans' or nav_active == 'savings' or nav_active == 'share_capital' or nav_active == 'palay_trade' %}btn-success active{% else %}btn-outline-success{% endif %} rounded-pill px-4 dropdown-toggle"
+      data-bs-toggle="dropdown"
+      data-bs-auto-close="outside"
+      aria-expanded="false"
+      aria-label="{% if pending_loan_request_count %}Other services menu, {{ pending_loan_request_count }} pending loan request{{ pending_loan_request_count|pluralize }}{% else %}Other services menu{% endif %}"
+    >
+      <i class="bi bi-grid-3x3-gap me-1"></i> Other Services
+      {% if pending_loan_request_count %}
+      <span class="admin-nav-loan-badge" title="{{ pending_loan_request_count }} loan request{{ pending_loan_request_count|pluralize }} awaiting review">{{ pending_loan_request_count }}</span>
+      {% endif %}
+    </button>
+    <ul class="dropdown-menu admin-nav-menu">
+      <li><h6 class="dropdown-header">Other services</h6></li>
+      <li class="dropend admin-nav-submenu">
+        <a
+          class="dropdown-item dropdown-toggle"
+          href="#"
+          role="button"
+          data-bs-toggle="dropdown"
+          data-bs-auto-close="outside"
+          data-bs-display="static"
+          aria-expanded="false"
+          aria-label="{% if pending_loan_request_count %}Loans menu, {{ pending_loan_request_count }} pending request{{ pending_loan_request_count|pluralize }}{% else %}Loans menu{% endif %}"
+        >
+          {% if pending_loan_request_count %}<span class="admin-nav-loan-badge admin-nav-loan-badge--menu">{{ pending_loan_request_count }}</span>{% endif %}
+          <i class="bi bi-bank me-2"></i>Loans
+          <small>Member loans, applications and products</small>
+        </a>
+        <ul class="dropdown-menu admin-nav-menu admin-nav-menu--panel">
+          {% include 'admin_panel/partials/admin_nav_loans_items.html' %}
+        </ul>
+      </li>
+      <li class="dropend admin-nav-submenu">
+        <a
+          class="dropdown-item dropdown-toggle"
+          href="#"
+          role="button"
+          data-bs-toggle="dropdown"
+          data-bs-auto-close="outside"
+          data-bs-display="static"
+          aria-expanded="false"
+          aria-label="Savings menu"
+        >
+          <i class="bi bi-piggy-bank me-2"></i>Savings
+          <small>Member accounts, balances and deposits</small>
+        </a>
+        <ul class="dropdown-menu admin-nav-menu admin-nav-menu--panel">
+          <li><h6 class="dropdown-header">Member savings</h6></li>
+          <li>
+            <a class="dropdown-item" href="{% url 'savings:overview' %}">
+              <i class="bi bi-speedometer2 me-2"></i>Savings Overview
+              <small>Member accounts, balances and deposits</small>
+            </a>
+          </li>
+          <li>
+            <a class="dropdown-item" href="{% url 'savings:account-open' %}">
+              <i class="bi bi-folder-plus me-2"></i>Open Account
+              <small>Enroll a member in a savings product</small>
+            </a>
+          </li>
+          <li><hr class="dropdown-divider my-1"></li>
+          <li><h6 class="dropdown-header">Product features</h6></li>
+          <li>
+            <a class="dropdown-item" href="{% url 'savings:product-list' %}">
+              <i class="bi bi-list-check me-2"></i>All Savings Products
+              <small>Rates, minimums, term and withdrawal rules</small>
+            </a>
+          </li>
+        </ul>
+      </li>
+      <li class="dropend admin-nav-submenu {% if nav_active == 'share_capital' %}is-current{% endif %}">
+        <a
+          class="dropdown-item dropdown-toggle"
+          href="#"
+          role="button"
+          data-bs-toggle="dropdown"
+          data-bs-auto-close="outside"
+          data-bs-display="static"
+          aria-expanded="false"
+          aria-label="Share capital menu"
+        >
+          <i class="bi bi-coin me-2"></i>Share Capital
+          <small>Member shares, dividends and contributions</small>
+        </a>
+        <ul class="dropdown-menu admin-nav-menu admin-nav-menu--panel">
+          <li><h6 class="dropdown-header">Share capital</h6></li>
+          <li>
+            <a class="dropdown-item" href="{% url 'share_capital:overview' %}">
+              <i class="bi bi-speedometer2 me-2"></i>Share Capital Overview
+              <small>Member shares, paid-up capital and history</small>
+            </a>
+          </li>
+          <li>
+            <a class="dropdown-item" href="{% url 'share_capital:contribute' %}">
+              <i class="bi bi-plus-circle me-2"></i>Record Contribution
+              <small>Post paid-up share capital for a member</small>
+            </a>
+          </li>
+          <li><hr class="dropdown-divider my-1"></li>
+          <li><h6 class="dropdown-header">Product template</h6></li>
+          <li>
+            <a class="dropdown-item" href="{% url 'share_capital:product-list' %}">
+              <i class="bi bi-list-check me-2"></i>All Share Products
+              <small>Par value, minimums and dividend rules</small>
+            </a>
+          </li>
+        </ul>
+      </li>
+      <li class="dropend admin-nav-submenu">
+        <a
+          class="dropdown-item dropdown-toggle"
+          href="#"
+          role="button"
+          data-bs-toggle="dropdown"
+          data-bs-auto-close="outside"
+          data-bs-display="static"
+          aria-expanded="false"
+          aria-label="Palay trade menu"
+        >
+          <i class="bi bi-basket2 me-2"></i>Palay
+          <small>Buy/sell tickets and trade totals</small>
+        </a>
+        <ul class="dropdown-menu admin-nav-menu admin-nav-menu--panel">
+          <li><h6 class="dropdown-header">Palay trade</h6></li>
+          <li>
+            <a class="dropdown-item" href="{% url 'palay_trade:overview' %}">
+              <i class="bi bi-speedometer2 me-2"></i>Palay Overview
+              <small>Buy/sell tickets and trade totals</small>
+            </a>
+          </li>
+          <li>
+            <a class="dropdown-item" href="{% url 'palay_trade:trade-create' %}">
+              <i class="bi bi-plus-circle me-2"></i>New Trade
+              <small>Post a buy from farmer or sell from stock</small>
+            </a>
+          </li>
+          <li><hr class="dropdown-divider my-1"></li>
+          <li><h6 class="dropdown-header">Product features</h6></li>
+          <li>
+            <a class="dropdown-item" href="{% url 'palay_trade:product-list' %}">
+              <i class="bi bi-sliders me-2"></i>Rice Palay &amp; Bigas
+              <small>Buy/sell rates, stock, and trade limits</small>
+            </a>
+          </li>
+          <li>
+            <a class="dropdown-item" href="{% url 'palay_trade:credit-overview' %}">
+              <i class="bi bi-people me-2"></i>Palay Credit Overview
+              <small>Members with utang and settlements</small>
+            </a>
+          </li>
+          <li>
+            <a class="dropdown-item" href="{% url 'palay_trade:credit-desk' %}">
+              <i class="bi bi-credit-card me-2"></i>Post Palay Utang
+              <small>Member takes rice from stock on credit</small>
+            </a>
+          </li>
+        </ul>
+      </li>
+    </ul>
+  </div>
+  {% endif %}
+</div>
+<script>
+(function () {
+  function initAdminMainNav() {
+    var nav = document.querySelector('.admin-main-nav');
+    if (!nav || nav.dataset.adminNavReady === '1') return;
+    nav.dataset.adminNavReady = '1';
+
+    function closeSubmenus(scope) {
+      (scope || nav).querySelectorAll('.admin-nav-submenu').forEach(function (item) {
+        item.classList.remove('show');
+        var toggle = item.querySelector(':scope > .dropdown-toggle');
+        var menu = item.querySelector(':scope > .dropdown-menu');
+        if (toggle) {
+          toggle.setAttribute('aria-expanded', 'false');
+          if (typeof bootstrap !== 'undefined') {
+            var nested = bootstrap.Dropdown.getInstance(toggle);
+            if (nested) nested.hide();
+          }
+        }
+        if (menu) menu.classList.remove('show');
+      });
+    }
+
+    function flipSubmenu(menu) {
+      if (!menu) return;
+      menu.style.left = 'calc(100% + 0.2rem)';
+      menu.style.right = 'auto';
+      var rect = menu.getBoundingClientRect();
+      if (rect.right > window.innerWidth - 8) {
+        menu.style.left = 'auto';
+        menu.style.right = 'calc(100% + 0.2rem)';
+      }
+    }
+
+    nav.querySelectorAll('.admin-nav-submenu > .dropdown-toggle').forEach(function (toggle) {
+      toggle.addEventListener('show.bs.dropdown', function () {
+        var item = toggle.closest('.admin-nav-submenu');
+        var menu = item && item.querySelector(':scope > .dropdown-menu');
+        var parentMenu = toggle.closest('.dropdown-menu');
+        closeSubmenus(parentMenu);
+        if (item) item.classList.add('show');
+        if (menu) {
+          menu.classList.add('show');
+          flipSubmenu(menu);
+        }
+      });
+      toggle.addEventListener('hide.bs.dropdown', function () {
+        var item = toggle.closest('.admin-nav-submenu');
+        var menu = item && item.querySelector(':scope > .dropdown-menu');
+        if (item) item.classList.remove('show');
+        if (menu) menu.classList.remove('show');
+      });
+      // Fallback when Bootstrap Dropdown is not yet available on the toggle
+      toggle.addEventListener('click', function (event) {
+        if (typeof bootstrap !== 'undefined' && bootstrap.Dropdown.getOrCreateInstance) {
+          return;
+        }
+        event.preventDefault();
+        event.stopPropagation();
+        var item = toggle.closest('.admin-nav-submenu');
+        var menu = item.querySelector(':scope > .dropdown-menu');
+        var willOpen = !item.classList.contains('show');
+        closeSubmenus(toggle.closest('.dropdown-menu'));
+        if (willOpen) {
+          item.classList.add('show');
+          if (menu) {
+            menu.classList.add('show');
+            flipSubmenu(menu);
+          }
+          toggle.setAttribute('aria-expanded', 'true');
+        }
+      });
+    });
+
+    nav.querySelectorAll(':scope > .dropdown').forEach(function (dropdown) {
+      dropdown.addEventListener('hide.bs.dropdown', function () {
+        closeSubmenus(dropdown);
+      });
+    });
+
+    // Open modals from inside dropdowns (Bootstrap often blocks data-bs-toggle=modal here)
+    nav.querySelectorAll('[data-admin-nav-modal]').forEach(function (btn) {
+      btn.addEventListener('click', function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        var target = btn.getAttribute('data-admin-nav-modal');
+        var modalEl = target ? document.querySelector(target) : null;
+        var dropdownToggle = btn.closest('.dropdown');
+        dropdownToggle = dropdownToggle && dropdownToggle.querySelector(':scope > [data-bs-toggle="dropdown"]');
+        if (dropdownToggle && typeof bootstrap !== 'undefined') {
+          var dd = bootstrap.Dropdown.getInstance(dropdownToggle);
+          if (dd) dd.hide();
+        }
+        if (!modalEl) return;
+        if (typeof bootstrap !== 'undefined') {
+          bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        }
+      });
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initAdminMainNav);
+  } else {
+    initAdminMainNav();
+  }
+  window.addEventListener('load', initAdminMainNav);
+})();
+</script>

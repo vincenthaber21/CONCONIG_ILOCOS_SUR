@@ -1,0 +1,421 @@
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Admin Console | {{ kiosk_system_name }}</title>
+    {% include "partials/bootstrap_head.html" %}
+    {% include "partials/chartjs_scripts.html" %}
+    <style>
+      :root {
+        --dark: #0f172a;
+        --brand: #ED1C24;
+        --accent: #E6C200;
+        --muted: #94a3b8;
+        --panel: #ffffff;
+        --gradient: linear-gradient(135deg, #ED1C24 0%, #C4121A 40%, #8B0E14 100%);
+      }
+  
+      body {
+        background: #f1f5f9;
+        font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      }
+  
+      .super-nav {
+        background: var(--dark);
+        color: #fff;
+        box-shadow: 0 10px 30px rgba(15,23,42,0.4);
+      }
+  
+      .nav-pill {
+        border-radius: 999px;
+        padding: 8px 18px;
+        border: 1px solid rgba(255,255,255,0.2);
+        color: #fff;
+      }
+  
+      .nav-pill.active, .nav-pill:hover {
+        background: rgba(255,255,255,0.15);
+        color: #fff;
+      }
+  
+      .hero-card {
+        background: var(--gradient);
+        color: #fff;
+        border-radius: 24px;
+        padding: 32px;
+        box-shadow: 0 25px 55px rgba(15,23,42,0.35);
+      }
+  
+      .hero-metric {
+        background: rgba(255,255,255,0.18);
+        border-radius: 16px;
+        padding: 16px 20px;
+        min-width: 160px;
+      }
+  
+      .stat-card {
+        border: none;
+        border-radius: 18px;
+        padding: 20px;
+        box-shadow: 0 18px 36px rgba(15,23,42,0.08);
+        background: var(--panel);
+        height: 100%;
+      }
+  
+      .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.3rem;
+        color: #fff;
+      }
+  
+      .stat-title {
+        color: var(--muted);
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+  
+      .chart-card {
+        border-radius: 20px;
+        padding: 20px;
+        background: var(--panel);
+        box-shadow: 0 15px 30px rgba(15,23,42,0.07);
+        height: 100%;
+        overflow: hidden;
+        position: relative;
+        z-index: 0;
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+  
+      .chart-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 20px 40px rgba(15,23,42,0.12) !important;
+      }
+  
+      .table-card {
+        position: relative;
+        z-index: 5;
+        overflow: visible;
+      }
+  
+      .chart-wrapper {
+        position: relative;
+        width: 100%;
+        overflow: hidden;
+        padding: 10px 0;
+      }
+  
+      .chart-wrapper canvas {
+        max-width: 100%;
+        display: block;
+      }
+  
+      .chart-card.expanded {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        width: 100vw;
+        height: 100vh;
+        z-index: 9999;
+        border-radius: 0;
+        padding: 30px;
+        overflow-y: auto;
+        background: var(--panel);
+      }
+  
+      .chart-card.expanded .chart-wrapper {
+        height: calc(100vh - 150px) !important;
+        max-height: none !important;
+      }
+  
+      .expand-chart-btn {
+        cursor: pointer;
+        transition: all 0.2s ease;
+      }
+  
+      .expand-chart-btn:hover {
+        transform: scale(1.1);
+      }
+  
+      .table-card table {
+        font-size: 0.9rem;
+      }
+  
+      .table-card thead {
+        color: var(--muted);
+        text-transform: uppercase;
+        font-size: 0.75rem;
+      }
+  
+      .chips {
+        display: inline-flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+  
+      .chip {
+        background: #e2e8f0;
+        color: #0f172a;
+        border-radius: 999px;
+        padding: 4px 12px;
+        font-size: 0.8rem;
+        font-weight: 600;
+      }
+  
+      #paymentMixCenter {
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      }
+  
+      #paymentMixSummary {
+        border-top: 1px solid rgba(148, 163, 184, 0.2);
+      }
+  
+      #paymentMethodBreakdown .col-6 > div {
+        transition: all 0.2s ease;
+      }
+  
+      #paymentMethodBreakdown .col-6 > div:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+      }
+  
+      @keyframes pulse {
+        0%, 100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+  
+      #salesTrendStats .col-6,
+      #salesTrendStats .col-md-3 {
+        transition: transform 0.2s ease;
+      }
+  
+      #salesTrendStats .col-6:hover,
+      #salesTrendStats .col-md-3:hover {
+        transform: translateY(-2px);
+      }
+  
+      #salesTrendStats .bg-light {
+        background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%) !important;
+        box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+        transition: all 0.2s ease;
+      }
+  
+      #salesTrendStats .bg-light:hover {
+        box-shadow: 0 4px 12px rgba(15, 23, 42, 0.1);
+      }
+
+      /* Custom Logout Confirmation Modal */
+      #logoutConfirmModal {
+        z-index: 9999 !important;
+      }
+      #logoutConfirmModal .modal-dialog {
+        max-width: 480px;
+        margin: 10vh auto;
+        display: flex;
+        align-items: center;
+        min-height: calc(100vh - 20vh);
+      }
+      #logoutConfirmModal .modal-content {
+        border-radius: 18px;
+        border: none;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        overflow: hidden;
+        animation: modalSlideIn 0.3s ease-out;
+      }
+      @keyframes modalSlideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-30px) scale(0.95);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+      }
+      #logoutConfirmModal .modal-backdrop {
+        background-color: rgba(0, 0, 0, 0.6);
+        backdrop-filter: blur(4px);
+        z-index: 9998 !important;
+      }
+      #logoutConfirmModal .modal-header {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-bottom: 2px solid #dee2e6;
+        padding: 24px 32px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      #logoutConfirmModal .modal-header .modal-title {
+        font-weight: 700;
+        font-size: 1.5rem;
+        color: #1a1a1a;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin: 0;
+      }
+      #logoutConfirmModal .modal-header .modal-title i {
+        color: #ED1C24;
+        font-size: 1.8rem;
+      }
+      #logoutConfirmModal .modal-body {
+        padding: 32px;
+        text-align: center;
+      }
+      #logoutConfirmModal .modal-body .warning-icon {
+        font-size: 4rem;
+        color: #ED1C24;
+        margin-bottom: 20px;
+        display: block;
+      }
+      #logoutConfirmModal .modal-body p {
+        font-size: 1.1rem;
+        color: #495057;
+        line-height: 1.6;
+        margin: 0;
+        font-weight: 400;
+      }
+      #logoutConfirmModal .modal-footer {
+        border-top: 2px solid #e9ecef;
+        padding: 20px 32px;
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        background: #f8f9fa;
+      }
+      #logoutConfirmModal .modal-footer .btn {
+        min-width: 120px;
+        padding: 12px 24px;
+        font-weight: 600;
+        font-size: 1rem;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+      }
+      #logoutConfirmModal .modal-footer .btn-cancel {
+        background: #6c757d;
+        border: 2px solid #6c757d;
+        color: white;
+      }
+      #logoutConfirmModal .modal-footer .btn-cancel:hover {
+        background: #5a6268;
+        border-color: #5a6268;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
+      }
+      #logoutConfirmModal .modal-footer .btn-confirm {
+        background: linear-gradient(135deg, #ED1C24, #C4121A);
+        border: 2px solid #ED1C24;
+        color: white;
+      }
+      #logoutConfirmModal .modal-footer .btn-confirm:hover {
+        background: linear-gradient(135deg, #C4121A, #A10F16);
+        border-color: #A10F16;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(237, 28, 36, 0.4);
+      }
+    </style>
+  </head>
+  <body>
+    {% include 'admin_panel/partials/admin_top_navbar.html' %}
+  
+    <main class="container-fluid px-4 py-5">
+      <section class="hero-card mb-4">
+        <div class="row align-items-center g-4">
+          <div class="col-lg-8">
+            <p class="mb-2 text-uppercase fw-semibold" style="letter-spacing:0.2em;">Command Center</p>
+            <h1 class="fw-bold mb-2">Hello, {{ user_display_name|default:"Admin" }} 👋{% include 'admin_panel/partials/admin_role_badge.html' %}
+            </h1>
+            <p class="mb-4 lead text-white-50">
+              {{ dashboard_hero_description }}
+            </p>
+            <div class="chips">
+              <span class="chip"><i class="bi bi-lightning-charge-fill me-1"></i> Today: ₱{{ today_revenue|floatformat:2 }}</span>
+              <span class="chip"><i class="bi bi-receipt-cutoff me-1"></i> {{ today_transactions }} transactions</span>
+              <span class="chip"><i class="bi bi-graph-up-arrow me-1"></i> Total ₱{{ total_revenue|floatformat:2 }}</span>
+            </div>
+          </div>
+          <div class="col-lg-4 d-flex gap-3 justify-content-lg-end flex-wrap">
+            <div class="hero-metric">
+              <small class="text-uppercase text-white-50">Members</small>
+              <h3 class="mb-0">{{ total_members }}</h3>
+            </div>
+          </div>
+        </div>
+      </section>
+  
+      {% include 'admin_panel/partials/admin_main_nav.html' with nav_active='dashboard' %}
+  
+      <section class="row g-4 mb-4">
+        <div class="col-xl-3 col-md-6">
+          <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+              <div class="stat-icon" style="background:#ED1C24;"><i class="bi bi-cash-stack"></i></div>
+              <div>
+                <div class="stat-title">Total Revenue</div>
+                <h3 class="mb-0">₱{{ total_revenue|floatformat:2 }}</h3>
+                <small class="text-success">+ Today ₱{{ today_revenue|floatformat:2 }}</small>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+          <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+              <div class="stat-icon" style="background:#FFF200;color:#111;"><i class="bi bi-bar-chart-line"></i></div>
+              <div>
+                <div class="stat-title">Transactions</div>
+                <h3 class="mb-0">{{ total_transactions }}</h3>
+                <small class="text-muted">{{ today_transactions }} today</small>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+          <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+              <div class="stat-icon" style="background:#6366f1;"><i class="bi bi-boxes"></i></div>
+              <div>
+                <div class="stat-title">Inventory Alerts</div>
+                <h3 class="mb-0">{{ low_stock_products }}</h3>
+                <small class="text-danger">{{ out_of_stock_products }} out of stock</small>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+          <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+              <div class="stat-icon" style="background:#ef4444;"><i class="bi bi-arrow-counterclockwise"></i></div>
+              <div>
+                <div class="stat-title">Total Refunds</div>
+                <h3 class="mb-0">{{ total_refunds }}</h3>
+                <small class="text-danger">₱{{ total_refund_amount|floatformat:2 }} total</small>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-xl-3 col-md-6">
+          <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+              <div class="stat-icon" style="background:#f59e0b;"><i class="bi bi-arrow-counterclockwise"></i></div>
+              <div>
+                <div class="stat-title">Today's Refunds</div>
+                <h3 class="mb-0">{{ today_refunds }}</h3>
+                <small class="text-warning">₱{{ today_refund_amount|floatformat:2 }} today</small>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>

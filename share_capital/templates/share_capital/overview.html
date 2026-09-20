@@ -1,0 +1,197 @@
+{% extends "share_capital/base_share_capital.html" %}
+{% load currency_filters %}
+{% block title %}Share Capital{% endblock %}
+{% block content %}
+<style>
+  .hero-card {
+    background: var(--gradient); color: #fff; border-radius: 24px; padding: 32px;
+    box-shadow: 0 25px 55px rgba(15,23,42,0.35);
+  }
+  .stat-card {
+    background: #fff; border-radius: 18px; padding: 20px;
+    box-shadow: 0 12px 30px rgba(15,23,42,0.08); height: 100%;
+  }
+  .stat-icon {
+    width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center;
+    justify-content: center; color: #fff; font-size: 1.3rem; flex-shrink: 0;
+  }
+  .loans-panel {
+    background: #fff; border-radius: 18px; padding: 22px;
+    box-shadow: 0 12px 30px rgba(15,23,42,0.08); border: 1px solid #e2e8f0;
+  }
+  .loans-table { width: 100%; border-collapse: collapse; }
+  .loans-table th {
+    font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase;
+    color: #64748b; font-weight: 700; padding: 10px 12px; border-bottom: 2px solid #e2e8f0;
+  }
+  .loans-table td {
+    padding: 14px 12px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; font-size: 0.92rem;
+  }
+  .filter-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .filter-bar .form-control, .filter-bar .form-select {
+    border-radius: 999px; border: 1px solid #cbd5e1; padding: 8px 16px; min-height: 42px;
+  }
+  .filter-bar .form-control { min-width: 220px; flex: 1; }
+  .member-cell { display: flex; flex-direction: column; gap: 2px; }
+  .member-cell small { color: #64748b; font-size: 0.78rem; }
+  .sc-actions { text-align: right; white-space: nowrap; }
+</style>
+
+<section class="hero-card mb-4">
+  <div class="d-flex justify-content-between flex-wrap gap-3 align-items-start">
+    <div>
+      <p class="mb-1 text-uppercase small fw-semibold" style="letter-spacing:.12em;opacity:.85;">Share capital</p>
+      <h1 class="text-white mb-2">Share capital desk</h1>
+      <p class="mb-0" style="opacity:.92;max-width:42rem;">
+        {% if product %}
+        {{ product.name }} — par value ₱{{ product.par_value|currency }}
+        {% if product.dividend_rate %} · {{ product.dividend_rate_display }} dividend{% endif %}.
+        {% else %}
+        Member shares, paid-up capital, and contributions.
+        {% endif %}
+      </p>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+      <a class="btn btn-light rounded-pill px-4 fw-semibold" href="{% url 'share_capital:product-list' %}">
+        <i class="bi bi-coin me-1"></i>Share products
+      </a>
+      <a class="btn btn-dark rounded-pill px-4 fw-semibold" href="{% url 'share_capital:contribute' %}">
+        <i class="bi bi-plus-lg me-1"></i>Record contribution
+      </a>
+    </div>
+  </div>
+</section>
+
+<section class="row g-3 mb-4">
+  <div class="col-xl-3 col-md-6">
+    <div class="stat-card">
+      <div class="d-flex align-items-center gap-3">
+        <div class="stat-icon" style="background:#FFF200;color:#111;"><i class="bi bi-people"></i></div>
+        <div>
+          <div class="text-muted small text-uppercase fw-semibold">With capital</div>
+          <h3 class="mb-0 fw-bold">{{ holder_count }}</h3>
+          <small class="text-muted">{{ member_count }} active members</small>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="stat-card">
+      <div class="d-flex align-items-center gap-3">
+        <div class="stat-icon" style="background:#0ea5e9;"><i class="bi bi-cash-stack"></i></div>
+        <div>
+          <div class="text-muted small text-uppercase fw-semibold">Total paid-up</div>
+          <h3 class="mb-0 fw-bold">&#8369;{{ total_capital|currency }}</h3>
+          <small class="text-muted">Member share capital</small>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-3 col-md-6">
+    <div class="stat-card">
+      <div class="d-flex align-items-center gap-3">
+        <div class="stat-icon" style="background:#ED1C24;"><i class="bi bi-coin"></i></div>
+        <div>
+          <div class="text-muted small text-uppercase fw-semibold">Products</div>
+          <h3 class="mb-0 fw-bold">{{ product_count }}</h3>
+          <small class="text-muted">Active share templates</small>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% if product %}
+  <div class="col-xl-3 col-md-6">
+    <div class="stat-card">
+      <div class="d-flex align-items-center gap-3">
+        <div class="stat-icon" style="background:#E6C200;color:#111;"><i class="bi bi-percent"></i></div>
+        <div>
+          <div class="text-muted small text-uppercase fw-semibold">Par value</div>
+          <h3 class="mb-0 fw-bold">&#8369;{{ product.par_value|currency }}</h3>
+          <small class="text-muted">{{ product.dividend_rate_display }} / year</small>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</section>
+
+<section class="loans-panel">
+  <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+    <h2 class="h5 fw-bold mb-0 text-dark">
+      <i class="bi bi-people-fill me-2 text-success"></i>Member share capital
+    </h2>
+  </div>
+
+  <form method="get" class="filter-bar mb-3">
+    <input type="search" name="search" class="form-control" placeholder="Search member name, username, or RFID…" value="{{ search_query }}">
+    <select name="balance" class="form-select" style="max-width: 220px;">
+      <option value="all" {% if balance_filter == 'all' %}selected{% endif %}>All members</option>
+      <option value="with_balance" {% if balance_filter == 'with_balance' %}selected{% endif %}>With paid-up capital</option>
+      <option value="zero" {% if balance_filter == 'zero' %}selected{% endif %}>Zero balance</option>
+    </select>
+    <button type="submit" class="btn btn-success rounded-pill px-4">
+      <i class="bi bi-funnel me-1"></i>Filter
+    </button>
+  </form>
+  <div class="table-responsive">
+    <table class="loans-table">
+      <thead>
+        <tr>
+          <th>Member</th>
+          <th>Paid-up capital</th>
+          {% if product %}<th>Shares</th>{% endif %}
+          <th>Status</th>
+          <th class="text-end">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for member in members %}
+        <tr>
+          <td>
+            <a href="{% url 'share_capital:member-detail' member.pk %}" class="text-decoration-none text-dark">
+              <div class="member-cell">
+                <strong>{{ member.full_name }}</strong>
+                <small>{{ member.username|default:member.email|default:"—" }}</small>
+              </div>
+            </a>
+          </td>
+          <td>&#8369;{{ member.share_capital|currency }}</td>
+          {% if product %}
+          <td>{{ member.share_count|default:"—" }}</td>
+          {% endif %}
+          <td>
+            {% if member.share_capital > 0 %}
+            <span class="status-pill status-pill--active">Paid-up</span>
+            {% else %}
+            <span class="status-pill status-pill--zero">None</span>
+            {% endif %}
+          </td>
+          <td class="sc-actions">
+            <a class="btn--secondary" href="{% url 'share_capital:member-detail' member.pk %}">
+              Open <i class="bi bi-chevron-right"></i>
+            </a>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="{% if product %}5{% else %}4{% endif %}" class="text-center text-muted py-5">
+            No members match this filter.
+            <a href="{% url 'share_capital:contribute' %}">Record a contribution</a>
+            {% if not product %}
+            or <a href="{% url 'share_capital:product-create' %}">define a share capital product</a>.
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if page_obj.has_other_pages %}
+  <p class="mt-3 mb-0">
+    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&search={{ search_query }}&balance={{ balance_filter }}">&laquo; Prev</a>{% endif %}
+    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&search={{ search_query }}&balance={{ balance_filter }}">Next &raquo;</a>{% endif %}
+  </p>
+  {% endif %}
+</section>
+{% endblock %}

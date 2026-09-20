@@ -1,0 +1,257 @@
+{% load currency_filters %}
+{# Expects: payment, application, member_name, store_profile, outstanding_balance, receipt_detail #}
+<article class="or-sheet">
+  <header class="or-head">
+    <div class="or-brand">
+      {% include "admin_panel/partials/receipt_or_store_brand.html" with fallback_title="Cooperative Loan Office" %}
+    </div>
+    <div class="or-badge">
+      <div class="label">Official Receipt</div>
+      <div class="or-no">{{ payment.or_number }}</div>
+      <div class="copy">Member / Office copy</div>
+    </div>
+  </header>
+
+  <h2 class="or-title">Loan Payment Official Receipt</h2>
+
+  <h3 class="or-section-title">Payment details</h3>
+  <dl class="meta-grid">
+    <div>
+      <dt>Date / time</dt>
+      <dd>{{ payment.payment_date|date:"M j, Y g:i A" }}</dd>
+    </div>
+    <div>
+      <dt>Payment method</dt>
+      <dd>{{ payment.get_payment_method_display }}</dd>
+    </div>
+    <div>
+      <dt>Received from</dt>
+      <dd>{{ member_name }}</dd>
+    </div>
+    <div>
+      <dt>Member account</dt>
+      <dd>{{ application.member }}</dd>
+    </div>
+    <div>
+      <dt>Loan product</dt>
+      <dd>{{ application.loan_product.name }}</dd>
+    </div>
+    <div>
+      <dt>Loan application</dt>
+      <dd style="font-family:ui-monospace,Consolas,monospace;font-size:.82rem;">{{ application.id }}</dd>
+    </div>
+    <div>
+      <dt>Applied to</dt>
+      <dd>
+        {% if payment.applied_to_installment %}
+          Installment #{{ payment.applied_to_installment.installment_number }}
+          {% if payment.applied_to_installment.due_date %}
+            (due {{ payment.applied_to_installment.due_date|date:"M j, Y" }})
+          {% endif %}
+        {% else %}
+          General loan payment
+        {% endif %}
+      </dd>
+    </div>
+    <div>
+      <dt>Collected by</dt>
+      <dd>
+        {% if payment.collected_by %}
+          {{ payment.collected_by.get_full_name|default:payment.collected_by.username }}
+        {% else %}
+          —
+        {% endif %}
+      </dd>
+    </div>
+  </dl>
+
+  {% if receipt_detail %}
+  <h3 class="or-section-title">Loan terms</h3>
+  <dl class="meta-grid">
+    <div>
+      <dt>Loan principal</dt>
+      <dd>&#8369;{{ receipt_detail.loan_principal|currency }}</dd>
+    </div>
+    <div>
+      <dt>Repayment term</dt>
+      <dd>{{ receipt_detail.loan_term_months }} month{{ receipt_detail.loan_term_months|pluralize }}</dd>
+    </div>
+    <div>
+      <dt>Monthly interest rate</dt>
+      <dd>
+        {{ receipt_detail.monthly_interest_rate|floatformat:4 }}
+        <span class="meta-grid__sub">({{ receipt_detail.monthly_interest_rate_percent|floatformat:3 }}% per month)</span>
+      </dd>
+    </div>
+    <div>
+      <dt>Late-payment grace period</dt>
+      <dd>
+        {% if receipt_detail.grace_period_days %}
+          {{ receipt_detail.grace_period_days }} day{{ receipt_detail.grace_period_days|pluralize }}
+        {% else %}
+          None (late interest may apply the day after due date)
+        {% endif %}
+      </dd>
+    </div>
+    {% if receipt_detail.disbursement %}
+    <div>
+      <dt>Net amount disbursed</dt>
+      <dd>
+        &#8369;{{ receipt_detail.disbursement.amount_released|currency }}
+        {% if receipt_detail.disbursement.total_deductions and receipt_detail.disbursement.total_deductions > 0 %}
+        <span class="meta-grid__sub">(principal &#8369;{{ receipt_detail.loan_principal|currency }})</span>
+        {% endif %}
+      </dd>
+    </div>
+    {% endif %}
+    <div>
+      <dt>Balance before this payment</dt>
+      <dd>&#8369;{{ receipt_detail.outstanding_before|currency }}</dd>
+    </div>
+    <div>
+      <dt>Unpaid principal before payment</dt>
+      <dd>&#8369;{{ receipt_detail.remaining_principal_before|currency }}</dd>
+    </div>
+  </dl>
+
+  <h3 class="or-section-title">Interest period for this payment</h3>
+  {% if receipt_detail.has_interest_period %}
+  <dl class="meta-grid">
+    <div>
+      <dt>Usable from</dt>
+      <dd>{{ receipt_detail.usable_from|date:"M j, Y" }}</dd>
+    </div>
+    <div>
+      <dt>Usable to</dt>
+      <dd>{{ receipt_detail.usable_to|date:"M j, Y" }}</dd>
+    </div>
+    <div>
+      <dt>Usable days</dt>
+      <dd>{{ receipt_detail.usable_days }} day{{ receipt_detail.usable_days|pluralize }}</dd>
+    </div>
+    <div>
+      <dt>Interest per day</dt>
+      <dd>&#8369;{{ receipt_detail.interest_per_day|floatformat:4 }}</dd>
+    </div>
+    <div>
+      <dt>Balance used for daily rate</dt>
+      <dd>&#8369;{{ receipt_detail.outstanding_before|currency }}</dd>
+    </div>
+    <div>
+      <dt>Period interest charged</dt>
+      <dd>&#8369;{{ receipt_detail.period_interest|currency }}</dd>
+    </div>
+  </dl>
+  <div class="notes notes--formula">
+    <strong>How interest is computed:</strong>
+    daily rate = (monthly rate ÷ 30) × balance left to pay<br>
+    period interest = round(daily rate × usable days), added to your balance<br>
+    <span class="notes__mono">{{ receipt_detail.interest_formula }}</span>
+  </div>
+  {% else %}
+  <div class="notes">
+    No usable-days interest period was recorded for this payment.
+    {% if receipt_detail.period_interest and receipt_detail.period_interest > 0 %}
+    Period interest of &#8369;{{ receipt_detail.period_interest|currency }} was still applied to the balance.
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <h3 class="or-section-title">Payment breakdown</h3>
+  <table class="breakdown">
+    <thead>
+      <tr>
+        <th>Description</th>
+        <th class="breakdown__amount">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% if receipt_detail.period_interest and receipt_detail.period_interest > 0 %}
+      <tr>
+        <td>
+          Period interest
+          {% if receipt_detail.has_interest_period %}
+          ({{ receipt_detail.usable_days }} day{{ receipt_detail.usable_days|pluralize }} @ &#8369;{{ receipt_detail.interest_per_day|floatformat:4 }}/day)
+          {% endif %}
+        </td>
+        <td class="breakdown__amount">&#8369;{{ receipt_detail.period_interest|currency }}</td>
+      </tr>
+      {% endif %}
+      <tr class="breakdown__total">
+        <td><strong>Cash / check / transfer received</strong></td>
+        <td class="breakdown__amount"><strong>&#8369;{{ receipt_detail.amount_paid|currency }}</strong></td>
+      </tr>
+    </tbody>
+  </table>
+  {% endif %}
+
+  <div class="amount-box">
+    <div>
+      <div class="lbl">Amount received</div>
+      <div style="font-size:.82rem;color:#64748b;margin-top:.2rem;">
+        Payment ID #{{ payment.id }}
+        {% if receipt_detail and receipt_detail.period_interest and receipt_detail.period_interest > 0 %}
+        &middot; includes &#8369;{{ receipt_detail.period_interest|currency }} period interest on balance
+        {% endif %}
+      </div>
+    </div>
+    <div class="val">&#8369;{{ payment.amount_paid|currency }}</div>
+  </div>
+
+  {% if receipt_detail %}
+  <h3 class="or-section-title">Balance after this payment</h3>
+  <dl class="meta-grid">
+    <div>
+      <dt>Outstanding balance remaining</dt>
+      <dd>&#8369;{{ receipt_detail.outstanding_after|currency }}</dd>
+    </div>
+    <div>
+      <dt>Unpaid principal remaining</dt>
+      <dd>&#8369;{{ receipt_detail.remaining_principal_after|currency }}</dd>
+    </div>
+    <div>
+      <dt>Total paid to date</dt>
+      <dd>&#8369;{{ receipt_detail.cumulative_paid|currency }}</dd>
+    </div>
+    <div>
+      <dt>Total interest charged to date</dt>
+      <dd>&#8369;{{ receipt_detail.cumulative_interest|currency }}</dd>
+    </div>
+  </dl>
+  {% else %}
+  <dl class="meta-grid">
+    <div>
+      <dt>Current outstanding balance</dt>
+      <dd>&#8369;{{ outstanding_balance|currency }}</dd>
+    </div>
+  </dl>
+  {% endif %}
+
+  {% if payment.remarks %}
+  <div class="notes"><strong>Remarks:</strong> {{ payment.remarks }}</div>
+  {% endif %}
+
+  <div class="sign-row">
+    <div class="sign-box">
+      <div class="sign-line">Member / Payor</div>
+      <div class="sign-sub">{{ member_name }}</div>
+    </div>
+    <div class="sign-box">
+      <div class="sign-line">Collected by</div>
+      <div class="sign-sub">
+        {% if payment.collected_by %}
+          {{ payment.collected_by.get_full_name|default:payment.collected_by.username }}
+        {% else %}
+          —
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <p class="security">
+    This official receipt is issued for transparency and audit purposes.
+    Keep this copy as proof of payment. OR number must match the payment record in the system.
+    Interest is computed only on the balance left to pay using the monthly rate divided by 30 days.
+    Generated {{ payment.created_at|date:"M j, Y g:i A" }}.
+  </p>
+</article>

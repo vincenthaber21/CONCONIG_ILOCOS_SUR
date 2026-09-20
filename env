@@ -1,0 +1,152 @@
+USER
+user 
+Aa18-00188
+
+ADMIN
+pc
+admin123
+
+features 
+no stocks notify the admin true email
+5x search make automatically send the email to the admin
+
+Transaction ID Breakdown
+TXN202512111424396464 follows this format:
+TXN — prefix
+20251211 — date: December 11, 2025
+142439 — time: 14:24:39 (2:24:39 PM)
+6464 — 4-digit random suffix
+
+@http://127.0.0.1:8000/admin/  if user try to access this verify login  for security \
+
+
+	dasdadasd asdasd	pc	0036323192	Admin
+    customer 2 sada	user	0008348828
+    dasdadasd asdasd	staff	1234
+    	james harden	user_1	0003
+
+
+delete all the data in the database 
+python manage.py flush
+
+from myapp.models import ModelA, ModelB, ModelC
+
+ModelA.objects.all().delete()
+ModelB.objects.all().delete()
+ModelC.objects.all().delete()
+
+
+
+mobile app 
+npm Start
+
+
+run the terminal laptop
+python manage.py runserver 0.0.0.0:8000
+
+
+create an app
+cd mobile_app && eas build --platform android --profile preview
+or
+npm install -g eas-cli
+
+cd mobile_app
+eas build:list
+
+
+fix the endpoint of the user make use the own credentials of rfid id use to the paying method of debit if not the own owner decline the method of debit 
+
+[REMOVED: accidental GitHub token]
+
+
+for check the admin status
+# Check current status
+python manage.py toggle_product_fee --status
+
+# Disable the product fee feature
+python manage.py toggle_product_fee --disable
+
+# Enable the product fee feature
+python manage.py toggle_product_fee --enable
+
+
+
+add customer profile to identify the information of the customer  
+
+
+
+MAKE TEMPLATE TO SEE THE ALL THE STORES REGISTER TO THE DTI TO MONNITOR 
+THE DATA AND PROCESS OF ALL THE STORES NEED 
+
+
+
+make if cash the user todo make a notitify the staff or admin to send a confirm the process 
+of cash and send verification to proces the cash 
+
+
+if refund option the reason is expired that back the stuck of the product if the refund complete 
+
+
+make it allow the users select witch items what to request to refund 
+
+
+http://127.0.0.1:8000/admin/admin_panel/
+
+
+if have request rerund notify the admin or cashier via email 
+
+
+features that the users allow to restuck the items or not 
+
+
+cloudflared tunnel --url http://127.0.0.1:8000/
+
+
+
+                  <li>
+                    <a class="dropdown-item" href="#" id="restoreDataBtn" data-bs-toggle="modal" data-bs-target="#restoreDataModal" title="Restore deleted members from backup date">
+                      <i class="bi bi-arrow-counterclockwise me-2 text-warning"></i>Restore Members
+                    </a>
+                  </li>
+
+
+pip install -r requirements.txt
+
+
+https://7m700w9b-8000.asse.devtunnels.ms/dashboard/transactions/ need updates dashboards 
+
+https://7m700w9b-8000.asse.devtunnels.ms/process-refund/ for process refund 
+[WARNING] Forbidden (CSRF token from the 'X-Csrftoken' HTTP header has incorrect length.): /api/process-refund/
+[WARNING] "POST /api/process-refund/ HTTP/1.1" 403 2549
+
+https://7m700w9b-8000.asse.devtunnels.ms/kiosk/ search features Products 
+
+
+
+edited members add members design 
+products select the user how many columns the download pdf 
+
+https://console.cloud.google.com/auth/clients/134396661844-n0c8q1jok6thkkosp54h2p5a3fbm4egm.apps.googleusercontent.com?project=dtiprojetcs
+
+
+
+
+
+
+
+http://127.0.0.1:8000/kiosk/ make features before complete the transaction Cash Payment or debits make input the name of the customers they not a members 
+
+dashboard 
+reciepts 
+
+
+
+http://127.0.0.1:8000/dashboard/transactions/ didnot show the Pay Credit (Utang) in the transactions 
+
+
+fix this 
+
+
+
+
+fix the if i login the cahier and i buy item and http://127.0.0.1:8000/kiosk/ and i search Search Member stil the sales is in the cahier 

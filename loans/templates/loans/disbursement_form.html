@@ -1,0 +1,515 @@
+{% extends "loans/base_loans.html" %}
+{% load currency_filters %}
+{% block title %}Disbursement{% endblock %}
+{% block content %}
+<div class="loan-disburse-page">
+  <header class="loan-disburse-page__header">
+    <a class="loan-disburse-page__back" href="{% url 'loans:application-detail' application.pk %}">
+      <i class="bi bi-arrow-left"></i> Application
+    </a>
+    <div class="loan-disburse-page__title-row">
+      <div>
+        <h1>Loan Disbursement</h1>
+        <p class="subtitle loan-disburse-page__sub">
+          {{ application.member.get_full_name|default:application.member.username }}
+          &middot; {{ application.loan_product.name }}
+        </p>
+      </div>
+      <span class="status-pill status-pill--{{ application.status|lower }}">
+        {{ application.get_status_display }}
+      </span>
+    </div>
+  </header>
+
+  <div class="loan-disburse-page__stats">
+    <div class="loan-disburse-stat loan-disburse-stat--accent">
+      <span class="loan-disburse-stat__label">Loan principal</span>
+      <span class="loan-disburse-stat__value">&#8369;{{ principal_amount|currency }}</span>
+    </div>
+    <div class="loan-disburse-stat">
+      <span class="loan-disburse-stat__label">Term</span>
+      <span class="loan-disburse-stat__value">{{ application.term_months }} mo</span>
+    </div>
+    <div class="loan-disburse-stat">
+      <span class="loan-disburse-stat__label">Product</span>
+      <span class="loan-disburse-stat__value loan-disburse-stat__value--sm">{{ application.loan_product.name }}</span>
+    </div>
+    <div class="loan-disburse-stat">
+      <span class="loan-disburse-stat__label">Purpose</span>
+      <span class="loan-disburse-stat__value loan-disburse-stat__value--sm">
+        {{ application.purpose|truncatewords:8|default:"—" }}
+      </span>
+    </div>
+  </div>
+
+  <section class="card loan-disburse-page__card">
+    <h2><i class="bi bi-cash-stack"></i> Release loan funds</h2>
+    <p class="subtitle loan-disburse-section__sub">
+      Record fees withheld at disbursement (transaction fee, etc.). The member repays the full loan principal;
+      only the net amount is released to them. A disbursement voucher is printed after saving.
+    </p>
+
+    <form method="post" class="loan-disburse-form" id="loan-disburse-form">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+      <div class="loan-disburse-form__errors">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      <div class="loan-disburse-breakdown" id="loan-disburse-breakdown" data-principal="{{ principal_amount }}">
+        <div class="loan-disburse-breakdown__row">
+          <span>Loan principal (repayment basis)</span>
+          <strong id="breakdown-principal">&#8369;{{ principal_amount|currency }}</strong>
+        </div>
+        <div class="loan-disburse-breakdown__row loan-disburse-breakdown__row--fee">
+          <span>Less: transaction fee</span>
+          <strong id="breakdown-transaction-fee">&#8369;0.00</strong>
+        </div>
+        <div class="loan-disburse-breakdown__row loan-disburse-breakdown__row--fee">
+          <span>Less: other deduction</span>
+          <strong id="breakdown-other-fee">&#8369;0.00</strong>
+        </div>
+        <div class="loan-disburse-breakdown__row loan-disburse-breakdown__row--net">
+          <span>Net amount to release</span>
+          <strong id="breakdown-net">&#8369;{{ principal_amount|currency }}</strong>
+        </div>
+      </div>
+
+      <div class="loan-disburse-form__grid">
+        <div class="loan-disburse-form__col">
+          <div class="loan-disburse-form__field">
+            <label for="{{ form.transaction_fee.id_for_label }}">{{ form.transaction_fee.label }}</label>
+            <div class="loan-disburse-form__money loan-disburse-form__money--sm">
+              <span>&#8369;</span>
+              {{ form.transaction_fee }}
+            </div>
+            {% if form.transaction_fee.help_text %}
+            <p class="helptext">{{ form.transaction_fee.help_text }}</p>
+            {% endif %}
+            {% if form.transaction_fee.errors %}
+            <div class="loan-disburse-form__errors">{{ form.transaction_fee.errors }}</div>
+            {% endif %}
+          </div>
+
+          <div class="loan-disburse-form__field">
+            <label for="{{ form.other_deduction_amount.id_for_label }}">{{ form.other_deduction_amount.label }}</label>
+            <div class="loan-disburse-form__money loan-disburse-form__money--sm">
+              <span>&#8369;</span>
+              {{ form.other_deduction_amount }}
+            </div>
+            {% if form.other_deduction_amount.help_text %}
+            <p class="helptext">{{ form.other_deduction_amount.help_text }}</p>
+            {% endif %}
+            {% if form.other_deduction_amount.errors %}
+            <div class="loan-disburse-form__errors">{{ form.other_deduction_amount.errors }}</div>
+            {% endif %}
+          </div>
+
+          <div class="loan-disburse-form__field">
+            <label for="{{ form.other_deduction_label.id_for_label }}">{{ form.other_deduction_label.label }}</label>
+            {{ form.other_deduction_label }}
+            {% if form.other_deduction_label.help_text %}
+            <p class="helptext">{{ form.other_deduction_label.help_text }}</p>
+            {% endif %}
+            {% if form.other_deduction_label.errors %}
+            <div class="loan-disburse-form__errors">{{ form.other_deduction_label.errors }}</div>
+            {% endif %}
+          </div>
+
+          <div class="loan-disburse-form__field loan-disburse-form__field--amount">
+            <label for="{{ form.amount_released.id_for_label }}">{{ form.amount_released.label }}</label>
+            <div class="loan-disburse-form__money">
+              <span>&#8369;</span>
+              {{ form.amount_released }}
+            </div>
+            {% if form.amount_released.help_text %}
+            <p class="helptext">{{ form.amount_released.help_text }}</p>
+            {% endif %}
+            {% if form.amount_released.errors %}
+            <div class="loan-disburse-form__errors">{{ form.amount_released.errors }}</div>
+            {% endif %}
+          </div>
+
+          <div class="loan-disburse-form__field">
+            <label for="{{ form.reference_number.id_for_label }}">{{ form.reference_number.label }}</label>
+            {{ form.reference_number }}
+            {% if form.reference_number.help_text %}
+            <p class="helptext">{{ form.reference_number.help_text }}</p>
+            {% endif %}
+            {% if form.reference_number.errors %}
+            <div class="loan-disburse-form__errors">{{ form.reference_number.errors }}</div>
+            {% endif %}
+          </div>
+        </div>
+
+        <fieldset class="loan-disburse-form__field loan-disburse-form__field--method">
+          <legend class="loan-disburse-form__legend">{{ form.disbursement_method.label }}</legend>
+          <div class="loan-disburse-form__choices">
+            {% for radio in form.disbursement_method %}
+            {% if radio.data.value %}
+            <label class="loan-disburse-form__choice{% if radio.data.selected %} is-selected{% endif %}" for="{{ radio.id_for_label }}">
+              <input type="radio" name="{{ radio.data.name }}" value="{{ radio.data.value }}" id="{{ radio.id_for_label }}"{% if radio.data.selected %} checked{% endif %}{% if forloop.first %} required{% endif %}>
+              <span>
+                {% if radio.data.value == "CASH" %}
+                <strong><i class="bi bi-cash"></i> Cash</strong>
+                <small>Handed to member at the counter</small>
+                {% elif radio.data.value == "CHECK" %}
+                <strong><i class="bi bi-receipt"></i> Check</strong>
+                <small>Issued as a cooperative check</small>
+                {% elif radio.data.value == "BANK_TRANSFER" %}
+                <strong><i class="bi bi-bank"></i> Bank transfer</strong>
+                <small>Deposited to member's account</small>
+                {% endif %}
+              </span>
+            </label>
+            {% endif %}
+            {% endfor %}
+          </div>
+          {% if form.disbursement_method.errors %}
+          <div class="loan-disburse-form__errors">{{ form.disbursement_method.errors }}</div>
+          {% endif %}
+        </fieldset>
+      </div>
+
+      <div class="loan-disburse-form__notice">
+        <i class="bi bi-info-circle"></i>
+        <span>
+          Example: principal &#8369;50.00, transaction fee &#8369;10.00 → net release &#8369;40.00.
+          Repayment schedule uses the full &#8369;50.00 principal.
+        </span>
+      </div>
+
+      <div class="loan-disburse-form__actions">
+        <button type="submit" class="btn-loan">
+          <i class="bi bi-check2-circle"></i> Disburse loan
+        </button>
+        <a class="btn--secondary" href="{% url 'loans:application-detail' application.pk %}">Cancel</a>
+      </div>
+    </form>
+  </section>
+</div>
+
+<style>
+  .loan-disburse-page {
+    width: 100%;
+    max-width: 1600px;
+    margin-inline: auto;
+  }
+
+  .loan-disburse-page__header { margin-bottom: 1.25rem; }
+  .loan-disburse-page__back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    color: #64748b;
+    text-decoration: none;
+    font-size: .88rem;
+    font-weight: 600;
+    margin-bottom: .65rem;
+  }
+  .loan-disburse-page__back:hover { color: #0f172a; }
+
+  .loan-disburse-page__title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .loan-disburse-page__title-row h1 { margin: 0 0 .35rem; font-size: 1.85rem; }
+  .loan-disburse-page__sub { margin-bottom: 0; font-size: 1rem; line-height: 1.5; }
+
+  .loan-disburse-page__stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .75rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .loan-disburse-stat {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: .9rem 1rem;
+  }
+  .loan-disburse-stat--accent {
+    background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+    border-color: #bbf7d0;
+  }
+  .loan-disburse-stat--accent .loan-disburse-stat__label { color: #166534; }
+  .loan-disburse-stat--accent .loan-disburse-stat__value { color: #166534; }
+  .loan-disburse-stat__label {
+    display: block;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: .3rem;
+  }
+  .loan-disburse-stat__value {
+    display: block;
+    font-size: 1.28rem;
+    font-weight: 800;
+    color: #0f172a;
+    font-variant-numeric: tabular-nums;
+  }
+  .loan-disburse-stat__value--sm { font-size: .92rem; font-weight: 700; }
+
+  .loan-disburse-page__card {
+    border-radius: 14px;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, .05);
+    padding: 1.5rem 1.75rem;
+  }
+  .loan-disburse-page__card h2 {
+    margin: 0 0 .35rem;
+    display: flex;
+    align-items: center;
+    gap: .45rem;
+    font-size: 1.2rem;
+  }
+  .loan-disburse-page__card h2 i { color: #E6C200; }
+  .loan-disburse-section__sub { margin: 0 0 1.25rem; font-size: .98rem; line-height: 1.5; }
+
+  .loan-disburse-breakdown {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1rem 1.15rem;
+    margin-bottom: 1.25rem;
+  }
+  .loan-disburse-breakdown__row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    padding: .35rem 0;
+    font-size: .95rem;
+    color: #334155;
+  }
+  .loan-disburse-breakdown__row strong {
+    font-variant-numeric: tabular-nums;
+    color: #0f172a;
+  }
+  .loan-disburse-breakdown__row--fee strong { color: #b45309; }
+  .loan-disburse-breakdown__row--net {
+    border-top: 2px solid #0f172a;
+    margin-top: .45rem;
+    padding-top: .75rem;
+    font-weight: 700;
+  }
+  .loan-disburse-breakdown__row--net strong { color: #166534; font-size: 1.15rem; }
+
+  .loan-disburse-form__grid {
+    display: grid;
+    grid-template-columns: minmax(420px, 1fr) minmax(420px, 1fr);
+    gap: 1.5rem;
+    align-items: start;
+  }
+  @media (max-width: 1100px) {
+    .loan-disburse-form__grid { grid-template-columns: 1fr; }
+    .loan-disburse-page__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+
+  .loan-disburse-form__field { margin-bottom: 1.15rem; }
+  .loan-disburse-form__field label,
+  .loan-disburse-form__legend {
+    display: block;
+    margin-bottom: .4rem;
+    color: #334155;
+    font-size: .95rem;
+    font-weight: 700;
+  }
+  .loan-disburse-form__field legend {
+    float: left;
+    width: 100%;
+    padding: 0;
+    border: 0;
+  }
+
+  .loan-disburse-form__field input:not([type=radio]) {
+    width: 100%;
+    padding: 12px 14px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #fff;
+    font-size: 1rem;
+  }
+  .loan-disburse-form__field input:focus {
+    outline: none;
+    border-color: #E6C200;
+    box-shadow: 0 0 0 3px rgba(230, 194, 0, .15);
+  }
+
+  .loan-disburse-form__money {
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+    max-width: none;
+  }
+  .loan-disburse-form__money > span {
+    font-weight: 800;
+    color: #ED1C24;
+    font-size: 1.75rem;
+  }
+  .loan-disburse-form__money--sm > span { font-size: 1.15rem; }
+  .loan-disburse-form__money input {
+    flex: 1;
+    font-size: 1.75rem;
+    font-weight: 800;
+    color: #ED1C24;
+    background: #fff;
+    border: 2px solid #fca5a5;
+  }
+  .loan-disburse-form__money--sm input {
+    font-size: 1.05rem;
+    font-weight: 700;
+    border-width: 1px;
+  }
+  .loan-disburse-form__field--amount {
+    padding: 1.15rem 1.25rem;
+    border: 1px solid #86efac;
+    border-radius: 12px;
+    background: #f0fdf4;
+  }
+  .loan-disburse-form__field--amount label { color: #166534; }
+
+  .loan-disburse-form__choices {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: .75rem;
+    margin-top: .5rem;
+  }
+  .loan-disburse-form__choice {
+    display: flex;
+    align-items: flex-start;
+    gap: .7rem;
+    margin: 0;
+    padding: 1rem .95rem;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    background: #f8fafc;
+    cursor: pointer;
+    transition: border-color .15s, background .15s, box-shadow .15s;
+  }
+  .loan-disburse-form__choice:hover { border-color: #cbd5e1; background: #fff; }
+  .loan-disburse-form__choice input {
+    width: 18px;
+    height: 18px;
+    margin-top: 3px;
+    flex-shrink: 0;
+    accent-color: #E6C200;
+  }
+  .loan-disburse-form__choice strong {
+    display: flex;
+    align-items: center;
+    gap: .35rem;
+    color: #0f172a;
+    font-size: .98rem;
+  }
+  .loan-disburse-form__choice small {
+    display: block;
+    margin-top: .2rem;
+    color: #64748b;
+    font-size: .88rem;
+    line-height: 1.45;
+  }
+  .loan-disburse-form__choice.is-selected,
+  .loan-disburse-form__choice:has(input:checked) {
+    border-color: #86efac;
+    background: #f0fdf4;
+    box-shadow: 0 0 0 3px rgba(230, 194, 0, .12);
+  }
+
+  .loan-disburse-form__notice {
+    display: flex;
+    align-items: flex-start;
+    gap: .6rem;
+    padding: .95rem 1.1rem;
+    margin-bottom: 1rem;
+    border-radius: 12px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1e40af;
+    font-size: .95rem;
+    line-height: 1.5;
+  }
+  .loan-disburse-form__notice i { flex-shrink: 0; font-size: 1.05rem; }
+
+  .loan-disburse-form__errors {
+    margin-bottom: .75rem;
+    color: #dc2626;
+    font-size: .88rem;
+  }
+
+  .loan-disburse-form__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .65rem;
+    align-items: center;
+    padding-top: .5rem;
+    border-top: 1px solid #e2e8f0;
+  }
+</style>
+
+<script>
+(function () {
+  var form = document.getElementById("loan-disburse-form");
+  if (!form) return;
+
+  var breakdown = document.getElementById("loan-disburse-breakdown");
+  var principal = parseFloat(breakdown.getAttribute("data-principal") || "0") || 0;
+  var feeInput = document.getElementById("id_transaction_fee");
+  var otherInput = document.getElementById("id_other_deduction_amount");
+  var netInput = document.getElementById("id_amount_released");
+  var elTransaction = document.getElementById("breakdown-transaction-fee");
+  var elOther = document.getElementById("breakdown-other-fee");
+  var elNet = document.getElementById("breakdown-net");
+
+  function parseMoney(value) {
+    if (value == null || value === "") return 0;
+    var cleaned = String(value).replace(/[₱PhpPHP,\s]/gi, "");
+    var num = parseFloat(cleaned);
+    return isNaN(num) ? 0 : num;
+  }
+
+  function formatMoney(num) {
+    return "₱" + num.toLocaleString("en-PH", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+  }
+
+  function updateFromFees() {
+    var transactionFee = parseMoney(feeInput && feeInput.value);
+    var otherFee = parseMoney(otherInput && otherInput.value);
+    var net = Math.max(0, principal - transactionFee - otherFee);
+    if (netInput) netInput.value = net.toFixed(2);
+    if (elTransaction) elTransaction.textContent = formatMoney(transactionFee);
+    if (elOther) elOther.textContent = formatMoney(otherFee);
+    if (elNet) elNet.textContent = formatMoney(net);
+  }
+
+  function updateFromNet() {
+    var net = parseMoney(netInput && netInput.value);
+    var transactionFee = parseMoney(feeInput && feeInput.value);
+    var otherFee = parseMoney(otherInput && otherInput.value);
+    if (elTransaction) elTransaction.textContent = formatMoney(transactionFee);
+    if (elOther) elOther.textContent = formatMoney(otherFee);
+    if (elNet) elNet.textContent = formatMoney(net);
+  }
+
+  [feeInput, otherInput].forEach(function (el) {
+    if (!el) return;
+    el.addEventListener("input", updateFromFees);
+    el.addEventListener("change", updateFromFees);
+  });
+  if (netInput) {
+    netInput.addEventListener("input", updateFromNet);
+    netInput.addEventListener("change", updateFromNet);
+  }
+
+  updateFromFees();
+})();
+</script>
+{% endblock %}

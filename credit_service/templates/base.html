@@ -1,0 +1,56 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Credit Service{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'vendor/fonts/inter/inter.css' %}">
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <header class="topbar">
+        <div class="topbar__brand">
+            <a href="{% url 'dashboard' %}">Cooperative <strong>Credit Desk</strong></a>
+        </div>
+        <nav class="topbar__nav">
+            {% if user.is_authenticated %}
+                <a href="{% url 'dashboard' %}">Dashboard</a>
+                <a href="{% url 'loans:application-list' %}">Applications</a>
+                <a href="{% url 'loans:application-create' %}">New Application</a>
+                <a href="{% url 'admin:index' %}">Admin</a>
+            {% endif %}
+        </nav>
+        <div class="topbar__user">
+            {% if user.is_authenticated %}
+                <span class="topbar__username">{{ user.get_full_name|default:user.username }}</span>
+                <span class="badge badge--role">{{ user.get_role_display }}</span>
+                <form action="{% url 'logout' %}" method="post" class="inline-form">
+                    {% csrf_token %}
+                    <button type="submit" class="link-button">Log out</button>
+                </form>
+            {% else %}
+                <a href="{% url 'login' %}">Log in</a>
+            {% endif %}
+        </div>
+    </header>
+
+    <main class="page">
+        {% if messages %}
+            <ul class="messages">
+                {% for message in messages %}
+                    <li class="message message--{{ message.tags }}">{{ message }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer">
+        <p>&copy; {% now "Y" %} Cooperative Credit Service. Internal use only.</p>
+    </footer>
+
+    {% block extra_scripts %}{% endblock %}
+</body>
+</html>

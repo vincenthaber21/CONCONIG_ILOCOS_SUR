@@ -1,0 +1,81 @@
+{# Store-wide segment discounts (read-only summary for staff). Expects: segment_discount_rules #}
+<div class="card member-segment-card mb-4" id="segment-store-rules">
+  <div class="card-body p-0">
+    <button
+      type="button"
+      class="member-segment-card-toggle w-100 text-start border-0 bg-transparent"
+      data-bs-toggle="collapse"
+      data-bs-target="#segmentStoreRulesCollapse"
+      aria-expanded="false"
+      aria-controls="segmentStoreRulesCollapse"
+      id="segmentStoreRulesToggle"
+    >
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 px-4 py-3">
+        <div class="d-flex flex-wrap align-items-center gap-2 min-w-0">
+          <h2 class="h6 mb-0 fw-semibold text-secondary text-uppercase member-segment-card-title">
+            <i class="bi bi-tags me-1"></i>Segment product discounts (store rules)
+          </h2>
+          {% if segment_discount_rules %}
+          <span class="badge rounded-pill bg-light text-success border" style="font-size: 0.7rem;">
+            {{ segment_discount_rules|length }} active
+          </span>
+          {% else %}
+          <span class="badge rounded-pill bg-light text-muted border" style="font-size: 0.7rem;">None active</span>
+          {% endif %}
+        </div>
+        <div class="d-flex align-items-center gap-2 flex-shrink-0">
+          {% if user.is_staff and not can_edit_segment_discount_rules %}
+          <a
+            class="btn btn-sm btn-outline-success rounded-pill"
+            href="{% url 'admin:members_segmentproductgroupdiscount_changelist' %}"
+            onclick="event.stopPropagation();"
+          >
+            <i class="bi bi-box-arrow-up-right me-1"></i>Edit in admin
+          </a>
+          {% endif %}
+          <span class="text-muted small d-none d-sm-inline" id="segmentStoreRulesAutoHideHint">Auto-hides</span>
+          <i class="bi bi-chevron-down member-segment-chevron text-muted" aria-hidden="true"></i>
+        </div>
+      </div>
+    </button>
+    <div class="collapse" id="segmentStoreRulesCollapse">
+      <div class="px-4 pb-4 pt-0 border-top" style="border-color: #f1f5f9 !important;">
+        <p class="text-muted small mb-3 mt-3">
+          Fixed peso amounts per unit for <strong>Seniors / PWDs</strong> and <strong>Members / resellers</strong> by product group.
+          Tag products in <strong>Inventory</strong> with a discount group so these rules apply at checkout.
+        </p>
+    <div id="segmentDiscountActiveSummaryWrap">
+      <div class="table-responsive rounded-3 border" style="max-height: 220px;">
+        <table class="table table-sm table-striped mb-0 align-middle" style="font-size: 0.875rem;">
+          <thead class="table-light">
+            <tr>
+              <th class="ps-3">Segment</th>
+              <th>Product group</th>
+              <th class="text-end pe-3">Amount off</th>
+            </tr>
+          </thead>
+          <tbody id="segmentDiscountActiveSummaryBody">
+            {% for row in segment_discount_rules %}
+            <tr>
+              <td class="ps-3">{{ row.get_segment_display }}</td>
+              <td>{{ row.get_discount_group_display }}</td>
+              <td class="text-end pe-3 fw-semibold text-success">₱{{ row.amount_off|floatformat:2 }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+              <td colspan="3" class="text-center text-muted small py-3">
+                <i class="bi bi-info-circle me-1"></i>No active segment discount rows yet.{% if not can_edit_segment_discount_rules %} Add them in Django admin under <strong>Members → Segment product discounts</strong>.{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% if can_edit_segment_discount_rules %}
+    {% include 'admin_panel/partials/member_segment_discount_rules_manage.html' %}
+    {% endif %}
+      </div>
+    </div>
+  </div>
+</div>

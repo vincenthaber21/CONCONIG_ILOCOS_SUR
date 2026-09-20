@@ -1,0 +1,492 @@
+{% extends "palay_trade/base_palay.html" %}
+{% load currency_filters %}
+{% block title %}Configure Palay Credit{% endblock %}
+{% block content %}
+<div class="pc-settings-page">
+  <header class="pc-settings-page__header">
+    <a class="pc-settings-page__back" href="{% url 'palay_trade:credit-desk' %}">
+      <i class="bi bi-arrow-left"></i> Palay utang desk
+    </a>
+    <div class="pc-settings-page__title-row">
+      <div>
+        <h1>Configure palay credit</h1>
+        <p class="subtitle">Set credit limits, eligibility rules, grace period, and interest for member palay utang.</p>
+      </div>
+      <span class="pc-settings-badge">
+        <i class="bi bi-sliders"></i>
+        <span>Credit policy</span>
+      </span>
+    </div>
+  </header>
+
+  <ol class="pc-settings-steps" aria-label="Configuration areas">
+    <li class="pc-settings-step is-active" data-step="enable">
+      <span class="pc-settings-step__num">1</span>
+      <span class="pc-settings-step__copy">
+        <strong>Enable</strong>
+        <small>Master switch</small>
+      </span>
+    </li>
+    <li class="pc-settings-step" data-step="limits">
+      <span class="pc-settings-step__num">2</span>
+      <span class="pc-settings-step__copy">
+        <strong>Limits</strong>
+        <small>Caps &amp; eligibility</small>
+      </span>
+    </li>
+    <li class="pc-settings-step" data-step="interest">
+      <span class="pc-settings-step__num">3</span>
+      <span class="pc-settings-step__copy">
+        <strong>Interest</strong>
+        <small>Grace &amp; rate</small>
+      </span>
+    </li>
+  </ol>
+
+  <div class="pc-settings-page__layout">
+    <section class="card pc-settings-page__card">
+      <form method="post" class="pc-settings-form" novalidate>
+        {% csrf_token %}
+
+        {% if form.errors %}
+        <div class="pc-settings-form__alert" role="alert">
+          <i class="bi bi-exclamation-circle"></i>
+          <div>
+            <strong>Could not save settings.</strong>
+            Check the highlighted fields and try again.
+            {{ form.non_field_errors }}
+          </div>
+        </div>
+        {% endif %}
+
+        <div class="pc-settings-form__section" data-section="enable">
+          <div class="pc-settings-form__section-head">
+            <h2 class="pc-settings-form__section-title">
+              <span class="pc-settings-form__section-icon"><i class="bi bi-toggle-on"></i></span>
+              Enable palay credit
+            </h2>
+            <p>Turn on member palay credit and choose which ticket types allow utang.</p>
+          </div>
+          <label class="pc-settings-check">
+            {{ form.is_enabled }}
+            <span>
+              {{ form.is_enabled.label }}
+              {% if form.is_enabled.help_text %}<small>{{ form.is_enabled.help_text }}</small>{% endif %}
+            </span>
+          </label>
+          {% if form.is_enabled.errors %}<div class="pc-settings-form__errors">{{ form.is_enabled.errors }}</div>{% endif %}
+
+          <label class="pc-settings-check">
+            {{ form.allow_credit_on_sell }}
+            <span>
+              {{ form.allow_credit_on_sell.label }}
+              {% if form.allow_credit_on_sell.help_text %}<small>{{ form.allow_credit_on_sell.help_text }}</small>{% endif %}
+            </span>
+          </label>
+          {% if form.allow_credit_on_sell.errors %}<div class="pc-settings-form__errors">{{ form.allow_credit_on_sell.errors }}</div>{% endif %}
+
+          <label class="pc-settings-check">
+            {{ form.allow_credit_on_buy }}
+            <span>
+              {{ form.allow_credit_on_buy.label }}
+              {% if form.allow_credit_on_buy.help_text %}<small>{{ form.allow_credit_on_buy.help_text }}</small>{% endif %}
+            </span>
+          </label>
+          {% if form.allow_credit_on_buy.errors %}<div class="pc-settings-form__errors">{{ form.allow_credit_on_buy.errors }}</div>{% endif %}
+        </div>
+
+        <div class="pc-settings-form__section" data-section="limits">
+          <div class="pc-settings-form__section-head">
+            <h2 class="pc-settings-form__section-title">
+              <span class="pc-settings-form__section-icon"><i class="bi bi-shield-check"></i></span>
+              Limits &amp; eligibility
+            </h2>
+            <p>Cap total outstanding per member and set minimum membership before credit is allowed.</p>
+          </div>
+          <div class="pc-settings-form__row">
+            <div class="pc-settings-form__field">
+              <label for="{{ form.member_max_outstanding.id_for_label }}">{{ form.member_max_outstanding.label }}</label>
+              <div class="pc-settings-form__money">
+                <span>&#8369;</span>
+                {{ form.member_max_outstanding }}
+              </div>
+              {% if form.member_max_outstanding.help_text %}<p class="pc-settings-form__hint">{{ form.member_max_outstanding.help_text }}</p>{% endif %}
+              {% if form.member_max_outstanding.errors %}<div class="pc-settings-form__errors">{{ form.member_max_outstanding.errors }}</div>{% endif %}
+            </div>
+            <div class="pc-settings-form__field">
+              <label for="{{ form.min_membership_months.id_for_label }}">{{ form.min_membership_months.label }}</label>
+              {{ form.min_membership_months }}
+              {% if form.min_membership_months.help_text %}<p class="pc-settings-form__hint">{{ form.min_membership_months.help_text }}</p>{% endif %}
+              {% if form.min_membership_months.errors %}<div class="pc-settings-form__errors">{{ form.min_membership_months.errors }}</div>{% endif %}
+            </div>
+          </div>
+        </div>
+
+        <div class="pc-settings-form__section" data-section="interest">
+          <div class="pc-settings-form__section-head">
+            <h2 class="pc-settings-form__section-title">
+              <span class="pc-settings-form__section-icon"><i class="bi bi-percent"></i></span>
+              Interest (optional)
+            </h2>
+            <p>Apply monthly interest on unpaid balances after the grace period ends.</p>
+          </div>
+          <div class="pc-settings-form__row">
+            <div class="pc-settings-form__field">
+              <label for="{{ form.grace_period_days.id_for_label }}">{{ form.grace_period_days.label }}</label>
+              {{ form.grace_period_days }}
+              {% if form.grace_period_days.help_text %}<p class="pc-settings-form__hint">{{ form.grace_period_days.help_text }}</p>{% endif %}
+              {% if form.grace_period_days.errors %}<div class="pc-settings-form__errors">{{ form.grace_period_days.errors }}</div>{% endif %}
+            </div>
+            <div class="pc-settings-form__field">
+              <label for="{{ form.interest_rate.id_for_label }}">{{ form.interest_rate.label }}</label>
+              {{ form.interest_rate }}
+              {% if form.interest_rate.help_text %}<p class="pc-settings-form__hint">{{ form.interest_rate.help_text }}</p>{% endif %}
+              {% if form.interest_rate.errors %}<div class="pc-settings-form__errors">{{ form.interest_rate.errors }}</div>{% endif %}
+            </div>
+          </div>
+          <label class="pc-settings-check">
+            {{ form.interest_enabled }}
+            <span>
+              {{ form.interest_enabled.label }}
+              {% if form.interest_enabled.help_text %}<small>{{ form.interest_enabled.help_text }}</small>{% endif %}
+            </span>
+          </label>
+          {% if form.interest_enabled.errors %}<div class="pc-settings-form__errors">{{ form.interest_enabled.errors }}</div>{% endif %}
+        </div>
+
+        <div class="pc-settings-form__actions">
+          <button type="submit" class="pc-settings-submit">
+            <i class="bi bi-check-lg"></i> Save settings
+          </button>
+          <a class="btn--secondary" href="{% url 'palay_trade:credit-desk' %}">Back to utang desk</a>
+        </div>
+      </form>
+    </section>
+
+    <aside class="pc-settings-page__aside">
+      <section class="card pc-settings-summary">
+        <div class="pc-settings-summary__head">
+          <h2>Current policy</h2>
+          <span class="pc-settings-summary__status {% if settings_obj.is_enabled %}is-on{% else %}is-off{% endif %}">
+            {% if settings_obj.is_enabled %}Active{% else %}Off{% endif %}
+          </span>
+        </div>
+        <dl class="pc-settings-summary__list">
+          <div>
+            <dt>Utang from stock</dt>
+            <dd>{% if settings_obj.allow_credit_on_sell %}Allowed{% else %}Disabled{% endif %}</dd>
+          </div>
+          <div>
+            <dt>Credit on buy</dt>
+            <dd>{% if settings_obj.allow_credit_on_buy %}Allowed{% else %}Disabled{% endif %}</dd>
+          </div>
+          <div>
+            <dt>Max per member</dt>
+            <dd>{% if settings_obj.member_max_outstanding %}&#8369;{{ settings_obj.member_max_outstanding|currency }}{% else %}No limit{% endif %}</dd>
+          </div>
+          <div>
+            <dt>Min. membership</dt>
+            <dd>{% if settings_obj.min_membership_months %}{{ settings_obj.min_membership_months }} mo{% else %}None{% endif %}</dd>
+          </div>
+          <div>
+            <dt>Grace period</dt>
+            <dd>{{ settings_obj.grace_period_days }} day{{ settings_obj.grace_period_days|pluralize }}</dd>
+          </div>
+          <div>
+            <dt>Interest</dt>
+            <dd>
+              {% if settings_obj.interest_enabled %}
+                {{ settings_obj.interest_rate }} / mo after grace
+              {% else %}
+                Disabled
+              {% endif %}
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      <section class="card pc-settings-products">
+        <h2>Product credit flags</h2>
+        <p class="pc-settings-products__intro">Each product must also allow palay credit on its features page.</p>
+        {% for product in products %}
+        <div class="pc-settings-product">
+          <div>
+            <strong>{{ product.name }}</strong>
+            <div class="pc-settings-product__code">{{ product.code }}</div>
+          </div>
+          <div class="text-end">
+            {% if product.credit_enabled %}
+            <span class="pc-settings-pill pc-settings-pill--on">Credit on</span>
+            {% else %}
+            <span class="pc-settings-pill pc-settings-pill--off">Credit off</span>
+            {% endif %}
+            <div class="mt-1">
+              <a href="{% url 'palay_trade:product-edit' product.pk %}" class="small">Edit features</a>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </section>
+
+      <section class="card pc-settings-page__tips">
+        <h2>Policy checklist</h2>
+        <ul class="pc-settings-tips">
+          <li>
+            <i class="bi bi-toggle-on"></i>
+            <span>Enable palay credit before staff can post utang tickets.</span>
+          </li>
+          <li>
+            <i class="bi bi-box-seam"></i>
+            <span>Turn on <strong>Palay credit allowed</strong> per product on the features page.</span>
+          </li>
+          <li>
+            <i class="bi bi-clock-history"></i>
+            <span>Set grace days so members know when interest may start.</span>
+          </li>
+        </ul>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<style>
+  .pc-settings-page {
+    width: 100%;
+    max-width: 1280px;
+    margin-inline: auto;
+    box-sizing: border-box;
+  }
+  .pc-settings-page__header { margin-bottom: 1.25rem; }
+  .pc-settings-page__title-row {
+    display: flex; flex-wrap: wrap; align-items: flex-start;
+    justify-content: space-between; gap: .85rem 1.25rem;
+  }
+  .pc-settings-page__header h1 {
+    margin: 0 0 .35rem;
+    font-size: clamp(1.35rem, 1.1rem + 1vw, 1.85rem);
+  }
+  .pc-settings-page__header .subtitle {
+    margin: 0; max-width: 42rem; color: #64748b; font-size: .92rem;
+  }
+  .pc-settings-page__back {
+    display: inline-flex; align-items: center; gap: .4rem;
+    color: #64748b; text-decoration: none; font-size: .88rem; font-weight: 500; margin-bottom: .65rem;
+  }
+  .pc-settings-page__back:hover { color: #334155; }
+  .pc-settings-badge {
+    display: inline-flex; align-items: center; gap: .45rem;
+    padding: .55rem .9rem; border-radius: 999px;
+    background: #fff; border: 1px solid #e2e8f0;
+    color: #0f172a; font-weight: 700; font-size: .84rem;
+    box-shadow: 0 8px 20px rgba(15, 23, 42, .06);
+  }
+  .pc-settings-badge i { color: #ED1C24; }
+
+  .pc-settings-steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .75rem;
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1.35rem;
+  }
+  .pc-settings-step {
+    display: flex; align-items: center; gap: .7rem;
+    padding: .85rem 1rem;
+    border-radius: 14px;
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    color: #94a3b8;
+  }
+  .pc-settings-step.is-active {
+    border-color: #fecaca;
+    box-shadow: 0 0 0 3px rgba(237, 28, 36, .08);
+    color: #0f172a;
+  }
+  .pc-settings-step__num {
+    width: 30px; height: 30px; border-radius: 999px; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: .8rem; font-weight: 800;
+    background: #e2e8f0; color: #64748b;
+  }
+  .pc-settings-step.is-active .pc-settings-step__num {
+    background: #ED1C24; color: #fff;
+  }
+  .pc-settings-step__copy {
+    display: flex; flex-direction: column; gap: .05rem; min-width: 0;
+  }
+  .pc-settings-step__copy strong { font-size: .88rem; font-weight: 700; line-height: 1.2; }
+  .pc-settings-step__copy small { font-size: .75rem; color: #94a3b8; font-weight: 500; }
+
+  .pc-settings-page__layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(280px, .8fr);
+    gap: 1.25rem;
+    align-items: start;
+  }
+  .pc-settings-page__card,
+  .pc-settings-page__tips,
+  .pc-settings-summary,
+  .pc-settings-products {
+    padding: 1.4rem 1.5rem;
+    margin-bottom: 0;
+  }
+  .pc-settings-page__aside {
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+    position: sticky;
+    top: 1rem;
+  }
+
+  .pc-settings-form__alert {
+    display: flex; gap: .65rem; align-items: flex-start;
+    margin-bottom: 1.25rem; padding: .85rem 1rem;
+    border-radius: 12px; background: #fee2e2; color: #991b1b; font-size: .88rem;
+  }
+  .pc-settings-form__alert i { font-size: 1.1rem; margin-top: .1rem; flex-shrink: 0; }
+
+  .pc-settings-form__section {
+    padding-bottom: 1.35rem;
+    margin-bottom: 1.35rem;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .pc-settings-form__section:last-of-type {
+    border-bottom: none; margin-bottom: 0; padding-bottom: 0;
+  }
+  .pc-settings-form__section-head { margin-bottom: 1rem; }
+  .pc-settings-form__section-head p {
+    margin: .35rem 0 0; color: #64748b; font-size: .84rem; line-height: 1.45;
+  }
+  .pc-settings-form__section-title {
+    display: flex; align-items: center; gap: .55rem;
+    font-size: 1.02rem; font-weight: 700; color: #0f172a; margin: 0;
+  }
+  .pc-settings-form__section-icon {
+    width: 34px; height: 34px; border-radius: 10px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: #fef2f2; color: #ED1C24; font-size: 1rem;
+  }
+
+  .pc-settings-check {
+    display: flex; align-items: flex-start; gap: .65rem;
+    padding: .85rem 1rem; border: 1px solid #e2e8f0; border-radius: 12px;
+    background: #f8fafc; margin-bottom: .65rem; cursor: pointer;
+  }
+  .pc-settings-check input { width: 16px; height: 16px; margin-top: .15rem; accent-color: #ED1C24; flex-shrink: 0; }
+  .pc-settings-check span { font-weight: 600; color: #334155; font-size: .9rem; }
+  .pc-settings-check small { display: block; color: #64748b; font-weight: 500; margin-top: .2rem; font-size: .78rem; }
+
+  .pc-settings-form__field { margin-bottom: .85rem; }
+  .pc-settings-form__field > label:first-child {
+    display: block; margin-bottom: .4rem;
+    font-weight: 600; font-size: .9rem; color: #334155;
+  }
+  .pc-settings-form__hint {
+    margin: .4rem 0 0; font-size: .78rem; color: #94a3b8;
+  }
+  .pc-settings-form__row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem 1.25rem;
+    align-items: start;
+  }
+  .pc-settings-form__money {
+    position: relative; display: flex; align-items: center;
+  }
+  .pc-settings-form__money > span {
+    position: absolute; left: 14px; color: #64748b; font-weight: 700; z-index: 1;
+  }
+  .pc-settings-form__money input { padding-left: 34px !important; }
+  .pc-settings-form__errors { color: #dc2626; font-size: .82rem; margin-top: .35rem; }
+  .pc-settings-form__errors ul { margin: 0; padding-left: 1rem; }
+
+  .pc-settings-form__actions {
+    display: flex; flex-wrap: wrap; gap: .65rem; align-items: center;
+    margin-top: 1.4rem; padding-top: 1.2rem; border-top: 1px solid #f1f5f9;
+  }
+  .pc-settings-submit {
+    display: inline-flex; align-items: center; justify-content: center; gap: .45rem;
+    border: none; border-radius: 999px; padding: 13px 24px;
+    background: #15803d; color: #fff; font-weight: 700; font-size: .95rem; cursor: pointer;
+  }
+  .pc-settings-submit:hover { background: #166534; color: #fff; }
+
+  .pc-settings-summary {
+    background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
+  }
+  .pc-settings-summary__head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: .75rem; margin-bottom: 1rem;
+  }
+  .pc-settings-summary__head h2,
+  .pc-settings-products h2,
+  .pc-settings-page__tips h2 {
+    font-size: 1rem; margin: 0;
+  }
+  .pc-settings-summary__status {
+    display: inline-flex; padding: .25rem .65rem; border-radius: 999px;
+    font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+    background: #f1f5f9; color: #64748b;
+  }
+  .pc-settings-summary__status.is-on { background: #dcfce7; color: #166534; }
+  .pc-settings-summary__status.is-off { background: #fee2e2; color: #991b1b; }
+  .pc-settings-summary__list { margin: 0; }
+  .pc-settings-summary__list > div {
+    display: flex; justify-content: space-between; gap: .75rem;
+    padding: .55rem 0; border-bottom: 1px solid #eef2f7; font-size: .86rem;
+  }
+  .pc-settings-summary__list > div:last-child { border-bottom: none; }
+  .pc-settings-summary__list dt { color: #64748b; font-weight: 500; margin: 0; }
+  .pc-settings-summary__list dd { margin: 0; font-weight: 700; color: #0f172a; text-align: right; }
+
+  .pc-settings-products__intro {
+    margin: .35rem 0 .85rem; font-size: .82rem; color: #64748b;
+  }
+  .pc-settings-product {
+    display: flex; justify-content: space-between; align-items: center; gap: .75rem;
+    padding: .75rem 0; border-bottom: 1px solid #f1f5f9; font-size: .9rem;
+  }
+  .pc-settings-product:last-child { border-bottom: 0; }
+  .pc-settings-product__code { font-size: .78rem; color: #94a3b8; }
+  .pc-settings-pill {
+    display: inline-flex; padding: .2rem .65rem; border-radius: 999px;
+    font-size: .72rem; font-weight: 700;
+  }
+  .pc-settings-pill--on { background: #dcfce7; color: #166534; }
+  .pc-settings-pill--off { background: #f1f5f9; color: #64748b; }
+
+  .pc-settings-tips {
+    list-style: none; padding: 0; margin: 0;
+    display: flex; flex-direction: column; gap: .8rem;
+  }
+  .pc-settings-tips li {
+    display: flex; align-items: flex-start; gap: .55rem;
+    font-size: .84rem; color: #64748b; line-height: 1.45;
+  }
+  .pc-settings-tips i {
+    color: #E6C200; font-size: 1.05rem; flex-shrink: 0; margin-top: .05rem;
+  }
+
+  .pc-settings-page form select:focus,
+  .pc-settings-page form input:focus {
+    outline: none;
+    border-color: #16a34a;
+    box-shadow: 0 0 0 3px rgba(22, 163, 74, .12);
+  }
+
+  @media (max-width: 980px) {
+    .pc-settings-page__layout { grid-template-columns: 1fr; }
+    .pc-settings-page__aside { position: static; }
+    .pc-settings-steps { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 700px) {
+    .pc-settings-form__row { grid-template-columns: 1fr; }
+    .pc-settings-submit { width: 100%; }
+    .pc-settings-page__card,
+    .pc-settings-page__tips,
+    .pc-settings-summary,
+    .pc-settings-products { padding: 1.15rem; }
+  }
+</style>
+{% endblock %}

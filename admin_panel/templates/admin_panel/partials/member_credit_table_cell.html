@@ -1,0 +1,16 @@
+{# Table cell — member must have credit_outstanding annotation; optional credit_available when limit enabled #}
+{% if member.credit_outstanding and member.credit_outstanding > 0 %}
+  <span class="credit-outstanding" title="Outstanding credit (utang)">₱{{ member.credit_outstanding|floatformat:2 }}</span>
+  {% if member.credit_interest_outstanding and member.credit_interest_outstanding > 0 %}
+    <small class="d-block text-muted" style="font-size:0.78rem;" title="Includes accrued interest">incl. interest ₱{{ member.credit_interest_outstanding|floatformat:2 }}</small>
+  {% endif %}
+  {% if credit_limit_enabled %}
+    {% if member.credit_available is not None and member.credit_available <= 0 %}
+      <span class="badge bg-danger ms-1" style="font-size:0.68rem;" title="At or over credit limit">At limit</span>
+    {% elif member.credit_available is not None %}
+      <small class="d-block text-muted" style="font-size:0.78rem;">Avail ₱{{ member.credit_available|floatformat:2 }}</small>
+    {% endif %}
+  {% endif %}
+{% else %}
+  <span class="text-muted">—</span>
+{% endif %}

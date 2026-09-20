@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Loan Application #{{ application.id }}{% endblock %}
+{% block content %}
+<h1>Loan Application</h1>
+<p class="subtitle">
+    {{ application.member }} &middot; {{ application.loan_product.name }} &middot;
+    <span class="status-pill status-pill--{{ application.status|lower }}">{{ application.get_status_display }}</span>
+</p>
+
+<div class="card">
+    <h2>Pipeline Progress</h2>
+    <div class="stepper">
+        {% for step in pipeline_steps %}
+        <div class="stepper__step{% if step.completed %} stepper__step--completed{% endif %}{% if step.current %} stepper__step--current{% endif %}">
+            {{ forloop.counter }}. {{ step.label }}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="grid grid--two">
+    <div class="card">
+        <h2>Application Details</h2>
+        <table>
+            <tr><th>Amount Requested</th><td>₱{{ application.amount_requested|floatformat:2 }}</td></tr>
+            <tr><th>Term</th><td>{{ application.term_months }} months</td></tr>
+            <tr><th>Purpose</th><td>{{ application.purpose|default:"—" }}</td></tr>
+            <tr><th>Submitted</th><td>{{ application.submitted_at|date:"Y-m-d H:i"|default:"—" }}</td></tr>
+            <tr><th>Outstanding Balance</th><td>₱{{ outstanding_balance|floatformat:2 }}</td></tr>
+        </table>
+    </div>
+    <div class="card">
+        <h2>Next Actions</h2>
+        <p>
+            <a class="btn btn--secondary" href="{% url 'loans:eligibility-verify' application.pk %}">Eligibility Verification</a>
+            <a class="btn btn--secondary" href="{% url 'loans:credit-investigate' application.pk %}">Credit Investigation</a>
+            <a class="btn btn--secondary" href="{% url 'loans:committee-review' application.pk %}">Committee Review</a>
+        </p>
+        <p>
+            <a class="btn btn--secondary" href="{% url 'loans:insurance-enroll' application.pk %}">Insurance Enrollment</a>
+            <a class="btn btn--secondary" href="{% url 'loans:documentation-sign' application.pk %}">Documentation</a>
+            <a class="btn btn--secondary" href="{% url 'loans:disburse' application.pk %}">Disbursement</a>
+        </p>
+        <p>
+            <a class="btn btn--secondary" href="{% url 'loans:payment-option' application.pk %}">Payment Option</a>
+            <a class="btn" href="{% url 'loans:payment-collect' application.pk %}">Collect Payment</a>
+        </p>
+    </div>
+</div>
+
+<p><a href="{% url 'loans:application-list' %}">&larr; Back to all applications</a></p>
+{% endblock %}

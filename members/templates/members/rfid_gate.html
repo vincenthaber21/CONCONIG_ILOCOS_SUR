@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>RFID Gate</title>
+    {% include "partials/bootstrap_head.html" %}
+</head>
+<body class="bg-light">
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h4 class="card-title">Scan RFID to Continue</h4>
+                    <p class="text-muted">Scan an authorized member card to proceed to the login screen.</p>
+                    <input id="rfidInput" class="form-control form-control-lg mb-3" placeholder="Scan RFID card..." autofocus>
+                    <button id="scanBtn" class="btn btn-primary w-100">Scan</button>
+                    <div id="message" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+// Get CSRF token — use the template variable so it works even when CSRF_USE_SESSIONS=True
+const csrftoken = '{{ csrf_token }}';
+
+async function validateRFID() {
+    const rfid = document.getElementById('rfidInput').value;
+    if (!rfid) return;
+    document.getElementById('scanBtn').disabled = true;
+    document.getElementById('message').innerText = 'Checking...';
+    try {
+        const res = await fetch('/api/rfid-validate-login/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrftoken
+            },
+            body: JSON.stringify({rfid: rfid})
+        });
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('message').innerHTML = `<div class="alert alert-success">Authorized for user: <strong>${data.username}</strong>. Redirecting to login...</div>`;
+            // Redirect to Django admin login or a custom login, passing username as a hint
+            setTimeout(() => { window.location.href = '/admin/login/?username=' + encodeURIComponent(data.username); }, 1200);
+        } else {
+            document.getElementById('message').innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+        }
+    } catch (err) {
+        document.getElementById('message').innerHTML = `<div class="alert alert-danger">Server error</div>`;
+    } finally {
+        document.getElementById('scanBtn').disabled = false;
+        document.getElementById('rfidInput').value = '';
+        document.getElementById('rfidInput').focus();
+    }
+}
+
+document.getElementById('scanBtn').addEventListener('click', validateRFID);
+document.getElementById('rfidInput').addEventListener('keypress', function(e){ if (e.key === 'Enter') validateRFID(); });
+</script>
+</body>
+</html>

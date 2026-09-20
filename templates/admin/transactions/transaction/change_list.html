@@ -1,0 +1,24 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block object-tools-items %}
+    {% if refund_request_count %}
+    <li>
+        <a href="{{ refund_requests_url }}"
+           style="background:#c0392b;color:#fff;padding:8px 16px;border-radius:4px;font-weight:600;font-size:0.85rem;display:inline-flex;align-items:center;gap:6px;text-decoration:none;">
+            &#8635; Refund Requests
+            <span style="background:rgba(255,255,255,0.3);border-radius:12px;padding:1px 8px;font-size:0.78rem;font-weight:700;">
+                {{ refund_request_count }}
+            </span>
+        </a>
+    </li>
+    {% else %}
+    <li>
+        <a href="{{ refund_requests_url }}"
+           style="background:#417690;color:#fff;padding:8px 16px;border-radius:4px;font-weight:600;font-size:0.85rem;display:inline-flex;align-items:center;gap:6px;text-decoration:none;opacity:0.85;">
+            &#8635; Refund Requests
+        </a>
+    </li>
+    {% endif %}
+    {{ block.super }}
+{% endblock %}

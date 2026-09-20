@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>
+    {% if single %}Receipt {{ txn.reference }}{% else %}Savings receipts{% endif %}
+    | {{ account.account_number }}
+  </title>
+  <style>
+    :root {
+      --ink: #0f172a;
+      --muted: #64748b;
+      --line: #cbd5e1;
+      --brand: #ED1C24;
+      --ok: #166534;
+      --out: #9a3412;
+      --accent: #E6C200;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      color: var(--ink);
+      background: #e2e8f0;
+    }
+    .toolbar {
+      position: sticky; top: 0; z-index: 20;
+      display: flex; gap: .6rem; flex-wrap: wrap; align-items: center;
+      justify-content: space-between;
+      padding: .7rem 1rem;
+      background: #0f172a; color: #fff;
+      box-shadow: 0 8px 24px rgba(15,23,42,.28);
+    }
+    .toolbar-brand {
+      display: flex; align-items: center; gap: .55rem;
+      font-weight: 700; font-size: .92rem;
+    }
+    .toolbar-brand span { color: #94a3b8; font-weight: 600; font-size: .82rem; }
+    .toolbar-actions { display: flex; gap: .45rem; flex-wrap: wrap; align-items: center; }
+    .kbd-hint { color: #94a3b8; font-size: .75rem; margin-right: .35rem; }
+    .toolbar a, .toolbar button {
+      appearance: none; border: 0; cursor: pointer;
+      border-radius: 999px; padding: .48rem 1rem;
+      font-weight: 700; font-size: .86rem; text-decoration: none;
+      display: inline-flex; align-items: center; gap: .4rem;
+      color: #fff;
+    }
+    .btn-print { background: var(--brand); }
+    .btn-print:hover { background: #C9A800; }
+    .btn-print.is-busy { opacity: .75; pointer-events: none; }
+    .btn-copy { background: #1e293b; }
+    .btn-copy:hover { background: #334155; }
+    .btn-back { background: #334155; color: #fff; }
+    .btn-back:hover { background: #475569; }
+    .sheet-wrap { padding: 1.25rem; }
+    .or-sheet {
+      position: relative;
+      width: min(720px, 100%);
+      margin: 0 auto 1.25rem;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 1.5rem 1.6rem 1.35rem;
+      box-shadow: 0 10px 30px rgba(15,23,42,.08);
+      page-break-inside: avoid;
+      page-break-after: always;
+      animation: sheetIn .35s ease;
+    }
+    .or-sheet:last-child { page-break-after: auto; }
+    @keyframes sheetIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: none; }
+    }
+    .sheet-print {
+      position: absolute; top: .75rem; right: .75rem;
+      appearance: none; border: 1px solid var(--line); background: #f8fafc;
+      border-radius: 999px; padding: .28rem .7rem; font-size: .72rem; font-weight: 700;
+      color: var(--ink); cursor: pointer;
+    }
+    .sheet-print:hover { background: #e2e8f0; }
+    .or-head {
+      display: flex; justify-content: space-between; gap: 1rem;
+      align-items: flex-start; border-bottom: 2px solid var(--ink);
+      padding-bottom: .85rem; margin-bottom: 1rem; padding-right: 5.5rem;
+    }
+    .or-brand h1 { margin: 0; font-size: 1.15rem; letter-spacing: .02em; }
+    .or-brand p { margin: .2rem 0 0; color: var(--muted); font-size: .82rem; line-height: 1.4; }
+    {% include "admin_panel/partials/receipt_or_logo_styles.html" %}
+    .or-badge { text-align: right; min-width: 170px; }
+    .or-badge .label {
+      font-size: .72rem; font-weight: 800; letter-spacing: .08em;
+      text-transform: uppercase; color: var(--brand);
+    }
+    .or-badge .or-no {
+      font-size: 1.05rem; font-weight: 800; margin-top: .15rem;
+      font-family: ui-monospace, Consolas, monospace;
+    }
+    .or-badge .copy {
+      display: inline-block; margin-top: .35rem;
+      border: 1px solid var(--line); border-radius: 999px;
+      padding: .15rem .55rem; font-size: .72rem; font-weight: 700;
+      color: var(--muted);
+    }
+    .or-title {
+      text-align: center; font-weight: 800; font-size: 1.05rem;
+      letter-spacing: .08em; text-transform: uppercase;
+      margin: 0 0 1rem;
+    }
+    .meta-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: .65rem 1.25rem;
+      margin-bottom: 1rem;
+    }
+    .meta-grid dt {
+      margin: 0; color: var(--muted); font-size: .72rem;
+      font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+    }
+    .meta-grid dd { margin: .1rem 0 0; font-weight: 700; font-size: .92rem; }
+    .mono { font-family: ui-monospace, Consolas, monospace; font-size: .82rem; }
+    .amount-box {
+      border: 2px solid var(--ink); border-radius: 10px;
+      padding: .9rem 1rem; margin: 1rem 0;
+      display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+    }
+    .amount-box .lbl { font-size: .78rem; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+    .amount-ref { font-size: .82rem; color: #64748b; margin-top: .2rem; }
+    .amount-box .val { font-size: 1.45rem; font-weight: 800; color: var(--ok); }
+    .amount-box--out .val { color: var(--out); }
+    .notes {
+      border-top: 1px dashed var(--line); padding-top: .85rem; margin-top: .85rem;
+      color: var(--muted); font-size: .82rem; line-height: 1.45;
+    }
+    .sign-row {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;
+      margin-top: 1.75rem;
+    }
+    .sign-box { text-align: center; }
+    .sign-line {
+      border-top: 1px solid var(--ink); margin: 2.2rem 0 .35rem; padding-top: .35rem;
+      font-size: .82rem; font-weight: 700;
+    }
+    .sign-sub { color: var(--muted); font-size: .74rem; }
+    .security {
+      margin-top: 1.1rem; font-size: .72rem; color: var(--muted);
+      text-align: center; line-height: 1.4;
+    }
+    .empty {
+      width: min(720px, 100%); margin: 2rem auto; background: #fff;
+      border-radius: 12px; padding: 2rem; text-align: center; color: var(--muted);
+    }
+    .toast {
+      position: fixed; bottom: 1.25rem; left: 50%; transform: translateX(-50%) translateY(12px);
+      background: #0f172a; color: #fff; border-radius: 999px;
+      padding: .55rem 1.1rem; font-size: .82rem; font-weight: 700;
+      opacity: 0; pointer-events: none; z-index: 40;
+      transition: opacity .2s ease, transform .2s ease;
+    }
+    .toast.is-on { opacity: 1; transform: translateX(-50%) translateY(0); }
+    .modal-overlay {
+      display: none; position: fixed; inset: 0; z-index: 50;
+      background: rgba(15,23,42,.45); align-items: center; justify-content: center;
+      padding: 1rem;
+    }
+    .modal-overlay.is-open { display: flex; }
+    .modal-box {
+      width: min(420px, 100%); background: #fff; border-radius: 16px;
+      padding: 1.35rem 1.4rem 1.2rem; box-shadow: 0 24px 60px rgba(15,23,42,.25);
+      text-align: center;
+    }
+    .modal-title { font-weight: 800; font-size: 1.1rem; margin: .35rem 0 .25rem; }
+    .modal-sub { color: var(--muted); font-size: .88rem; line-height: 1.45; }
+    .modal-actions { display: flex; gap: .5rem; justify-content: center; margin-top: 1.1rem; flex-wrap: wrap; }
+    .modal-btn {
+      appearance: none; border: 0; border-radius: 999px; padding: .55rem 1.1rem;
+      font-weight: 700; cursor: pointer; font-size: .88rem;
+    }
+    .modal-btn-print { background: var(--brand); color: #fff; }
+    .modal-btn-skip { background: #e2e8f0; color: var(--ink); }
+    .print-hide { display: none !important; }
+    @media print {
+      body { background: #fff; }
+      .toolbar, .no-print, .toast, .modal-overlay { display: none !important; }
+      .sheet-wrap { padding: 0; }
+      .or-sheet {
+        box-shadow: none; border: 0; border-radius: 0;
+        width: 100%; margin: 0; padding: 0 0 12mm;
+        animation: none;
+      }
+      .or-head { padding-right: 0; }
+    }
+    @media (max-width: 640px) {
+      .meta-grid, .sign-row, .or-head { grid-template-columns: 1fr; display: grid; }
+      .or-badge { text-align: left; }
+      .or-head { padding-right: 0; padding-top: 1.6rem; }
+      .kbd-hint { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar no-print">
+    <div class="toolbar-brand">
+      <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#94a3b8" stroke-width="2" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 4H7a2 2 0 01-2-2V6a2 2 0 012-2h5l5 5v11a2 2 0 01-2 2z"/>
+      </svg>
+      Member savings receipt
+      <span>
+        {% if single %}{{ txn.reference }}{% else %}{{ account.account_number }}{% endif %}
+      </span>
+    </div>
+    <div class="toolbar-actions">
+      <span class="kbd-hint">Ctrl+P to print · Esc to close</span>
+      {% if single %}
+      <button type="button" class="btn-copy" id="copyRefBtn">Copy reference</button>
+      {% endif %}
+      <button type="button" class="btn-print" id="printBtn">
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z"/>
+        </svg>
+        <span class="btn-print-label">Print receipt</span>
+      </button>
+      <a class="btn-back" id="backBtn" href="{{ back_url }}">Back to account</a>
+    </div>
+  </div>
+
+  <div class="sheet-wrap" id="sheetWrap">
+    {% if single %}
+      {% include "savings/partials/transaction_receipt_sheet.html" with txn=txn %}
+    {% elif transactions %}
+      {% for row in transactions %}
+        {% include "savings/partials/transaction_receipt_sheet.html" with txn=row %}
+      {% endfor %}
+    {% else %}
+      <div class="empty">No savings transactions recorded yet for this account.</div>
+    {% endif %}
+  </div>
+
+  <div class="modal-overlay" id="printModal" role="dialog" aria-modal="true" aria-labelledby="printModalTitle">
+    <div class="modal-box">
+      <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#3b82f6" stroke-width="2" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6 9V2h12v7M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2M6 14h12v8H6v-8z"/>
+      </svg>
+      <div class="modal-title" id="printModalTitle">Print receipt?</div>
+      <div class="modal-sub" id="printModalSub">
+        {% if single %}
+          Reference <strong>{{ txn.reference }}</strong><br>Send this member copy to the printer.
+        {% else %}
+          Print all savings receipts for <strong>{{ account.account_number }}</strong>.
+        {% endif %}
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="modal-btn modal-btn-print" id="confirmPrintBtn">Yes, print</button>
+        <button type="button" class="modal-btn modal-btn-skip" id="cancelPrintBtn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast" role="status"></div>
+
+  <script>
+    (function () {
+      var printBtn = document.getElementById("printBtn");
+      var printLabel = printBtn ? printBtn.querySelector(".btn-print-label") : null;
+      var copyBtn = document.getElementById("copyRefBtn");
+      var modal = document.getElementById("printModal");
+      var confirmBtn = document.getElementById("confirmPrintBtn");
+      var cancelBtn = document.getElementById("cancelPrintBtn");
+      var toast = document.getElementById("toast");
+      var toastTimer = null;
+      var printTargetId = null;
+      var busy = false;
+
+      function showToast(message) {
+        toast.textContent = message;
+        toast.classList.add("is-on");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(function () {
+          toast.classList.remove("is-on");
+        }, 2200);
+      }
+
+      function openModal(sheetId) {
+        printTargetId = sheetId || null;
+        var sub = document.getElementById("printModalSub");
+        if (printTargetId) {
+          var sheet = document.getElementById("sheet-" + printTargetId);
+          var ref = sheet ? sheet.getAttribute("data-ref") : "";
+          sub.innerHTML = "Print member copy <strong>" + (ref || "") + "</strong>.";
+        }
+        modal.classList.add("is-open");
+        confirmBtn.focus();
+      }
+
+      function closeModal() {
+        modal.classList.remove("is-open");
+        printTargetId = null;
+      }
+
+      function resetSheets() {
+        document.querySelectorAll(".or-sheet").forEach(function (el) {
+          el.classList.remove("print-hide");
+        });
+      }
+
+      function stampPrintTime() {
+        var now = new Date();
+        var label = " Printed " + now.toLocaleString();
+        document.querySelectorAll(".print-stamp").forEach(function (el) {
+          el.textContent = label;
+        });
+      }
+
+      function runPrint() {
+        if (busy) return;
+        busy = true;
+        printBtn.classList.add("is-busy");
+        if (printLabel) printLabel.textContent = "Printing…";
+        stampPrintTime();
+
+        if (printTargetId) {
+          document.querySelectorAll(".or-sheet").forEach(function (el) {
+            el.classList.toggle("print-hide", el.id !== "sheet-" + printTargetId);
+          });
+        } else {
+          resetSheets();
+        }
+
+        closeModal();
+        setTimeout(function () {
+          try {
+            window.print();
+          } catch (err) {
+            showToast("Could not open the print dialog.");
+          }
+        }, 80);
+      }
+
+      function afterPrint() {
+        busy = false;
+        printBtn.classList.remove("is-busy");
+        if (printLabel) printLabel.textContent = "Print receipt";
+        resetSheets();
+      }
+
+      if (printBtn) {
+        printBtn.addEventListener("click", function () {
+          openModal(null);
+        });
+      }
+      if (confirmBtn) confirmBtn.addEventListener("click", runPrint);
+      if (cancelBtn) cancelBtn.addEventListener("click", closeModal);
+      modal.addEventListener("click", function (e) {
+        if (e.target === modal) closeModal();
+      });
+
+      document.querySelectorAll("[data-print-sheet]").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+          openModal(btn.getAttribute("data-print-sheet"));
+        });
+      });
+
+      if (copyBtn) {
+        copyBtn.addEventListener("click", async function () {
+          var source = document.querySelector("[data-copy-source]");
+          var value = source ? source.textContent.trim() : "";
+          if (!value) return;
+          try {
+            await navigator.clipboard.writeText(value);
+            showToast("Reference copied: " + value);
+          } catch (err) {
+            showToast("Could not copy the reference.");
+          }
+        });
+      }
+
+      window.addEventListener("afterprint", afterPrint);
+      if (window.matchMedia) {
+        window.matchMedia("print").addEventListener("change", function (e) {
+          if (!e.matches) afterPrint();
+        });
+      }
+
+      document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape") {
+          if (modal.classList.contains("is-open")) {
+            e.preventDefault();
+            closeModal();
+            return;
+          }
+          var back = document.getElementById("backBtn");
+          if (back) window.location.href = back.href;
+        }
+        if ((e.ctrlKey || e.metaKey) && (e.key === "p" || e.key === "P")) {
+          e.preventDefault();
+          openModal(null);
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

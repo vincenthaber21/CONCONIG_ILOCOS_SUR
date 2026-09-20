@@ -1,0 +1,598 @@
+{% extends "loans/base_loans.html" %}
+{% load currency_filters %}
+{% block title %}Eligibility Verification{% endblock %}
+{% block content %}
+<div class="loan-verify-page">
+  <header class="loan-verify-page__header">
+    <a class="loan-verify-page__back" href="{% url 'loans:application-detail' application.pk %}">
+      <i class="bi bi-arrow-left"></i> Application
+    </a>
+    <div class="loan-verify-page__title-row">
+      <div>
+        <h1>Eligibility Verification</h1>
+        <p class="subtitle loan-verify-page__sub">
+          {{ application.member }} &middot; {{ application.loan_product.name }}
+        </p>
+      </div>
+      <span class="status-pill status-pill--{{ application.status|lower }}">
+        {{ application.get_status_display }}
+      </span>
+    </div>
+  </header>
+
+  <div class="loan-verify-page__stats">
+    <div class="loan-verify-stat">
+      <span class="loan-verify-stat__label">Amount</span>
+      <span class="loan-verify-stat__value">&#8369;{{ application.amount_requested|currency }}</span>
+    </div>
+    <div class="loan-verify-stat">
+      <span class="loan-verify-stat__label">Term</span>
+      <span class="loan-verify-stat__value">{{ application.term_months }} mo</span>
+    </div>
+    <div class="loan-verify-stat">
+      <span class="loan-verify-stat__label">Documents</span>
+      <span class="loan-verify-stat__value">{{ documents|length }}</span>
+    </div>
+    <div class="loan-verify-stat">
+      <span class="loan-verify-stat__label">Submitted</span>
+      <span class="loan-verify-stat__value loan-verify-stat__value--sm">
+        {{ application.submitted_at|date:"M j, Y"|default:"—" }}
+      </span>
+    </div>
+  </div>
+
+  {% if loan_history %}
+  <section class="card loan-verify-page__card loan-history">
+    <div class="loan-verify-section__head">
+      <div>
+        <h2><i class="bi bi-clock-history"></i> Prior loan history</h2>
+        <p class="subtitle loan-verify-section__sub">
+          Use this repayment record to judge whether the member has been a good client.
+        </p>
+      </div>
+    </div>
+
+    <div class="loan-history__standing loan-history__standing--{{ loan_history.standing }}">
+      <div class="loan-history__standing-icon">
+        {% if loan_history.standing == "good" %}
+        <i class="bi bi-hand-thumbs-up-fill"></i>
+        {% elif loan_history.standing == "poor" %}
+        <i class="bi bi-exclamation-octagon-fill"></i>
+        {% elif loan_history.standing == "new" %}
+        <i class="bi bi-person-plus-fill"></i>
+        {% else %}
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        {% endif %}
+      </div>
+      <div>
+        <p class="loan-history__standing-label">{{ loan_history.standing_label }}</p>
+        <p class="loan-history__standing-detail">{{ loan_history.standing_detail }}</p>
+      </div>
+    </div>
+
+    <div class="loan-history__stats">
+      <div class="loan-history__stat">
+        <span class="loan-history__stat-label">Prior loans</span>
+        <strong>{{ loan_history.prior_count }}</strong>
+      </div>
+      <div class="loan-history__stat">
+        <span class="loan-history__stat-label">Paid in full</span>
+        <strong>{{ loan_history.fully_paid_count }}</strong>
+      </div>
+      <div class="loan-history__stat{% if loan_history.overdue_installments %} loan-history__stat--alert{% endif %}">
+        <span class="loan-history__stat-label">Overdue installments</span>
+        <strong>{{ loan_history.overdue_installments }}</strong>
+      </div>
+      <div class="loan-history__stat">
+        <span class="loan-history__stat-label">Outstanding</span>
+        <strong>&#8369;{{ loan_history.outstanding_total|currency }}</strong>
+      </div>
+      {% if loan_history.score_info %}
+      <div class="loan-history__stat">
+        <span class="loan-history__stat-label">Payment score</span>
+        <strong>{{ loan_history.score_info.score }}</strong>
+      </div>
+      {% endif %}
+    </div>
+
+    {% if loan_history.rows %}
+    <div class="loan-history__table-wrap">
+      <table class="loan-history__table">
+        <thead>
+          <tr>
+            <th>Applied</th>
+            <th>Product</th>
+            <th>Amount</th>
+            <th>Paid</th>
+            <th>Balance</th>
+            <th>Repayment</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in loan_history.rows %}
+          <tr>
+            <td>{{ row.applied_on|date:"M j, Y"|default:"—" }}</td>
+            <td>
+              <strong>{{ row.product_name }}</strong>
+              {% if row.disbursed_on %}
+              <small>Released {{ row.disbursed_on|date:"M j, Y" }}</small>
+              {% endif %}
+            </td>
+            <td>
+              &#8369;{{ row.amount_requested|currency }}
+              {% if row.amount_released is not None %}
+              <small>Released &#8369;{{ row.amount_released|currency }}</small>
+              {% endif %}
+            </td>
+            <td>
+              &#8369;{{ row.paid_amount|currency }}
+              {% if row.installment_count %}
+              <small>{{ row.paid_installments }}/{{ row.installment_count }} installments</small>
+              {% endif %}
+            </td>
+            <td>&#8369;{{ row.outstanding|currency }}</td>
+            <td>
+              <span class="loan-history__tone loan-history__tone--{{ row.record_tone }}">
+                {{ row.record_label }}
+              </span>
+              {% if row.overdue_count %}
+              <small class="loan-history__overdue">{{ row.overdue_count }} overdue</small>
+              {% elif row.last_payment_on %}
+              <small>Last pay {{ row.last_payment_on|date:"M j, Y" }}</small>
+              {% endif %}
+            </td>
+            <td>
+              <span class="status-pill status-pill--{{ row.application.status|lower }}">
+                {{ row.application.get_status_display }}
+              </span>
+            </td>
+            <td>
+              <a class="loan-history__link" href="{% url 'loans:application-detail' row.application.pk %}">View</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="loan-history__empty">This member has no earlier loan applications.</p>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  <section class="card loan-verify-page__card">
+    <div class="loan-verify-section__head">
+      <div>
+        <h2>
+          Review uploaded documents
+          {% if documents %}
+          <span class="status-pill" style="margin-left:6px;">{{ documents|length }} file{{ documents|length|pluralize }}</span>
+          {% endif %}
+        </h2>
+        <p class="subtitle loan-verify-section__sub">
+          Inspect supporting files before marking documents complete.
+        </p>
+      </div>
+    </div>
+    {% include "loans/partials/document_review.html" %}
+  </section>
+
+  <section class="card loan-verify-page__card">
+    <h2>Verification checklist</h2>
+    <p class="subtitle loan-verify-section__sub">
+      Confirm membership and documents, add remarks if needed, then pass or fail.
+    </p>
+
+    <div class="loan-staff-decision__maturity{% if not membership_maturity.allowed %} loan-staff-decision__maturity--blocked{% endif %}" style="margin-bottom:1rem;">
+      <p class="loan-staff-decision__maturity-title">
+        <i class="bi bi-shield-check"></i> Membership maturity
+      </p>
+      {% if membership_maturity.allowed %}
+      <p class="loan-staff-decision__maturity-ok" style="margin:0;">
+        Member meets the required waiting period. You may pass verification after document review.
+      </p>
+      {% else %}
+      <p class="loan-staff-decision__maturity-block" style="margin:0;">
+        <i class="bi bi-exclamation-triangle-fill"></i>
+        {{ membership_maturity.message|default:"Member has not met the minimum membership period. Pass verification is blocked." }}
+      </p>
+      {% endif %}
+    </div>
+
+    <form method="post" class="loan-verify-form">
+      {% csrf_token %}
+
+      {% if form.non_field_errors %}
+      <div class="loan-verify-form__errors">{{ form.non_field_errors }}</div>
+      {% endif %}
+
+      <div class="loan-verify-form__checks">
+        <label class="loan-verify-form__check">
+          {{ form.membership_status_ok }}
+          <span>
+            <strong>{{ form.membership_status_ok.label }}</strong>
+            <small>Member is active and eligible to apply</small>
+          </span>
+        </label>
+        <label class="loan-verify-form__check">
+          {{ form.documents_complete }}
+          <span>
+            <strong>{{ form.documents_complete.label }}</strong>
+            <small>Required supporting documents are present and readable</small>
+          </span>
+        </label>
+      </div>
+
+      <div class="loan-verify-form__field">
+        <label for="{{ form.remarks.id_for_label }}">Remarks</label>
+        {{ form.remarks }}
+        {% if form.remarks.errors %}
+        <div class="loan-verify-form__errors">{{ form.remarks.errors }}</div>
+        {% endif %}
+        <p class="helptext">Optional notes for pass or fail decisions.</p>
+      </div>
+
+      <div class="loan-verify-form__actions">
+        <button type="submit" name="action" value="pass" class="btn-loan"{% if not membership_maturity.allowed %} disabled title="Blocked until membership maturity is met"{% endif %}>
+          <i class="bi bi-check2-circle"></i> Pass verification
+        </button>
+        <button type="submit" name="action" value="fail" class="btn--danger">
+          <i class="bi bi-x-circle"></i> Fail verification
+        </button>
+        <a class="btn--secondary" href="{% url 'loans:application-detail' application.pk %}">Cancel</a>
+      </div>
+    </form>
+  </section>
+</div>
+
+<style>
+  .loan-verify-page {
+    width: 100%;
+    max-width: 980px;
+    margin-inline: auto;
+  }
+
+  .loan-verify-page__header { margin-bottom: 1.25rem; }
+  .loan-verify-page__back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    color: #64748b;
+    text-decoration: none;
+    font-size: .88rem;
+    font-weight: 500;
+    margin-bottom: .65rem;
+  }
+  .loan-verify-page__back:hover { color: #0f172a; }
+
+  .loan-verify-page__title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .loan-verify-page__title-row h1 { margin: 0 0 .35rem; }
+  .loan-verify-page__sub { margin-bottom: 0; }
+
+  .loan-verify-page__stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: .75rem;
+    margin-bottom: 1.25rem;
+  }
+  @media (max-width: 800px) {
+    .loan-verify-page__stats { grid-template-columns: 1fr 1fr; }
+  }
+
+  .loan-verify-stat {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: .9rem 1rem;
+  }
+  .loan-verify-stat__label {
+    display: block;
+    font-size: .72rem;
+    font-weight: 600;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: .3rem;
+  }
+  .loan-verify-stat__value {
+    display: block;
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .loan-verify-stat__value--sm { font-size: 1rem; }
+
+  .loan-verify-page__card {
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+    padding: 1.4rem 1.5rem;
+  }
+
+  .loan-verify-section__head { margin-bottom: .85rem; }
+  .loan-verify-section__head h2 { margin-bottom: 0; }
+  .loan-verify-section__sub { margin: .3rem 0 0; }
+
+  .loan-verify-form__checks {
+    display: flex;
+    flex-direction: column;
+    gap: .65rem;
+    margin: 1rem 0 1.15rem;
+  }
+  .loan-verify-form__check {
+    display: flex;
+    align-items: flex-start;
+    gap: .7rem;
+    margin: 0;
+    padding: .9rem 1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #f8fafc;
+    cursor: pointer;
+  }
+  .loan-verify-form__check:hover {
+    border-color: #cbd5e1;
+    background: #fff;
+  }
+  .loan-verify-form__check input {
+    width: 18px;
+    height: 18px;
+    margin-top: 2px;
+    accent-color: #E6C200;
+    flex-shrink: 0;
+  }
+  .loan-verify-form__check strong {
+    display: block;
+    color: #0f172a;
+    font-size: .92rem;
+  }
+  .loan-verify-form__check small {
+    display: block;
+    margin-top: .15rem;
+    color: #64748b;
+    font-size: .8rem;
+  }
+
+  .loan-verify-form__field { margin-bottom: 1.1rem; }
+  .loan-verify-form__field label {
+    display: block;
+    margin-bottom: .4rem;
+    color: #334155;
+    font-size: .9rem;
+    font-weight: 600;
+  }
+  .loan-verify-form__field textarea {
+    width: 100%;
+    min-height: 90px;
+    padding: 10px 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #fff;
+    font-size: .92rem;
+    resize: vertical;
+  }
+  .loan-verify-form__field textarea:focus {
+    outline: none;
+    border-color: #E6C200;
+    box-shadow: 0 0 0 3px rgba(230, 194, 0, .15);
+  }
+
+  .loan-verify-form__errors {
+    margin-bottom: .75rem;
+    color: #dc2626;
+    font-size: .88rem;
+  }
+  .loan-verify-form__errors .errorlist {
+    margin: .35rem 0 0;
+    padding-left: 1.15rem;
+  }
+
+  .loan-verify-form__actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .5rem;
+    margin-top: 1.25rem;
+    padding-top: 1.1rem;
+    border-top: 1px solid #f1f5f9;
+  }
+  .loan-verify-form__actions .btn-loan,
+  .loan-verify-form__actions .btn--secondary,
+  .loan-verify-form__actions .btn--danger { margin: 0; }
+
+  .btn--danger {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    border-radius: 999px;
+    padding: 8px 18px;
+    font-weight: 600;
+    font-size: .88rem;
+    border: 1px solid #fecaca;
+    cursor: pointer;
+    background: #fff;
+    color: #991b1b;
+  }
+  .btn--danger:hover { background: #fef2f2; }
+
+  .loan-staff-decision__maturity {
+    padding: .75rem .9rem;
+    border-radius: 10px;
+    border: 1px solid #bbf7d0;
+    background: #f0fdf4;
+  }
+  .loan-staff-decision__maturity--blocked {
+    border-color: #fecaca;
+    background: #fef2f2;
+  }
+  .loan-staff-decision__maturity-title {
+    margin: 0 0 .35rem;
+    font-size: .82rem;
+    font-weight: 700;
+    color: #334155;
+  }
+  .loan-staff-decision__maturity-ok {
+    font-size: .84rem;
+    color: #166534;
+  }
+  .loan-staff-decision__maturity-block {
+    font-size: .84rem;
+    color: #991b1b;
+    display: flex;
+    align-items: flex-start;
+    gap: .4rem;
+  }
+  .btn-loan:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+  }
+
+  .loan-history__standing {
+    display: flex;
+    align-items: flex-start;
+    gap: .85rem;
+    padding: .9rem 1rem;
+    border-radius: 12px;
+    margin-bottom: 1rem;
+    border: 1px solid #e2e8f0;
+    background: #f8fafc;
+  }
+  .loan-history__standing--good {
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+  }
+  .loan-history__standing--poor {
+    border-color: #fecaca;
+    background: #fef2f2;
+  }
+  .loan-history__standing--watch {
+    border-color: #fde68a;
+    background: #fffbeb;
+  }
+  .loan-history__standing--new {
+    border-color: #bfdbfe;
+    background: #eff6ff;
+  }
+  .loan-history__standing-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 1.1rem;
+    background: #fff;
+  }
+  .loan-history__standing--good .loan-history__standing-icon { color: #166534; }
+  .loan-history__standing--poor .loan-history__standing-icon { color: #991b1b; }
+  .loan-history__standing--watch .loan-history__standing-icon { color: #92400e; }
+  .loan-history__standing--new .loan-history__standing-icon { color: #1d4ed8; }
+  .loan-history__standing-label {
+    margin: 0 0 .2rem;
+    font-size: .95rem;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .loan-history__standing-detail {
+    margin: 0;
+    font-size: .84rem;
+    color: #475569;
+    line-height: 1.45;
+  }
+
+  .loan-history__stats {
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: .65rem;
+    margin-bottom: 1rem;
+  }
+  @media (max-width: 800px) {
+    .loan-history__stats { grid-template-columns: 1fr 1fr; }
+  }
+  .loan-history__stat {
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: .7rem .8rem;
+    background: #f8fafc;
+  }
+  .loan-history__stat--alert {
+    border-color: #fecaca;
+    background: #fef2f2;
+  }
+  .loan-history__stat-label {
+    display: block;
+    font-size: .68rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: #94a3b8;
+    margin-bottom: .2rem;
+  }
+  .loan-history__stat strong {
+    font-size: 1.05rem;
+    color: #0f172a;
+  }
+
+  .loan-history__table-wrap { overflow-x: auto; }
+  .loan-history__table { min-width: 760px; }
+  .loan-history__table th {
+    font-size: .72rem;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+  }
+  .loan-history__table td strong,
+  .loan-history__table td small {
+    display: block;
+  }
+  .loan-history__table td small {
+    margin-top: .15rem;
+    color: #64748b;
+    font-size: .75rem;
+  }
+  .loan-history__tone {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: .75rem;
+    font-weight: 700;
+    background: #e2e8f0;
+    color: #334155;
+  }
+  .loan-history__tone--good { background: #dcfce7; color: #166534; }
+  .loan-history__tone--poor { background: #fee2e2; color: #991b1b; }
+  .loan-history__tone--watch { background: #fef3c7; color: #92400e; }
+  .loan-history__overdue {
+    display: block;
+    margin-top: .2rem;
+    color: #b91c1c;
+    font-weight: 600;
+  }
+  .loan-history__link {
+    font-size: .82rem;
+    font-weight: 600;
+    color: #0f172a;
+    text-decoration: none;
+  }
+  .loan-history__link:hover { text-decoration: underline; }
+  .loan-history__empty {
+    margin: 0;
+    padding: .85rem 1rem;
+    border-radius: 10px;
+    background: #f8fafc;
+    color: #64748b;
+    font-size: .88rem;
+  }
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+{% include "loans/partials/document_review_script.html" %}
+{% endblock %}
