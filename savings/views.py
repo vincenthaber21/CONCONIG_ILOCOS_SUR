@@ -92,6 +92,9 @@ class SavingsOverviewView(SavingsStaffMixin, View):
             total_balance=Sum("balance", filter=Q(status=active_status)),
         )
         product_count = models.SavingsProduct.objects.filter(is_active=True).count()
+        if product_count == 0:
+            models.SavingsProduct.ensure_regular_product()
+            product_count = models.SavingsProduct.objects.filter(is_active=True).count()
 
         status_choices = [("all", "All statuses"), ("active", "Active")] + [
             (s.value, s.label)
@@ -141,6 +144,7 @@ class SavingsProductListView(SavingsStaffMixin, ListView):
     paginate_by = 25
 
     def get_queryset(self):
+        models.SavingsProduct.ensure_regular_product()
         return models.SavingsProduct.objects.annotate(account_count=Count("accounts")).order_by("name")
 
     def get_context_data(self, **kwargs):

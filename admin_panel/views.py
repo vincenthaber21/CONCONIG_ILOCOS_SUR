@@ -775,58 +775,6 @@ def _dashboard_payment_mix(sales_qs):
     return payment_labels, payment_totals
 
 
-def _dashboard_operational_insights(period_completed_txns, period_refund_count, range_start_aware, range_end_aware):
-    """
-    Metrics for the dashboard Operational Insights panel.
-    Period-scoped: completed sales in range, new members joined in range, refund rate vs period sales.
-    Live snapshot: open transaction queues and active product count.
-    """
-    total_txn = period_completed_txns.count()
-    totals = period_completed_txns.aggregate(
-        rev=Sum('total_amount'),
-        rev_sub=Sum('subtotal'),
-        guest_rev=Sum('total_amount', filter=Q(member__isnull=True)),
-        guest_rev_sub=Sum('subtotal', filter=Q(member__isnull=True)),
-        member_rev=Sum('total_amount', filter=Q(member__isnull=False)),
-        member_rev_sub=Sum('subtotal', filter=Q(member__isnull=False)),
-    )
-    total_rev = float(totals['rev'] or 0) or float(totals['rev_sub'] or 0)
-    guest_rev = float(totals['guest_rev'] or 0) or float(totals['guest_rev_sub'] or 0)
-    member_rev = float(totals['member_rev'] or 0) or float(totals['member_rev_sub'] or 0)
-    guest_count = period_completed_txns.filter(member__isnull=True).count()
-    member_count = period_completed_txns.filter(member__isnull=False).count()
-    avg_order = (total_rev / total_txn) if total_txn else 0.0
-    guest_share_pct = (100.0 * guest_count / total_txn) if total_txn else 0.0
-    member_share_pct = (100.0 * member_count / total_txn) if total_txn else 0.0
-    refund_rate_pct = (100.0 * period_refund_count / total_txn) if total_txn else 0.0
-
-    new_members_in_period = Member.objects.filter(
-        date_joined__gte=range_start_aware,
-        date_joined__lt=range_end_aware,
-    ).count()
-
-    pending_checkouts = Transaction.objects.filter(status='pending').count()
-    refund_requested_open = Transaction.objects.filter(status='refund_requested').count()
-    return_window_open = Transaction.objects.filter(status='return_window').count()
-    active_products = Product.objects.filter(is_active=True).count()
-
-    return {
-        'avg_order_value': round(avg_order, 2),
-        'guest_txn_count': guest_count,
-        'member_txn_count': member_count,
-        'guest_revenue': round(guest_rev, 2),
-        'member_revenue': round(member_rev, 2),
-        'guest_share_pct': round(guest_share_pct, 1),
-        'member_share_pct': round(member_share_pct, 1),
-        'new_members_in_period': new_members_in_period,
-        'pending_checkouts': pending_checkouts,
-        'refund_requested_open': refund_requested_open,
-        'return_window_open': return_window_open,
-        'active_products': active_products,
-        'refund_rate_pct': round(refund_rate_pct, 1),
-    }
-
-
 def handle_login(request, redirect_to_dashboard=False):
     """Shared login logic — delegates to login_helper for all auth logic."""
     if request.user.is_authenticated:
@@ -1345,10 +1293,6 @@ def dashboard(request):
     daily_refund_amounts = refund_stats['daily_refund_amounts']
     daily_refund_counts = refund_stats['daily_refund_counts']
 
-    operational_insights = _dashboard_operational_insights(
-        period_txns, period_refunds, range_start_aware, range_end_aware
-    )
-
     context = {
         'total_transactions': total_transactions,
         'total_revenue': total_revenue,
@@ -1395,7 +1339,6 @@ def dashboard(request):
         'daily_refund_labels': json.dumps(daily_refund_labels),
         'daily_refund_amounts': json.dumps(daily_refund_amounts),
         'daily_refund_counts': json.dumps(daily_refund_counts),
-        'operational_insights': operational_insights,
         'walk_in_insights': walk_in_insights,
     }
 
@@ -1620,10 +1563,6 @@ def api_dashboard_period_data(request):
     daily_refund_amounts = refund_stats['daily_refund_amounts']
     daily_refund_counts = refund_stats['daily_refund_counts']
 
-    operational_insights = _dashboard_operational_insights(
-        txns_filtered, period_refunds, range_start_aware, range_end_aware
-    )
-
     top_products_api = _dashboard_top_products(range_start_aware, range_end_aware)
 
     return JsonResponse({
@@ -1650,7 +1589,6 @@ def api_dashboard_period_data(request):
         'daily_refund_labels': daily_refund_labels,
         'daily_refund_amounts': daily_refund_amounts,
         'daily_refund_counts': daily_refund_counts,
-        'operational_insights': operational_insights,
         'walk_in_insights': walk_in_insights,
         'top_products': top_products_api,
     })

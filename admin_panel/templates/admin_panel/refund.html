@@ -1,193 +1,251 @@
+{% load currency_filters %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Process Refund | {{ kiosk_system_name }}</title>
-    {% include "partials/bootstrap_head.html" %}
-    <style>
-        :root {
-            --dark: #0f172a;
-            --brand: #0038A8;
-            --accent: #228B22;
-            --muted: #94a3b8;
-            --gradient: linear-gradient(135deg, #0038A8 0%, #002670 40%, #001A4D 100%);
-        }
-        body {
-            background: #f1f5f9;
-            font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
-            min-height: 100vh;
-            padding: 0;
-        }
-        .super-nav {
-            background: var(--dark);
-            color: #fff;
-            box-shadow: 0 10px 30px rgba(15,23,42,0.4);
-        }
-        .refund-page-wrap {
-            padding: 20px;
-        }
-        .header-section {
-            background: var(--gradient);
-            color: white;
-            padding: 24px 30px;
-            border-radius: 16px;
-            margin-bottom: 24px;
-            box-shadow: 0 10px 30px rgba(15,23,42,0.2);
-        }
-        .header-section h1 { font-size: 1.6rem; font-weight: 700; margin: 0; }
-        .back-link {
-            color: white; text-decoration: none;
-            display: inline-flex; align-items: center; gap: 6px;
-            margin-bottom: 12px; opacity: 0.9; font-size: 0.9rem;
-        }
-        .back-link:hover { opacity: 1; color: white; }
-        .card-panel {
-            background: #fff;
-            border-radius: 14px;
-            padding: 24px;
-            box-shadow: 0 4px 20px rgba(15,23,42,0.08);
-            margin-bottom: 20px;
-        }
-        .search-wrapper { position: relative; }
-        .search-wrapper .bi-search {
-            position: absolute; left: 14px; top: 50%;
-            transform: translateY(-50%); color: var(--muted); pointer-events: none;
-        }
-        .search-wrapper input { padding-left: 42px; border-radius: 10px; border: 1.5px solid #e2e8f0; }
-        .search-wrapper input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(0,56,168,0.12); }
-        .search-dropdown {
-            border: 1.5px solid #e2e8f0; border-radius: 10px;
-            max-height: 360px; overflow-y: auto; display: none;
-            background: #fff; margin-top: 4px;
-            box-shadow: 0 8px 24px rgba(15,23,42,0.1);
-        }
-        .search-item {
-            padding: 14px 16px; cursor: pointer;
-            border-bottom: 1px solid #f1f5f9; transition: background 0.15s;
-            display: flex; justify-content: space-between; align-items: center;
-        }
-        .search-item:last-child { border-bottom: none; }
-        .search-item:hover { background: #f0fdf4; }
-        .search-item-num { font-weight: 600; color: #0f172a; }
-        .search-item-meta { font-size: 0.82rem; color: var(--muted); margin-top: 2px; }
-        .search-item-amount { font-weight: 700; color: var(--accent); font-size: 1rem; white-space: nowrap; margin-left: 12px; }
-        .selected-panel-header {
-            display: flex; justify-content: space-between; align-items: flex-start;
-            margin-bottom: 16px; flex-wrap: wrap; gap: 8px;
-        }
-        .selected-title { font-weight: 700; font-size: 1.1rem; color: #0f172a; }
-        .selected-amount { font-size: 1.4rem; font-weight: 700; color: var(--accent); }
-        .detail-grid {
-            display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-            gap: 12px; margin-bottom: 16px;
-        }
-        .detail-label { font-size: 0.8rem; color: var(--muted); margin-bottom: 2px; }
-        .detail-value { font-weight: 600; color: #0f172a; font-size: 0.9rem; }
-        .items-list { border-top: 1px solid #d1fae5; padding-top: 14px; margin-bottom: 16px; }
-        .item-row {
-            display: flex; justify-content: space-between;
-            padding: 5px 0; font-size: 0.88rem;
-        }
-        .item-name { color: #0f172a; }
-        .item-qty { color: var(--muted); margin-left: 6px; }
-        .item-price { font-weight: 600; color: #0f172a; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Process Refund | {{ kiosk_system_name }}</title>
+  {% include "partials/bootstrap_head.html" %}
+  <style>
+    :root {
+      --dark: #0f172a;
+      --brand: #0038A8;
+      --accent: #228B22;
+      --muted: #94a3b8;
+      --panel: #ffffff;
+      --gradient: linear-gradient(135deg, #0038A8 0%, #002670 40%, #001A4D 100%);
+    }
 
-        /* Item selection rows */
-        .item-sel-row {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 10px 12px; border-radius: 10px; border: 1.5px solid #e2e8f0;
-            margin-bottom: 8px; background: #f8fafc; transition: all 0.15s; gap: 10px;
-        }
-        .item-sel-row.selected { border-color: var(--brand); background: #f0fdf4; }
-        .item-sel-row.already-refunded {
-            opacity: 0.65; background: #f1f5f9; border-color: #e2e8f0; cursor: not-allowed;
-        }
-        .item-sel-row.already-refunded .item-check-box {
-            cursor: not-allowed; background: #e2e8f0; border-color: #cbd5e1;
-        }
-        .item-refunded-tag {
-            font-size: 0.72rem; font-weight: 700; color: #b45309;
-            text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap;
-        }
-        .item-sel-row .item-check-area { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
-        .item-check-box {
-            width: 22px; height: 22px; border-radius: 6px; border: 2px solid #cbd5e1;
-            background: #fff; display: flex; align-items: center; justify-content: center;
-            cursor: pointer; flex-shrink: 0; transition: all 0.15s;
-        }
-        .item-check-box.checked { border-color: var(--brand); background: var(--brand); }
-        .item-check-box i { font-size: 0.75rem; color: #fff; display: none; }
-        .item-check-box.checked i { display: block; }
-        .item-info { min-width: 0; }
-        .item-info .i-name { font-size: 0.9rem; font-weight: 600; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .item-info .i-sub { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
-        .item-right { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
-        .item-price-badge { font-size: 0.92rem; font-weight: 700; color: var(--accent); }
-        .restock-toggle { display: flex; align-items: center; gap: 6px; }
-        .restock-toggle label { font-size: 0.75rem; font-weight: 600; color: var(--muted); margin: 0; cursor: pointer; white-space: nowrap; }
-        .restock-toggle .form-check-input { cursor: pointer; width: 34px; height: 18px; }
-        .items-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-        .items-header .items-title { font-size: 0.85rem; font-weight: 700; color: #0f172a; }
-        .items-header .select-all-btn { font-size: 0.8rem; color: var(--brand); cursor: pointer; font-weight: 600; background: none; border: none; padding: 0; }
-        .refund-summary {
-            background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 10px;
-            padding: 12px 16px; margin-bottom: 12px;
-        }
-        .refund-summary .rs-top {
-            display: flex; justify-content: space-between; align-items: center;
-        }
-        .refund-summary .rs-label { font-size: 0.85rem; color: #166534; font-weight: 600; }
-        .refund-summary .rs-amount { font-size: 1.15rem; font-weight: 800; color: var(--accent); }
-        .refund-breakdown {
-            margin-top: 10px; padding-top: 10px; border-top: 1px dashed #86efac;
-            display: grid; gap: 6px;
-        }
-        .refund-breakdown .rb-row {
-            display: flex; justify-content: space-between; align-items: center;
-            font-size: 0.82rem; color: #475569;
-        }
-        .refund-breakdown .rb-row .rb-val { font-weight: 700; color: #0f172a; }
-        .refund-breakdown .rb-row.rb-remaining .rb-val { color: #b45309; }
-        .refund-breakdown .rb-hint {
-            font-size: 0.75rem; color: #64748b; margin-top: 2px;
-        }
-        .txn-list { display: grid; gap: 10px; }
-        .txn-card {
-            background: #f8fafc; border: 1.5px solid #e2e8f0;
-            border-radius: 10px; padding: 14px 16px; cursor: pointer;
-            transition: all 0.18s; display: flex; justify-content: space-between; align-items: center;
-        }
-        .txn-card:hover { background: #f0fdf4; border-color: var(--brand); transform: translateY(-1px); }
-        .txn-num { font-weight: 600; color: #0f172a; }
-        .txn-meta { font-size: 0.8rem; color: var(--muted); margin-top: 3px; display: flex; gap: 10px; flex-wrap: wrap; }
-        .txn-amount { font-weight: 700; color: var(--accent); font-size: 1rem; white-space: nowrap; text-align: right; }
-        .txn-amount .txn-amount-label { display: block; font-size: 0.68rem; font-weight: 600; color: var(--muted); }
-        .txn-partial-badge {
-            display: inline-block; font-size: 0.72rem; font-weight: 700; color: #b45309;
-            background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px;
-            padding: 2px 8px; margin-top: 4px;
-        }
-        .btn-refund {
-            background: var(--gradient); color: #fff; border: none;
-            border-radius: 8px; padding: 12px; font-weight: 600;
-            width: 100%; transition: all 0.2s; font-size: 1rem; cursor: pointer;
-        }
-        .btn-refund:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,56,168,0.35); }
-        .btn-refund:disabled { opacity: 0.6; cursor: not-allowed; }
-        .btn-print {
-            background: linear-gradient(135deg, #10b981, #059669); color: #fff; border: none;
-            border-radius: 8px; padding: 12px; font-weight: 600;
-            width: 100%; transition: all 0.2s; font-size: 1rem; margin-top: 10px; cursor: pointer;
-        }
-        .btn-print:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(16,185,129,0.35); }
-        .btn-clear {
-            background: none; border: 1.5px solid #e2e8f0; color: #64748b;
-            border-radius: 8px; padding: 6px 14px; font-size: 0.85rem; cursor: pointer; transition: all 0.15s;
-        }
-        .btn-clear:hover { border-color: #94a3b8; color: #0f172a; }
+    body {
+      background: #f1f5f9;
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    }
 
-        /* PIN Modal */
+    .super-nav {
+      background: var(--dark);
+      color: #fff;
+      box-shadow: 0 10px 30px rgba(15,23,42,0.4);
+    }
+
+    .hero-card {
+      background: var(--gradient);
+      color: #fff;
+      border-radius: 24px;
+      padding: 32px;
+      box-shadow: 0 25px 55px rgba(15,23,42,0.35);
+    }
+
+    .stat-card {
+      border: none;
+      border-radius: 18px;
+      padding: 20px;
+      box-shadow: 0 18px 36px rgba(15,23,42,0.08);
+      background: var(--panel);
+      height: 100%;
+    }
+
+    .stat-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      color: #fff;
+    }
+
+    .stat-title {
+      color: var(--muted);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .table-card {
+      border-radius: 20px;
+      padding: 20px;
+      background: var(--panel);
+      box-shadow: 0 15px 30px rgba(15,23,42,0.07);
+      margin-bottom: 1.5rem;
+    }
+
+    .table-card table { font-size: 0.9rem; }
+    .table-card thead {
+      color: var(--muted);
+      text-transform: uppercase;
+      font-size: 0.75rem;
+    }
+
+    .txn-table thead th {
+      background: #f8fafc;
+      border-bottom: 2px solid #e2e8f0;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      padding-top: 0.85rem;
+      padding-bottom: 0.85rem;
+    }
+
+    .txn-table tbody tr.txn-row-main { cursor: pointer; }
+    .txn-table tbody tr.txn-row-main:hover { background: #f8fafc; }
+    .txn-table tbody tr.txn-row-main td {
+      vertical-align: middle;
+      padding-top: 0.75rem;
+      padding-bottom: 0.75rem;
+    }
+
+    .txn-table .txn-num code {
+      background: #f1f5f9;
+      padding: 0.2rem 0.45rem;
+      border-radius: 6px;
+      font-size: 0.82rem;
+    }
+
+    .badge-payment {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+    }
+    .badge-debit { background: #d1fae5; color: var(--accent); }
+    .badge-cash { background: #dbeafe; color: #1e40af; }
+    .badge-credit { background: #ede9fe; color: #5b21b6; }
+
+    .txn-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.65rem;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 0.72rem;
+      line-height: 1.2;
+      white-space: nowrap;
+      border: 1px solid transparent;
+    }
+    .txn-status-completed {
+      background: #d1fae5;
+      color: #065f46;
+      border-color: #a7f3d0;
+    }
+    .txn-status-partially_refunded {
+      background: linear-gradient(135deg, #e0f2fe 0%, #ffedd5 100%);
+      color: #0c4a6e;
+      border-color: #7dd3fc;
+    }
+
+    .search-wrapper { position: relative; }
+    .search-wrapper .bi-search {
+      position: absolute; left: 14px; top: 50%;
+      transform: translateY(-50%); color: var(--muted); pointer-events: none;
+    }
+    .search-wrapper input { padding-left: 42px; border-radius: 10px; border: 1.5px solid #e2e8f0; }
+    .search-wrapper input:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(0,56,168,0.12); }
+    .search-dropdown {
+      border: 1.5px solid #e2e8f0; border-radius: 10px;
+      max-height: 360px; overflow-y: auto; display: none;
+      background: #fff; margin-top: 4px;
+      box-shadow: 0 8px 24px rgba(15,23,42,0.1);
+    }
+    .search-item {
+      padding: 14px 16px; cursor: pointer;
+      border-bottom: 1px solid #f1f5f9; transition: background 0.15s;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .search-item:last-child { border-bottom: none; }
+    .search-item:hover { background: #E8EEF8; }
+    .search-item-num { font-weight: 600; color: #0f172a; }
+    .search-item-meta { font-size: 0.82rem; color: var(--muted); margin-top: 2px; }
+    .search-item-amount { font-weight: 700; color: var(--accent); font-size: 1rem; white-space: nowrap; margin-left: 12px; }
+    .selected-panel-header {
+      display: flex; justify-content: space-between; align-items: flex-start;
+      margin-bottom: 16px; flex-wrap: wrap; gap: 8px;
+    }
+    .selected-title { font-weight: 700; font-size: 1.1rem; color: #0f172a; }
+    .selected-amount { font-size: 1.4rem; font-weight: 700; color: var(--accent); }
+    .detail-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 12px; margin-bottom: 16px;
+    }
+    .detail-label { font-size: 0.8rem; color: var(--muted); margin-bottom: 2px; }
+    .detail-value { font-weight: 600; color: #0f172a; font-size: 0.9rem; }
+    .items-list { border-top: 1px solid #e2e8f0; padding-top: 14px; margin-bottom: 16px; }
+    .item-sel-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 12px; border-radius: 10px; border: 1.5px solid #e2e8f0;
+      margin-bottom: 8px; background: #f8fafc; transition: all 0.15s; gap: 10px;
+    }
+    .item-sel-row.selected { border-color: var(--brand); background: #E8EEF8; }
+    .item-sel-row.already-refunded {
+      opacity: 0.65; background: #f1f5f9; border-color: #e2e8f0; cursor: not-allowed;
+    }
+    .item-sel-row.already-refunded .item-check-box {
+      cursor: not-allowed; background: #e2e8f0; border-color: #cbd5e1;
+    }
+    .item-refunded-tag {
+      font-size: 0.72rem; font-weight: 700; color: #5b21b6;
+      text-transform: uppercase; letter-spacing: 0.4px; white-space: nowrap;
+      background: #ede9fe; border-radius: 999px; padding: 0.1rem 0.45rem;
+    }
+    .item-sel-row .item-check-area { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+    .item-check-box {
+      width: 22px; height: 22px; border-radius: 6px; border: 2px solid #cbd5e1;
+      background: #fff; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; flex-shrink: 0; transition: all 0.15s;
+    }
+    .item-check-box.checked { border-color: var(--brand); background: var(--brand); }
+    .item-check-box i { font-size: 0.75rem; color: #fff; display: none; }
+    .item-check-box.checked i { display: block; }
+    .item-info { min-width: 0; }
+    .item-info .i-name { font-size: 0.9rem; font-weight: 600; color: #0f172a; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .item-info .i-sub { font-size: 0.78rem; color: var(--muted); margin-top: 2px; }
+    .item-right { display: flex; align-items: center; gap: 14px; flex-shrink: 0; }
+    .item-price-badge { font-size: 0.92rem; font-weight: 700; color: var(--accent); }
+    .restock-toggle { display: flex; align-items: center; gap: 6px; }
+    .restock-toggle label { font-size: 0.75rem; font-weight: 600; color: var(--muted); margin: 0; cursor: pointer; white-space: nowrap; }
+    .restock-toggle .form-check-input { cursor: pointer; width: 34px; height: 18px; }
+    .items-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .items-header .items-title { font-size: 0.85rem; font-weight: 700; color: #0f172a; }
+    .items-header .select-all-btn { font-size: 0.8rem; color: var(--brand); cursor: pointer; font-weight: 600; background: none; border: none; padding: 0; }
+    .refund-summary {
+      background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 12px;
+      padding: 12px 16px; margin-bottom: 12px;
+    }
+    .refund-summary .rs-top { display: flex; justify-content: space-between; align-items: center; }
+    .refund-summary .rs-label { font-size: 0.85rem; color: #166534; font-weight: 600; }
+    .refund-summary .rs-amount { font-size: 1.15rem; font-weight: 800; color: var(--accent); }
+    .refund-breakdown {
+      margin-top: 10px; padding-top: 10px; border-top: 1px dashed #86efac;
+      display: grid; gap: 6px;
+    }
+    .refund-breakdown .rb-row {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.82rem; color: #475569;
+    }
+    .refund-breakdown .rb-row .rb-val { font-weight: 700; color: #0f172a; }
+    .refund-breakdown .rb-row.rb-remaining .rb-val { color: #b45309; }
+    .refund-breakdown .rb-hint { font-size: 0.75rem; color: #64748b; margin-top: 2px; }
+    .btn-refund {
+      background: var(--gradient); color: #fff; border: none;
+      border-radius: 999px; padding: 12px 20px; font-weight: 600;
+      width: 100%; transition: all 0.2s; font-size: 1rem; cursor: pointer;
+    }
+    .btn-refund:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,56,168,0.35); }
+    .btn-refund:disabled { opacity: 0.6; cursor: not-allowed; }
+    .btn-print {
+      background: linear-gradient(135deg, #10b981, #059669); color: #fff; border: none;
+      border-radius: 999px; padding: 12px 20px; font-weight: 600;
+      width: 100%; transition: all 0.2s; font-size: 1rem; margin-top: 10px; cursor: pointer;
+    }
+    .btn-print:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(16,185,129,0.35); }
+    .btn-clear {
+      background: none; border: 1.5px solid #e2e8f0; color: #64748b;
+      border-radius: 999px; padding: 6px 14px; font-size: 0.85rem; cursor: pointer; transition: all 0.15s;
+    }
+    .btn-clear:hover { border-color: #94a3b8; color: #0f172a; }
+
+/* PIN Modal */
         .pin-modal-overlay {
             display: none; position: fixed; inset: 0;
             background: rgba(15,23,42,0.55); backdrop-filter: blur(2px);
@@ -270,162 +328,244 @@
             .pin-key { height: 46px; font-size: 1rem; }
             .pin-keypad { gap: 7px; }
         }
-    </style>
-    {% include 'admin_panel/partials/admin_logout_confirm_styles.html' %}
+    
+  </style>
 </head>
 <body>
-{% include 'admin_panel/partials/admin_top_navbar.html' %}
-<div class="refund-page-wrap">
-<div class="container-fluid" style="max-width:880px;">
+  {% include 'admin_panel/partials/admin_top_navbar.html' %}
 
-    <div class="header-section">
-        <a href="{% url 'user_choice' %}" class="back-link">
-            <i class="bi bi-arrow-left"></i> Back to Menu
-        </a>
-        <h1 style="display:flex;align-items:center;flex-wrap:wrap;gap:0.25rem;"><i class="bi bi-arrow-counterclockwise me-2"></i>Process Refund{% include 'admin_panel/partials/admin_role_badge.html' %}</h1>
-    </div>
+  <main class="container-fluid px-4 py-5">
+    <section class="hero-card mb-4">
+      <div class="row align-items-center">
+        <div class="col-lg-8">
+          <p class="mb-2 text-uppercase fw-semibold" style="letter-spacing:0.2em;">Refund Management</p>
+          <h1 class="fw-bold mb-2">Process Refund{% include 'admin_panel/partials/admin_role_badge.html' %}</h1>
+          <p class="mb-0 lead text-white-50">
+            Search sales and process full or partial refunds from this console.
+          </p>
+        </div>
+        <div class="col-lg-4 text-end">
+          <a href="{% url 'dashboard' %}" class="btn btn-light rounded-pill px-4">
+            <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+          </a>
+        </div>
+      </div>
+    </section>
 
     {% include 'admin_panel/partials/admin_main_nav.html' with nav_active='refunds' %}
 
-    {% load currency_filters %}
+    <section class="row g-4 mb-4">
+      <div class="col-md-4">
+        <div class="stat-card">
+          <div class="d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#7c3aed;">
+              <i class="bi bi-arrow-counterclockwise"></i>
+            </div>
+            <div>
+              <div class="stat-title">Eligible Sales</div>
+              <h3 class="mb-0">{{ today_transactions|length }}</h3>
+              <small class="text-muted">Within refund window</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="stat-card">
+          <div class="d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#0038A8;">
+              <i class="bi bi-search"></i>
+            </div>
+            <div>
+              <div class="stat-title">Lookup</div>
+              <h3 class="mb-0" style="font-size:1.15rem;">By TXN #</h3>
+              <small class="text-muted">Search any refundable sale</small>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="stat-card">
+          <div class="d-flex align-items-center gap-3">
+            <div class="stat-icon" style="background:#059669;">
+              <i class="bi bi-shield-lock"></i>
+            </div>
+            <div>
+              <div class="stat-title">PIN Confirm</div>
+              <h3 class="mb-0" style="font-size:1.15rem;">{% if refund_uses_staff_pin %}Staff{% else %}Member{% endif %}</h3>
+              <small class="text-muted">Required to process refund</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
     {% deduped_messages as flash_messages %}
     {% if flash_messages %}
-        {% for message in flash_messages %}
-            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-            </div>
-        {% endfor %}
+      {% for message in flash_messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+      {% endfor %}
     {% endif %}
 
     <div id="alertArea"></div>
 
-    <!-- Search -->
-    <div class="card-panel">
-        <label class="fw-semibold mb-2 d-block">Search Transaction by Number</label>
-        <div class="search-wrapper">
-            <i class="bi bi-search"></i>
-            <input type="text" id="txnSearch" class="form-control" placeholder="Type transaction number...">
-        </div>
-        <div id="searchDropdown" class="search-dropdown"></div>
+    <div class="table-card">
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h5 class="mb-0"><i class="bi bi-search me-2 text-primary"></i>Search Transaction</h5>
+        <a href="{% url 'transaction_history' %}" class="btn btn-outline-secondary btn-sm rounded-pill">
+          <i class="bi bi-receipt me-1"></i>All Transactions
+        </a>
+      </div>
+      <label class="fw-semibold mb-2 d-block small text-secondary text-uppercase" style="letter-spacing:0.06em;">Transaction number</label>
+      <div class="search-wrapper">
+        <i class="bi bi-search"></i>
+        <input type="text" id="txnSearch" class="form-control" placeholder="Type transaction number...">
+      </div>
+      <div id="searchDropdown" class="search-dropdown"></div>
     </div>
 
-    <!-- Selected transaction + refund form -->
-    <div class="card-panel" id="selectedPanel" style="display:none;">
-        <div class="selected-panel-header">
-            <div>
-                <div class="selected-title" id="selNum"></div>
-                <div style="font-size:0.82rem;color:var(--muted);" id="selMeta"></div>
-            </div>
-            <div style="display:flex;align-items:center;gap:10px;">
-                <div class="selected-amount" id="selAmount"></div>
-                <button class="btn-clear" onclick="resetForm()"><i class="bi bi-x-lg me-1"></i>Clear</button>
-            </div>
+    <div class="table-card" id="selectedPanel" style="display:none;">
+      <div class="selected-panel-header">
+        <div>
+          <div class="selected-title" id="selNum"></div>
+          <div style="font-size:0.82rem;color:var(--muted);" id="selMeta"></div>
         </div>
-
-        <div class="detail-grid">
-            <div>
-                <div class="detail-label">Member</div>
-                <div class="detail-value" id="selMember"></div>
-            </div>
-            <div>
-                <div class="detail-label">Payment Method</div>
-                <div class="detail-value" id="selPayment"></div>
-            </div>
-            <div>
-                <div class="detail-label">Date &amp; Time</div>
-                <div class="detail-value" id="selDate"></div>
-            </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="selected-amount" id="selAmount"></div>
+          <button class="btn-clear" onclick="resetForm()"><i class="bi bi-x-lg me-1"></i>Clear</button>
         </div>
+      </div>
 
-        <div class="items-list" id="selItems"></div>
-
-        <!-- Refund summary -->
-        <div class="refund-summary" id="refundSummary" style="display:none;">
-            <div class="rs-top">
-                <span class="rs-label"><i class="bi bi-bag-check me-2"></i><span id="rsSummaryText">0 items selected</span></span>
-                <span class="rs-amount" id="rsSummaryAmount">₱0.00</span>
-            </div>
-            <div class="refund-breakdown" id="refundBreakdown" style="display:none;">
-                <div class="rb-row">
-                    <span>Transaction total</span>
-                    <span class="rb-val" id="rbTxnTotal">₱0.00</span>
-                </div>
-                <div class="rb-row">
-                    <span>Refund amount</span>
-                    <span class="rb-val" id="rbRefundAmt">₱0.00</span>
-                </div>
-                <div class="rb-row rb-remaining" id="rbRemainingRow" style="display:none;">
-                    <span>Remaining on transaction</span>
-                    <span class="rb-val" id="rbRemainingAmt">₱0.00</span>
-                </div>
-                <div class="rb-hint" id="rbRemainingHint" style="display:none;">
-                    Items not selected for refund stay on this sale.
-                </div>
-            </div>
+      <div class="detail-grid">
+        <div>
+          <div class="detail-label">Member</div>
+          <div class="detail-value" id="selMember"></div>
         </div>
+        <div>
+          <div class="detail-label">Payment Method</div>
+          <div class="detail-value" id="selPayment"></div>
+        </div>
+        <div>
+          <div class="detail-label">Date &amp; Time</div>
+          <div class="detail-value" id="selDate"></div>
+        </div>
+      </div>
 
-        <form id="refundForm">
-            <input type="hidden" id="txnId">
-            <div class="mb-3">
-                <label for="refundReason" class="fw-semibold">
-                    Refund Reason <span class="text-muted fw-normal">(optional)</span>
-                </label>
-                <textarea class="form-control mt-1" id="refundReason" rows="2"
-                          placeholder="Enter reason for refund..."></textarea>
-            </div>
-            <button type="submit" class="btn-refund" id="refundBtn">
-                <i class="bi bi-check-circle me-2"></i>Process Refund
-            </button>
-            <button type="button" class="btn-print" id="printBtn" style="display:none;" onclick="printReceipt()">
-                <i class="bi bi-printer me-2"></i>Print Refund Receipt
-            </button>
-        </form>
+      <div class="items-list" id="selItems"></div>
+
+      <div class="refund-summary" id="refundSummary" style="display:none;">
+        <div class="rs-top">
+          <span class="rs-label"><i class="bi bi-bag-check me-2"></i><span id="rsSummaryText">0 items selected</span></span>
+          <span class="rs-amount" id="rsSummaryAmount">₱0.00</span>
+        </div>
+        <div class="refund-breakdown" id="refundBreakdown" style="display:none;">
+          <div class="rb-row">
+            <span>Transaction total</span>
+            <span class="rb-val" id="rbTxnTotal">₱0.00</span>
+          </div>
+          <div class="rb-row">
+            <span>Refund amount</span>
+            <span class="rb-val" id="rbRefundAmt">₱0.00</span>
+          </div>
+          <div class="rb-row rb-remaining" id="rbRemainingRow" style="display:none;">
+            <span>Remaining on transaction</span>
+            <span class="rb-val" id="rbRemainingAmt">₱0.00</span>
+          </div>
+          <div class="rb-hint" id="rbRemainingHint" style="display:none;">
+            Items not selected for refund stay on this sale.
+          </div>
+        </div>
+      </div>
+
+      <form id="refundForm">
+        <input type="hidden" id="txnId">
+        <div class="mb-3">
+          <label for="refundReason" class="fw-semibold">
+            Refund Reason <span class="text-muted fw-normal">(optional)</span>
+          </label>
+          <textarea class="form-control mt-1" id="refundReason" rows="2"
+                    placeholder="Enter reason for refund..."></textarea>
+        </div>
+        <button type="submit" class="btn-refund" id="refundBtn">
+          <i class="bi bi-check-circle me-2"></i>Process Refund
+        </button>
+        <button type="button" class="btn-print" id="printBtn" style="display:none;" onclick="printReceipt()">
+          <i class="bi bi-printer me-2"></i>Print Refund Receipt
+        </button>
+      </form>
     </div>
 
-    <!-- Refundable transactions (completed or partial — not fully refunded) -->
     {% if today_transactions %}
-    <div class="card-panel">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <span class="fw-semibold"><i class="bi bi-receipt me-2"></i>Transactions Eligible for Refund</span>
-            <span class="badge bg-success rounded-pill">{{ today_transactions|length }}</span>
-        </div>
-        <p class="text-muted small mb-3 mb-0" style="margin-bottom:12px !important;">
-            Completed sales and partially refunded transactions that still have items you can refund.
-        </p>
-        <div class="txn-list">
+    <div class="table-card">
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <h5 class="mb-0"><i class="bi bi-receipt me-2 text-primary"></i>Transactions Eligible for Refund</h5>
+        <span class="badge rounded-pill" style="background:#0038A8;">{{ today_transactions|length }}</span>
+      </div>
+      <p class="text-muted small mb-3">
+        Completed sales and partially refunded transactions that still have items you can refund.
+      </p>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0 txn-table">
+          <thead>
+            <tr>
+              <th>Transaction</th>
+              <th>Customer</th>
+              <th>Payment</th>
+              <th>Status</th>
+              <th>Items</th>
+              <th>Date</th>
+              <th class="text-end">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
             {% for t in today_transactions %}
-            <div class="txn-card" onclick="loadTransaction('{{ t.transaction_number }}')" >
-                <div>
-                    <div class="txn-num">{{ t.transaction_number }}</div>
-                    <div class="txn-meta">
-                        <span><i class="bi bi-person"></i> {{ t.member_name }}</span>
-                        <span><i class="bi bi-wallet2"></i> {{ t.payment_method }}</span>
-                        {% if t.is_partially_refunded %}
-                        <span><i class="bi bi-box"></i> {{ t.items_remaining }} of {{ t.items_count }} item(s) left</span>
-                        {% else %}
-                        <span><i class="bi bi-box"></i> {{ t.items_count }} item(s)</span>
-                        {% endif %}
-                        <span><i class="bi bi-clock"></i> {{ t.created_at }}</span>
-                    </div>
-                    {% if t.is_partially_refunded %}
-                    <span class="txn-partial-badge">Partial refund — more items can be refunded</span>
-                    {% endif %}
-                </div>
-                <div class="txn-amount">
-                    {% if t.is_partially_refunded %}
-                    <span class="txn-amount-label">Remaining</span>
-                    {% endif %}
-                    &#8369;{{ t.total_amount|floatformat:2 }}
-                </div>
-            </div>
+            <tr class="txn-row-main" onclick="loadTransaction('{{ t.transaction_number }}')">
+              <td class="txn-num"><code>{{ t.transaction_number }}</code></td>
+              <td>{{ t.member_name }}</td>
+              <td>
+                <span class="badge-payment {% if 'Debit' in t.payment_method or 'debit' in t.payment_method|lower %}badge-debit{% elif 'Credit' in t.payment_method or 'credit' in t.payment_method|lower %}badge-credit{% else %}badge-cash{% endif %}">
+                  {{ t.payment_method }}
+                </span>
+              </td>
+              <td>
+                {% if t.is_partially_refunded %}
+                <span class="txn-status-badge txn-status-partially_refunded"><i class="bi bi-pie-chart"></i> Partial refund</span>
+                {% else %}
+                <span class="txn-status-badge txn-status-completed"><i class="bi bi-check-circle"></i> {{ t.status_display|default:'Completed' }}</span>
+                {% endif %}
+              </td>
+              <td>
+                {% if t.is_partially_refunded %}
+                {{ t.items_remaining }} of {{ t.items_count }} left
+                {% else %}
+                {{ t.items_count }}
+                {% endif %}
+              </td>
+              <td class="text-muted small">{{ t.created_at }}</td>
+              <td class="text-end fw-semibold">
+                {% if t.is_partially_refunded %}<small class="d-block text-muted" style="font-size:0.68rem;">Remaining</small>{% endif %}
+                ₱{{ t.total_amount|floatformat:2 }}
+              </td>
+            </tr>
             {% endfor %}
-        </div>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% else %}
+    <div class="table-card">
+      <div class="text-center text-muted py-4">
+        <i class="bi bi-inbox" style="font-size:2rem;"></i>
+        <p class="mb-0 mt-2">No refundable transactions in the current window.</p>
+        <p class="small mb-0">Search by transaction number above, or open a sale from Transactions.</p>
+      </div>
     </div>
     {% endif %}
 
-</div>
-</div>
+  </main>
+
 
 <!-- PIN Verification Modal -->
 <div class="pin-modal-overlay" id="pinModalOverlay">

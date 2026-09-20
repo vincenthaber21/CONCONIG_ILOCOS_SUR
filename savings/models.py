@@ -37,6 +37,8 @@ class BaseModel(UUIDModel, TimeStampedModel):
 class SavingsProduct(BaseModel):
     """Catalog of savings offerings and their rules."""
 
+    REGULAR_PRODUCT_CODE = "regular-savings"
+
     class ProductType(models.TextChoices):
         SHARE_CAPITAL = "share_capital", "Share capital"
         REGULAR = "regular", "Regular savings"
@@ -136,6 +138,73 @@ class SavingsProduct(BaseModel):
 
     def __str__(self):
         return self.name
+
+    @classmethod
+    def regular_product_defaults(cls):
+        """Fixed coop policy values for the system Regular Savings product."""
+        from .policy import ANNUAL_INTEREST_RATE
+
+        return {
+            "name": "Regular Savings",
+            "product_type": cls.ProductType.REGULAR,
+            "description": "Passbook regular savings for cooperative members.",
+            "interest_rate": ANNUAL_INTEREST_RATE,
+            "compounding": cls.Compounding.ANNUALLY,
+            "min_opening_deposit": Decimal("1000.00"),
+            "max_balance": Decimal("1000000.00"),
+            "term_months": 0,
+            "min_maintaining_balance": Decimal("0.00"),
+            "min_additional_deposit": Decimal("0.00"),
+            "allows_withdrawal": True,
+            "withdrawal_notice_days": 0,
+            "max_free_withdrawals_per_month": 0,
+            "early_withdrawal_penalty_percent": Decimal("0.000"),
+            "dividend_eligible": False,
+            "required_for_membership": False,
+            "is_active": True,
+        }
+
+    @classmethod
+    def ensure_regular_product(cls):
+        """Create or reactivate the system Regular Savings product.
+
+        Opening accounts requires an active Regular product. Call this wherever
+        staff open accounts or manage the product catalog so the page never
+        blocks on a missing product.
+        """
+        active = (
+            cls.objects.filter(
+                is_active=True,
+                product_type=cls.ProductType.REGULAR,
+            )
+            .order_by("created_at")
+            .first()
+        )
+        if active:
+            return active
+
+        product = cls.objects.filter(code=cls.REGULAR_PRODUCT_CODE).first()
+        if product is None:
+            product = (
+                cls.objects.filter(product_type=cls.ProductType.REGULAR)
+                .order_by("created_at")
+                .first()
+            )
+
+        defaults = cls.regular_product_defaults()
+        if product is None:
+            return cls.objects.create(code=cls.REGULAR_PRODUCT_CODE, **defaults)
+
+        updates = []
+        if not product.is_active:
+            product.is_active = True
+            updates.append("is_active")
+        if product.product_type != cls.ProductType.REGULAR:
+            product.product_type = cls.ProductType.REGULAR
+            updates.append("product_type")
+        if updates:
+            product.save(update_fields=[*updates, "updated_at"])
+        return product
 
     def clean(self):
         super().clean()

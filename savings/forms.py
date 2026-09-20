@@ -3,6 +3,7 @@ from decimal import Decimal
 
 from django import forms
 from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator
 from django.utils import timezone
 from django.utils.text import slugify
 
@@ -10,24 +11,12 @@ from helper.money_forms import MoneyField, money_input
 from members.models import Member
 
 from . import models
-from .policy import ANNUAL_INTEREST_RATE
 
 # Natural / passbook regular savings — fixed coop defaults (not editable).
 REGULAR_NATURAL_DEFAULTS = {
-    "product_type": models.SavingsProduct.ProductType.REGULAR,
-    "interest_rate": ANNUAL_INTEREST_RATE,
-    "compounding": models.SavingsProduct.Compounding.ANNUALLY,
-    "min_opening_deposit": Decimal("1000.00"),
-    "max_balance": Decimal("1000000.00"),
-    "term_months": 0,
-    "min_maintaining_balance": Decimal("0.00"),
-    "min_additional_deposit": Decimal("0.00"),
-    "allows_withdrawal": True,
-    "withdrawal_notice_days": 0,
-    "max_free_withdrawals_per_month": 0,
-    "early_withdrawal_penalty_percent": Decimal("0.000"),
-    "dividend_eligible": False,
-    "required_for_membership": False,
+    key: value
+    for key, value in models.SavingsProduct.regular_product_defaults().items()
+    if key != "name" and key != "description" and key != "is_active"
 }
 
 
@@ -102,6 +91,7 @@ class OpenSavingsAccountForm(forms.Form):
             is_active=True,
             product_type=models.SavingsProduct.ProductType.REGULAR,
         ).order_by("name"),
+        required=False,
         widget=forms.HiddenInput(),
     )
     opening_amount = MoneyField(
@@ -129,7 +119,21 @@ class OpenSavingsAccountForm(forms.Form):
     )
 
     def __init__(self, *args, **kwargs):
+        # Always resolve Regular Savings before binding so a missing hidden
+        # product field never blocks account opening.
+        regular_product = models.SavingsProduct.ensure_regular_product()
+        data = kwargs.get("data")
+        if data is not None:
+            data = data.copy()
+            if not data.get("product"):
+                data["product"] = str(regular_product.pk)
+            kwargs["data"] = data
+
         super().__init__(*args, **kwargs)
+        self.fields["product"].queryset = models.SavingsProduct.objects.filter(
+            is_active=True,
+            product_type=models.SavingsProduct.ProductType.REGULAR,
+        ).order_by("name")
         # Members who closed savings (or already hold an open Regular account)
         # cannot open again.
         closed_member_ids = models.MemberSavingsAccount.objects.filter(
@@ -153,23 +157,28 @@ class OpenSavingsAccountForm(forms.Form):
             lambda m: f"{m.full_name} ({m.username or m.rfid_card_number or m.pk})"
         )
         self.regular_product = (
-            self.fields["product"].queryset.first()
+            self.fields["product"].queryset.filter(pk=regular_product.pk).first()
+            or self.fields["product"].queryset.first()
+            or regular_product
         )
-        if self.regular_product and not self.data:
-            self.fields["product"].initial = self.regular_product.pk
-        if not self.regular_product:
-            self.fields["product"].required = False
-        elif self.regular_product.min_opening_deposit > Decimal("0.00"):
-            min_open = self.regular_product.min_opening_deposit
+        self.fields["product"].initial = self.regular_product.pk
+        min_open = self.regular_product.min_opening_deposit or Decimal("0.00")
+        if min_open > Decimal("0.00"):
             opening = self.fields["opening_amount"]
             opening.min_value = min_open
+            opening.validators = [
+                v
+                for v in opening.validators
+                if not v.__class__.__name__.endswith("MinValueValidator")
+            ]
+            opening.validators.append(MinValueValidator(min_open))
             opening.widget.attrs["min"] = str(min_open)
             opening.help_text = f"Minimum ₱{min_open:,.2f} for {self.regular_product.name}."
         today = timezone.localdate()
-        opening = self.fields["opening_date"]
+        opening_date = self.fields["opening_date"]
         if not self.data:
-            opening.initial = today
-        opening.widget.attrs["max"] = today.isoformat()
+            opening_date.initial = today
+        opening_date.widget.attrs["max"] = today.isoformat()
 
     def clean_member(self):
         member = self.cleaned_data["member"]
@@ -187,6 +196,8 @@ class OpenSavingsAccountForm(forms.Form):
     def clean_product(self):
         product = self.cleaned_data.get("product") or self.regular_product
         if not product:
+            product = models.SavingsProduct.ensure_regular_product()
+        if not product:
             raise forms.ValidationError(
                 "No active Regular Savings product is set up yet. Add one under Regular Savings first."
             )
@@ -200,8 +211,8 @@ class OpenSavingsAccountForm(forms.Form):
 
     def clean(self):
         cleaned = super().clean()
-        if not cleaned.get("product") and self.regular_product:
-            cleaned["product"] = self.regular_product
+        if not cleaned.get("product"):
+            cleaned["product"] = self.regular_product or models.SavingsProduct.ensure_regular_product()
         member = cleaned.get("member")
         product = cleaned.get("product")
         if member and product:

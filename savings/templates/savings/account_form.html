@@ -55,16 +55,29 @@
 
   <div class="open-account-page__layout">
     <section class="card open-account-page__card">
-      <form method="post" id="open-savings-account-form" class="open-account-form" autocomplete="off" novalidate>
+      <form method="post" id="open-savings-account-form" class="open-account-form" autocomplete="off" novalidate data-server-today="{% now 'Y-m-d' %}">
         {% csrf_token %}
+        {% if form.regular_product %}
+        <input type="hidden" name="product" value="{{ form.regular_product.pk }}" id="id_product">
+        {% endif %}
 
         {% if form.errors %}
         <div class="open-account-form__alert" role="alert">
           <i class="bi bi-exclamation-circle"></i>
           <div>
             <strong>Could not open account.</strong>
-            Check the highlighted fields and try again.
-            {{ form.non_field_errors }}
+            {% if form.non_field_errors %}
+              {{ form.non_field_errors }}
+            {% else %}
+              Check the highlighted fields and try again.
+            {% endif %}
+            <ul class="open-account-form__alert-list">
+              {% for field in form %}
+                {% for error in field.errors %}
+                  <li>{{ field.label }}: {{ error }}</li>
+                {% endfor %}
+              {% endfor %}
+            </ul>
           </div>
         </div>
         {% endif %}
@@ -117,7 +130,7 @@
             {% endif %}</p>
           </div>
 
-          {{ form.product }}
+          {# product is posted via the explicit hidden input above #}
           {% if form.regular_product %}
           <div class="open-account-product-chip" aria-hidden="true">
             <i class="bi bi-check-circle-fill"></i>
@@ -431,6 +444,11 @@
     border-radius: 12px; background: #fee2e2; color: #991b1b; font-size: .88rem;
   }
   .open-account-form__alert i { font-size: 1.1rem; margin-top: .1rem; flex-shrink: 0; }
+  .open-account-form__alert-list {
+    margin: .45rem 0 0;
+    padding-left: 1.1rem;
+  }
+  .open-account-form__alert-list li { margin: .15rem 0; }
 
   .open-account-form__section {
     padding-bottom: 1.35rem;
@@ -755,6 +773,8 @@
     }
 
     function todayIso() {
+      var serverToday = form.getAttribute("data-server-today");
+      if (serverToday) return serverToday;
       var d = new Date();
       var m = String(d.getMonth() + 1).padStart(2, "0");
       var day = String(d.getDate()).padStart(2, "0");

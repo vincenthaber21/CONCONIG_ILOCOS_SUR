@@ -45,6 +45,11 @@ class SavingsProductAdmin(admin.ModelAdmin):
     list_filter = ("product_type", "is_active", "allows_withdrawal", "dividend_eligible")
     search_fields = ("name", "code", "description")
     list_editable = ("is_active",)
+
+    def changelist_view(self, request, extra_context=None):
+        models.SavingsProduct.ensure_regular_product()
+        return super().changelist_view(request, extra_context=extra_context)
+
     fieldsets = (
         (
             None,

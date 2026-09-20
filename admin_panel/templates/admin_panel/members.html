@@ -624,70 +624,105 @@
       box-shadow: 0 4px 12px rgba(0, 56, 168, 0.4);
     }
 
-    /* Member modals — same look as Add member */
+    /* Member modals — wide desk layout for fast data entry */
     .member-modal .modal-dialog {
-      max-width: min(720px, calc(100vw - 1.5rem));
+      max-width: min(1360px, calc(100vw - 1.25rem));
+      width: calc(100vw - 1.25rem);
+      margin: 0.75rem auto;
     }
+    #addMemberAdminModal.member-modal .modal-dialog,
     #memberFormModal.member-modal .modal-dialog {
-      max-width: min(820px, calc(100vw - 1.5rem));
+      max-width: min(1360px, calc(100vw - 1.25rem));
     }
     .member-modal .modal-content {
       border: none;
       border-radius: 16px;
       overflow: hidden;
-      box-shadow: 0 25px 60px rgba(15, 23, 42, 0.2);
+      box-shadow: 0 25px 60px rgba(15, 23, 42, 0.22);
+      max-height: calc(100vh - 1.5rem);
     }
     .member-modal .modal-header {
       background: var(--gradient);
       border-bottom: none;
-      padding: 1.25rem 1.5rem;
-      flex-wrap: wrap;
-      gap: 0.5rem;
+      padding: 1.15rem 1.75rem;
+      flex-wrap: nowrap;
+      gap: 1rem;
       align-items: flex-start;
     }
     .member-modal .modal-header .modal-title {
       font-weight: 600;
-      font-size: 1.125rem;
+      font-size: 1.2rem;
       letter-spacing: -0.02em;
-      width: 100%;
+      flex: 1;
+      width: auto;
       margin: 0;
+      padding-right: 0.5rem;
     }
     .member-modal .member-modal-sub,
     .member-modal .add-member-modal-sub {
       display: block;
       width: 100%;
+      max-width: 42rem;
       font-size: 0.8125rem;
       font-weight: 400;
       opacity: 0.92;
       line-height: 1.45;
-      margin: 0.15rem 0 0;
+      margin: 0.3rem 0 0;
     }
     .member-modal .modal-body {
-      background: #f1f5f9;
-      padding: 1.25rem 1.5rem 1.5rem;
+      background: #eef2f7;
+      padding: 1.25rem 1.5rem 1.35rem;
     }
     .member-modal .member-form-section {
-      padding-bottom: 0.35rem;
+      padding: 1.15rem 1.35rem 1.25rem;
+      margin-bottom: 0.95rem;
+      border-radius: 14px;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+    }
+    .member-modal .member-form-section:last-child {
+      margin-bottom: 0;
+    }
+    .member-modal .member-form-section-title {
+      font-size: 0.72rem;
+      margin-bottom: 1.05rem;
+      padding-bottom: 0.7rem;
+    }
+    @media (min-width: 1200px) {
+      .member-modal .modal-body {
+        padding: 1.4rem 1.85rem 1.55rem;
+      }
+      .member-modal .member-form-section .row.g-3 {
+        --bs-gutter-x: 1.2rem;
+        --bs-gutter-y: 1.05rem;
+      }
+      .member-modal .form-control,
+      .member-modal .form-select {
+        min-height: 2.65rem;
+      }
     }
     .member-modal .form-label {
-      font-weight: 500;
-      font-size: 0.875rem;
+      font-weight: 600;
+      font-size: 0.84rem;
       color: #334155;
-      margin-bottom: 0.35rem;
+      margin-bottom: 0.4rem;
+    }
+    .member-modal .form-control,
+    .member-modal .form-select {
+      font-size: 0.9375rem;
     }
     .member-modal .modal-footer {
       background: #fff;
       border-top: 1px solid #e2e8f0;
-      padding: 1rem 1.5rem;
-      gap: 0.5rem;
+      padding: 1rem 1.75rem;
+      gap: 0.65rem;
     }
     .member-modal .modal-footer .btn-primary,
     .member-modal #adminAddSaveMemberBtn,
     .member-modal #saveMemberBtn {
-      min-width: 8.5rem;
+      min-width: 9.5rem;
       border-radius: 10px;
       font-weight: 600;
-      padding: 0.5rem 1.15rem;
+      padding: 0.55rem 1.25rem;
       background: var(--brand);
       border-color: var(--brand);
     }
@@ -700,6 +735,17 @@
     .member-modal .modal-footer .btn-outline-secondary,
     .member-modal .modal-footer .btn-secondary {
       border-radius: 10px;
+      padding: 0.55rem 1.15rem;
+    }
+    @media (max-width: 991.98px) {
+      .member-modal .modal-dialog {
+        max-width: calc(100vw - 1rem);
+        width: calc(100vw - 1rem);
+        margin: 0.5rem auto;
+      }
+      .member-modal .modal-content {
+        max-height: calc(100vh - 1rem);
+      }
     }
 
     .members-pagination-bar {
@@ -807,8 +853,9 @@
           </div>
         </div>
       </div>
-      {% include 'admin_panel/partials/member_credit_summary.html' %}
     </section>
+
+    {% include 'admin_panel/partials/member_credit_summary.html' %}
 
     {% include 'admin_panel/partials/member_segment_discount_reference.html' %}
 
@@ -1226,7 +1273,7 @@
 
   <!-- Add Member Modal (mirrors /admin/members/member/add/ fieldsets) -->
   <div class="modal fade member-modal" id="addMemberAdminModal" tabindex="-1" aria-labelledby="addMemberAdminModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable member-modal-dialog">
       <div class="modal-content">
         <div class="modal-header text-white">
           <h5 class="modal-title" id="addMemberAdminModalLabel">
@@ -1254,7 +1301,7 @@
                   <label class="form-label" for="adminAddLastName">Last name <span class="text-danger">*</span></label>
                   <input type="text" class="form-control" id="adminAddLastName" placeholder="e.g. dela Cruz" required>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-6 col-xl-3">
                   <label class="form-label" for="adminAddUsername">Username</label>
                   <div class="position-relative">
                     <input type="text" class="form-control bg-light pe-5" id="adminAddUsername" placeholder="Generated when you enter the name" autocomplete="off" readonly>
@@ -1264,15 +1311,15 @@
                   </div>
                   <small class="text-muted">Created from the member’s name. You do not need to type this.</small>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-6 col-xl-3">
                   <label class="form-label" for="adminAddRfid">RFID card <span class="text-muted fw-normal">(optional)</span></label>
                   <input type="text" class="form-control" id="adminAddRfid" placeholder="Scan or type card number">
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-6 col-xl-3">
                   <label class="form-label" for="adminAddEmail">Email <span class="text-muted fw-normal">(optional)</span></label>
                   <input type="email" class="form-control" id="adminAddEmail" placeholder="name@example.com">
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-6 col-xl-3">
                   <label class="form-label" for="adminAddPhone">Contact number <span class="text-muted fw-normal">(optional)</span></label>
                   <input type="text" class="form-control" id="adminAddPhone" placeholder="Mobile or landline">
                 </div>
@@ -1284,7 +1331,7 @@
             <div class="member-form-section">
               <div class="member-form-section-title">Role &amp; account</div>
               <div class="row g-3">
-                <div class="col-md-6">
+                <div class="col-md-4">
                   <label class="form-label" for="adminAddRole">Role</label>
                   <select class="form-select" id="adminAddRole">
                     {% for role in assignable_roles %}
@@ -1302,7 +1349,7 @@
                     {% endfor %}
                   </select>
                 </div>
-                <div class="col-md-6" id="adminAddBalanceWrap">
+                <div class="col-md-4" id="adminAddBalanceWrap">
                   <label class="form-label" for="adminAddBalance">Starting balance</label>
                   <div class="input-group">
                     <span class="input-group-text bg-white">₱</span>
@@ -1310,7 +1357,7 @@
                   </div>
                   <small class="text-muted">Usually leave at zero unless you are loading an initial balance.</small>
                 </div>
-                <div class="col-md-6" id="adminAddShareCapitalWrap">
+                <div class="col-md-4" id="adminAddShareCapitalWrap">
                   <label class="form-label" for="adminAddShareCapital">Share capital</label>
                   <div class="input-group">
                     <span class="input-group-text bg-white">₱</span>
@@ -1340,7 +1387,7 @@
             <div class="member-form-section">
               <div class="member-form-section-title">Loan eligibility</div>
               <div class="row g-3">
-                <div class="col-md-6">
+                <div class="col-md-4">
                   <label class="form-label" for="adminAddDateJoined">Registration date</label>
                   <input type="datetime-local" class="form-control" id="adminAddDateJoined">
                   <small class="text-muted">Exact date and time the member registered. Used for loan eligibility. Defaults to now if unchanged.</small>
@@ -1351,7 +1398,7 @@
             <div class="member-form-section">
               <div class="member-form-section-title">Security</div>
               <div class="row g-3">
-                <div class="col-md-8">
+                <div class="col-md-4">
                   <label class="form-label" for="adminAddPin">4-digit PIN</label>
                   <div class="input-group">
                     <span class="input-group-text bg-white"><i class="bi bi-lock-fill text-secondary"></i></span>
@@ -1385,7 +1432,7 @@
 
   <!-- Edit Member Modal -->
   <div class="modal fade member-modal" id="memberFormModal" tabindex="-1" aria-labelledby="memberFormModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-xl">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable member-modal-dialog">
       <div class="modal-content">
         <div class="modal-header text-white">
           <h5 class="modal-title" id="memberFormModalLabel">
@@ -1415,7 +1462,7 @@
                   <label class="form-label" for="memberLastName">Last name <span class="text-danger">*</span></label>
                   <input type="text" class="form-control" id="memberLastName" required>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-6 col-xl-3">
                   <label class="form-label">Username</label>
                   <div class="input-group">
                     <span class="input-group-text bg-white"><i class="bi bi-person-fill text-secondary"></i></span>
@@ -1423,15 +1470,15 @@
                   </div>
                   <small class="text-muted" id="memberUsernameHint">Auto-filled from name. You can change it.</small>
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-6 col-xl-3">
                   <label class="form-label">RFID card <span class="text-muted fw-normal">(optional)</span></label>
                   <input type="text" class="form-control" id="memberRfid" placeholder="Scan or type card number">
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-6 col-xl-3">
                   <label class="form-label">Email <span class="text-muted fw-normal">(optional)</span></label>
                   <input type="email" class="form-control" id="memberEmail" placeholder="name@example.com">
                 </div>
-                <div class="col-md-6">
+                <div class="col-md-6 col-xl-3">
                   <label class="form-label">Contact number <span class="text-muted fw-normal">(optional)</span></label>
                   <input type="text" class="form-control" id="memberPhone" placeholder="Mobile or landline">
                 </div>
@@ -1443,7 +1490,7 @@
             <div class="member-form-section">
               <div class="member-form-section-title">Role &amp; account</div>
               <div class="row g-3">
-              <div class="col-md-6">
+              <div class="col-md-4">
                 <label class="form-label">Role</label>
                 <select class="form-select" id="memberRole">
                   {% for role in assignable_roles %}
@@ -1461,7 +1508,7 @@
                   {% endfor %}
                 </select>
               </div>
-              <div class="col-md-6" id="memberBalanceWrap">
+              <div class="col-md-4" id="memberBalanceWrap">
                 <label class="form-label">Balance</label>
                 <div class="input-group">
                   <span class="input-group-text">₱</span>
@@ -1469,7 +1516,7 @@
                 </div>
                 <small class="text-muted"><i class="bi bi-lock-fill me-1"></i>Balance is read-only. Use <strong>Refill Card Balance</strong> to add funds.</small>
               </div>
-              <div class="col-md-6" id="memberShareCapitalWrap">
+              <div class="col-md-4" id="memberShareCapitalWrap">
                 <label class="form-label" for="memberShareCapital">Share capital</label>
                 <div class="input-group">
                   <span class="input-group-text">₱</span>
@@ -2289,6 +2336,18 @@
         allMembersSection.scrollIntoView({ behavior: 'auto', block: 'start' });
       }
       {% endif %}
+
+      function scrollToMembersHash() {
+        const hash = window.location.hash;
+        if (!hash || hash === '#') return;
+        const target = document.querySelector(hash);
+        if (!target) return;
+        requestAnimationFrame(function () {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      }
+      scrollToMembersHash();
+      window.addEventListener('hashchange', scrollToMembersHash);
 
       if (memberSearchInput && memberSearchForm) {
         // Auto-submit search on input with debouncing (after 500ms of no typing)

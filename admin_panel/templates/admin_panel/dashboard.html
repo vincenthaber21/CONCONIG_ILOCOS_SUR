@@ -711,80 +711,6 @@
         }
       }
 
-    /* Operational Insights — responsive metric tiles */
-    .op-insight-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 0.65rem;
-    }
-    @media (min-width: 576px) {
-      .op-insight-grid {
-        grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
-      }
-    }
-    .op-insight-tile {
-      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-      border-radius: 14px;
-      padding: 0.85rem 0.75rem;
-      border: 1px solid rgba(148, 163, 184, 0.28);
-      min-width: 0;
-    }
-    .op-insight-tile .op-lab {
-      font-size: 0.68rem;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: #64748b;
-      font-weight: 600;
-      margin-bottom: 0.25rem;
-    }
-    .op-insight-tile .op-val {
-      font-size: clamp(0.95rem, 2.6vw, 1.12rem);
-      font-weight: 700;
-      color: #0f172a;
-      line-height: 1.2;
-      overflow-wrap: anywhere;
-      word-break: break-word;
-    }
-    .op-insight-tile .op-sub {
-      font-size: 0.7rem;
-      color: #94a3b8;
-      margin-top: 0.2rem;
-      line-height: 1.25;
-    }
-    .op-action-row {
-      display: flex;
-      flex-direction: column;
-      align-items: stretch;
-      gap: 0.65rem;
-    }
-    @media (min-width: 768px) {
-      .op-action-row {
-        flex-direction: row;
-        align-items: center;
-        justify-content: space-between;
-        gap: 0.75rem;
-      }
-    }
-    .op-action-row .op-action-text {
-      min-width: 0;
-      flex: 1 1 auto;
-    }
-
-    /* Top Selling Products — fill card to match Operational Insights height */
-    #topProductsInsightsRow > [class*="col-"] {
-      display: flex;
-      flex-direction: column;
-    }
-    #topSellingProductsCard {
-      flex: 1 1 auto;
-      width: 100%;
-      min-height: 0;
-    }
-    #topSellingProductsCard .top-products-grid {
-      flex: 1 1 auto;
-      min-height: 0;
-      align-content: start;
-    }
     .top-products-grid {
       --tp-card-min: 168px;
       --tp-card-est-height: 148px;
@@ -1560,8 +1486,8 @@
       </div>
     </section>
 
-    <section class="row g-4 align-items-stretch" id="topProductsInsightsRow">
-      <div class="col-12 col-xl-6">
+    <section class="row g-4" id="topProductsInsightsRow">
+      <div class="col-12">
         <div class="chart-card" id="topSellingProductsCard">
           <div id="topProductsCardHeader" class="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-2 mb-3">
             <div>
@@ -1573,97 +1499,6 @@
           </div>
           <div class="top-products-grid" id="topProductsGrid" aria-live="polite">
           </div>
-        </div>
-      </div>
-      <div class="col-12 col-xl-6">
-        <div class="chart-card" id="operationalInsightsCard">
-          <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start gap-2 mb-3">
-            <div>
-              <h5 class="mb-1 d-flex align-items-center gap-2 flex-wrap">
-                <i class="bi bi-lightbulb-fill text-warning"></i>Operational Insights
-              </h5>
-              <small class="text-muted d-block" id="opInsightsRangeNote">Period metrics for {{ range_label }} · Queue counts are live</small>
-            </div>
-          </div>
-
-          <div class="op-insight-grid mb-3" aria-label="Key operational metrics">
-            <div class="op-insight-tile">
-              <div class="op-lab">Avg order</div>
-              <div class="op-val" id="opInsightAvgOrder">₱{{ operational_insights.avg_order_value|floatformat:2 }}</div>
-              <div class="op-sub">Completed sales in period</div>
-            </div>
-            <div class="op-insight-tile">
-              <div class="op-lab">Guest vs member</div>
-              <div class="op-val"><span id="opInsightGuestCount">{{ operational_insights.guest_txn_count }}</span> / <span id="opInsightMemberCount">{{ operational_insights.member_txn_count }}</span></div>
-              <div class="op-sub"><span id="opInsightGuestPct">{{ operational_insights.guest_share_pct }}%</span> guest · <span id="opInsightMemberPct">{{ operational_insights.member_share_pct }}%</span> member</div>
-            </div>
-            <div class="op-insight-tile">
-              <div class="op-lab">Revenue split</div>
-              <div class="op-val text-truncate" style="max-width:100%;" title="Guest and member revenue">G <span id="opInsightGuestRev">₱{{ operational_insights.guest_revenue|floatformat:2 }}</span></div>
-              <div class="op-sub">M <span id="opInsightMemberRev">₱{{ operational_insights.member_revenue|floatformat:2 }}</span></div>
-            </div>
-            <div class="op-insight-tile">
-              <div class="op-lab">New members</div>
-              <div class="op-val" id="opInsightNewMembers">{{ operational_insights.new_members_in_period }}</div>
-              <div class="op-sub">Joined in this period</div>
-            </div>
-            <div class="op-insight-tile">
-              <div class="op-lab">Refund rate</div>
-              <div class="op-val" id="opInsightRefundRate">{{ operational_insights.refund_rate_pct }}%</div>
-              <div class="op-sub">Refunds completed vs sales in period</div>
-            </div>
-            <div class="op-insight-tile">
-              <div class="op-lab">Active SKUs</div>
-              <div class="op-val" id="opInsightActiveProducts">{{ operational_insights.active_products }}</div>
-              <div class="op-sub">Catalog (active products)</div>
-            </div>
-          </div>
-
-          <p class="small text-muted mb-2 fw-semibold text-uppercase" style="letter-spacing:0.06em;">Live queues</p>
-          <div class="row g-2 mb-3">
-            <div class="col-6 col-md-4">
-              <div class="rounded-3 border bg-white px-3 py-2 h-100">
-                <div class="text-muted small">Pending checkout</div>
-                <div class="fs-5 fw-bold text-primary" id="opInsightPending">{{ operational_insights.pending_checkouts }}</div>
-              </div>
-            </div>
-            <div class="col-6 col-md-4">
-              <div class="rounded-3 border bg-white px-3 py-2 h-100">
-                <div class="text-muted small">Refund requests</div>
-                <div class="fs-5 fw-bold text-danger" id="opInsightRefundReq">{{ operational_insights.refund_requested_open }}</div>
-              </div>
-            </div>
-            <div class="col-12 col-md-4">
-              <div class="rounded-3 border bg-white px-3 py-2 h-100">
-                <div class="text-muted small">Return window</div>
-                <div class="fs-5 fw-bold text-warning" id="opInsightReturnWin">{{ operational_insights.return_window_open }}</div>
-              </div>
-            </div>
-          </div>
-
-          <ul class="list-group list-group-flush rounded-3 border">
-            <li class="list-group-item op-action-row py-3">
-              <div class="op-action-text">
-                <strong>{{ low_stock_products }}</strong> low stock and <strong>{{ out_of_stock_products }}</strong> out of stock (<strong>{{ inventory_alert_total }}</strong> alerts).
-              </div>
-              <a href="{% url 'inventory_management' %}?filter=low_stock" class="btn btn-outline-success btn-sm rounded-pill flex-shrink-0 align-self-start align-self-md-center">Review inventory</a>
-            </li>
-            <li class="list-group-item op-action-row py-3">
-              <div class="op-action-text">
-                <strong>{{ total_refunds }}</strong> refunds all-time · <strong>₱{{ total_refund_amount|floatformat:2 }}</strong> · Period: <strong id="opInsightPeriodRefundsInline">{{ period_refunds }}</strong> / <strong id="opInsightPeriodRefundAmtInline">₱{{ period_refund_amount|floatformat:2 }}</strong>
-              </div>
-              <div class="d-flex flex-wrap gap-2 flex-shrink-0">
-                <a href="{% url 'transaction_history' %}" class="btn btn-outline-secondary btn-sm rounded-pill">Transactions</a>
-                <a href="{% url 'process_refund' %}" class="btn btn-outline-success btn-sm rounded-pill">Refunds</a>
-              </div>
-            </li>
-            <li class="list-group-item op-action-row py-3">
-              <div class="op-action-text">
-                <strong>{{ total_members }}</strong> active members · New in period: <strong id="opInsightNewMembersInline">{{ operational_insights.new_members_in_period }}</strong>
-              </div>
-              <a href="{% url 'member_management' %}" class="btn btn-outline-success btn-sm rounded-pill flex-shrink-0 align-self-start align-self-md-center">Members</a>
-            </li>
-          </ul>
         </div>
       </div>
     </section>
@@ -1856,39 +1691,6 @@
       if (totalRefundAmountEl) totalRefundAmountEl.textContent = formatPeso(allTimeRefundAmount);
       if (periodRefundsEl) periodRefundsEl.textContent = periodRefunds.toLocaleString('en-US');
       if (periodRefundAmountEl) periodRefundAmountEl.textContent = formatPeso(periodRefundAmount);
-
-      const prInline = document.getElementById('opInsightPeriodRefundsInline');
-      const praInline = document.getElementById('opInsightPeriodRefundAmtInline');
-      if (prInline) prInline.textContent = periodRefunds.toLocaleString('en-US');
-      if (praInline) praInline.textContent = formatPeso(periodRefundAmount);
-    }
-
-    function updateOperationalInsights(payload) {
-      const oi = payload.operational_insights;
-      if (!oi) return;
-      const set = (id, val) => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = val;
-      };
-      set('opInsightAvgOrder', formatPeso(oi.avg_order_value));
-      set('opInsightGuestCount', String(oi.guest_txn_count));
-      set('opInsightMemberCount', String(oi.member_txn_count));
-      set('opInsightGuestRev', formatPeso(oi.guest_revenue));
-      set('opInsightMemberRev', formatPeso(oi.member_revenue));
-      set('opInsightGuestPct', String(oi.guest_share_pct) + '%');
-      set('opInsightMemberPct', String(oi.member_share_pct) + '%');
-      const nm = String(oi.new_members_in_period);
-      set('opInsightNewMembers', nm);
-      set('opInsightNewMembersInline', nm);
-      set('opInsightRefundRate', String(oi.refund_rate_pct) + '%');
-      set('opInsightActiveProducts', String(oi.active_products));
-      set('opInsightPending', String(oi.pending_checkouts));
-      set('opInsightRefundReq', String(oi.refund_requested_open));
-      set('opInsightReturnWin', String(oi.return_window_open));
-      const note = document.getElementById('opInsightsRangeNote');
-      if (note && payload.range_label) {
-        note.textContent = 'Period metrics for ' + payload.range_label + ' · Queue counts are live';
-      }
     }
 
     function escapeHtml(text) {
@@ -1904,38 +1706,17 @@
 
     function getTopProductsGridCapacity() {
       const grid = document.getElementById('topProductsGrid');
-      const card = document.getElementById('topSellingProductsCard');
-      const peer = document.getElementById('operationalInsightsCard');
       if (!grid) return 10;
 
       const cs = getComputedStyle(grid);
       const gapPx = parseFloat(cs.rowGap) || parseFloat(cs.gap) || 10.4;
       const colGapPx = parseFloat(cs.columnGap) || gapPx;
       const minCard = parseFloat(cs.getPropertyValue('--tp-card-min')) || 168;
-      const estCardH = parseFloat(cs.getPropertyValue('--tp-card-est-height')) || 148;
 
       const w = grid.clientWidth;
       if (w <= 0) return 10;
       const cols = Math.max(1, Math.floor((w + colGapPx) / (minCard + colGapPx)));
-
-      let availableH = 0;
-      if (peer && card) {
-        const header = document.getElementById('topProductsCardHeader');
-        const headerH = header ? header.offsetHeight : 72;
-        const cardStyle = getComputedStyle(card);
-        const padY = parseFloat(cardStyle.paddingTop) + parseFloat(cardStyle.paddingBottom);
-        availableH = peer.offsetHeight - headerH - padY - 6;
-      }
-
-      const probe = grid.querySelector('.top-product-card');
-      const cardH = probe && probe.offsetHeight > 0 ? probe.offsetHeight : estCardH;
-
-      let rows = 2;
-      if (availableH > cardH) {
-        rows = Math.max(2, Math.floor((availableH + gapPx) / (cardH + gapPx)));
-      }
-
-      return Math.max(cols * 2, cols * rows);
+      return Math.max(10, cols * 2);
     }
 
     function renderTopProductsGrid() {
@@ -1993,13 +1774,11 @@
       renderTopProductsGrid();
       const grid = document.getElementById('topProductsGrid');
       const card = document.getElementById('topSellingProductsCard');
-      const peer = document.getElementById('operationalInsightsCard');
       const row = document.getElementById('topProductsInsightsRow');
       if (typeof ResizeObserver !== 'undefined') {
         const ro = new ResizeObserver(scheduleTopProductsRelayout);
         if (grid) ro.observe(grid);
         if (card) ro.observe(card);
-        if (peer) ro.observe(peer);
         if (row) ro.observe(row);
       }
       window.addEventListener('resize', scheduleTopProductsRelayout);
@@ -2164,7 +1943,6 @@
         updateRecentTransactions(payload);
         updateRecentRefunds(payload);
         updateWalkInInsights(payload);
-        updateOperationalInsights(payload);
         updateTopProducts(payload);
 
         dailySalesLabels = payload.daily_sales_labels || [];

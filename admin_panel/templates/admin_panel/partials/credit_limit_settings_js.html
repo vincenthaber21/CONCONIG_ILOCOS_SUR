@@ -2,7 +2,8 @@
 (function () {
   const modalEl = document.getElementById('creditLimitSettingsModal');
   const form = document.getElementById('creditLimitSettingsForm');
-  if (!modalEl || !form) return;
+  if (!modalEl || !form || modalEl.dataset.creditLimitReady === '1') return;
+  modalEl.dataset.creditLimitReady = '1';
 
   const maxInput = document.getElementById('creditLimitMaxInput');
   const statusHint = document.getElementById('creditLimitStatusHint');
@@ -246,6 +247,13 @@
   document.querySelectorAll('[data-open-credit-limit-modal]').forEach(function (el) {
     el.addEventListener('click', function (e) {
       e.preventDefault();
+      e.stopPropagation();
+      var dropdownRoot = el.closest('.dropdown');
+      var dropdownToggle = dropdownRoot && dropdownRoot.querySelector(':scope > [data-bs-toggle="dropdown"]');
+      if (dropdownToggle && typeof bootstrap !== 'undefined') {
+        var dd = bootstrap.Dropdown.getInstance(dropdownToggle);
+        if (dd) dd.hide();
+      }
       if (typeof bootstrap !== 'undefined') {
         bootstrap.Modal.getOrCreateInstance(modalEl).show();
       }

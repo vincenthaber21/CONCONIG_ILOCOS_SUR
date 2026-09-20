@@ -43,6 +43,7 @@ def _require_member_account(request, pk):
 @member_or_login_required
 def member_savings_list(request):
     member = _get_active_member(request)
+    models.SavingsProduct.ensure_regular_product()
     products = models.SavingsProduct.objects.filter(is_active=True).order_by("name")
     accounts = []
     total_balance = 0
