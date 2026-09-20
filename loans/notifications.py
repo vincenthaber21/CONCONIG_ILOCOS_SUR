@@ -115,7 +115,7 @@ def _html_email(title, greeting_name, intro, rows, note, coop_name):
       <td align="center">
         <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
           <tr>
-            <td style="background:linear-gradient(135deg,#C4121A 0%,#ED1C24 60%,#8B0E14 100%);padding:32px 40px;text-align:center;">
+            <td style="background:linear-gradient(135deg,#002670 0%,#0038A8 60%,#001A4D 100%);padding:32px 40px;text-align:center;">
               <p style="margin:0;color:rgba(255,255,255,0.85);font-size:12px;letter-spacing:0.16em;text-transform:uppercase;">Loan update</p>
               <h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:700;">{html.escape(title)}</h1>
             </td>

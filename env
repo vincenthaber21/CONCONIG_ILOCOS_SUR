@@ -131,22 +131,4 @@ https://console.cloud.google.com/auth/clients/134396661844-n0c8q1jok6thkkosp54h2
 
 
 
-
-
-
-http://127.0.0.1:8000/kiosk/ make features before complete the transaction Cash Payment or debits make input the name of the customers they not a members 
-
-dashboard 
-reciepts 
-
-
-
-http://127.0.0.1:8000/dashboard/transactions/ didnot show the Pay Credit (Utang) in the transactions 
-
-
-fix this 
-
-
-
-
-fix the if i login the cahier and i buy item and http://127.0.0.1:8000/kiosk/ and i search Search Member stil the sales is in the cahier 
+python manage.py collectstatic --noinput

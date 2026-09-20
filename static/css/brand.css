@@ -1,0 +1,68 @@
+/**
+ * CONCONIG East Farmers MPC — system brand palette
+ * Derived from the cooperative logo (Sta. Lucia, Ilocos Sur · 1991)
+ */
+:root {
+  /* Primary — logo ring / wordmark blue */
+  --brand: #0038A8;
+  --brand-light: #2B5FCC;
+  --brand-dark: #002670;
+  --brand-deeper: #001A4D;
+  --brand-rgb: 0 56 168;
+
+  /* Accent — plant green from logo */
+  --accent: #228B22;
+  --accent-rgb: 34 139 34;
+
+  /* Secondary earth tones from sacks / barn */
+  --earth-tan: #D2B48C;
+  --earth-brown: #8B4513;
+  --roof-red: #A52A2A;
+
+  /* Surfaces */
+  --brand-tint: #E8EEF8;
+  --brand-tint-soft: #F0F4FA;
+  --panel: #ffffff;
+  --bg: #f8fafc;
+
+  /* Gradients */
+  --gradient: linear-gradient(135deg, #0038A8 0%, #002670 40%, #001A4D 100%);
+  --gradient-bright: linear-gradient(135deg, #0038A8 0%, #2B5FCC 45%, #002670 100%);
+  --bg-gradient: linear-gradient(135deg, #E8EEF8 0%, #F0F4FA 50%, #f8fafc 100%);
+}
+
+/* Bootstrap primary override when brand.css is loaded after Bootstrap */
+:root {
+  --bs-primary: #0038A8;
+  --bs-primary-rgb: 0, 56, 168;
+  --bs-link-color: #0038A8;
+  --bs-link-hover-color: #002670;
+  --bs-success: #228B22;
+  --bs-success-rgb: 34, 139, 34;
+}
+
+.btn-primary {
+  --bs-btn-bg: #0038A8;
+  --bs-btn-border-color: #0038A8;
+  --bs-btn-hover-bg: #002670;
+  --bs-btn-hover-border-color: #002670;
+  --bs-btn-active-bg: #001A4D;
+  --bs-btn-active-border-color: #001A4D;
+  --bs-btn-disabled-bg: #0038A8;
+  --bs-btn-disabled-border-color: #0038A8;
+}
+
+.btn-outline-primary {
+  --bs-btn-color: #0038A8;
+  --bs-btn-border-color: #0038A8;
+  --bs-btn-hover-bg: #0038A8;
+  --bs-btn-hover-border-color: #0038A8;
+  --bs-btn-active-bg: #002670;
+  --bs-btn-active-border-color: #002670;
+  --bs-btn-disabled-color: #0038A8;
+  --bs-btn-disabled-border-color: #0038A8;
+}
+
+.text-primary { color: #0038A8 !important; }
+.bg-primary { background-color: #0038A8 !important; }
+.border-primary { border-color: #0038A8 !important; }

@@ -8,9 +8,9 @@
     {% include "partials/inter_font.html" %}
     <style>
 :root {
-            --brand: #ED1C24;
-            --accent: #E6C200;
-            --brand-light: #FF4D54;
+            --brand: #0038A8;
+            --accent: #228B22;
+            --brand-light: #2B5FCC;
             --muted: #6c757d;
             --inv-border: #e2e8f0;
             --radius: 16px;
@@ -24,7 +24,7 @@
         html, body { margin: 0; }
         body {
             font-family: 'Inter', system-ui, sans-serif;
-            background: linear-gradient(165deg, #FEF7D5 0%, #FFFDE7 45%, #f8fafc 100%);
+            background: linear-gradient(165deg, #E8EEF8 0%, #F0F4FA 45%, #f8fafc 100%);
             color: #1a1a1a;
             display: flex;
             flex-direction: column;
@@ -33,7 +33,7 @@
             overflow: hidden;
         }
         .bp-topbar {
-            background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark, #C4121A) 100%);
+            background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark, #002670) 100%);
             color: #fff;
             padding: 10px clamp(12px, 2vw, 28px);
             box-shadow: var(--shadow-md);
@@ -168,12 +168,12 @@
         #bpCategorySelect:hover,
         #bpSearch:hover {
             border-color: var(--brand);
-            box-shadow: 0 0 0 3px rgba(237, 28, 36, 0.1);
+            box-shadow: 0 0 0 3px rgba(0, 56, 168, 0.1);
         }
         #bpCategorySelect:focus,
         #bpSearch:focus {
             border-color: var(--brand);
-            box-shadow: 0 0 0 3px rgba(237, 28, 36, 0.1);
+            box-shadow: 0 0 0 3px rgba(0, 56, 168, 0.1);
             outline: none;
         }
         .bp-grid-wrap {
@@ -229,7 +229,7 @@
             padding: 4px 10px;
             border-radius: 999px;
         }
-        .bp-stock.ok { background: rgba(237,28,36,0.12); color: var(--brand); }
+        .bp-stock.ok { background: rgba(0,56,168,0.12); color: var(--brand); }
         .bp-stock.low { background: rgba(255,152,0,0.18); color: #c2410c; }
         .bp-stock.bad { background: rgba(220,53,69,0.12); color: #c82333; }
         .bp-card-body { padding: 14px; flex: 1; display: flex; flex-direction: column; }
@@ -264,7 +264,7 @@
         }
         .bp-add:hover:not(:disabled) {
             filter: brightness(1.05);
-            box-shadow: 0 4px 14px rgba(237,28,36,0.35);
+            box-shadow: 0 4px 14px rgba(0,56,168,0.35);
         }
         .bp-add:disabled { background: #dee2e6; color: #999; cursor: not-allowed; }
         .bp-add.added { background: linear-gradient(135deg, #28a745, #218838); }
@@ -311,7 +311,7 @@
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            box-shadow: 0 4px 14px rgba(237,28,36,0.3);
+            box-shadow: 0 4px 14px rgba(0,56,168,0.3);
         }
         .bp-btn-checkout:hover { color: #fff; filter: brightness(1.06); }
         #bpToast {

@@ -2370,9 +2370,9 @@ def export_inventory_price_report(request):
         bottomMargin=28,
     )
     styles = getSampleStyleSheet()
-    pdf_primary = colors.HexColor('#ED1C24')
-    pdf_primary_dark = colors.HexColor('#C4121A')
-    pdf_row_alt = colors.HexColor('#FEF7D5')
+    pdf_primary = colors.HexColor('#0038A8')
+    pdf_primary_dark = colors.HexColor('#002670')
+    pdf_row_alt = colors.HexColor('#E8EEF8')
     title_style = ParagraphStyle(
         'InvPriceTitle',
         parent=styles['Heading1'],
@@ -2828,11 +2828,11 @@ def _purchase_history_pdf_response(rows, *, title, scope_label, user_label, file
         bottomMargin=24,
     )
     styles = getSampleStyleSheet()
-    pdf_primary = colors.HexColor('#ED1C24')
-    pdf_primary_dark = colors.HexColor('#C4121A')
+    pdf_primary = colors.HexColor('#0038A8')
+    pdf_primary_dark = colors.HexColor('#002670')
     pdf_sale = colors.HexColor('#b45309')
-    pdf_row_alt = colors.HexColor('#FEF7D5')
-    pdf_sale_alt = colors.HexColor('#FEF7D5')
+    pdf_row_alt = colors.HexColor('#E8EEF8')
+    pdf_sale_alt = colors.HexColor('#E8EEF8')
     title_style = ParagraphStyle(
         'PurchaseHistTitle',
         parent=styles['Heading1'],
@@ -3686,8 +3686,8 @@ def export_inventory_manual_discount_report(request):
 
     from xml.sax.saxutils import escape as xml_escape
 
-    pdf_primary = colors.HexColor('#ED1C24')
-    pdf_primary_dark = colors.HexColor('#C4121A')
+    pdf_primary = colors.HexColor('#0038A8')
+    pdf_primary_dark = colors.HexColor('#002670')
     pdf_heading = colors.HexColor('#166534')
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
@@ -3766,7 +3766,7 @@ def export_inventory_manual_discount_report(request):
                 ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
                 ('FONTSIZE', (0, 1), (-1, -1), 8),
                 ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#FEF7D5')]),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#E8EEF8')]),
             ]
         )
     )
@@ -7532,7 +7532,7 @@ def export_transaction_history(request):
 
         return _staff_sales_excel_response(wb, f'transactions_{date_slug}.xlsx')
 
-    pdf_primary_dark = colors.HexColor('#C4121A')
+    pdf_primary_dark = colors.HexColor('#002670')
     pdf_heading = colors.HexColor('#166534')
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
@@ -10841,10 +10841,10 @@ def generate_daily_report_pdf(request):
     # Use "PHP" instead of peso sign for better font compatibility in PDF
     currency_symbol = "PHP "
     # Keep report colors aligned with the system theme palette.
-    pdf_primary = colors.HexColor('#ED1C24')
-    pdf_primary_dark = colors.HexColor('#C4121A')
+    pdf_primary = colors.HexColor('#0038A8')
+    pdf_primary_dark = colors.HexColor('#002670')
     pdf_heading = colors.HexColor('#166534')
-    pdf_row_alt = colors.HexColor('#FEF7D5')
+    pdf_row_alt = colors.HexColor('#E8EEF8')
 
     # Define custom styles
     title_style = ParagraphStyle(
@@ -11996,7 +11996,7 @@ def download_product_barcodes_pdf(request):
     )
     price_style = ParagraphStyle(
         'PPrice', fontSize=10, alignment=TA_CENTER,
-        textColor=colors.HexColor('#ED1C24'), fontName='Helvetica-Bold'
+        textColor=colors.HexColor('#0038A8'), fontName='Helvetica-Bold'
     )
     cat_style = ParagraphStyle(
         'PCat', fontSize=6, alignment=TA_CENTER,
@@ -12026,7 +12026,7 @@ def download_product_barcodes_pdf(request):
     )
     badge_style = ParagraphStyle(
         'PBadge', fontSize=7, alignment=TA_CENTER,
-        textColor=colors.HexColor('#E6C200'), fontName='Helvetica-Bold',
+        textColor=colors.HexColor('#228B22'), fontName='Helvetica-Bold',
     )
     wholesale_badge_style = ParagraphStyle(
         'PWholesaleBadge', fontSize=7, alignment=TA_CENTER,
@@ -12207,8 +12207,8 @@ def download_product_barcodes_pdf(request):
                     colWidths=[total_table_width],
                 )
                 banner_table.setStyle(TableStyle([
-                    ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#ED1C24')),
-                    ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#E6C200')),
+                    ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#0038A8')),
+                    ('BOX', (0, 0), (-1, -1), 1, colors.HexColor('#228B22')),
                     ('TOPPADDING', (0, 0), (-1, -1), 7),
                     ('BOTTOMPADDING', (0, 0), (-1, -1), 7),
                     ('LEFTPADDING', (0, 0), (-1, -1), 10),
@@ -12232,7 +12232,7 @@ def download_product_barcodes_pdf(request):
 
                 prod_table = Table(all_rows, colWidths=[col_width] * items_per_row)
                 prod_table.setStyle(TableStyle([
-                    ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#ED1C24')),
+                    ('BOX', (0, 0), (-1, -1), 0.5, colors.HexColor('#0038A8')),
                     ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.HexColor('#e2e8f0')),
                     ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                     ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
@@ -12564,7 +12564,7 @@ def export_staff_sales_overview(request):
 
         return _staff_sales_excel_response(wb, f'staff_sales_overview_{date_slug}.xlsx')
 
-    pdf_primary_dark = colors.HexColor('#C4121A')
+    pdf_primary_dark = colors.HexColor('#002670')
     pdf_heading = colors.HexColor('#166534')
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(
@@ -12799,7 +12799,7 @@ def export_staff_sales_detail(request, member_id):
 
         return _staff_sales_excel_response(wb, f'staff_sales_{file_slug}_{date_slug}.xlsx')
 
-    pdf_primary_dark = colors.HexColor('#C4121A')
+    pdf_primary_dark = colors.HexColor('#002670')
     pdf_heading = colors.HexColor('#166534')
     styles = getSampleStyleSheet()
     title_style = ParagraphStyle(

@@ -10,11 +10,11 @@
   <style>
     :root {
       --dark: #0f172a;
-      --brand: #ED1C24;
-      --accent: #E6C200;
+      --brand: #0038A8;
+      --accent: #228B22;
       --muted: #94a3b8;
       --panel: #ffffff;
-      --gradient: linear-gradient(135deg, #ED1C24 0%, #C4121A 40%, #8B0E14 100%);
+      --gradient: linear-gradient(135deg, #0038A8 0%, #002670 40%, #001A4D 100%);
     }
 
     body {
@@ -111,7 +111,7 @@
       overflow: hidden;
     }
     #stockHistoryModal .modal-header {
-      background: linear-gradient(135deg, #C4121A 0%, #ED1C24 100%);
+      background: linear-gradient(135deg, #002670 0%, #0038A8 100%);
       color: #fff;
       border-bottom: none;
       padding: 1rem 1.25rem;
@@ -165,7 +165,7 @@
     }
     .sh-summary-card.sh-stock .sh-value { color: #1d4ed8; }
     .sh-summary-card.sh-sold .sh-value { color: #15803d; }
-    .sh-summary-card.sh-sell .sh-value { color: #E6C200; }
+    .sh-summary-card.sh-sell .sh-value { color: #228B22; }
     .sh-summary-card.sh-buy .sh-value { color: #b45309; }
 
     .sh-timeline {
@@ -232,7 +232,7 @@
     .sh-badge-promotion { background: #fef3c7; color: #b45309; }
     .sh-badge-adjustment { background: #e2e8f0; color: #475569; }
     .sh-badge-refund { background: #fee2e2; color: #b91c1c; }
-    .sh-badge-price { background: #ecfdf3; color: #E6C200; }
+    .sh-badge-price { background: #ecfdf3; color: #228B22; }
     .sh-event-headline {
       font-size: 0.92rem;
       font-weight: 600;
@@ -443,7 +443,7 @@
 
     #recordGiveawayModal .giveaway-product-search:focus {
       border-color: var(--brand);
-      box-shadow: 0 0 0 0.2rem rgba(237, 28, 36, 0.12);
+      box-shadow: 0 0 0 0.2rem rgba(0, 56, 168, 0.12);
     }
 
     #recordGiveawayModal .giveaway-product-results {
@@ -646,7 +646,7 @@
     }
 
     .pagination .page-link:hover {
-      background: rgba(237, 28, 36, 0.1);
+      background: rgba(0, 56, 168, 0.1);
       color: var(--brand);
     }
 
@@ -665,8 +665,8 @@
     }
 
     .btn-inventory-primary:hover {
-      background: #C4121A;
-      border-color: #C4121A;
+      background: #002670;
+      border-color: #002670;
       color: #fff;
     }
 
@@ -684,12 +684,12 @@
 
     #filterSelect:hover {
       border-color: var(--brand);
-      box-shadow: 0 0 0 3px rgba(237, 28, 36, 0.1);
+      box-shadow: 0 0 0 3px rgba(0, 56, 168, 0.1);
     }
 
     #filterSelect:focus {
       border-color: var(--brand);
-      box-shadow: 0 0 0 3px rgba(237, 28, 36, 0.1);
+      box-shadow: 0 0 0 3px rgba(0, 56, 168, 0.1);
       outline: none;
     }
 
@@ -810,7 +810,7 @@
       margin: 0;
     }
     #logoutConfirmModal .modal-header .modal-title i {
-      color: #ED1C24;
+      color: #0038A8;
       font-size: 1.8rem;
     }
     #logoutConfirmModal .modal-body {
@@ -819,7 +819,7 @@
     }
     #logoutConfirmModal .modal-body .warning-icon {
       font-size: 4rem;
-      color: #ED1C24;
+      color: #0038A8;
       margin-bottom: 20px;
       display: block;
     }
@@ -858,15 +858,15 @@
       box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
     }
     #logoutConfirmModal .modal-footer .btn-confirm {
-      background: linear-gradient(135deg, #ED1C24, #C4121A);
-      border: 2px solid #ED1C24;
+      background: linear-gradient(135deg, #0038A8, #002670);
+      border: 2px solid #0038A8;
       color: white;
     }
     #logoutConfirmModal .modal-footer .btn-confirm:hover {
-      background: linear-gradient(135deg, #C4121A, #A10F16);
-      border-color: #A10F16;
+      background: linear-gradient(135deg, #002670, #002670);
+      border-color: #002670;
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(237, 28, 36, 0.4);
+      box-shadow: 0 4px 12px rgba(0, 56, 168, 0.4);
     }
 
     /* Download Barcodes modal responsiveness */
@@ -924,7 +924,7 @@
       <div class="col-md-3">
         <div class="stat-card">
           <div class="d-flex align-items-center gap-3">
-            <div class="stat-icon" style="background:#ED1C24; width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; color: #fff;">
+            <div class="stat-icon" style="background:#0038A8; width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; color: #fff;">
               <i class="bi bi-boxes"></i>
             </div>
             <div>
@@ -4407,7 +4407,7 @@
   <div class="modal fade" id="downloadBarcodesModal" tabindex="-1" aria-labelledby="downloadBarcodesModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg modal-dialog-centered">
       <div class="modal-content" style="border-radius: 18px; overflow: hidden;">
-        <div class="modal-header" style="background: linear-gradient(135deg, #ED1C24 0%, #C4121A 100%); color: #fff; border-bottom: none;">
+        <div class="modal-header" style="background: linear-gradient(135deg, #0038A8 0%, #002670 100%); color: #fff; border-bottom: none;">
           <h5 class="modal-title fw-bold" id="downloadBarcodesModalLabel">
             <i class="bi bi-upc-scan me-2"></i>Download Product Barcodes
           </h5>

@@ -138,8 +138,8 @@ Best regards,
 BAGNOS MPC""".strip()
 
     # ── App color palette (mirrors mobile_app/constants/colors.js) ──
-    # brand:        #ED1C24  (Bagnos logo red)
-    # accent:       #E6C200  (Bagnos logo yellow)
+    # brand:        #0038A8  (CONCONIG brand blue)
+    # accent:       #228B22  (CONCONIG logo green)
     # background:   #f1f5f9  (light gray background)
     # panel:        #ffffff  (white panels)
     # muted:        #94a3b8
@@ -171,7 +171,7 @@ BAGNOS MPC""".strip()
 
           <!-- Header — brand green gradient matching app header -->
           <tr>
-            <td style="background:linear-gradient(135deg,#C4121A 0%,#ED1C24 60%,#8B0E14 100%);padding:36px 40px;text-align:center;">
+            <td style="background:linear-gradient(135deg,#002670 0%,#0038A8 60%,#001A4D 100%);padding:36px 40px;text-align:center;">
               <div style="display:inline-block;background:rgba(255,255,255,0.15);border-radius:50%;width:56px;height:56px;line-height:56px;font-size:28px;margin-bottom:14px;">🔐</div>
               <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.3px;">Fund Transfer Verification</h1>
               <p style="margin:6px 0 0;color:rgba(255,255,255,0.8);font-size:14px;">BAGNOS MPC</p>
@@ -206,7 +206,7 @@ BAGNOS MPC""".strip()
                 </tr>
                 <tr>
                   <td style="padding:6px 0;color:#666666;font-size:14px;">Amount</td>
-                  <td style="padding:6px 0;color:#ED1C24;font-size:16px;font-weight:700;text-align:right;">₱{amount:,.2f}</td>
+                  <td style="padding:6px 0;color:#0038A8;font-size:16px;font-weight:700;text-align:right;">₱{amount:,.2f}</td>
                 </tr>{notes_row}
               </table>
             </td>
@@ -216,7 +216,7 @@ BAGNOS MPC""".strip()
           <tr>
             <td style="padding:28px 40px 0;text-align:center;">
               <p style="margin:0 0 14px;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.8px;color:#94a3b8;">Your Verification Code</p>
-              <div style="display:inline-block;background:linear-gradient(135deg,#C4121A,#ED1C24);border-radius:14px;padding:18px 48px;">
+              <div style="display:inline-block;background:linear-gradient(135deg,#002670,#0038A8);border-radius:14px;padding:18px 48px;">
                 <span style="font-size:38px;font-weight:800;letter-spacing:10px;color:#ffffff;font-family:'Courier New',monospace;">{otp_code}</span>
               </div>
               <p style="margin:14px 0 0;font-size:13px;color:#94a3b8;">
@@ -228,7 +228,7 @@ BAGNOS MPC""".strip()
           <!-- Warning — matches app warning/amber style -->
           <tr>
             <td style="padding:24px 40px 0;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background:#FEF7D5;border:1px solid #fed7aa;border-radius:10px;padding:14px 18px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:#E8EEF8;border:1px solid #fed7aa;border-radius:10px;padding:14px 18px;">
                 <tr>
                   <td style="font-size:13px;color:#9a3412;line-height:1.6;">
                     ⚠️ &nbsp;<strong>Security Notice:</strong> Never share this code with anyone. BAGNOS MPC will never ask for your OTP. If you did not initiate this transfer, please contact support immediately.
@@ -340,7 +340,7 @@ BAGNOS MPC""".strip()
 
           <!-- Header -->
           <tr>
-            <td style="background:linear-gradient(135deg,#C4121A 0%,#ED1C24 60%,#8B0E14 100%);padding:36px 40px;text-align:center;">
+            <td style="background:linear-gradient(135deg,#002670 0%,#0038A8 60%,#001A4D 100%);padding:36px 40px;text-align:center;">
               <div style="display:inline-block;background:rgba(255,255,255,0.15);border-radius:50%;width:56px;height:56px;line-height:56px;font-size:28px;margin-bottom:14px;">✅</div>
               <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.3px;">Transfer Completed</h1>
               <p style="margin:6px 0 0;color:rgba(255,255,255,0.8);font-size:14px;">BAGNOS MPC</p>
@@ -368,7 +368,7 @@ BAGNOS MPC""".strip()
                 </tr>
                 <tr>
                   <td style="padding:6px 0;color:#666666;font-size:14px;">Amount Sent</td>
-                  <td style="padding:6px 0;color:#ED1C24;font-size:16px;font-weight:700;text-align:right;">₱{amount:,.2f}</td>
+                  <td style="padding:6px 0;color:#0038A8;font-size:16px;font-weight:700;text-align:right;">₱{amount:,.2f}</td>
                 </tr>
                 <tr>
                   <td colspan="2"><hr style="border:none;border-top:1px solid #f0f0f0;margin:4px 0;"/></td>
@@ -395,7 +395,7 @@ BAGNOS MPC""".strip()
           <!-- Balance Banner -->
           <tr>
             <td style="padding:20px 40px 0;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#C4121A,#ED1C24);border-radius:12px;padding:16px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#002670,#0038A8);border-radius:12px;padding:16px 24px;">
                 <tr>
                   <td>
                     <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.75);text-transform:uppercase;letter-spacing:0.8px;">Your Account Balance</p>
@@ -410,7 +410,7 @@ BAGNOS MPC""".strip()
           <!-- Security Notice -->
           <tr>
             <td style="padding:20px 40px 0;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background:#FEF7D5;border:1px solid #fed7aa;border-radius:10px;padding:14px 18px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:#E8EEF8;border:1px solid #fed7aa;border-radius:10px;padding:14px 18px;">
                 <tr>
                   <td style="font-size:13px;color:#9a3412;line-height:1.6;">
                     ⚠️ &nbsp;If you did not authorize this transfer, please contact support immediately.
@@ -473,7 +473,7 @@ BAGNOS MPC""".strip()
 
           <!-- Header -->
           <tr>
-            <td style="background:linear-gradient(135deg,#C4121A 0%,#ED1C24 60%,#8B0E14 100%);padding:36px 40px;text-align:center;">
+            <td style="background:linear-gradient(135deg,#002670 0%,#0038A8 60%,#001A4D 100%);padding:36px 40px;text-align:center;">
               <div style="display:inline-block;background:rgba(255,255,255,0.15);border-radius:50%;width:56px;height:56px;line-height:56px;font-size:28px;margin-bottom:14px;">💰</div>
               <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.3px;">Money Received</h1>
               <p style="margin:6px 0 0;color:rgba(255,255,255,0.8);font-size:14px;">BAGNOS MPC</p>
@@ -501,7 +501,7 @@ BAGNOS MPC""".strip()
                 </tr>
                 <tr>
                   <td style="padding:6px 0;color:#666666;font-size:14px;">Amount Received</td>
-                  <td style="padding:6px 0;color:#ED1C24;font-size:16px;font-weight:700;text-align:right;">₱{amount:,.2f}</td>
+                  <td style="padding:6px 0;color:#0038A8;font-size:16px;font-weight:700;text-align:right;">₱{amount:,.2f}</td>
                 </tr>
                 <tr>
                   <td colspan="2"><hr style="border:none;border-top:1px solid #f0f0f0;margin:4px 0;"/></td>
@@ -528,7 +528,7 @@ BAGNOS MPC""".strip()
           <!-- Balance Banner -->
           <tr>
             <td style="padding:20px 40px 0;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#C4121A,#ED1C24);border-radius:12px;padding:16px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background:linear-gradient(135deg,#002670,#0038A8);border-radius:12px;padding:16px 24px;">
                 <tr>
                   <td>
                     <p style="margin:0;font-size:12px;color:rgba(255,255,255,0.75);text-transform:uppercase;letter-spacing:0.8px;">Your Account Balance</p>
@@ -609,7 +609,7 @@ BAGNOS MPC""".strip()
       <td align="center">
         <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
           <tr>
-            <td style="background:linear-gradient(135deg,#C4121A 0%,#ED1C24 60%,#8B0E14 100%);padding:36px 40px;text-align:center;">
+            <td style="background:linear-gradient(135deg,#002670 0%,#0038A8 60%,#001A4D 100%);padding:36px 40px;text-align:center;">
               <div style="display:inline-block;background:rgba(255,255,255,0.15);border-radius:50%;width:56px;height:56px;line-height:56px;font-size:28px;margin-bottom:14px;">&#128400;</div>
               <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.3px;">Fingerprint Login Verification</h1>
               <p style="margin:6px 0 0;color:rgba(255,255,255,0.8);font-size:14px;">BAGNOS MPC</p>
@@ -629,7 +629,7 @@ BAGNOS MPC""".strip()
                 <tr>
                   <td style="text-align:center;">
                     <p style="margin:0 0 8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.8px;color:#94a3b8;">Your Verification Code</p>
-                    <p style="margin:0;font-size:40px;font-weight:900;letter-spacing:10px;color:#ED1C24;">{otp_code}</p>
+                    <p style="margin:0;font-size:40px;font-weight:900;letter-spacing:10px;color:#0038A8;">{otp_code}</p>
                     <p style="margin:12px 0 0;font-size:12px;color:#94a3b8;">Expires in 10 minutes</p>
                   </td>
                 </tr>
@@ -873,7 +873,7 @@ BAGNOS MPC"""
                 <tr>
                   <td style="padding:5px 0;color:#333333;font-size:13px;">{item.product_name}</td>
                   <td style="padding:5px 0;color:#666666;font-size:13px;text-align:center;">x{item.quantity}</td>
-                  <td style="padding:5px 0;color:#ED1C24;font-size:13px;font-weight:600;text-align:right;">&#8369;{item.total_price:,.2f}</td>
+                  <td style="padding:5px 0;color:#0038A8;font-size:13px;font-weight:600;text-align:right;">&#8369;{item.total_price:,.2f}</td>
                 </tr>"""
         items_html = f"""
           <tr>
@@ -896,7 +896,7 @@ BAGNOS MPC"""
                   <td style="padding:6px 0;color:#333333;font-size:14px;font-weight:600;text-align:right;">{reason_display}</td>
                 </tr>""" if reason_display else ''
 
-    partial_badge = ' <span style="background:#FEF7D5;color:#c2410c;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;vertical-align:middle;">PARTIAL</span>' if is_partial else ''
+    partial_badge = ' <span style="background:#E8EEF8;color:#c2410c;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;vertical-align:middle;">PARTIAL</span>' if is_partial else ''
 
     html_body = f"""<!DOCTYPE html>
 <html lang="en">
@@ -913,7 +913,7 @@ BAGNOS MPC"""
 
           <!-- Header -->
           <tr>
-            <td style="background:linear-gradient(135deg,#C4121A 0%,#ED1C24 60%,#8B0E14 100%);padding:36px 40px;text-align:center;">
+            <td style="background:linear-gradient(135deg,#002670 0%,#0038A8 60%,#001A4D 100%);padding:36px 40px;text-align:center;">
               <div style="display:inline-block;background:rgba(255,255,255,0.15);border-radius:50%;width:56px;height:56px;line-height:56px;font-size:28px;margin-bottom:14px;">&#10003;</div>
               <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.3px;">Refund Approved{partial_badge}</h1>
               <p style="margin:6px 0 0;color:rgba(255,255,255,0.8);font-size:14px;">BAGNOS MPC</p>
@@ -925,7 +925,7 @@ BAGNOS MPC"""
             <td style="padding:32px 40px 0;">
               <p style="margin:0;font-size:15px;color:#666666;">Hello, <strong style="color:#333333;">{member.full_name}</strong></p>
               <p style="margin:10px 0 0;font-size:14px;color:#666666;line-height:1.6;">
-                Great news! Your refund request has been <strong style="color:#ED1C24;">approved</strong>.
+                Great news! Your refund request has been <strong style="color:#0038A8;">approved</strong>.
                 The refund amount has been credited directly to your card balance.
               </p>
             </td>
@@ -947,7 +947,7 @@ BAGNOS MPC"""
                 <tr><td colspan="2"><hr style="border:none;border-top:1px solid #f0f0f0;margin:4px 0;"/></td></tr>
                 <tr>
                   <td style="padding:6px 0;color:#666666;font-size:14px;">Refund Amount</td>
-                  <td style="padding:6px 0;color:#ED1C24;font-size:16px;font-weight:700;text-align:right;">&#8369;{refund_amount:,.2f}</td>
+                  <td style="padding:6px 0;color:#0038A8;font-size:16px;font-weight:700;text-align:right;">&#8369;{refund_amount:,.2f}</td>
                 </tr>
                 <tr><td colspan="2"><hr style="border:none;border-top:1px solid #f0f0f0;margin:4px 0;"/></td></tr>
                 <tr>
@@ -1085,7 +1085,7 @@ Best regards,
 
           <!-- Header -->
           <tr>
-            <td style="background:linear-gradient(135deg,#C4121A 0%,#ED1C24 60%,#8B0E14 100%);padding:36px 40px;text-align:center;">
+            <td style="background:linear-gradient(135deg,#002670 0%,#0038A8 60%,#001A4D 100%);padding:36px 40px;text-align:center;">
               <div style="display:inline-block;background:rgba(255,255,255,0.15);border-radius:50%;width:64px;height:64px;line-height:64px;font-size:34px;margin-bottom:14px;">&#127881;</div>
               <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:700;letter-spacing:-0.3px;">Welcome to {store_name}!</h1>
               <p style="margin:8px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Your membership account is ready</p>
@@ -1097,7 +1097,7 @@ Best regards,
             <td style="padding:32px 40px 0;">
               <p style="margin:0;font-size:15px;color:#666666;">Hello, <strong style="color:#333333;">{member.full_name}</strong>!</p>
               <p style="margin:10px 0 0;font-size:14px;color:#666666;line-height:1.7;">
-                We are excited to have you as a member of <strong style="color:#ED1C24;">{store_name}</strong>.
+                We are excited to have you as a member of <strong style="color:#0038A8;">{store_name}</strong>.
                 Your account has been successfully created and you can now enjoy the benefits of membership
                 at any of our kiosk terminals.
               </p>
@@ -1125,7 +1125,7 @@ Best regards,
                 <tr><td colspan="2"><hr style="border:none;border-top:1px solid #f0f0f0;margin:4px 0;"/></td></tr>
                 <tr>
                   <td style="padding:6px 0;color:#666666;font-size:14px;">Card Balance</td>
-                  <td style="padding:6px 0;color:#ED1C24;font-size:16px;font-weight:700;text-align:right;">&#8369;{member.balance:,.2f}</td>
+                  <td style="padding:6px 0;color:#0038A8;font-size:16px;font-weight:700;text-align:right;">&#8369;{member.balance:,.2f}</td>
                 </tr>
                 <tr><td colspan="2"><hr style="border:none;border-top:1px solid #f0f0f0;margin:4px 0;"/></td></tr>
                 <tr>
@@ -1260,7 +1260,7 @@ def send_credit_payment_receipt_email(
                 </tr>
                 <tr>
                   <td style="padding:6px 0;color:#666666;font-size:14px;">Balance after</td>
-                  <td style="padding:6px 0;color:#ED1C24;font-size:14px;font-weight:700;text-align:right;">&#8369;{payment.balance_after:,.2f}</td>
+                  <td style="padding:6px 0;color:#0038A8;font-size:14px;font-weight:700;text-align:right;">&#8369;{payment.balance_after:,.2f}</td>
                 </tr>"""
 
     pin_block = ''

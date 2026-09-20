@@ -9,11 +9,11 @@
   <style>
     :root {
       --dark: #0f172a;
-      --brand: #ED1C24;
-      --accent: #E6C200;
+      --brand: #0038A8;
+      --accent: #228B22;
       --muted: #94a3b8;
       --panel: #ffffff;
-      --gradient: linear-gradient(135deg, #ED1C24 0%, #C4121A 40%, #8B0E14 100%);
+      --gradient: linear-gradient(135deg, #0038A8 0%, #002670 40%, #001A4D 100%);
     }
 
     body {
@@ -190,7 +190,7 @@
     .member-modal .form-control:focus,
     .member-modal .form-select:focus {
       border-color: var(--brand);
-      box-shadow: 0 0 0 3px rgba(237, 28, 36, 0.12);
+      box-shadow: 0 0 0 3px rgba(0, 56, 168, 0.12);
     }
 
     .member-stat-grid .stat-card {
@@ -285,8 +285,8 @@
     }
 
     .btn-member-primary:hover {
-      background: #C4121A;
-      border-color: #C4121A;
+      background: #002670;
+      border-color: #002670;
       color: #fff;
     }
 
@@ -565,7 +565,7 @@
       margin: 0;
     }
     #logoutConfirmModal .modal-header .modal-title i {
-      color: #ED1C24;
+      color: #0038A8;
       font-size: 1.8rem;
     }
     #logoutConfirmModal .modal-body {
@@ -574,7 +574,7 @@
     }
     #logoutConfirmModal .modal-body .warning-icon {
       font-size: 4rem;
-      color: #ED1C24;
+      color: #0038A8;
       margin-bottom: 20px;
       display: block;
     }
@@ -613,15 +613,15 @@
       box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
     }
     #logoutConfirmModal .modal-footer .btn-confirm {
-      background: linear-gradient(135deg, #ED1C24, #C4121A);
-      border: 2px solid #ED1C24;
+      background: linear-gradient(135deg, #0038A8, #002670);
+      border: 2px solid #0038A8;
       color: white;
     }
     #logoutConfirmModal .modal-footer .btn-confirm:hover {
-      background: linear-gradient(135deg, #C4121A, #A10F16);
-      border-color: #A10F16;
+      background: linear-gradient(135deg, #002670, #002670);
+      border-color: #002670;
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(237, 28, 36, 0.4);
+      box-shadow: 0 4px 12px rgba(0, 56, 168, 0.4);
     }
 
     /* Member modals — same look as Add member */
@@ -694,8 +694,8 @@
     .member-modal .modal-footer .btn-primary:hover,
     .member-modal #adminAddSaveMemberBtn:hover,
     .member-modal #saveMemberBtn:hover {
-      background: #C4121A;
-      border-color: #C4121A;
+      background: #002670;
+      border-color: #002670;
     }
     .member-modal .modal-footer .btn-outline-secondary,
     .member-modal .modal-footer .btn-secondary {
@@ -754,7 +754,7 @@
       <div class="col-md-3">
         <div class="stat-card">
           <div class="d-flex align-items-center gap-3">
-            <div class="stat-icon" style="background:#ED1C24;">
+            <div class="stat-icon" style="background:#0038A8;">
               <i class="bi bi-people"></i>
             </div>
             <div>
@@ -1669,7 +1669,7 @@
                   <tr style="background:#f8fafc;">
                     <th class="ps-3 py-2 text-uppercase text-muted fw-semibold" style="font-size:.75rem;letter-spacing:.06em;width:22%;white-space:nowrap;">Field</th>
                     <th class="py-2 text-uppercase text-muted fw-semibold" style="font-size:.75rem;letter-spacing:.06em;">Current</th>
-                    <th class="py-2 pe-3 text-uppercase fw-semibold" style="font-size:.75rem;letter-spacing:.06em;color:#ED1C24;">Will Restore To</th>
+                    <th class="py-2 pe-3 text-uppercase fw-semibold" style="font-size:.75rem;letter-spacing:.06em;color:#0038A8;">Will Restore To</th>
                   </tr>
                 </thead>
                 <tbody id="restoreLastEditDiffBody"></tbody>
@@ -3953,7 +3953,7 @@
       function fieldRow(label, current, previous) {
         const changed = current !== previous;
         const bgStyle = changed ? 'background:#fefce8;' : '';
-        const prevStyle = changed ? 'color:#ED1C24;font-weight:600;' : 'color:#64748b;';
+        const prevStyle = changed ? 'color:#0038A8;font-weight:600;' : 'color:#64748b;';
         const changedIcon = changed ? '<i class="bi bi-arrow-right text-warning mx-1" style="font-size:.75rem;"></i>' : '';
         const currentStyle = changed ? 'text-decoration:line-through;color:#94a3b8;font-size:.8rem;' : 'color:#374151;';
         const emDash = '<span class="text-muted">—</span>';

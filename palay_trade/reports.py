@@ -349,7 +349,7 @@ def build_pdf_response(*, trades, date_from, date_to, type_filter, search_query,
         "PalayTitle",
         parent=styles["Heading1"],
         fontSize=16,
-        textColor=colors.HexColor("#ED1C24"),
+        textColor=colors.HexColor("#0038A8"),
         alignment=TA_CENTER,
         spaceAfter=8,
         fontName="Helvetica-Bold",
@@ -413,7 +413,7 @@ def build_pdf_response(*, trades, date_from, date_to, type_filter, search_query,
     table.setStyle(
         TableStyle(
             [
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#ED1C24")),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0038A8")),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
                 ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                 ("FONTSIZE", (0, 0), (-1, 0), 8),

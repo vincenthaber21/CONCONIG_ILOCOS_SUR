@@ -2,14 +2,14 @@
   <defs>
     <linearGradient id="gp-badge" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#FFF200"/>
-      <stop offset="100%" stop-color="#E6C200"/>
+      <stop offset="100%" stop-color="#228B22"/>
     </linearGradient>
     <linearGradient id="gp-ring" x1="15%" y1="10%" x2="85%" y2="90%">
-      <stop offset="0%" stop-color="#ED1C24"/>
-      <stop offset="100%" stop-color="#C4121A"/>
+      <stop offset="0%" stop-color="#0038A8"/>
+      <stop offset="100%" stop-color="#002670"/>
     </linearGradient>
     <filter id="gp-shadow" x="-25%" y="-25%" width="150%" height="150%">
-      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#8B0E14" flood-opacity="0.22"/>
+      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#001A4D" flood-opacity="0.22"/>
     </filter>
   </defs>
 
@@ -17,10 +17,10 @@
     <circle r="56" fill="url(#gp-ring)"/>
     <circle r="44" fill="#FFFFFF"/>
     <circle r="36" fill="url(#gp-badge)"/>
-    <path d="M0-34c-16.6 0-30 13.4-30 30s13.4 30 30 30c11.2 0 21.4-6.1 26.7-15.9l-11.1-5.9c-2.9 5.5-8.7 8.9-15.6 8.9-9.5 0-17.2-7.7-17.2-17.2s7.7-17.2 17.2-17.2c5.2 0 9.9 2.3 13.2 6.3h-11.1v11.8h25.8v-4.1c0-14.6-11.8-26.4-26.4-26.4z" fill="#ED1C24"/>
+    <path d="M0-34c-16.6 0-30 13.4-30 30s13.4 30 30 30c11.2 0 21.4-6.1 26.7-15.9l-11.1-5.9c-2.9 5.5-8.7 8.9-15.6 8.9-9.5 0-17.2-7.7-17.2-17.2s7.7-17.2 17.2-17.2c5.2 0 9.9 2.3 13.2 6.3h-11.1v11.8h25.8v-4.1c0-14.6-11.8-26.4-26.4-26.4z" fill="#0038A8"/>
   </g>
 
-  <text x="200" y="188" font-family="system-ui, Segoe UI, Inter, sans-serif" font-size="15" font-weight="600" letter-spacing="0.06em" fill="#ED1C24" text-anchor="middle">
-    YOUR BRAND
+  <text x="200" y="188" font-family="system-ui, Segoe UI, Inter, sans-serif" font-size="14" font-weight="600" letter-spacing="0.04em" fill="#0038A8" text-anchor="middle">
+    CONCONIG EAST FARMERS MPC
   </text>
 </svg>

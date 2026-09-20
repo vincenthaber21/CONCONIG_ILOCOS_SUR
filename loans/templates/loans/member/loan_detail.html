@@ -24,7 +24,7 @@
     border-color: #bbf7d0;
   }
   .detail-overview__card--warn {
-    background: linear-gradient(135deg, #FEF7D5 0%, #ffedd5 100%);
+    background: linear-gradient(135deg, #E8EEF8 0%, #ffedd5 100%);
     border-color: #fed7aa;
   }
   .detail-overview__label {
@@ -200,7 +200,7 @@
   }
   .loan-stepper__item.is-done .loan-stepper__mark { background: #dcfce7; border-color: #86efac; color: #166534; }
   .loan-stepper__item.is-done .loan-stepper__label { color: #166534; }
-  .loan-stepper__item.is-current .loan-stepper__mark { background: #ED1C24; border-color: #ED1C24; color: #fff; }
+  .loan-stepper__item.is-current .loan-stepper__mark { background: #0038A8; border-color: #0038A8; color: #fff; }
   .loan-stepper__item.is-current .loan-stepper__label { color: #0f172a; font-weight: 700; }
   .loan-stepper__item.is-failed .loan-stepper__mark { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
   .loan-stepper__item.is-failed .loan-stepper__label { color: #991b1b; font-weight: 700; }
@@ -228,7 +228,7 @@
     border: 1px solid #e2e8f0; margin-top: .1rem;
   }
   .process-stage.is-done .process-stage__mark { background: #dcfce7; border-color: #86efac; color: #166534; }
-  .process-stage.is-current .process-stage__mark { background: #ED1C24; border-color: #ED1C24; color: #fff; }
+  .process-stage.is-current .process-stage__mark { background: #0038A8; border-color: #0038A8; color: #fff; }
   .process-stage.is-failed .process-stage__mark { background: #fee2e2; border-color: #fca5a5; color: #991b1b; }
   .process-stage.is-waiting { opacity: .72; }
   .process-stage__title {
@@ -703,7 +703,7 @@
           </thead>
           <tbody>
             {% for row in payment_plan.rows %}
-            <tr{% if row.payment_status == "paid" %} style="background:#f0fdf4;"{% elif row.payment_status == "partial" %} style="background:#FEF7D5;"{% endif %}>
+            <tr{% if row.payment_status == "paid" %} style="background:#f0fdf4;"{% elif row.payment_status == "partial" %} style="background:#E8EEF8;"{% endif %}>
               <td class="data-table__strong data-table__lead">Month {{ row.month }}</td>
               <td data-label="Due date">
                 {% if row.due_date %}

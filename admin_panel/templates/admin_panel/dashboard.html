@@ -9,11 +9,11 @@
   <style>
     :root {
       --dark: #0f172a;
-      --brand: #ED1C24;
-      --accent: #E6C200;
+      --brand: #0038A8;
+      --accent: #228B22;
       --muted: #94a3b8;
       --panel: #ffffff;
-      --gradient: linear-gradient(135deg, #ED1C24 0%, #C4121A 40%, #8B0E14 100%);
+      --gradient: linear-gradient(135deg, #0038A8 0%, #002670 40%, #001A4D 100%);
     }
 
     body {
@@ -329,14 +329,14 @@
     }
 
     .period-tab:hover {
-      background: rgba(237, 28, 36, 0.12);
-      color: #ED1C24;
+      background: rgba(0, 56, 168, 0.12);
+      color: #0038A8;
     }
 
     .period-tab--active {
-      background: #ED1C24;
+      background: #0038A8;
       color: #fff !important;
-      box-shadow: 0 2px 8px rgba(237, 28, 36, 0.35);
+      box-shadow: 0 2px 8px rgba(0, 56, 168, 0.35);
     }
 
     .period-tab--active:hover {
@@ -353,7 +353,7 @@
 
     .period-picker-input {
       position: relative;
-      border: 1.5px solid #ED1C24;
+      border: 1.5px solid #0038A8;
       border-radius: 999px;
       font-size: 0.85rem;
       color: #0f172a;
@@ -421,8 +421,8 @@
 
     .period-picker-input:focus {
       outline: none;
-      box-shadow: 0 0 0 3px rgba(237, 28, 36, 0.2);
-      border-color: #ED1C24;
+      box-shadow: 0 0 0 3px rgba(0, 56, 168, 0.2);
+      border-color: #0038A8;
     }
 
     @media (max-width: 575.98px) {
@@ -622,7 +622,7 @@
         margin: 0;
       }
       #logoutConfirmModal .modal-header .modal-title i {
-        color: #ED1C24;
+        color: #0038A8;
         font-size: 1.8rem;
       }
       #logoutConfirmModal .modal-body {
@@ -631,7 +631,7 @@
       }
       #logoutConfirmModal .modal-body .warning-icon {
         font-size: 4rem;
-        color: #ED1C24;
+        color: #0038A8;
         margin-bottom: 20px;
         display: block;
       }
@@ -670,15 +670,15 @@
         box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
       }
       #logoutConfirmModal .modal-footer .btn-confirm {
-        background: linear-gradient(135deg, #ED1C24, #C4121A);
-        border: 2px solid #ED1C24;
+        background: linear-gradient(135deg, #0038A8, #002670);
+        border: 2px solid #0038A8;
         color: white;
       }
       #logoutConfirmModal .modal-footer .btn-confirm:hover {
-        background: linear-gradient(135deg, #C4121A, #A10F16);
-        border-color: #A10F16;
+        background: linear-gradient(135deg, #002670, #002670);
+        border-color: #002670;
         transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(237, 28, 36, 0.4);
+        box-shadow: 0 4px 12px rgba(0, 56, 168, 0.4);
       }
 
       @media (max-width: 992px) {
@@ -840,11 +840,11 @@
     .top-product-card .tp-metric-val {
       font-size: 0.88rem;
       font-weight: 700;
-      color: #ED1C24;
+      color: #0038A8;
       line-height: 1.2;
     }
     .top-product-card .tp-metric-val.tp-rev {
-      color: #E6C200;
+      color: #228B22;
       font-size: 0.82rem;
     }
     </style>
@@ -1145,7 +1145,7 @@
       <div class="col d-flex">
         <div class="stat-card w-100">
           <div class="d-flex align-items-center gap-3 flex-wrap flex-sm-nowrap">
-            <div class="stat-icon flex-shrink-0" style="background:#ED1C24;"><i class="bi bi-cash-stack"></i></div>
+            <div class="stat-icon flex-shrink-0" style="background:#0038A8;"><i class="bi bi-cash-stack"></i></div>
             <div class="stat-kpi-row">
               <div class="stat-title">Total Revenue</div>
               <h3 class="mb-0 stat-kpi-value" id="kpiTotalRevenue">₱{{ total_revenue|floatformat:2 }}</h3>
@@ -1216,7 +1216,7 @@
           <div class="d-flex justify-content-between align-items-start mb-4">
             <div class="flex-grow-1">
               <div class="d-flex align-items-center gap-2 mb-2">
-                <div class="stat-icon" style="background: linear-gradient(135deg, #ED1C24 0%, #C4121A 100%); width: 40px; height: 40px; font-size: 1.1rem;">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #0038A8 0%, #002670 100%); width: 40px; height: 40px; font-size: 1.1rem;">
                   <i class="bi bi-graph-up-arrow"></i>
                 </div>
                 <div>
@@ -2219,9 +2219,9 @@
           const wrapperHeight = wrapper ? wrapper.clientHeight : 240;
 
           const salesGradient = createGradient(salesCtx, [
-            { position: 0, color: 'rgba(237,28,36,0.4)' },
-            { position: 0.5, color: 'rgba(237,28,36,0.15)' },
-            { position: 1, color: 'rgba(237,28,36,0)' }
+            { position: 0, color: 'rgba(0,56,168,0.4)' },
+            { position: 0.5, color: 'rgba(0,56,168,0.15)' },
+            { position: 1, color: 'rgba(0,56,168,0)' }
           ], wrapperHeight);
 
           salesTrendChartInstance = new Chart(salesCtx, {
@@ -2232,16 +2232,16 @@
                 label: 'Revenue',
                 data: normDailyTotals.length > 0 ? normDailyTotals : [0],
                 tension: 0.5,
-                borderColor: '#ED1C24',
+                borderColor: '#0038A8',
                 backgroundColor: salesGradient,
                 borderWidth: 3,
                 fill: true,
                 pointRadius: 5,
                 pointBackgroundColor: '#ffffff',
-                pointBorderColor: '#ED1C24',
+                pointBorderColor: '#0038A8',
                 pointBorderWidth: 3,
                 pointHoverRadius: 8,
-                pointHoverBackgroundColor: '#ED1C24',
+                pointHoverBackgroundColor: '#0038A8',
                 pointHoverBorderColor: '#ffffff',
                 pointHoverBorderWidth: 3
               }]
@@ -2267,7 +2267,7 @@
                   },
                   titleColor: '#ffffff',
                   bodyColor: '#ffffff',
-                  borderColor: '#ED1C24',
+                  borderColor: '#0038A8',
                   borderWidth: 2,
                   cornerRadius: 8,
                   displayColors: false,
@@ -2875,9 +2875,9 @@
               const wrapperHeight = wrapper ? wrapper.clientHeight : window.innerHeight - 150;
               const salesCtx = salesTrendChartInstance.canvas.getContext('2d');
               const salesGradient = createGradient(salesCtx, [
-                { position: 0, color: 'rgba(237,28,36,0.4)' },
-                { position: 0.5, color: 'rgba(237,28,36,0.15)' },
-                { position: 1, color: 'rgba(237,28,36,0)' }
+                { position: 0, color: 'rgba(0,56,168,0.4)' },
+                { position: 0.5, color: 'rgba(0,56,168,0.15)' },
+                { position: 1, color: 'rgba(0,56,168,0)' }
               ], wrapperHeight);
               
               // Update the dataset background color
@@ -2903,9 +2903,9 @@
               const wrapperHeight = 280;
               const salesCtx = salesTrendChartInstance.canvas.getContext('2d');
               const salesGradient = createGradient(salesCtx, [
-                { position: 0, color: 'rgba(237,28,36,0.4)' },
-                { position: 0.5, color: 'rgba(237,28,36,0.15)' },
-                { position: 1, color: 'rgba(237,28,36,0)' }
+                { position: 0, color: 'rgba(0,56,168,0.4)' },
+                { position: 0.5, color: 'rgba(0,56,168,0.15)' },
+                { position: 1, color: 'rgba(0,56,168,0)' }
               ], wrapperHeight);
               
               // Update the dataset background color

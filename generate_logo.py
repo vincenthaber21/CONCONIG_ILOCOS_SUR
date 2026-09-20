@@ -1,30 +1,30 @@
 """
-Generate Genglo Printing Services logo assets for the mobile app.
+Generate CONCONIG East Farmers MPC logo assets for the mobile app.
 Produces: icon.png, adaptive-icon.png, splash.png, favicon.png
 
-Design language mirrors HomeScreen.js:
-  • Red→gold gradient header (#ED1C24 → #E6C200) — Bagnos brand / accent
+Design language:
+  • Blue→green gradient header (#0038A8 → #228B22) — CONCONIG brand / accent
   • White raised heroCard with drop-shadow
-  • Wallet icon + peso "₱" in brand red (wallet-outline from HomeScreen)
-  • App name in bold white  •  subtitle in cream
+  • Wallet icon + peso "₱" in brand blue
+  • App name in bold white  •  subtitle in light blue tint
 """
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 import os
 
 ASSETS_DIR = os.path.join(os.path.dirname(__file__), "mobile_app", "assets")
 
-# ─── Colour Palette (Bagnos logo: red + yellow) ────────────────────────────
-C_BG1        = (237,  28,  36)  # colors.brand  #ED1C24
-C_BG2        = (230, 194,   0)  # colors.accent #E6C200
-C_GOLD       = (230, 194,   0)  # logo yellow
-C_LIGHT_GOLD = (255, 242,   0)  # #FFF200 — star yellow
-C_CREAM      = (254, 247, 213)  # #FEF7D5 — subtitle / accent ring
+# ─── Colour Palette (CONCONIG logo: blue + green) ────────────────────────────
+C_BG1        = (0, 56, 168)     # colors.brand  #0038A8
+C_BG2        = (34, 139, 34)    # colors.accent #228B22
+C_GOLD       = (34, 139, 34)    # accent green
+C_LIGHT_GOLD = (43, 95, 204)    # #2B5FCC — brand light
+C_CREAM      = (232, 238, 248)  # #E8EEF8 — subtitle / accent ring
 C_GREEN      = C_GOLD           # alias for older call sites
 C_LIGHT_GRN  = C_LIGHT_GOLD
 C_MINT       = C_CREAM
 C_WHITE      = (255, 255, 255)
 C_CARD       = (255, 255, 255)  # panel = #ffffff (heroCard)
-C_CARD_TINT  = (254, 247, 213)  # cream off-white tint
+C_CARD_TINT  = (232, 238, 248)  # light blue tint
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────

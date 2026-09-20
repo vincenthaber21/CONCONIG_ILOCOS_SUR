@@ -10,12 +10,12 @@
 
         :root {
             --dark: #0f172a;
-            --brand: #ED1C24;
-            --accent: #E6C200;
+            --brand: #0038A8;
+            --accent: #228B22;
             --muted: #64748b;
             --panel: #ffffff;
-            --gradient: linear-gradient(135deg, #ED1C24 0%, #C4121A 40%, #8B0E14 100%);
-            --gradient-light: linear-gradient(135deg, rgba(237,28,36,0.1) 0%, rgba(230,194,0,0.1) 40%, rgba(230,194,0,0.1) 100%);
+            --gradient: linear-gradient(135deg, #0038A8 0%, #002670 40%, #001A4D 100%);
+            --gradient-light: linear-gradient(135deg, rgba(0,56,168,0.1) 0%, rgba(34,139,34,0.1) 40%, rgba(34,139,34,0.1) 100%);
             --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
             --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
@@ -57,9 +57,9 @@
             right: 0;
             bottom: 0;
             background-image: 
-                radial-gradient(circle at 20% 50%, rgba(237, 28, 36, 0.08) 0%, transparent 50%),
-                radial-gradient(circle at 80% 80%, rgba(230, 194, 0, 0.08) 0%, transparent 50%),
-                radial-gradient(circle at 40% 20%, rgba(230, 194, 0, 0.06) 0%, transparent 50%);
+                radial-gradient(circle at 20% 50%, rgba(0, 56, 168, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(34, 139, 34, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 40% 20%, rgba(34, 139, 34, 0.06) 0%, transparent 50%);
             animation: patternMove 20s ease-in-out infinite;
             pointer-events: none;
         }
@@ -140,7 +140,7 @@
             font-size: 4rem;
             color: white;
             box-shadow: 
-                0 10px 25px -5px rgba(237, 28, 36, 0.4),
+                0 10px 25px -5px rgba(0, 56, 168, 0.4),
                 0 0 0 4px rgba(255, 255, 255, 0.1) inset;
             position: relative;
             animation: iconFloat 3s ease-in-out infinite;
@@ -200,21 +200,21 @@
             gap: 8px;
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: 
-                0 4px 12px -2px rgba(237, 28, 36, 0.3),
+                0 4px 12px -2px rgba(0, 56, 168, 0.3),
                 0 0 0 1px rgba(255, 255, 255, 0.1) inset;
         }
 
         .btn-primary-custom:hover {
             transform: translateY(-2px);
             box-shadow: 
-                0 8px 20px -4px rgba(237, 28, 36, 0.4),
+                0 8px 20px -4px rgba(0, 56, 168, 0.4),
                 0 0 0 1px rgba(255, 255, 255, 0.2) inset;
             color: white;
         }
 
         .btn-secondary-custom {
             background: rgba(255, 255, 255, 0.8);
-            border: 2px solid rgba(237, 28, 36, 0.2);
+            border: 2px solid rgba(0, 56, 168, 0.2);
             color: var(--brand);
             padding: 14px 32px;
             font-size: 1rem;
@@ -228,7 +228,7 @@
         }
 
         .btn-secondary-custom:hover {
-            background: rgba(237, 28, 36, 0.05);
+            background: rgba(0, 56, 168, 0.05);
             border-color: var(--brand);
             color: var(--accent);
             transform: translateY(-2px);
@@ -237,7 +237,7 @@
         .contact-section {
             margin-top: 40px;
             padding-top: 32px;
-            border-top: 1px solid rgba(237, 28, 36, 0.1);
+            border-top: 1px solid rgba(0, 56, 168, 0.1);
         }
 
         .contact-title {

@@ -10,10 +10,10 @@
         :root {
             --dark: #0f172a;
             --dark-secondary: #1e293b;
-            --brand: #ED1C24;
-            --brand-light: #FF4D54;
-            --brand-dark: #A10F16;
-            --accent: #E6C200;
+            --brand: #0038A8;
+            --brand-light: #2B5FCC;
+            --brand-dark: #002670;
+            --accent: #228B22;
             --accent-light: #2DBE6A;
             --muted: #64748b;
             --muted-light: #94a3b8;
@@ -23,8 +23,8 @@
             --success: #10b981;
             --warning: #f59e0b;
             --error: #ef4444;
-            --gradient: linear-gradient(135deg, #ED1C24 0%, #C4121A 40%, #8B0E14 100%);
-            --gradient-light: linear-gradient(135deg, #FF4D54 0%, #ED1C24 40%, #E6C200 100%);
+            --gradient: linear-gradient(135deg, #0038A8 0%, #002670 40%, #001A4D 100%);
+            --gradient-light: linear-gradient(135deg, #2B5FCC 0%, #0038A8 40%, #228B22 100%);
             --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
             --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
@@ -59,8 +59,8 @@
             right: 0;
             bottom: 0;
             background: 
-                radial-gradient(circle at 20% 50%, rgba(237, 28, 36, 0.03) 0%, transparent 50%),
-                radial-gradient(circle at 80% 80%, rgba(230, 194, 0, 0.03) 0%, transparent 50%);
+                radial-gradient(circle at 20% 50%, rgba(0, 56, 168, 0.03) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(34, 139, 34, 0.03) 0%, transparent 50%);
             pointer-events: none;
             z-index: 0;
         }
@@ -121,7 +121,7 @@
             margin: 0 auto 24px;
             font-size: 2.75rem;
             color: white;
-            box-shadow: 0 8px 24px rgba(237, 28, 36, 0.3);
+            box-shadow: 0 8px 24px rgba(0, 56, 168, 0.3);
             position: relative;
             transition: transform 0.3s ease;
         }
@@ -212,7 +212,7 @@
             border-color: var(--brand);
             background: linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%);
             transform: translateY(-4px);
-            box-shadow: 0 12px 32px rgba(237, 28, 36, 0.2);
+            box-shadow: 0 12px 32px rgba(0, 56, 168, 0.2);
             color: var(--dark);
             text-decoration: none;
         }
@@ -232,13 +232,13 @@
             font-size: 1.875rem;
             color: white;
             flex-shrink: 0;
-            box-shadow: 0 4px 12px rgba(237, 28, 36, 0.25);
+            box-shadow: 0 4px 12px rgba(0, 56, 168, 0.25);
             transition: all 0.3s ease;
         }
         
         .choice-option:hover .choice-option-icon {
             transform: scale(1.1) rotate(5deg);
-            box-shadow: 0 6px 16px rgba(237, 28, 36, 0.35);
+            box-shadow: 0 6px 16px rgba(0, 56, 168, 0.35);
         }
         
         .choice-option-content {
@@ -342,7 +342,7 @@
         
         .logout-link a:hover {
             color: var(--brand);
-            background: rgba(237, 28, 36, 0.05);
+            background: rgba(0, 56, 168, 0.05);
         }
         
         .alert {
@@ -458,7 +458,7 @@
             margin: 0;
         }
         #logoutConfirmModal .modal-header .modal-title i {
-            color: #ED1C24;
+            color: #0038A8;
             font-size: 1.8rem;
         }
         #logoutConfirmModal .modal-body {
@@ -467,7 +467,7 @@
         }
         #logoutConfirmModal .modal-body .warning-icon {
             font-size: 4rem;
-            color: #ED1C24;
+            color: #0038A8;
             margin-bottom: 20px;
             display: block;
         }
@@ -506,15 +506,15 @@
             box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
         }
         #logoutConfirmModal .modal-footer .btn-confirm {
-            background: linear-gradient(135deg, #ED1C24, #C4121A);
-            border: 2px solid #ED1C24;
+            background: linear-gradient(135deg, #0038A8, #002670);
+            border: 2px solid #0038A8;
             color: white;
         }
         #logoutConfirmModal .modal-footer .btn-confirm:hover {
-            background: linear-gradient(135deg, #C4121A, #A10F16);
-            border-color: #A10F16;
+            background: linear-gradient(135deg, #002670, #002670);
+            border-color: #002670;
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(237, 28, 36, 0.4);
+            box-shadow: 0 4px 12px rgba(0, 56, 168, 0.4);
         }
     </style>
 </head>

@@ -5,7 +5,7 @@
     padding: 10px 12px; border-radius: 10px; border: 1.5px solid #e2e8f0;
     margin-bottom: 8px; background: #f8fafc; transition: all 0.15s; gap: 10px;
   }
-  #processRefundModal .item-sel-row.selected { border-color: #ED1C24; background: #f0fdf4; }
+  #processRefundModal .item-sel-row.selected { border-color: #0038A8; background: #f0fdf4; }
   #processRefundModal .item-sel-row.already-refunded {
     opacity: 0.65; background: #f1f5f9; border-color: #e2e8f0; cursor: not-allowed;
   }
@@ -14,7 +14,7 @@
     background: #fff; display: flex; align-items: center; justify-content: center;
     cursor: pointer; flex-shrink: 0; transition: all 0.15s;
   }
-  #processRefundModal .item-check-box.checked { border-color: #ED1C24; background: #ED1C24; }
+  #processRefundModal .item-check-box.checked { border-color: #0038A8; background: #0038A8; }
   #processRefundModal .item-check-box i { font-size: 0.75rem; color: #fff; display: none; }
   #processRefundModal .item-check-box.checked i { display: block; }
   #processRefundModal .item-refunded-tag {
@@ -33,7 +33,7 @@
 <div class="modal fade" id="processRefundModal" tabindex="-1" aria-labelledby="processRefundModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-lg">
     <div class="modal-content">
-      <div class="modal-header text-white" style="background: linear-gradient(135deg, #ED1C24 0%, #C4121A 40%, #8B0E14 100%);">
+      <div class="modal-header text-white" style="background: linear-gradient(135deg, #0038A8 0%, #002670 40%, #001A4D 100%);">
         <h5 class="modal-title" id="processRefundModalLabel">
           <i class="bi bi-arrow-counterclockwise me-2"></i>Process Refund
         </h5>
@@ -100,7 +100,7 @@
         <div id="processRefundPinStep" style="display:none;">
           <div class="text-center mb-3">
             <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-2"
-                 style="width:52px;height:52px;background:linear-gradient(135deg,#ED1C24,#C4121A);">
+                 style="width:52px;height:52px;background:linear-gradient(135deg,#0038A8,#002670);">
               <i class="bi bi-shield-lock-fill text-white fs-4"></i>
             </div>
             <h6 class="fw-bold mb-1">PIN Verification Required</h6>
@@ -120,7 +120,7 @@
         <div id="processRefundSuccessStep" style="display:none;">
           <div class="text-center mb-3">
             <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-2"
-                 style="width:56px;height:56px;background:#ED1C24;">
+                 style="width:56px;height:56px;background:#0038A8;">
               <i class="bi bi-check-lg text-white fs-3"></i>
             </div>
             <h5 class="fw-bold text-success mb-1">Refund Processed</h5>

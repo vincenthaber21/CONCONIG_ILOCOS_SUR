@@ -136,7 +136,7 @@ class TaxRateAdmin(ImportExportModelAdmin):
         if obj.is_active:
             return format_html(
                 '<span style="'
-                'background:#ED1C24;color:#fff;padding:2px 8px;border-radius:4px;'
+                'background:#0038A8;color:#fff;padding:2px 8px;border-radius:4px;'
                 'font-size:0.78rem;font-weight:600;white-space:nowrap;">Enabled</span>'
             )
         return format_html(
@@ -148,7 +148,7 @@ class TaxRateAdmin(ImportExportModelAdmin):
     @admin.display(description='Type', ordering='tax_type')
     def tax_type_badge(self, obj):
         if obj.tax_type == 'inclusive':
-            color, label = '#ED1C24', 'Inclusive'
+            color, label = '#0038A8', 'Inclusive'
         else:
             color, label = '#0066cc', 'Exclusive'
         return format_html(
@@ -167,7 +167,7 @@ class TaxRateAdmin(ImportExportModelAdmin):
             f'../product/?tax_rate__id__exact={obj.pk}'
         )
         return format_html(
-            '<a href="{}" style="font-weight:600;color:#ED1C24;">{} product{}</a>',
+            '<a href="{}" style="font-weight:600;color:#0038A8;">{} product{}</a>',
             url,
             count,
             's' if count != 1 else '',

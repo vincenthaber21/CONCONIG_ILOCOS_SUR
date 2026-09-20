@@ -8,9 +8,9 @@
   {% include "partials/bootstrap_head.html" %}
   <style>
     :root {
-      --brand: #ED1C24;
-      --brand-dark: #C4121A;
-      --accent: #E6C200;
+      --brand: #0038A8;
+      --brand-dark: #002670;
+      --accent: #228B22;
       --accent-dark: #C9A800;
       --dark: #0f172a;
       --muted: #64748b;
@@ -18,7 +18,7 @@
       --card: #ffffff;
       --border: #e2e8f0;
       --panel: #f8fafc;
-      --gradient: linear-gradient(135deg, #ED1C24 0%, #C4121A 45%, #8B0E14 100%);
+      --gradient: linear-gradient(135deg, #0038A8 0%, #002670 45%, #001A4D 100%);
       --shadow-sm: 0 1px 2px rgba(15, 23, 42, .04);
       --shadow-md: 0 4px 12px rgba(15, 23, 42, .06);
       --shadow-lg: 0 12px 28px rgba(15, 23, 42, .08);
@@ -41,8 +41,8 @@
       position: fixed;
       inset: 0;
       background:
-        radial-gradient(circle at 15% 20%, rgba(237, 28, 36, .05) 0%, transparent 45%),
-        radial-gradient(circle at 85% 75%, rgba(230, 194, 0, .05) 0%, transparent 45%);
+        radial-gradient(circle at 15% 20%, rgba(0, 56, 168, .05) 0%, transparent 45%),
+        radial-gradient(circle at 85% 75%, rgba(34, 139, 34, .05) 0%, transparent 45%);
       pointer-events: none;
       z-index: 0;
     }
@@ -121,7 +121,7 @@
       font-weight: 700;
       text-decoration: none;
       font-size: .88rem;
-      box-shadow: 0 4px 14px rgba(237, 28, 36, .25);
+      box-shadow: 0 4px 14px rgba(0, 56, 168, .25);
       transition: transform .15s, background .15s, box-shadow .15s;
       white-space: nowrap;
     }
@@ -129,7 +129,7 @@
       color: #fff;
       background: var(--brand-dark);
       transform: translateY(-1px);
-      box-shadow: 0 6px 18px rgba(237, 28, 36, .3);
+      box-shadow: 0 6px 18px rgba(0, 56, 168, .3);
     }
     .btn-ghost {
       display: inline-flex;
@@ -348,7 +348,7 @@
     }
     .payment-table tbody tr:last-child td { border-bottom: none; }
     .payment-table tbody tr.payment-row--paid td { background: #f0fdf4; }
-    .payment-table tbody tr.payment-row--partial td { background: #FEF7D5; }
+    .payment-table tbody tr.payment-row--partial td { background: #E8EEF8; }
     .payment-table__amount { color: #166534; font-weight: 800; white-space: nowrap; }
     .payment-table a { color: var(--accent); font-weight: 700; text-decoration: none; }
     .payment-table__muted { color: var(--muted); font-size: .76rem; }
@@ -390,7 +390,7 @@
       padding: .85rem 1rem;
       margin-top: .75rem;
       border-radius: var(--radius-sm);
-      background: #FEF7D5;
+      background: #E8EEF8;
       border: 1px solid #fed7aa;
       font-size: .9rem;
     }
@@ -408,7 +408,7 @@
       margin: 1rem 0 0;
       padding: 1rem 1.1rem;
       border-radius: var(--radius-sm);
-      background: #FEF7D5;
+      background: #E8EEF8;
       border: 1px solid #fed7aa;
     }
     .interest-box__title {

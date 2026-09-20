@@ -2,13 +2,13 @@
 {% load i18n %}
 
 {% block content %}
-<div style="margin-bottom:18px;padding:14px 18px;border-radius:6px;border:1px solid {% if tax_system_enabled %}#ED1C24{% else %}#c0392b{% endif %};background:{% if tax_system_enabled %}#f0faf3{% else %}#fdf2f2{% endif %};">
+<div style="margin-bottom:18px;padding:14px 18px;border-radius:6px;border:1px solid {% if tax_system_enabled %}#0038A8{% else %}#c0392b{% endif %};background:{% if tax_system_enabled %}#f0faf3{% else %}#fdf2f2{% endif %};">
     <div style="display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;">
         <div>
             <div style="font-size:1rem;font-weight:700;color:#222;margin-bottom:4px;">
                 System-wide tax calculation:
                 {% if tax_system_enabled %}
-                    <span style="color:#ED1C24;">Enabled</span>
+                    <span style="color:#0038A8;">Enabled</span>
                 {% else %}
                     <span style="color:#c0392b;">Disabled</span>
                 {% endif %}
@@ -45,7 +45,7 @@
                 <input type="hidden" name="_toggle_system_tax" value="1">
                 <input type="hidden" name="tax_system_action" value="enable">
                 <button type="submit"
-                        style="background:#ED1C24;color:#fff;border:none;padding:8px 16px;border-radius:4px;font-weight:600;cursor:pointer;">
+                        style="background:#0038A8;color:#fff;border:none;padding:8px 16px;border-radius:4px;font-weight:600;cursor:pointer;">
                     Enable tax system
                 </button>
             </form>

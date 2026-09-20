@@ -10,11 +10,11 @@
   <style>
     :root {
       --dark: #0f172a;
-      --brand: #ED1C24;
-      --accent: #E6C200;
+      --brand: #0038A8;
+      --accent: #228B22;
       --muted: #94a3b8;
       --panel: #ffffff;
-      --gradient: linear-gradient(135deg, #ED1C24 0%, #C4121A 40%, #8B0E14 100%);
+      --gradient: linear-gradient(135deg, #0038A8 0%, #002670 40%, #001A4D 100%);
     }
 
     body {
@@ -160,7 +160,7 @@
     .txn-status-pending            { background: #fef3c7; color: #92400e; border-color: #fde68a; }
     .txn-status-cancelled          { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
     .txn-status-refunded           { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
-    .txn-status-refund_requested   { background: #FEF7D5; color: #c2410c; border-color: #fed7aa; }
+    .txn-status-refund_requested   { background: #E8EEF8; color: #c2410c; border-color: #fed7aa; }
     .txn-status-return_window      { background: #fef9c3; color: #854d0e; border-color: #fde047; }
     .txn-status-partially_refunded { background: linear-gradient(135deg,#e0f2fe 0%,#ffedd5 100%); color: #0c4a6e; border-color: #7dd3fc; }
     .txn-status-return_expired     { background: #fce7f3; color: #9d174d; border-color: #f9a8d4; }
@@ -213,16 +213,16 @@
     #logoutConfirmModal .modal-backdrop { background-color: rgba(0,0,0,0.6); backdrop-filter: blur(4px); z-index: 9998 !important; }
     #logoutConfirmModal .modal-header { background: linear-gradient(135deg,#f8f9fa 0%,#e9ecef 100%); border-bottom: 2px solid #dee2e6; padding: 24px 32px; display: flex; align-items: center; gap: 12px; }
     #logoutConfirmModal .modal-header .modal-title { font-weight: 700; font-size: 1.5rem; color: #1a1a1a; display: flex; align-items: center; gap: 12px; margin: 0; }
-    #logoutConfirmModal .modal-header .modal-title i { color: #ED1C24; font-size: 1.8rem; }
+    #logoutConfirmModal .modal-header .modal-title i { color: #0038A8; font-size: 1.8rem; }
     #logoutConfirmModal .modal-body { padding: 32px; text-align: center; }
-    #logoutConfirmModal .modal-body .warning-icon { font-size: 4rem; color: #ED1C24; margin-bottom: 20px; display: block; }
+    #logoutConfirmModal .modal-body .warning-icon { font-size: 4rem; color: #0038A8; margin-bottom: 20px; display: block; }
     #logoutConfirmModal .modal-body p { font-size: 1.1rem; color: #495057; line-height: 1.6; margin: 0; font-weight: 400; }
     #logoutConfirmModal .modal-footer { border-top: 2px solid #e9ecef; padding: 20px 32px; display: flex; justify-content: center; gap: 12px; background: #f8f9fa; }
     #logoutConfirmModal .modal-footer .btn { min-width: 120px; padding: 12px 24px; font-weight: 600; font-size: 1rem; border-radius: 8px; transition: all 0.2s ease; }
     #logoutConfirmModal .modal-footer .btn-cancel { background: #6c757d; border: 2px solid #6c757d; color: white; }
     #logoutConfirmModal .modal-footer .btn-cancel:hover { background: #5a6268; border-color: #5a6268; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(108,117,125,0.3); }
-    #logoutConfirmModal .modal-footer .btn-confirm { background: linear-gradient(135deg,#ED1C24,#C4121A); border: 2px solid #ED1C24; color: white; }
-    #logoutConfirmModal .modal-footer .btn-confirm:hover { background: linear-gradient(135deg,#C4121A,#A10F16); border-color: #A10F16; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(237,28,36,0.4); }
+    #logoutConfirmModal .modal-footer .btn-confirm { background: linear-gradient(135deg,#0038A8,#002670); border: 2px solid #0038A8; color: white; }
+    #logoutConfirmModal .modal-footer .btn-confirm:hover { background: linear-gradient(135deg,#002670,#002670); border-color: #002670; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,56,168,0.4); }
 
     @media (max-width: 992px) {
       .hero-card { padding: 22px; border-radius: 16px; }
@@ -287,12 +287,12 @@
         <div class="d-flex align-items-center gap-2">
           <label for="dateFrom" class="small fw-semibold text-secondary mb-0">From</label>
           <input type="date" name="date_from" id="dateFrom" value="{{ date_from }}"
-                 class="form-control form-control-sm rounded-pill" style="border:1.5px solid #ED1C24;width:auto;">
+                 class="form-control form-control-sm rounded-pill" style="border:1.5px solid #0038A8;width:auto;">
         </div>
         <div class="d-flex align-items-center gap-2">
           <label for="dateTo" class="small fw-semibold text-secondary mb-0">To</label>
           <input type="date" name="date_to" id="dateTo" value="{{ date_to }}"
-                 class="form-control form-control-sm rounded-pill" style="border:1.5px solid #ED1C24;width:auto;">
+                 class="form-control form-control-sm rounded-pill" style="border:1.5px solid #0038A8;width:auto;">
         </div>
         <button type="submit" class="btn btn-success btn-sm rounded-pill px-3">
           <i class="bi bi-check2-circle me-1"></i> Apply
@@ -322,9 +322,9 @@
           <div class="d-flex justify-content-between align-items-start gap-2">
             <div>
               <div class="stat-title mb-1">Total Revenue</div>
-              <div class="stat-kpi-value fw-bold" style="color:#ED1C24;">₱{{ total_revenue|floatformat:2 }}</div>
+              <div class="stat-kpi-value fw-bold" style="color:#0038A8;">₱{{ total_revenue|floatformat:2 }}</div>
             </div>
-            <div class="stat-icon" style="background:linear-gradient(135deg,#ED1C24,#C4121A);">
+            <div class="stat-icon" style="background:linear-gradient(135deg,#0038A8,#002670);">
               <i class="bi bi-cash-stack"></i>
             </div>
           </div>
@@ -382,7 +382,7 @@
             <div class="col-6 col-sm-4">
               <div class="pay-tile">
                 <div class="pt-lab">{{ pm.payment_method|title }}</div>
-                <div class="pt-val" style="color:#ED1C24;">₱{{ pm.revenue|floatformat:2 }}</div>
+                <div class="pt-val" style="color:#0038A8;">₱{{ pm.revenue|floatformat:2 }}</div>
                 <div class="pt-sub">{{ pm.count }} txn{% if pm.count != 1 %}s{% endif %}</div>
               </div>
             </div>
@@ -439,7 +439,7 @@
               <td>
                 <span class="txn-status-badge txn-status-{{ txn.status }}">{{ txn.get_status_display }}</span>
               </td>
-              <td class="text-end fw-bold" style="color:#ED1C24;">₱{{ txn.total_amount|floatformat:2 }}</td>
+              <td class="text-end fw-bold" style="color:#0038A8;">₱{{ txn.total_amount|floatformat:2 }}</td>
               <td class="text-center">
                 {% if txn.payment_method == 'cash' %}
                   <a href="{% url 'view_cash_receipt' txn.id %}" target="_blank"
@@ -520,7 +520,7 @@
     (function () {
       var labels  = [{% for pm in payment_breakdown %}'{{ pm.payment_method|title }}'{% if not forloop.last %},{% endif %}{% endfor %}];
       var data    = [{% for pm in payment_breakdown %}{{ pm.revenue }}{% if not forloop.last %},{% endif %}{% endfor %}];
-      var colours = ['#ED1C24','#3b82f6','#f59e0b','#8b5cf6','#E6C200'];
+      var colours = ['#0038A8','#3b82f6','#f59e0b','#8b5cf6','#228B22'];
       var ctx = document.getElementById('paymentPieChart');
       if (ctx) {
         new Chart(ctx, {

@@ -31,10 +31,10 @@ from reportlab.platypus import (
 OUTPUT_PATH = "GenGlow_User_Manual.pdf"
 
 BRAND_DARK = colors.HexColor("#0f172a")
-BRAND_ORANGE = colors.HexColor("#ED1C24")
-BRAND_GREEN = colors.HexColor("#ED1C24")  # alias kept for older call sites
-BRAND_ACCENT = colors.HexColor("#E6C200")
-BRAND_TEAL = colors.HexColor("#E6C200")
+BRAND_ORANGE = colors.HexColor("#0038A8")
+BRAND_GREEN = colors.HexColor("#0038A8")  # alias kept for older call sites
+BRAND_ACCENT = colors.HexColor("#228B22")
+BRAND_TEAL = colors.HexColor("#228B22")
 BG_LIGHT = colors.HexColor("#f1f5f9")
 TEXT_MUTED = colors.HexColor("#475569")
 BORDER = colors.HexColor("#cbd5e1")
@@ -212,7 +212,7 @@ def make_steps(items, styles):
     for i, text in enumerate(items, 1):
         flow.append(
             Paragraph(
-                f"<b><font color='#ED1C24'>Step {i}.</font></b> {text}",
+                f"<b><font color='#0038A8'>Step {i}.</font></b> {text}",
                 styles["Body"],
             )
         )
@@ -235,7 +235,7 @@ def info_box(text, styles):
     tbl.setStyle(
         TableStyle(
             [
-                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#FEF7D5")),
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#E8EEF8")),
                 ("BOX", (0, 0), (-1, -1), 0.6, BRAND_GREEN),
                 ("LEFTPADDING", (0, 0), (-1, -1), 12),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 12),
@@ -253,7 +253,7 @@ def warning_box(text, styles):
     tbl.setStyle(
         TableStyle(
             [
-                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#FEF7D5")),
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#E8EEF8")),
                 ("BOX", (0, 0), (-1, -1), 0.6, colors.HexColor("#c2410c")),
                 ("LEFTPADDING", (0, 0), (-1, -1), 12),
                 ("RIGHTPADDING", (0, 0), (-1, -1), 12),
@@ -292,9 +292,9 @@ C_PANEL_DARK = colors.HexColor("#0f172a")
 C_LINE = colors.HexColor("#cbd5e1")
 C_TEXT = colors.HexColor("#334155")
 C_MUTED = colors.HexColor("#94a3b8")
-C_BRAND = colors.HexColor("#ED1C24")
-C_BRAND_LIGHT = colors.HexColor("#FEF7D5")
-C_ACCENT = colors.HexColor("#E6C200")
+C_BRAND = colors.HexColor("#0038A8")
+C_BRAND_LIGHT = colors.HexColor("#E8EEF8")
+C_ACCENT = colors.HexColor("#228B22")
 C_DANGER = colors.HexColor("#dc2626")
 C_GOLD = colors.HexColor("#f59e0b")
 
@@ -713,7 +713,7 @@ def procedure_with_image(title, steps, drawing, styles, caption_text=""):
     for i, text in enumerate(steps, 1):
         step_flow.append(
             Paragraph(
-                f"<b><font color='#ED1C24'>{i}.</font></b> {text}",
+                f"<b><font color='#0038A8'>{i}.</font></b> {text}",
                 styles["Body"],
             )
         )
@@ -809,7 +809,7 @@ def build_toc(styles):
         ("9.", "Support & Contact", "20"),
     ]
 
-    rows = [[f"<font color='#ED1C24'><b>{n}</b></font>", t, f"<font color='#475569'>{p}</font>"] for n, t, p in toc_items]
+    rows = [[f"<font color='#0038A8'><b>{n}</b></font>", t, f"<font color='#475569'>{p}</font>"] for n, t, p in toc_items]
     rows = [[Paragraph(c, styles["TOCItem"]) for c in row] for row in rows]
     tbl = Table(rows, colWidths=[1.5 * cm, 13 * cm, 2 * cm])
     tbl.setStyle(

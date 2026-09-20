@@ -9,11 +9,11 @@
   <style>
     :root {
       --dark: #0f172a;
-      --brand: #ED1C24;
-      --accent: #E6C200;
+      --brand: #0038A8;
+      --accent: #228B22;
       --muted: #94a3b8;
       --panel: #ffffff;
-      --gradient: linear-gradient(135deg, #ED1C24 0%, #C4121A 40%, #8B0E14 100%);
+      --gradient: linear-gradient(135deg, #0038A8 0%, #002670 40%, #001A4D 100%);
     }
 
     body {
@@ -158,7 +158,7 @@
     }
 
     .txn-status-refund_requested {
-      background: #FEF7D5;
+      background: #E8EEF8;
       color: #c2410c;
       border-color: #fed7aa;
     }
@@ -220,7 +220,7 @@
     }
 
     .txn-export-bar .form-control[type="date"] {
-      border: 1.5px solid #ED1C24;
+      border: 1.5px solid #0038A8;
       border-radius: 999px;
       width: auto;
       min-width: 10.5rem;
@@ -448,7 +448,7 @@
       margin: 0;
     }
     #logoutConfirmModal .modal-header .modal-title i {
-      color: #ED1C24;
+      color: #0038A8;
       font-size: 1.8rem;
     }
     #logoutConfirmModal .modal-body {
@@ -457,7 +457,7 @@
     }
     #logoutConfirmModal .modal-body .warning-icon {
       font-size: 4rem;
-      color: #ED1C24;
+      color: #0038A8;
       margin-bottom: 20px;
       display: block;
     }
@@ -496,15 +496,15 @@
       box-shadow: 0 4px 12px rgba(108, 117, 125, 0.3);
     }
     #logoutConfirmModal .modal-footer .btn-confirm {
-      background: linear-gradient(135deg, #ED1C24, #C4121A);
-      border: 2px solid #ED1C24;
+      background: linear-gradient(135deg, #0038A8, #002670);
+      border: 2px solid #0038A8;
       color: white;
     }
     #logoutConfirmModal .modal-footer .btn-confirm:hover {
-      background: linear-gradient(135deg, #C4121A, #A10F16);
-      border-color: #A10F16;
+      background: linear-gradient(135deg, #002670, #002670);
+      border-color: #002670;
       transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(237, 28, 36, 0.4);
+      box-shadow: 0 4px 12px rgba(0, 56, 168, 0.4);
     }
   </style>
 </head>
@@ -535,7 +535,7 @@
       <div class="col-md-3">
         <div class="stat-card">
           <div class="d-flex align-items-center gap-3">
-            <div class="stat-icon" style="background:#ED1C24;">
+            <div class="stat-icon" style="background:#0038A8;">
               <i class="bi bi-receipt-cutoff"></i>
             </div>
             <div>
@@ -668,7 +668,7 @@
       <li class="nav-item" role="presentation">
         <button class="nav-link" id="balance-refills-tab" data-bs-toggle="pill" data-bs-target="#balance-refills" type="button" role="tab">
           <i class="bi bi-wallet2 me-1"></i>Balance refills
-          {% if unseen_refills_count %}<span class="refund-tab-badge ms-1 balance-refills-notify-badge" style="background:#ED1C24;">{{ unseen_refills_count }}</span>{% endif %}
+          {% if unseen_refills_count %}<span class="refund-tab-badge ms-1 balance-refills-notify-badge" style="background:#0038A8;">{{ unseen_refills_count }}</span>{% endif %}
         </button>
       </li>
       <li class="nav-item" role="presentation">
@@ -1274,7 +1274,7 @@
         <div class="table-card">
           <div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-3">
             <div>
-              <h5 class="mb-1"><i class="bi bi-wallet2 me-2" style="color:#E6C200;"></i>Balance refills</h5>
+              <h5 class="mb-1"><i class="bi bi-wallet2 me-2" style="color:#228B22;"></i>Balance refills</h5>
               <p class="mb-0 text-muted small">
                 Showing the <strong>10 latest</strong> refills per page (newest first).
                 Each row is a card top-up; <strong>Transaction #</strong> matches emails and the API.

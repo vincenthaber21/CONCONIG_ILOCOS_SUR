@@ -8,11 +8,11 @@
     <style>
         :root {
             --dark: #0f172a;
-            --brand: #ED1C24;
-            --accent: #E6C200;
+            --brand: #0038A8;
+            --accent: #228B22;
             --muted: #94a3b8;
             --panel: #ffffff;
-            --gradient: linear-gradient(135deg, #ED1C24 0%, #C4121A 40%, #8B0E14 100%);
+            --gradient: linear-gradient(135deg, #0038A8 0%, #002670 40%, #001A4D 100%);
         }
         body {
             background: #f1f5f9;
@@ -90,7 +90,7 @@
             margin-bottom: 14px;
             transition: all .2s;
         }
-        .txn-item:hover { border-color: var(--brand); box-shadow: 0 4px 12px rgba(237,28,36,.08); }
+        .txn-item:hover { border-color: var(--brand); box-shadow: 0 4px 12px rgba(0,56,168,.08); }
         .txn-item:last-child { margin-bottom: 0; }
 
         .txn-head {
@@ -159,7 +159,7 @@
         }
         .btn-action { border-radius: 12px; padding: 11px 22px; font-weight: 600; transition: all .2s; }
         .btn-brand  { background: var(--gradient); border: none; color: white; }
-        .btn-brand:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(237,28,36,.3); color: white; }
+        .btn-brand:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(0,56,168,.3); color: white; }
 
         .balance-pill {
             display: inline-block;
@@ -175,11 +175,11 @@
         #logoutConfirmModal .modal-header  { background: linear-gradient(135deg,#f8f9fa,#e9ecef); border-bottom: 2px solid #dee2e6; padding: 22px 28px; }
         #logoutConfirmModal .modal-title   { font-weight: 700; font-size: 1.3rem; }
         #logoutConfirmModal .modal-body    { padding: 30px; text-align: center; }
-        #logoutConfirmModal .warning-icon  { font-size: 3.5rem; color: #ED1C24; display: block; margin-bottom: 16px; }
+        #logoutConfirmModal .warning-icon  { font-size: 3.5rem; color: #0038A8; display: block; margin-bottom: 16px; }
         #logoutConfirmModal .modal-footer  { border-top: 2px solid #e9ecef; padding: 18px 28px; display: flex; justify-content: center; gap: 12px; background: #f8f9fa; }
         #logoutConfirmModal .modal-footer .btn { min-width: 110px; padding: 10px 22px; font-weight: 600; border-radius: 8px; }
         #logoutConfirmModal .btn-cancel  { background: #6c757d; border: 2px solid #6c757d; color: white; }
-        #logoutConfirmModal .btn-confirm { background: linear-gradient(135deg,#ED1C24,#C4121A); border: 2px solid #ED1C24; color: white; }
+        #logoutConfirmModal .btn-confirm { background: linear-gradient(135deg,#0038A8,#002670); border: 2px solid #0038A8; color: white; }
 
         @media (max-width: 576px) {
             .header-section { padding: 20px; }
@@ -588,7 +588,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill me-2" style="color:#ED1C24;"></i>Confirm Logout</h5>
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle-fill me-2" style="color:#0038A8;"></i>Confirm Logout</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
