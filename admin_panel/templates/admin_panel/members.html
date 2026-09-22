@@ -150,6 +150,77 @@
       border-bottom: 1px solid #f1f5f9;
     }
 
+    .member-sig-pad {
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 0.85rem;
+      background: #f8fafc;
+    }
+    .member-sig-pad__canvas-wrap {
+      position: relative;
+      background: #fff;
+      border: 1px dashed #cbd5e1;
+      border-radius: 10px;
+      overflow: hidden;
+      touch-action: none;
+    }
+    .member-sig-pad__canvas-wrap canvas {
+      display: block;
+      width: 100%;
+      height: 180px;
+      cursor: crosshair;
+    }
+    .member-sig-pad__line {
+      position: absolute;
+      left: 1rem;
+      right: 1rem;
+      bottom: 0.85rem;
+      border-top: 1px solid #0f172a;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .member-sig-pad__existing {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #fff;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .member-sig-pad.is-drawing .member-sig-pad__existing,
+    .member-sig-pad.has-cleared .member-sig-pad__existing {
+      display: none !important;
+    }
+    .member-sig-pad__footer {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 0.75rem;
+      margin-top: 0.55rem;
+      flex-wrap: wrap;
+    }
+    .member-sig-pad__printed-wrap {
+      min-width: 0;
+      flex: 1;
+    }
+    .member-sig-pad__printed-label {
+      display: block;
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #94a3b8;
+    }
+    .member-sig-pad__printed {
+      display: block;
+      font-size: 1rem;
+      color: #0f172a;
+      font-weight: 700;
+      word-break: break-word;
+      min-height: 1.35em;
+    }
+
     .member-form-section--discount > .mt-3.mb-1:first-child {
       margin-top: 0 !important;
     }
@@ -1287,8 +1358,12 @@
           <form id="addMemberAdminForm" autocomplete="off">
 
             <div class="member-form-section">
-              <div class="member-form-section-title">Basic information</div>
+              <div class="member-form-section-title">Membership application</div>
               <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label" for="adminAddLastName">Surname <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control" id="adminAddLastName" placeholder="e.g. dela Cruz" required>
+                </div>
                 <div class="col-md-4">
                   <label class="form-label" for="adminAddFirstName">First name <span class="text-danger">*</span></label>
                   <input type="text" class="form-control" id="adminAddFirstName" placeholder="e.g. Juan" required>
@@ -1296,10 +1371,6 @@
                 <div class="col-md-4">
                   <label class="form-label" for="adminAddMiddleName">Middle name</label>
                   <input type="text" class="form-control" id="adminAddMiddleName" placeholder="Optional">
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label" for="adminAddLastName">Last name <span class="text-danger">*</span></label>
-                  <input type="text" class="form-control" id="adminAddLastName" placeholder="e.g. dela Cruz" required>
                 </div>
                 <div class="col-md-6 col-xl-3">
                   <label class="form-label" for="adminAddUsername">Username</label>
@@ -1320,8 +1391,12 @@
                   <input type="email" class="form-control" id="adminAddEmail" placeholder="name@example.com">
                 </div>
                 <div class="col-md-6 col-xl-3">
-                  <label class="form-label" for="adminAddPhone">Contact number <span class="text-muted fw-normal">(optional)</span></label>
-                  <input type="text" class="form-control" id="adminAddPhone" placeholder="Mobile or landline">
+                  <label class="form-label" for="adminAddPhone">Cellular no. <span class="text-muted fw-normal">(optional)</span></label>
+                  <input type="text" class="form-control" id="adminAddPhone" placeholder="Mobile number">
+                </div>
+                <div class="col-md-6 col-xl-3">
+                  <label class="form-label" for="adminAddPhoto">Photo <span class="text-muted fw-normal">(optional)</span></label>
+                  <input type="file" class="form-control" id="adminAddPhoto" accept="image/*">
                 </div>
               </div>
             </div>
@@ -1370,7 +1445,6 @@
                     <input class="form-check-input" type="checkbox" id="adminAddIsActive" checked>
                     <label class="form-check-label" for="adminAddIsActive">Account is active</label>
                   </div>
-                  <small class="text-muted d-block mt-1" id="adminAddActiveDiscountHint">Active members can use kiosk pricing and discounts tied to their segment.</small>
                   <div id="adminAddInactiveRemarkWrap" class="inactive-remark-box mt-3" style="display:none;">
                     <label class="form-label" for="adminAddInactiveRemark">Reason for inactive status <span class="text-danger">*</span></label>
                     <textarea class="form-control" id="adminAddInactiveRemark" rows="3" maxlength="500" placeholder="Explain why this member is being set as inactive (e.g. resigned, deceased, suspended)."></textarea>
@@ -1378,10 +1452,6 @@
                   </div>
                 </div>
               </div>
-            </div>
-
-            <div id="memberDiscountSection_add" class="member-form-section member-form-section--discount">
-              {% include 'admin_panel/partials/member_concession_modal_fields.html' with suffix='_add' expanded_discount_help=False %}
             </div>
 
             <div class="member-form-section">
@@ -1448,8 +1518,12 @@
             <input type="hidden" id="memberIdInput" />
 
             <div class="member-form-section">
-              <div class="member-form-section-title">Basic information</div>
+              <div class="member-form-section-title">Membership application</div>
               <div class="row g-3">
+                <div class="col-md-4">
+                  <label class="form-label" for="memberLastName">Surname <span class="text-danger">*</span></label>
+                  <input type="text" class="form-control" id="memberLastName" required>
+                </div>
                 <div class="col-md-4">
                   <label class="form-label" for="memberFirstName">First name <span class="text-danger">*</span></label>
                   <input type="text" class="form-control" id="memberFirstName" required>
@@ -1457,10 +1531,6 @@
                 <div class="col-md-4">
                   <label class="form-label" for="memberMiddleName">Middle name</label>
                   <input type="text" class="form-control" id="memberMiddleName" placeholder="Optional">
-                </div>
-                <div class="col-md-4">
-                  <label class="form-label" for="memberLastName">Last name <span class="text-danger">*</span></label>
-                  <input type="text" class="form-control" id="memberLastName" required>
                 </div>
                 <div class="col-md-6 col-xl-3">
                   <label class="form-label">Username</label>
@@ -1479,8 +1549,13 @@
                   <input type="email" class="form-control" id="memberEmail" placeholder="name@example.com">
                 </div>
                 <div class="col-md-6 col-xl-3">
-                  <label class="form-label">Contact number <span class="text-muted fw-normal">(optional)</span></label>
-                  <input type="text" class="form-control" id="memberPhone" placeholder="Mobile or landline">
+                  <label class="form-label">Cellular no. <span class="text-muted fw-normal">(optional)</span></label>
+                  <input type="text" class="form-control" id="memberPhone" placeholder="Mobile number">
+                </div>
+                <div class="col-md-6 col-xl-3">
+                  <label class="form-label" for="memberPhoto">Photo <span class="text-muted fw-normal">(optional)</span></label>
+                  <input type="file" class="form-control" id="memberPhoto" accept="image/*">
+                  <small class="text-muted" id="memberPhotoHint"></small>
                 </div>
               </div>
             </div>
@@ -1528,7 +1603,7 @@
               <div class="col-12">
                 <div class="form-check">
                   <input class="form-check-input" type="checkbox" id="memberIsActive" checked>
-                  <label class="form-check-label" for="memberIsActive">Active <span class="text-muted fw-normal" id="memberIsActiveDiscountHint">(required for member discount pricing at kiosk)</span></label>
+                  <label class="form-check-label" for="memberIsActive">Active</label>
                 </div>
                 <div id="memberInactiveRemarkWrap" class="inactive-remark-box mt-3" style="display:none;">
                   <label class="form-label" for="memberInactiveRemark">Reason for inactive status <span class="text-danger">*</span></label>
@@ -1537,10 +1612,6 @@
                 </div>
               </div>
               </div>
-            </div>
-
-            <div id="memberDiscountSection_edit" class="member-form-section member-form-section--discount">
-            {% include 'admin_panel/partials/member_concession_modal_fields.html' with suffix='_edit' expanded_discount_help=True %}
             </div>
 
             <div class="member-form-section">
@@ -1950,13 +2021,6 @@
         return global.buildConcessionPayload(suffix);
       };
       global.syncMemberDiscountSectionVisibility = function (suffix, role) {
-        const isMember = (role || 'member') === 'member';
-        const section = document.getElementById('memberDiscountSection' + suffix);
-        if (section) section.style.display = isMember ? '' : 'none';
-        const activeHintId = suffix === '_add' ? 'adminAddActiveDiscountHint' : 'memberIsActiveDiscountHint';
-        const activeHint = document.getElementById(activeHintId);
-        if (activeHint) activeHint.style.display = isMember ? '' : 'none';
-        if (!isMember) global.resetConcessionFormUI(suffix);
         global.syncMemberBalanceVisibility(role);
       };
       global.syncMemberBalanceVisibility = function (role) {
@@ -1971,27 +2035,18 @@
     })(window);
 
     (function () {
-      ['_add', '_edit'].forEach(function (suffix) {
-        document.querySelectorAll('input[name="concessionType' + suffix + '"]').forEach(function (el) {
-          el.addEventListener('change', function () {
-            window.syncConcessionFieldVisibility(suffix);
-          });
-        });
-        window.syncConcessionFieldVisibility(suffix);
-      });
-
       const adminAddRoleEl = document.getElementById('adminAddRole');
       if (adminAddRoleEl) {
         adminAddRoleEl.addEventListener('change', function () {
-          window.syncMemberDiscountSectionVisibility('_add', adminAddRoleEl.value);
+          window.syncMemberBalanceVisibility(adminAddRoleEl.value);
         });
-        window.syncMemberDiscountSectionVisibility('_add', adminAddRoleEl.value);
+        window.syncMemberBalanceVisibility(adminAddRoleEl.value);
       }
 
       const memberRoleEl = document.getElementById('memberRole');
       if (memberRoleEl) {
         memberRoleEl.addEventListener('change', function () {
-          window.syncMemberDiscountSectionVisibility('_edit', memberRoleEl.value);
+          window.syncMemberBalanceVisibility(memberRoleEl.value);
         });
       }
     })();
@@ -2008,11 +2063,15 @@
     };
 
     window.MEMBER_COMPLETE_DETAIL_FIELDS = [
-      'middle_name', 'barangay', 'municipality', 'province', 'date_of_birth', 'gender', 'tin', 'age',
-      'civil_status', 'religion', 'educational_attainment', 'occupation', 'coop_type', 'area',
-      'membership_status', 'location', 'rsbsa_remarks', 'rsbsa_number', 'income_sources', 'annual_income',
-      'other_assets', 'spouse_name', 'spouse_occupation', 'date_of_pmes', 'resolution_number',
-      'date_accepted', 'or_number', 'initial_capital_paid_up', 'date_of_mf_recog', 'mf_center'
+      'middle_name', 'membership_number', 'place_of_birth', 'home_address',
+      'barangay', 'municipality', 'province', 'date_of_birth', 'gender', 'tin', 'age',
+      'civil_status', 'religion', 'nationality_id', 'educational_attainment', 'occupation',
+      'income_sources', 'annual_income', 'complete_business_name_address',
+      'business_telephone', 'business_cellular',
+      'spouse_last_name', 'spouse_first_name', 'spouse_middle_name', 'spouse_name',
+      'spouse_age', 'spouse_gender', 'spouse_date_of_birth', 'spouse_employer_business',
+      'spouse_occupation', 'spouse_employer_address', 'spouse_telephone', 'spouse_cellular',
+      'approved_by', 'recorded_by', 'approval_date', 'resolution_number',
     ];
 
     window.memberCompleteDetailFieldId = function (prefix, field) {
@@ -2040,6 +2099,396 @@
         const val = src[field];
         el.value = (val === undefined || val === null) ? '' : String(val);
       });
+      if (typeof window.fillMemberBeneficiaries === 'function') {
+        window.fillMemberBeneficiaries(prefix, src.beneficiaries || []);
+      }
+      if (typeof window.resetMemberSignaturePad === 'function') {
+        window.resetMemberSignaturePad(prefix, src.signature_url || '');
+      } else {
+        const signatureHint = document.getElementById(prefix + 'SignatureHint');
+        if (signatureHint) {
+          signatureHint.textContent = src.signature_url
+            ? 'Current signature on file.'
+            : 'Draw above the printed name, or upload an image.';
+        }
+      }
+      const thumbHint = document.getElementById(prefix + 'ThumbMarkHint');
+      if (thumbHint) {
+        thumbHint.textContent = src.thumb_mark_url ? ('Current: ' + src.thumb_mark_url) : '';
+      }
+      const photoHint = document.getElementById(prefix === 'adminAdd' ? 'adminAddPhotoHint' : 'memberPhotoHint');
+      if (photoHint) {
+        photoHint.textContent = src.photo_url ? ('Current: ' + src.photo_url) : '';
+      }
+      if (typeof window.syncMemberSignaturePrintedName === 'function') {
+        window.syncMemberSignaturePrintedName(prefix);
+      }
+    };
+
+    window.formatMemberPrintedName = function (first, middle, last) {
+      return [first, middle, last]
+        .map(function (part) { return String(part || '').trim(); })
+        .filter(Boolean)
+        .join(' ');
+    };
+
+    window.syncMemberSignaturePrintedName = function (prefix) {
+      const printedEl = document.getElementById(prefix + 'SignaturePrintedName');
+      if (!printedEl) return;
+      const firstEl = document.getElementById(prefix + 'FirstName');
+      const middleEl = document.getElementById(prefix + 'MiddleName');
+      const lastEl = document.getElementById(prefix + 'LastName');
+      const name = window.formatMemberPrintedName(
+        firstEl ? firstEl.value : '',
+        middleEl ? middleEl.value : '',
+        lastEl ? lastEl.value : ''
+      );
+      printedEl.textContent = name || '—';
+    };
+
+    window.setMemberSignatureHint = function (prefix, text) {
+      const hint = document.getElementById(prefix + 'SignatureHint');
+      if (hint) hint.textContent = text;
+    };
+
+    window._memberSignaturePads = window._memberSignaturePads || {};
+
+    window.createMemberSignaturePad = function (canvas, options) {
+      if (!canvas) return null;
+      const ctx = canvas.getContext('2d');
+      let drawing = false;
+      let dirty = false;
+      let ratio = window.devicePixelRatio || 1;
+
+      function applyStrokeStyle() {
+        ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        ctx.lineWidth = 2.2;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = '#0f172a';
+      }
+
+      function clearBitmap() {
+        ctx.save();
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.restore();
+        applyStrokeStyle();
+      }
+
+      function resize() {
+        const rect = canvas.getBoundingClientRect();
+        ratio = window.devicePixelRatio || 1;
+        const width = Math.max(280, Math.floor(rect.width || 640));
+        const height = Math.max(140, Math.floor(rect.height || 180));
+        // Avoid wiping a finished signature: only rebuild backing store when size changes.
+        const nextW = Math.floor(width * ratio);
+        const nextH = Math.floor(height * ratio);
+        if (canvas.width === nextW && canvas.height === nextH) {
+          applyStrokeStyle();
+          return;
+        }
+        const snapshot = dirty ? canvas.toDataURL('image/png') : null;
+        canvas.width = nextW;
+        canvas.height = nextH;
+        canvas.style.width = width + 'px';
+        canvas.style.height = height + 'px';
+        applyStrokeStyle();
+        if (snapshot) {
+          const img = new Image();
+          img.onload = function () {
+            clearBitmap();
+            ctx.drawImage(img, 0, 0, width, height);
+          };
+          img.src = snapshot;
+        }
+      }
+
+      function pos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const point = e.touches && e.touches[0] ? e.touches[0] : e;
+        const scaleX = rect.width ? (canvas.width / ratio) / rect.width : 1;
+        const scaleY = rect.height ? (canvas.height / ratio) / rect.height : 1;
+        return {
+          x: (point.clientX - rect.left) * scaleX,
+          y: (point.clientY - rect.top) * scaleY
+        };
+      }
+
+      function start(e) {
+        e.preventDefault();
+        if (options && options.onStart) options.onStart();
+        drawing = true;
+        dirty = true;
+        const p = pos(e);
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+      }
+
+      function move(e) {
+        if (!drawing) return;
+        e.preventDefault();
+        const p = pos(e);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+      }
+
+      function end(e) {
+        if (!drawing) return;
+        e.preventDefault();
+        drawing = false;
+        if (options && options.onEnd) options.onEnd();
+      }
+
+      canvas.addEventListener('mousedown', start);
+      canvas.addEventListener('mousemove', move);
+      canvas.addEventListener('mouseup', end);
+      canvas.addEventListener('mouseleave', end);
+      canvas.addEventListener('touchstart', start, { passive: false });
+      canvas.addEventListener('touchmove', move, { passive: false });
+      canvas.addEventListener('touchend', end, { passive: false });
+      window.addEventListener('resize', resize);
+      resize();
+
+      return {
+        isDirty: function () { return dirty; },
+        clear: function () {
+          dirty = false;
+          drawing = false;
+          clearBitmap();
+        },
+        resize: resize,
+        toDataURL: function () {
+          return dirty ? canvas.toDataURL('image/png') : '';
+        }
+      };
+    };
+
+    window.initMemberSignaturePad = function (prefix, opts) {
+      const options = opts || {};
+      const canvas = document.getElementById(prefix + 'SignaturePad');
+      const wrap = document.querySelector('.member-sig-pad[data-sig-prefix="' + prefix + '"]');
+      const dataEl = document.getElementById(prefix + 'SignatureData');
+      const clearEl = document.getElementById(prefix + 'ClearSignature');
+      const existingEl = document.getElementById(prefix + 'SignatureExisting');
+      const fileEl = document.getElementById(prefix + 'Signature');
+      if (!canvas || !wrap) return null;
+
+      if (window._memberSignaturePads[prefix]) {
+        if (options.resize) {
+          window._memberSignaturePads[prefix].resize();
+        }
+        return window._memberSignaturePads[prefix];
+      }
+
+      const pad = window.createMemberSignaturePad(canvas, {
+        onStart: function () {
+          wrap.classList.add('is-drawing');
+          wrap.classList.remove('has-existing', 'has-cleared');
+          if (existingEl) existingEl.hidden = true;
+          if (clearEl) clearEl.value = '';
+          if (fileEl) fileEl.value = '';
+          window.setMemberSignatureHint(prefix, 'Signature captured. Click Clear to redraw.');
+        },
+        onEnd: function () {
+          if (!pad.isDirty()) return;
+          if (dataEl) dataEl.value = pad.toDataURL();
+          if (clearEl) clearEl.value = '';
+          window.setMemberSignatureHint(prefix, 'Signature ready to save.');
+        }
+      });
+
+      const clearBtn = wrap.querySelector('.member-sig-clear-btn');
+      if (clearBtn) {
+        clearBtn.addEventListener('click', function () {
+          pad.clear();
+          wrap.classList.remove('is-drawing', 'has-existing');
+          wrap.classList.add('has-cleared');
+          if (dataEl) dataEl.value = '';
+          if (clearEl) clearEl.value = 'on';
+          if (existingEl) {
+            existingEl.hidden = true;
+            existingEl.removeAttribute('src');
+          }
+          if (fileEl) fileEl.value = '';
+          window.setMemberSignatureHint(prefix, 'Signature cleared. Draw a new one or upload an image.');
+        });
+      }
+
+      if (fileEl) {
+        fileEl.addEventListener('change', function () {
+          if (fileEl.files && fileEl.files[0]) {
+            pad.clear();
+            wrap.classList.remove('is-drawing', 'has-existing');
+            wrap.classList.add('has-cleared');
+            if (dataEl) dataEl.value = '';
+            if (clearEl) clearEl.value = '';
+            if (existingEl) existingEl.hidden = true;
+            window.setMemberSignatureHint(prefix, 'Using uploaded image: ' + fileEl.files[0].name);
+          }
+        });
+      }
+
+      window._memberSignaturePads[prefix] = pad;
+      return pad;
+    };
+
+    window.resetMemberSignaturePad = function (prefix, signatureUrl) {
+      const pad = window.initMemberSignaturePad(prefix);
+      const wrap = document.querySelector('.member-sig-pad[data-sig-prefix="' + prefix + '"]');
+      const dataEl = document.getElementById(prefix + 'SignatureData');
+      const clearEl = document.getElementById(prefix + 'ClearSignature');
+      const existingEl = document.getElementById(prefix + 'SignatureExisting');
+      const fileEl = document.getElementById(prefix + 'Signature');
+
+      if (pad) pad.clear();
+      if (dataEl) dataEl.value = '';
+      if (clearEl) clearEl.value = '';
+      if (fileEl) fileEl.value = '';
+      if (wrap) wrap.classList.remove('is-drawing', 'has-cleared', 'has-existing');
+
+      if (existingEl) {
+        if (signatureUrl) {
+          existingEl.src = signatureUrl;
+          existingEl.hidden = false;
+          if (wrap) wrap.classList.add('has-existing');
+          window.setMemberSignatureHint(prefix, 'Current signature on file. Draw to replace, or clear first.');
+        } else {
+          existingEl.removeAttribute('src');
+          existingEl.hidden = true;
+          window.setMemberSignatureHint(prefix, 'Draw above the printed name, or upload an image.');
+        }
+      } else {
+        window.setMemberSignatureHint(
+          prefix,
+          signatureUrl ? 'Current signature on file.' : 'Draw above the printed name, or upload an image.'
+        );
+      }
+
+      // Resize only after the modal is visible so the canvas gets the real width.
+      requestAnimationFrame(function () {
+        if (pad) pad.resize();
+      });
+    };
+
+    window.collectMemberSignaturePayload = function (prefix) {
+      // Do NOT resize here — resizing wipes the canvas bitmap and would save a blank signature.
+      const pad = window._memberSignaturePads[prefix] || window.initMemberSignaturePad(prefix);
+      const dataEl = document.getElementById(prefix + 'SignatureData');
+      const clearEl = document.getElementById(prefix + 'ClearSignature');
+      const fileEl = document.getElementById(prefix + 'Signature');
+      const hasFile = !!(fileEl && fileEl.files && fileEl.files[0]);
+      let signatureData = '';
+      if (!hasFile) {
+        if (pad && pad.isDirty()) {
+          signatureData = pad.toDataURL();
+        } else if (dataEl && dataEl.value) {
+          signatureData = dataEl.value;
+        }
+        if (signatureData && dataEl) dataEl.value = signatureData;
+      }
+      return {
+        signature_data: signatureData,
+        clear_signature: !hasFile && !signatureData && clearEl && clearEl.value === 'on',
+        signature_file: hasFile ? fileEl.files[0] : null,
+      };
+    };
+
+    ['adminAdd', 'member'].forEach(function (prefix) {
+      ['FirstName', 'MiddleName', 'LastName'].forEach(function (suffix) {
+        const el = document.getElementById(prefix + suffix);
+        if (!el) return;
+        el.addEventListener('input', function () {
+          window.syncMemberSignaturePrintedName(prefix);
+        });
+        el.addEventListener('change', function () {
+          window.syncMemberSignaturePrintedName(prefix);
+        });
+      });
+      window.initMemberSignaturePad(prefix);
+      window.syncMemberSignaturePrintedName(prefix);
+    });
+
+    document.querySelectorAll('#addMemberAdminModal, #memberFormModal').forEach(function (modalEl) {
+      if (!modalEl) return;
+      modalEl.addEventListener('shown.bs.modal', function () {
+        const prefix = modalEl.id === 'addMemberAdminModal' ? 'adminAdd' : 'member';
+        window.initMemberSignaturePad(prefix, { resize: true });
+        window.syncMemberSignaturePrintedName(prefix);
+      });
+    });
+
+    window.createBeneficiaryRow = function (prefix, row) {
+      const tr = document.createElement('tr');
+      tr.className = 'member-beneficiary-row';
+      const r = row || {};
+      tr.innerHTML =
+        '<td><input type="text" class="form-control form-control-sm ben-name" value="' + (r.name || '').replace(/"/g, '&quot;') + '" placeholder="Full name"></td>' +
+        '<td><input type="date" class="form-control form-control-sm ben-dob" value="' + (r.date_of_birth || '') + '"></td>' +
+        '<td><input type="text" class="form-control form-control-sm ben-rel" value="' + (r.relationship || '').replace(/"/g, '&quot;') + '" placeholder="e.g. Child"></td>' +
+        '<td class="text-center"><input type="checkbox" class="form-check-input ben-dep"' + (r.is_dependent ? ' checked' : '') + '></td>' +
+        '<td class="text-center"><input type="checkbox" class="form-check-input ben-ben"' + (r.is_beneficiary ? ' checked' : '') + '></td>' +
+        '<td><button type="button" class="btn btn-sm btn-outline-danger ben-remove" title="Remove row"><i class="bi bi-x-lg"></i></button></td>';
+      tr.querySelector('.ben-remove').addEventListener('click', function () {
+        tr.remove();
+      });
+      return tr;
+    };
+
+    window.fillMemberBeneficiaries = function (prefix, rows) {
+      const body = document.getElementById(prefix + 'BeneficiariesBody');
+      if (!body) return;
+      body.innerHTML = '';
+      const list = (rows && rows.length) ? rows : [{}, {}, {}];
+      list.forEach(function (row) {
+        body.appendChild(window.createBeneficiaryRow(prefix, row));
+      });
+    };
+
+    window.collectMemberBeneficiaries = function (prefix) {
+      const body = document.getElementById(prefix + 'BeneficiariesBody');
+      if (!body) return [];
+      const out = [];
+      body.querySelectorAll('tr.member-beneficiary-row').forEach(function (tr, idx) {
+        const name = (tr.querySelector('.ben-name') || {}).value || '';
+        const trimmed = String(name).trim();
+        if (!trimmed) return;
+        out.push({
+          name: trimmed,
+          date_of_birth: ((tr.querySelector('.ben-dob') || {}).value || '').trim(),
+          relationship: ((tr.querySelector('.ben-rel') || {}).value || '').trim(),
+          is_dependent: !!(tr.querySelector('.ben-dep') || {}).checked,
+          is_beneficiary: !!(tr.querySelector('.ben-ben') || {}).checked,
+          sort_order: idx,
+        });
+      });
+      return out;
+    };
+
+    document.querySelectorAll('.member-add-beneficiary-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const prefix = btn.getAttribute('data-prefix') || '';
+        const body = document.getElementById(prefix + 'BeneficiariesBody');
+        if (!body) return;
+        body.appendChild(window.createBeneficiaryRow(prefix, {}));
+      });
+    });
+
+    // Seed empty beneficiary rows for add/edit forms on load
+    ['adminAdd', 'member'].forEach(function (prefix) {
+      if (document.getElementById(prefix + 'BeneficiariesBody')) {
+        window.fillMemberBeneficiaries(prefix, [{}, {}, {}]);
+      }
+    });
+
+    window.buildMemberMultipartBody = function (payload, fileMap) {
+      const fd = new FormData();
+      fd.append('data', JSON.stringify(payload || {}));
+      Object.keys(fileMap || {}).forEach(function (key) {
+        const file = fileMap[key];
+        if (file) fd.append(key, file);
+      });
+      return fd;
     };
 
     window.computeAgeFromDob = function (dobStr) {
@@ -2175,10 +2624,25 @@
           if (adminAddShareCapital) adminAddShareCapital.value = '0.00';
           if (adminAddPin) adminAddPin.type = 'password';
           if (adminAddTogglePinIcon) adminAddTogglePinIcon.className = 'bi bi-eye';
-          resetConcessionFormUI('_add');
           if (adminAddDateJoined) adminAddDateJoined.value = toDatetimeLocalValue(new Date());
-          if (adminAddRole && typeof window.syncMemberDiscountSectionVisibility === 'function') {
-            window.syncMemberDiscountSectionVisibility('_add', adminAddRole.value);
+          const natEl = document.getElementById('adminAddNationalityId');
+          if (natEl) {
+            const filipinoOpt = Array.from(natEl.options).find(function(o) {
+              return (o.textContent || '').trim().toLowerCase() === 'filipino';
+            });
+            if (filipinoOpt) natEl.value = filipinoOpt.value;
+          }
+          if (typeof window.fillMemberBeneficiaries === 'function') {
+            window.fillMemberBeneficiaries('adminAdd', [{}, {}, {}]);
+          }
+          if (typeof window.resetMemberSignaturePad === 'function') {
+            window.resetMemberSignaturePad('adminAdd', '');
+          }
+          if (typeof window.syncMemberSignaturePrintedName === 'function') {
+            window.syncMemberSignaturePrintedName('adminAdd');
+          }
+          if (adminAddRole && typeof window.syncMemberBalanceVisibility === 'function') {
+            window.syncMemberBalanceVisibility(adminAddRole.value);
           }
           if (adminAddSaveBtn) {
             adminAddSaveBtn.disabled = false;
@@ -2263,19 +2727,31 @@
             date_joined: adminAddDateJoined ? adminAddDateJoined.value : '',
           };
           Object.assign(payload, window.collectMemberCompleteDetails('adminAdd'));
+          payload.beneficiaries = window.collectMemberBeneficiaries('adminAdd');
 
-          Object.assign(payload, window.buildConcessionPayloadForRole('_add', payload.role));
           if (pin) {
             payload.pin = pin;
           }
 
+          const photoEl = document.getElementById('adminAddPhoto');
+          const thumbEl = document.getElementById('adminAddThumbMark');
+          const sigPayload = window.collectMemberSignaturePayload
+            ? window.collectMemberSignaturePayload('adminAdd')
+            : { signature_data: '', clear_signature: false, signature_file: null };
+          if (sigPayload.signature_data) payload.signature_data = sigPayload.signature_data;
+          if (sigPayload.clear_signature) payload.clear_signature = true;
+          const body = window.buildMemberMultipartBody(payload, {
+            photo: photoEl && photoEl.files && photoEl.files[0] ? photoEl.files[0] : null,
+            signature: sigPayload.signature_file || null,
+            thumb_mark: thumbEl && thumbEl.files && thumbEl.files[0] ? thumbEl.files[0] : null,
+          });
+
           const response = await fetch('/api/members/create/', {
             method: 'POST',
             headers: {
-              'Content-Type': 'application/json',
               'X-CSRFToken': getCsrf(),
             },
-            body: JSON.stringify(payload),
+            body: body,
             credentials: 'same-origin',
           });
 
@@ -2670,11 +3146,8 @@
             : toDatetimeLocalValue(new Date());
         }
 
-        if (typeof window.setConcessionFormUI === 'function') {
-          window.setConcessionFormUI('_edit', data);
-        }
-        if (typeof window.syncMemberDiscountSectionVisibility === 'function') {
-          window.syncMemberDiscountSectionVisibility('_edit', memberRole ? memberRole.value : 'member');
+        if (typeof window.syncMemberBalanceVisibility === 'function') {
+          window.syncMemberBalanceVisibility(memberRole ? memberRole.value : 'member');
         }
 
         const modal = new bootstrap.Modal(memberFormModal);
@@ -2813,6 +3286,7 @@
           is_pin_locked: memberIsPinLocked   ? memberIsPinLocked.checked     : false,
         };
         Object.assign(payload, window.collectMemberCompleteDetails('member'));
+        payload.beneficiaries = window.collectMemberBeneficiaries('member');
 
         if (memberDateJoined && memberDateJoined.value) {
           payload.date_joined = memberDateJoined.value;
@@ -2820,8 +3294,6 @@
 
         if (oldPin) payload.old_pin = oldPin;
         if (newPin) payload.new_pin = newPin;
-
-        Object.assign(payload, window.buildConcessionPayloadForRole('_edit', payload.role));
 
         const memberId = memberIdInput ? String(memberIdInput.value || '').trim() : '';
         if (!memberId) {
@@ -2835,13 +3307,25 @@
         saveMemberBtn.disabled = true;
         saveMemberBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...';
 
+        const photoEl = document.getElementById('memberPhoto');
+        const thumbEl = document.getElementById('memberThumbMark');
+        const sigPayload = window.collectMemberSignaturePayload
+          ? window.collectMemberSignaturePayload('member')
+          : { signature_data: '', clear_signature: false, signature_file: null };
+        if (sigPayload.signature_data) payload.signature_data = sigPayload.signature_data;
+        if (sigPayload.clear_signature) payload.clear_signature = true;
+        const body = window.buildMemberMultipartBody(payload, {
+          photo: photoEl && photoEl.files && photoEl.files[0] ? photoEl.files[0] : null,
+          signature: sigPayload.signature_file || null,
+          thumb_mark: thumbEl && thumbEl.files && thumbEl.files[0] ? thumbEl.files[0] : null,
+        });
+
         fetch(url, {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json',
             'X-CSRFToken': csrftoken
           },
-          body: JSON.stringify(payload)
+          body: body
         })
         .then(res => res.json())
         .then(data => {

@@ -87,6 +87,7 @@ from django.core.exceptions import ValidationError
 from members.models import (
     Member,
     MemberType,
+    Nationality,
     Role,
     BalanceTransaction,
     ShareCapitalTransaction,
@@ -5233,23 +5234,27 @@ def api_create_member(request):
     if not is_cashier_or_admin(request.user):
         return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
 
-    try:
-        data = json.loads(request.body.decode('utf-8'))
-    except json.JSONDecodeError:
-        return JsonResponse({'success': False, 'error': 'Invalid JSON payload'}, status=400)
+    from helper.members_helper import (
+        apply_member_complete_details,
+        apply_member_uploads,
+        extract_member_beneficiaries,
+        extract_member_complete_details,
+        generate_unique_member_username,
+        normalize_rfid,
+        parse_member_api_payload,
+        parse_member_date_joined,
+        resolve_inactive_remark,
+        rfid_is_taken_by_other,
+        sync_member_beneficiaries,
+    )
+
+    data, files, payload_error = parse_member_api_payload(request)
+    if payload_error:
+        return JsonResponse({'success': False, 'error': payload_error}, status=400)
 
     first_name = (data.get('first_name') or '').strip()
     last_name = (data.get('last_name') or '').strip()
     username = (data.get('username') or '').strip() or None
-    from helper.members_helper import (
-        apply_member_complete_details,
-        extract_member_complete_details,
-        generate_unique_member_username,
-        normalize_rfid,
-        parse_member_date_joined,
-        resolve_inactive_remark,
-        rfid_is_taken_by_other,
-    )
 
     rfid = normalize_rfid(data.get('rfid'))
     email = (data.get('email') or '').strip() or None
@@ -5315,6 +5320,10 @@ def api_create_member(request):
     if detail_error:
         return JsonResponse({'success': False, 'error': detail_error}, status=400)
 
+    beneficiaries, ben_error = extract_member_beneficiaries(data, required_key=False)
+    if ben_error:
+        return JsonResponse({'success': False, 'error': ben_error}, status=400)
+
     member_type = None
     if member_type_id:
         try:
@@ -5344,9 +5353,11 @@ def api_create_member(request):
         date_joined=date_joined,
     )
     apply_member_complete_details(member, detail_fields or {})
+    apply_member_uploads(member, files, data)
     member.save()
     if pin:
         member.set_pin(pin)
+    sync_member_beneficiaries(member, beneficiaries if beneficiaries is not None else [])
 
     if share_capital > 0:
         ShareCapitalTransaction.objects.create(
@@ -5484,10 +5495,23 @@ def api_update_member(request):
     if not is_cashier_or_admin(request.user):
         return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
 
-    try:
-        data = json.loads(request.body.decode('utf-8'))
-    except json.JSONDecodeError:
-        return JsonResponse({'success': False, 'error': 'Invalid JSON payload'}, status=400)
+    from helper.members_helper import (
+        apply_member_complete_details,
+        apply_member_uploads,
+        extract_member_beneficiaries,
+        extract_member_complete_details,
+        normalize_rfid,
+        parse_member_api_payload,
+        parse_member_date_joined,
+        resolve_inactive_remark,
+        rfid_is_taken_by_other,
+        rfids_equivalent,
+        sync_member_beneficiaries,
+    )
+
+    data, files, payload_error = parse_member_api_payload(request)
+    if payload_error:
+        return JsonResponse({'success': False, 'error': payload_error}, status=400)
 
     member_id = data.get('member_id')
     if not member_id:
@@ -5516,16 +5540,6 @@ def api_update_member(request):
             'success': False,
             'error': _member_edit_pin_error(),
         }, status=403)
-
-    from helper.members_helper import (
-        apply_member_complete_details,
-        extract_member_complete_details,
-        normalize_rfid,
-        parse_member_date_joined,
-        resolve_inactive_remark,
-        rfid_is_taken_by_other,
-        rfids_equivalent,
-    )
 
     first_name = (data.get('first_name') or member.first_name).strip()
     last_name = (data.get('last_name') or member.last_name).strip()
@@ -5567,6 +5581,10 @@ def api_update_member(request):
     detail_fields, detail_error = extract_member_complete_details(data)
     if detail_error:
         return JsonResponse({'success': False, 'error': detail_error}, status=400)
+
+    beneficiaries, ben_error = extract_member_beneficiaries(data, required_key=False)
+    if ben_error:
+        return JsonResponse({'success': False, 'error': ben_error}, status=400)
 
     member_type_new = None
     update_member_type = 'member_type_id' in data
@@ -5610,6 +5628,7 @@ def api_update_member(request):
     member.email = email
     member.phone = phone
     apply_member_complete_details(member, detail_fields or {})
+    apply_member_uploads(member, files, data)
     if update_member_type:
         member.member_type = member_type_new
     requested = (role or "").strip().lower()
@@ -5702,6 +5721,7 @@ def api_update_member(request):
 
     # Save all member changes (except PIN, already persisted via member.set_pin)
     member.save()
+    sync_member_beneficiaries(member, beneficiaries)
 
     if share_capital_changed:
         delta = share_capital_after - share_capital_before
@@ -6070,8 +6090,8 @@ def member_management(request):
 
     # List members like Django admin: default shows everyone; optional active/inactive filters.
     members = Member.objects.select_related(
-        'member_role', 'member_type', 'user', 'senior_profile', 'pwd_profile',
-    )
+        'member_role', 'member_type', 'user', 'senior_profile', 'pwd_profile', 'nationality',
+    ).prefetch_related('beneficiaries_dependents')
     if restrict_member_role:
         members = members.filter(member_role__slug='member')
 
@@ -6185,6 +6205,7 @@ def member_management(request):
     members_filter_query = members_filter_params.urlencode()
 
     member_types = MemberType.objects.filter(is_active=True).order_by('name')
+    nationalities = Nationality.objects.filter(is_active=True).order_by('sort_order', 'name')
     assignable_roles = Role.objects.filter(is_active=True).order_by('sort_order', 'name')
     
     # Calculate statistics (scope depends on caller role restrictions).
@@ -6248,6 +6269,7 @@ def member_management(request):
         'members_base_query': members_base_query,
         'members_filter_query': members_filter_query,
         'member_types': member_types,
+        'nationalities': nationalities,
         'member_complete_details_map': {
             str(m.pk): member_complete_details_dict(m)
             for m in members_page.object_list

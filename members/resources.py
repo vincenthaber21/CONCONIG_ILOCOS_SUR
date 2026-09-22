@@ -12,6 +12,7 @@ from .models import (
     MemberEditHistory,
     MemberStatus,
     MemberType,
+    Nationality,
     PWDProfile,
     Role,
     SegmentProductGroupDiscount,
@@ -51,6 +52,16 @@ class MemberTypeResource(resources.ModelResource):
         report_skipped = True
 
 
+class NationalityResource(resources.ModelResource):
+    class Meta:
+        model = Nationality
+        fields = ('id', 'slug', 'name', 'sort_order', 'is_active')
+        export_order = fields
+        import_id_fields = ('slug',)
+        skip_unchanged = True
+        report_skipped = True
+
+
 class MemberResource(resources.ModelResource):
     """
     Bulk import/export members.
@@ -73,6 +84,11 @@ class MemberResource(resources.ModelResource):
         attribute='member_status',
         widget=ForeignKeyWidget(MemberStatus, field='slug'),
     )
+    nationality = fields.Field(
+        column_name='nationality',
+        attribute='nationality',
+        widget=ForeignKeyWidget(Nationality, field='slug'),
+    )
 
     class Meta:
         model = Member
@@ -80,11 +96,14 @@ class MemberResource(resources.ModelResource):
             'id',
             'username',
             'rfid_card_number',
+            'membership_number',
             'first_name',
             'middle_name',
             'last_name',
             'email',
             'phone',
+            'place_of_birth',
+            'home_address',
             'barangay',
             'municipality',
             'province',
@@ -94,8 +113,30 @@ class MemberResource(resources.ModelResource):
             'tin',
             'civil_status',
             'religion',
+            'nationality',
             'educational_attainment',
             'occupation',
+            'income_sources',
+            'annual_income',
+            'complete_business_name_address',
+            'business_telephone',
+            'business_cellular',
+            'spouse_last_name',
+            'spouse_first_name',
+            'spouse_middle_name',
+            'spouse_name',
+            'spouse_age',
+            'spouse_gender',
+            'spouse_date_of_birth',
+            'spouse_employer_business',
+            'spouse_occupation',
+            'spouse_employer_address',
+            'spouse_telephone',
+            'spouse_cellular',
+            'approval_date',
+            'approved_by',
+            'recorded_by',
+            'resolution_number',
             'coop_type',
             'area',
             'member_status',
@@ -103,13 +144,8 @@ class MemberResource(resources.ModelResource):
             'location',
             'rsbsa_remarks',
             'rsbsa_number',
-            'income_sources',
-            'annual_income',
             'other_assets',
-            'spouse_name',
-            'spouse_occupation',
             'date_of_pmes',
-            'resolution_number',
             'date_accepted',
             'or_number',
             'initial_capital_paid_up',

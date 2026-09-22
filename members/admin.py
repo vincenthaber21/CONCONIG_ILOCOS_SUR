@@ -9,7 +9,9 @@ from .models import (
     Role,
     MemberStatus,
     MemberType,
+    Nationality,
     Member,
+    MemberBeneficiaryDependent,
     BalanceTransaction,
     ShareCapitalTransaction,
     DeletedMember,
@@ -30,6 +32,7 @@ from .resources import (
     MemberResource,
     MemberTypeResource,
     MemberStatusResource,
+    NationalityResource,
     PWDProfileResource,
     RoleResource,
     SegmentProductGroupDiscountResource,
@@ -230,6 +233,16 @@ class MemberTypeAdmin(ImportExportModelAdmin):
     search_fields = ['name', 'description']
 
 
+@admin.register(Nationality)
+class NationalityAdmin(ImportExportModelAdmin):
+    resource_classes = [NationalityResource]
+    list_display = ["name", "slug", "sort_order", "is_active"]
+    list_filter = ["is_active"]
+    search_fields = ["name", "slug"]
+    ordering = ["sort_order", "name"]
+    prepopulated_fields = {"slug": ("name",)}
+
+
 @admin.register(ConcessionDiscountPolicy)
 class ConcessionDiscountPolicyAdmin(ImportExportModelAdmin):
     resource_classes = [ConcessionDiscountPolicyResource]
@@ -250,6 +263,24 @@ class PWDProfileInline(admin.StackedInline):
     extra = 0
     max_num = 1
     can_delete = True
+
+
+class MemberBeneficiaryDependentInline(admin.TabularInline):
+    """Beneficiary / dependent rows from the membership application form."""
+
+    model = MemberBeneficiaryDependent
+    extra = 3
+    fields = (
+        "name",
+        "date_of_birth",
+        "relationship",
+        "is_dependent",
+        "is_beneficiary",
+        "sort_order",
+    )
+    ordering = ("sort_order", "id")
+    verbose_name = "Beneficiary / dependent"
+    verbose_name_plural = "Beneficiary / dependents"
 
 
 class ShareCapitalTransactionInline(admin.TabularInline):
@@ -371,9 +402,13 @@ class PWDProfileAdmin(ImportExportModelAdmin):
 class MemberAdmin(ImportExportModelAdmin):
     resource_classes = [MemberResource]
     form = MemberPinForm
-    inlines = [SeniorCitizenProfileInline, PWDProfileInline, ShareCapitalTransactionInline]
+    inlines = [
+        MemberBeneficiaryDependentInline,
+        ShareCapitalTransactionInline,
+    ]
     list_display = [
         'full_name',
+        'membership_number',
         'username',
         'email',
         'rfid_card_number',
@@ -387,16 +422,23 @@ class MemberAdmin(ImportExportModelAdmin):
         'pin_lockout_status',
         'qr_code_thumbnail',
     ]
-    list_filter = ['member_role', 'is_active', 'is_pin_locked']
+    list_filter = ['member_role', 'is_active', 'is_pin_locked', 'gender', 'civil_status', 'nationality']
+    autocomplete_fields = ['nationality']
     search_fields = [
         'first_name',
         'middle_name',
         'last_name',
+        'membership_number',
         'rfid_card_number',
         'email',
         'user__username',
+        'phone',
         'rsbsa_number',
         'tin',
+        'spouse_name',
+        'spouse_first_name',
+        'spouse_last_name',
+        'nationality__name',
     ]
     readonly_fields = [
         'created_at',
@@ -419,6 +461,9 @@ class MemberAdmin(ImportExportModelAdmin):
 
     def get_changeform_initial_data(self, request):
         member_role_id = Role.objects.filter(slug='member').values_list('pk', flat=True).first()
+        nationality_id = Nationality.objects.filter(
+            slug=Nationality.SLUG_FILIPINO, is_active=True
+        ).values_list('pk', flat=True).first()
         initial = {
             'balance': '0.00',
             'share_capital': '0.00',
@@ -427,6 +472,8 @@ class MemberAdmin(ImportExportModelAdmin):
         }
         if member_role_id:
             initial['member_role'] = member_role_id
+        if nationality_id:
+            initial['nationality'] = nationality_id
         return initial
 
     def get_fieldsets(self, request, obj=None):
@@ -448,91 +495,85 @@ class MemberAdmin(ImportExportModelAdmin):
         )
         base = [
             (
-                None,
+                'Membership application',
                 {
                     'fields': (
-                        'username',
-                        'rfid_card_number',
-                        'first_name',
-                        'middle_name',
-                        'last_name',
-                        'email',
-                        'phone',
+                        ('last_name', 'first_name', 'middle_name'),
+                        'photo',
+                        ('membership_number', 'username', 'rfid_card_number'),
+                        ('email', 'phone'),
                     ),
                     'description': (
-                        'Only <strong>first name</strong> and <strong>last name</strong> are required. '
+                        'Only <strong>first name</strong> and <strong>last name (surname)</strong> are required. '
                         'Everything else is optional unless your co-op needs it.'
                     ),
                 },
             ),
             (
-                'Address & personal details',
+                'Personal data',
                 {
                     'fields': (
-                        'barangay',
-                        'municipality',
-                        'province',
-                        'date_of_birth',
-                        'age',
-                        'gender',
-                        'tin',
-                        'civil_status',
-                        'religion',
+                        ('date_of_birth', 'age', 'gender'),
+                        ('place_of_birth', 'tin'),
+                        'home_address',
+                        ('barangay', 'municipality', 'province'),
+                        ('civil_status', 'religion', 'nationality'),
                         'educational_attainment',
                         'occupation',
                     ),
-                    'classes': ('collapse',),
                 },
             ),
             (
-                'Membership / RSBSA',
+                'Business / occupation / income',
                 {
                     'fields': (
-                        'coop_type',
-                        'area',
-                        'member_status',
-                        'membership_status',
-                        'location',
-                        'rsbsa_remarks',
-                        'rsbsa_number',
-                        'income_sources',
-                        'annual_income',
-                        'other_assets',
+                        ('income_sources', 'annual_income'),
+                        'complete_business_name_address',
+                        ('business_telephone', 'business_cellular'),
                     ),
-                    'classes': ('collapse',),
                 },
             ),
             (
-                'Spouse / partner',
-                {
-                    'fields': ('spouse_name', 'spouse_occupation'),
-                    'classes': ('collapse',),
-                },
-            ),
-            (
-                'Acceptance & capital',
+                'Name of spouse',
                 {
                     'fields': (
-                        'date_of_pmes',
-                        'resolution_number',
-                        'date_accepted',
-                        'or_number',
-                        'initial_capital_paid_up',
-                        'date_of_mf_recog',
-                        'mf_center',
+                        ('spouse_last_name', 'spouse_first_name', 'spouse_middle_name'),
+                        ('spouse_date_of_birth', 'spouse_age', 'spouse_gender'),
+                        ('spouse_employer_business', 'spouse_occupation'),
+                        'spouse_employer_address',
+                        ('spouse_telephone', 'spouse_cellular'),
+                        'spouse_name',
                     ),
-                    'classes': ('collapse',),
+                    'description': (
+                        'Fill spouse name parts below. <strong>Name of spouse (full)</strong> '
+                        'is kept for older records and is auto-updated from the name parts.'
+                    ),
                 },
             ),
-            ('Role', {'fields': ('member_role', 'balance', 'is_active', 'inactive_remark')}),
             (
-                'Share capital',
+                'Approval area',
                 {
-                    'fields': ('share_capital',),
+                    'fields': (
+                        ('approved_by', 'recorded_by'),
+                        ('approval_date', 'resolution_number'),
+                        'signature',
+                        'thumb_mark',
+                    ),
+                },
+            ),
+            (
+                'Role & account',
+                {
+                    'fields': (
+                        'member_role',
+                        'balance',
+                        'share_capital',
+                        'is_active',
+                        'inactive_remark',
+                    ),
                     'description': share_capital_description,
                 },
             ),
-            ('Security', {'fields': security_fields}),
             (
                 'Loan eligibility',
                 {
@@ -545,6 +586,7 @@ class MemberAdmin(ImportExportModelAdmin):
                     ),
                 },
             ),
+            ('Security', {'fields': security_fields}),
             ('Timestamps', {'fields': ('last_transaction', 'created_at', 'updated_at'), 'classes': ('collapse',)}),
         ]
         if obj and obj.pk:
@@ -560,6 +602,7 @@ class MemberAdmin(ImportExportModelAdmin):
                 opening_amount = Decimal("0.00")
                 obj.share_capital = Decimal("0.00")
         obj.sync_age_from_dob()
+        obj.sync_spouse_name()
         super().save_model(request, obj, form, change)
         if creating and opening_amount > 0:
             ShareCapitalTransaction.objects.create(

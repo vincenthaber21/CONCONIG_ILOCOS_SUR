@@ -82,6 +82,9 @@ INACTIVE_REMARK_MAX_LEN = 500
 # Optional co-op profile fields shared by create/update member APIs and forms.
 MEMBER_COMPLETE_DETAIL_CHAR_FIELDS = (
     "middle_name",
+    "membership_number",
+    "place_of_birth",
+    "home_address",
     "barangay",
     "municipality",
     "province",
@@ -91,31 +94,38 @@ MEMBER_COMPLETE_DETAIL_CHAR_FIELDS = (
     "religion",
     "educational_attainment",
     "occupation",
-    "coop_type",
-    "area",
-    "membership_status",
-    "location",
-    "rsbsa_remarks",
-    "rsbsa_number",
     "income_sources",
-    "other_assets",
+    "complete_business_name_address",
+    "business_telephone",
+    "business_cellular",
+    "spouse_last_name",
+    "spouse_first_name",
+    "spouse_middle_name",
     "spouse_name",
+    "spouse_gender",
+    "spouse_employer_business",
     "spouse_occupation",
+    "spouse_employer_address",
+    "spouse_telephone",
+    "spouse_cellular",
+    "approved_by",
+    "recorded_by",
     "resolution_number",
-    "or_number",
-    "mf_center",
 )
 
 MEMBER_COMPLETE_DETAIL_DATE_FIELDS = (
     "date_of_birth",
-    "date_of_pmes",
-    "date_accepted",
-    "date_of_mf_recog",
+    "spouse_date_of_birth",
+    "approval_date",
 )
 
 MEMBER_COMPLETE_DETAIL_DECIMAL_FIELDS = (
     "annual_income",
-    "initial_capital_paid_up",
+)
+
+MEMBER_COMPLETE_DETAIL_AGE_FIELDS = (
+    "age",
+    "spouse_age",
 )
 
 
@@ -203,11 +213,27 @@ def extract_member_complete_details(data: dict) -> tuple[dict | None, str | None
         except ValueError as exc:
             return None, str(exc)
 
-    if "age" in data:
+    for name in MEMBER_COMPLETE_DETAIL_AGE_FIELDS:
+        if name not in data:
+            continue
         try:
-            out["age"] = parse_optional_age(data.get("age"))
+            out[name] = parse_optional_age(data.get(name))
         except ValueError as exc:
             return None, str(exc)
+
+    if "nationality_id" in data:
+        raw_nat = data.get("nationality_id")
+        if raw_nat in (None, "", "null"):
+            out["nationality_id"] = None
+        else:
+            try:
+                out["nationality_id"] = int(raw_nat)
+            except (TypeError, ValueError):
+                return None, "Invalid nationality."
+            from members.models import Nationality
+
+            if not Nationality.objects.filter(pk=out["nationality_id"]).exists():
+                return None, "Selected nationality does not exist."
 
     return out, None
 
@@ -218,8 +244,10 @@ def apply_member_complete_details(member, fields: dict) -> None:
         return
     for key, value in fields.items():
         setattr(member, key, value)
-    if getattr(member, "date_of_birth", None):
+    if hasattr(member, "sync_age_from_dob"):
         member.sync_age_from_dob()
+    if hasattr(member, "sync_spouse_name"):
+        member.sync_spouse_name()
     # Keep MemberStatus FK in sync when a status label/slug is posted.
     status_label = (fields.get("membership_status") or "").strip()
     if status_label:
@@ -233,6 +261,165 @@ def apply_member_complete_details(member, fields: dict) -> None:
             member.apply_member_status(status, deactivate=None)
 
 
+def parse_member_api_payload(request) -> tuple[dict | None, dict, str | None]:
+    """
+    Parse create/update member request body.
+
+    Supports JSON body or multipart with a ``data`` JSON field + optional files.
+    Returns ``(data, files_dict, error)``.
+    """
+    content_type = (getattr(request, "content_type", None) or request.META.get("CONTENT_TYPE", "") or "").lower()
+    files: dict = {}
+    if "multipart/form-data" in content_type:
+        raw = request.POST.get("data") or request.POST.get("payload") or "{}"
+        try:
+            data = json.loads(raw)
+        except (json.JSONDecodeError, TypeError, ValueError):
+            return None, {}, "Invalid JSON payload"
+        if not isinstance(data, dict):
+            return None, {}, "Invalid JSON payload"
+        for key in ("photo", "signature", "thumb_mark"):
+            if key in request.FILES:
+                files[key] = request.FILES[key]
+        return data, files, None
+
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+    except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
+        return None, {}, "Invalid JSON payload"
+    if not isinstance(data, dict):
+        return None, {}, "Invalid JSON payload"
+    return data, files, None
+
+
+def extract_member_beneficiaries(data: dict, *, required_key: bool = False) -> tuple[list[dict] | None, str | None]:
+    """
+    Parse optional ``beneficiaries`` list from an API payload.
+
+    Returns ``(None, None)`` when the key is absent (leave existing rows unchanged),
+    ``([], None)`` when the key is present but empty, or ``(rows, None)`` on success.
+    """
+    if not isinstance(data, dict):
+        return [] if required_key else None, None
+    if "beneficiaries" not in data:
+        return ([] if required_key else None), None
+    raw = data.get("beneficiaries")
+    if raw in (None, "", []):
+        return [], None
+    if not isinstance(raw, list):
+        return None, "Beneficiaries must be a list."
+    out: list[dict] = []
+    for idx, row in enumerate(raw):
+        if not isinstance(row, dict):
+            return None, "Each beneficiary row must be an object."
+        name = (row.get("name") or "").strip()
+        if not name:
+            continue
+        try:
+            dob = parse_optional_date(row.get("date_of_birth"))
+        except ValueError as exc:
+            return None, str(exc)
+        try:
+            sort_order = int(row.get("sort_order", idx) or idx)
+        except (TypeError, ValueError):
+            sort_order = idx
+        out.append(
+            {
+                "name": name,
+                "date_of_birth": dob,
+                "relationship": (row.get("relationship") or "").strip(),
+                "is_dependent": bool(row.get("is_dependent")),
+                "is_beneficiary": bool(row.get("is_beneficiary")),
+                "sort_order": sort_order,
+            }
+        )
+    return out, None
+
+
+def sync_member_beneficiaries(member, rows: list[dict] | None) -> None:
+    """Replace a member's beneficiary/dependent rows with *rows* (None = leave unchanged)."""
+    if rows is None:
+        return
+    from members.models import MemberBeneficiaryDependent
+
+    MemberBeneficiaryDependent.objects.filter(member=member).delete()
+    for row in rows:
+        MemberBeneficiaryDependent.objects.create(member=member, **row)
+
+
+def _save_member_signature_data_url(member, data_url: str) -> bool:
+    """Decode a canvas data-URL and assign it to ``member.signature`` (no save)."""
+    if not data_url or not str(data_url).startswith("data:image"):
+        return False
+    try:
+        header, encoded = str(data_url).split(",", 1)
+    except ValueError:
+        return False
+    import uuid
+
+    from django.core.files.base import ContentFile
+
+    ext = "png"
+    if "jpeg" in header or "jpg" in header:
+        ext = "jpg"
+    try:
+        raw = base64.b64decode(encoded)
+    except (ValueError, TypeError):
+        return False
+    filename = f"member_sig_{uuid.uuid4().hex[:10]}.{ext}"
+    member.signature.save(filename, ContentFile(raw), save=False)
+    return True
+
+
+def apply_member_uploads(member, files: dict | None, data: dict | None = None) -> None:
+    """Assign optional photo / signature / thumb_mark uploads onto *member* (no save).
+
+    Signature may come from an uploaded file, a canvas ``signature_data`` data-URL
+    in *data*, or be cleared when ``clear_signature`` is truthy and nothing new is provided.
+    """
+    files = files or {}
+    data = data or {}
+
+    if files.get("photo") is not None:
+        member.photo = files["photo"]
+    if files.get("thumb_mark") is not None:
+        member.thumb_mark = files["thumb_mark"]
+
+    if files.get("signature") is not None:
+        member.signature = files["signature"]
+        return
+
+    signature_data = (data.get("signature_data") or "").strip()
+    if signature_data:
+        _save_member_signature_data_url(member, signature_data)
+        return
+
+    clear_signature = data.get("clear_signature")
+    if clear_signature in (True, "true", "1", "on", "yes"):
+        if getattr(member, "signature", None):
+            member.signature.delete(save=False)
+            member.signature = None
+
+
+def member_beneficiaries_list(member) -> list[dict]:
+    """Serialize beneficiary/dependent rows for edit forms."""
+    def _d(value):
+        return value.isoformat() if value else ""
+
+    return [
+        {
+            "id": row.pk,
+            "name": row.name or "",
+            "date_of_birth": _d(row.date_of_birth),
+            "relationship": row.relationship or "",
+            "is_dependent": bool(row.is_dependent),
+            "is_beneficiary": bool(row.is_beneficiary),
+            "sort_order": row.sort_order or 0,
+        }
+        for row in member.beneficiaries_dependents.all().order_by("sort_order", "id")
+    ]
+
+
 def member_complete_details_dict(member) -> dict:
     """Serialize complete-detail fields for edit forms / JSON."""
     def _d(value):
@@ -243,6 +430,9 @@ def member_complete_details_dict(member) -> dict:
 
     return {
         "middle_name": member.middle_name or "",
+        "membership_number": member.membership_number or "",
+        "place_of_birth": member.place_of_birth or "",
+        "home_address": member.home_address or "",
         "barangay": member.barangay or "",
         "municipality": member.municipality or "",
         "province": member.province or "",
@@ -252,26 +442,47 @@ def member_complete_details_dict(member) -> dict:
         "age": member.age if member.age is not None else (member.compute_age() or ""),
         "civil_status": member.civil_status or "",
         "religion": member.religion or "",
+        "nationality_id": member.nationality_id or "",
         "educational_attainment": member.educational_attainment or "",
         "occupation": member.occupation or "",
+        "income_sources": member.income_sources or "",
+        "annual_income": _dec(member.annual_income),
+        "complete_business_name_address": member.complete_business_name_address or "",
+        "business_telephone": member.business_telephone or "",
+        "business_cellular": member.business_cellular or "",
+        "spouse_last_name": member.spouse_last_name or "",
+        "spouse_first_name": member.spouse_first_name or "",
+        "spouse_middle_name": member.spouse_middle_name or "",
+        "spouse_name": member.spouse_name or "",
+        "spouse_age": member.spouse_age if member.spouse_age is not None else "",
+        "spouse_gender": member.spouse_gender or "",
+        "spouse_date_of_birth": _d(member.spouse_date_of_birth),
+        "spouse_employer_business": member.spouse_employer_business or "",
+        "spouse_occupation": member.spouse_occupation or "",
+        "spouse_employer_address": member.spouse_employer_address or "",
+        "spouse_telephone": member.spouse_telephone or "",
+        "spouse_cellular": member.spouse_cellular or "",
+        "approved_by": member.approved_by or "",
+        "recorded_by": member.recorded_by or "",
+        "approval_date": _d(member.approval_date),
+        "resolution_number": member.resolution_number or "",
         "coop_type": member.coop_type or "",
         "area": member.area or "",
         "membership_status": member.membership_status or "",
         "location": member.location or "",
         "rsbsa_remarks": member.rsbsa_remarks or "",
         "rsbsa_number": member.rsbsa_number or "",
-        "income_sources": member.income_sources or "",
-        "annual_income": _dec(member.annual_income),
         "other_assets": member.other_assets or "",
-        "spouse_name": member.spouse_name or "",
-        "spouse_occupation": member.spouse_occupation or "",
         "date_of_pmes": _d(member.date_of_pmes),
-        "resolution_number": member.resolution_number or "",
         "date_accepted": _d(member.date_accepted),
         "or_number": member.or_number or "",
         "initial_capital_paid_up": _dec(member.initial_capital_paid_up),
         "date_of_mf_recog": _d(member.date_of_mf_recog),
         "mf_center": member.mf_center or "",
+        "photo_url": member.photo.url if getattr(member, "photo", None) and member.photo else "",
+        "signature_url": member.signature.url if getattr(member, "signature", None) and member.signature else "",
+        "thumb_mark_url": member.thumb_mark.url if getattr(member, "thumb_mark", None) and member.thumb_mark else "",
+        "beneficiaries": member_beneficiaries_list(member),
     }
 
 

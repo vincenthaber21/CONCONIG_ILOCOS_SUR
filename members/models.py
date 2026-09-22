@@ -105,6 +105,44 @@ class MemberType(models.Model):
         verbose_name_plural = "Member types"
 
 
+class Nationality(models.Model):
+    """Lookup of nationalities for membership application forms."""
+
+    SLUG_FILIPINO = "filipino"
+
+    slug = models.SlugField(max_length=64, unique=True, db_index=True)
+    name = models.CharField(max_length=100)
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Uncheck to hide this nationality from new assignments.",
+    )
+
+    class Meta:
+        ordering = ["sort_order", "name"]
+        verbose_name = "Nationality"
+        verbose_name_plural = "Nationalities"
+
+    def __str__(self):
+        return self.name
+
+    @classmethod
+    def resolve_slug(cls, slug, *, default=SLUG_FILIPINO):
+        s = (slug or "").strip().lower()
+        if not s:
+            s = default
+        obj = cls.objects.filter(slug__iexact=s, is_active=True).first()
+        if obj:
+            return obj
+        obj = cls.objects.filter(slug__iexact=s).first()
+        if obj:
+            return obj
+        fallback = cls.objects.filter(slug=default).first()
+        if fallback is None:
+            raise RuntimeError("Nationality table is empty; apply members migrations.")
+        return fallback
+
+
 class Member(models.Model):
     GENDER_MALE = "male"
     GENDER_FEMALE = "female"
@@ -128,34 +166,70 @@ class Member(models.Model):
         (CIVIL_LIVE_IN, "Live-in"),
     ]
 
+    EDUC_ELEMENTARY = "elementary"
+    EDUC_HIGH_SCHOOL = "high_school"
+    EDUC_COLLEGE_LEVEL = "college_level"
+    EDUC_COLLEGE_GRAD = "college_grad"
+    EDUC_POST_GRADUATE = "post_graduate"
+    EDUCATIONAL_ATTAINMENT_CHOICES = [
+        (EDUC_ELEMENTARY, "Elementary"),
+        (EDUC_HIGH_SCHOOL, "High School"),
+        (EDUC_COLLEGE_LEVEL, "College Level"),
+        (EDUC_COLLEGE_GRAD, "College Grad."),
+        (EDUC_POST_GRADUATE, "Post Graduate"),
+    ]
+
     user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True)
     username = models.CharField(max_length=150, unique=True, null=True, blank=True)
     rfid_card_number = models.CharField(max_length=50, unique=True, null=True, blank=True)
     # store a hashed 4-digit PIN for member security (not plaintext)
     pin_hash = models.CharField(max_length=128, blank=True, null=True)
-    first_name = models.CharField(max_length=100)
-    middle_name = models.CharField(max_length=100, blank=True, default="")
-    last_name = models.CharField(max_length=100)
+    membership_number = models.CharField(
+        max_length=50,
+        blank=True,
+        default="",
+        verbose_name="Membership number",
+    )
+    photo = models.ImageField(
+        upload_to="members/photos/",
+        null=True,
+        blank=True,
+        verbose_name="Photo",
+    )
+    first_name = models.CharField(max_length=100, verbose_name="First name")
+    middle_name = models.CharField(max_length=100, blank=True, default="", verbose_name="Middle name")
+    last_name = models.CharField(max_length=100, verbose_name="Surname")
     email = models.EmailField(unique=True, null=True, blank=True)
     phone = models.CharField(
         max_length=20,
         blank=True,
-        verbose_name="Contact number",
+        verbose_name="Cellular no.",
     )
-    member_type = models.ForeignKey(MemberType, on_delete=models.SET_NULL, null=True)
+    member_type = models.ForeignKey(MemberType, on_delete=models.SET_NULL, null=True, blank=True)
     member_role = models.ForeignKey(
         Role,
         on_delete=models.PROTECT,
         related_name="members",
     )
 
-    # Complete membership / RSBSA profile details
+    # Membership application — Personal data
+    place_of_birth = models.CharField(max_length=255, blank=True, default="")
+    home_address = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="Home (mailing) / present / permanent address",
+    )
     barangay = models.CharField(max_length=150, blank=True, default="")
     municipality = models.CharField(max_length=150, blank=True, default="")
     province = models.CharField(max_length=150, blank=True, default="")
     date_of_birth = models.DateField(null=True, blank=True)
     gender = models.CharField(max_length=20, blank=True, default="", choices=GENDER_CHOICES)
-    tin = models.CharField(max_length=50, blank=True, default="", verbose_name="TIN")
+    tin = models.CharField(
+        max_length=50,
+        blank=True,
+        default="",
+        verbose_name="Tax identification no.",
+    )
     age = models.PositiveSmallIntegerField(null=True, blank=True)
     civil_status = models.CharField(
         max_length=20,
@@ -163,9 +237,157 @@ class Member(models.Model):
         default="",
         choices=CIVIL_STATUS_CHOICES,
     )
+    nationality = models.ForeignKey(
+        Nationality,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="members",
+        verbose_name="Nationality",
+    )
     religion = models.CharField(max_length=100, blank=True, default="")
-    educational_attainment = models.CharField(max_length=150, blank=True, default="")
+    educational_attainment = models.CharField(
+        max_length=150,
+        blank=True,
+        default="",
+        choices=EDUCATIONAL_ATTAINMENT_CHOICES,
+        verbose_name="Highest educ. attainment",
+    )
     occupation = models.CharField(max_length=150, blank=True, default="")
+    income_sources = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        verbose_name="Business / occupation / source of income",
+    )
+    annual_income = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        verbose_name="Monthly salary / annual income",
+    )
+    complete_business_name_address = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="Complete business name / address",
+    )
+    business_telephone = models.CharField(
+        max_length=30,
+        blank=True,
+        default="",
+        verbose_name="Telephone no.",
+    )
+    business_cellular = models.CharField(
+        max_length=30,
+        blank=True,
+        default="",
+        verbose_name="Cellular phone no.",
+    )
+
+    # Name of spouse
+    spouse_last_name = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        verbose_name="Spouse surname",
+    )
+    spouse_first_name = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        verbose_name="Spouse first name",
+    )
+    spouse_middle_name = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        verbose_name="Spouse middle name",
+    )
+    spouse_name = models.CharField(
+        max_length=200,
+        blank=True,
+        default="",
+        verbose_name="Name of spouse (full)",
+        help_text="Auto-filled from spouse name parts when those are set.",
+    )
+    spouse_age = models.PositiveSmallIntegerField(null=True, blank=True, verbose_name="Spouse age")
+    spouse_gender = models.CharField(
+        max_length=20,
+        blank=True,
+        default="",
+        choices=GENDER_CHOICES,
+        verbose_name="Spouse gender",
+    )
+    spouse_date_of_birth = models.DateField(
+        null=True,
+        blank=True,
+        verbose_name="Spouse date of birth",
+    )
+    spouse_employer_business = models.CharField(
+        max_length=255,
+        blank=True,
+        default="",
+        verbose_name="Name of employer / business",
+    )
+    spouse_occupation = models.CharField(
+        max_length=150,
+        blank=True,
+        default="",
+        verbose_name="Spouse occupation",
+    )
+    spouse_employer_address = models.TextField(
+        blank=True,
+        default="",
+        verbose_name="Employer / business address",
+    )
+    spouse_telephone = models.CharField(
+        max_length=30,
+        blank=True,
+        default="",
+        verbose_name="Spouse telephone no.",
+    )
+    spouse_cellular = models.CharField(
+        max_length=30,
+        blank=True,
+        default="",
+        verbose_name="Spouse cell. phone no.",
+    )
+
+    # Approval area (membership application)
+    approval_date = models.DateField(null=True, blank=True, verbose_name="Approval date")
+    approved_by = models.CharField(
+        max_length=150,
+        blank=True,
+        default="",
+        verbose_name="Approved by (Chairperson)",
+    )
+    recorded_by = models.CharField(
+        max_length=150,
+        blank=True,
+        default="",
+        verbose_name="Recorded by (Cooperative Secretary)",
+    )
+    resolution_number = models.CharField(
+        max_length=100,
+        blank=True,
+        default="",
+        verbose_name="BOD Resolution No.",
+    )
+    signature = models.ImageField(
+        upload_to="members/signatures/",
+        null=True,
+        blank=True,
+        verbose_name="Signature over printed name",
+    )
+    thumb_mark = models.ImageField(
+        upload_to="members/thumb_marks/",
+        null=True,
+        blank=True,
+        verbose_name="Right hand thumb mark",
+    )
+
+    # Legacy / RSBSA profile details (optional)
     coop_type = models.CharField(
         max_length=100,
         blank=True,
@@ -202,36 +424,11 @@ class Member(models.Model):
         default="",
         verbose_name="RSBSA number",
     )
-    income_sources = models.CharField(
-        max_length=255,
-        blank=True,
-        default="",
-        verbose_name="Sources",
-    )
-    annual_income = models.DecimalField(
-        max_digits=14,
-        decimal_places=2,
-        null=True,
-        blank=True,
-    )
     other_assets = models.TextField(blank=True, default="")
-    spouse_name = models.CharField(
-        max_length=200,
-        blank=True,
-        default="",
-        verbose_name="Name of spouse / live-in partner",
-    )
-    spouse_occupation = models.CharField(max_length=150, blank=True, default="")
     date_of_pmes = models.DateField(
         null=True,
         blank=True,
         verbose_name="Date of PMES",
-    )
-    resolution_number = models.CharField(
-        max_length=100,
-        blank=True,
-        default="",
-        verbose_name="Res. No.",
     )
     date_accepted = models.DateField(null=True, blank=True)
     or_number = models.CharField(
@@ -309,21 +506,44 @@ class Member(models.Model):
         parts = [self.first_name, (self.middle_name or "").strip(), self.last_name]
         return " ".join(p for p in parts if p)
 
-    def compute_age(self, on_date=None):
-        """Return age in years from ``date_of_birth``, or stored ``age`` if no DOB."""
-        if not self.date_of_birth:
+    @property
+    def spouse_full_name(self):
+        parts = [
+            self.spouse_first_name,
+            (self.spouse_middle_name or "").strip(),
+            self.spouse_last_name,
+        ]
+        composed = " ".join(p for p in parts if p)
+        return composed or (self.spouse_name or "")
+
+    def compute_age(self, on_date=None, born=None):
+        """Return age in years from a birth date, or stored ``age`` if no DOB."""
+        dob = born if born is not None else self.date_of_birth
+        if not dob:
             return self.age
         today = on_date or timezone.localdate()
-        born = self.date_of_birth
-        years = today.year - born.year - (
-            (today.month, today.day) < (born.month, born.day)
+        years = today.year - dob.year - (
+            (today.month, today.day) < (dob.month, dob.day)
         )
         return max(0, years)
 
     def sync_age_from_dob(self):
-        """Set ``age`` from ``date_of_birth`` when DOB is present."""
+        """Set ``age`` / spouse age from date of birth when present."""
         if self.date_of_birth:
             self.age = self.compute_age()
+        if self.spouse_date_of_birth:
+            self.spouse_age = self.compute_age(born=self.spouse_date_of_birth)
+
+    def sync_spouse_name(self):
+        """Keep legacy ``spouse_name`` in sync with structured spouse name parts."""
+        parts = [
+            self.spouse_first_name,
+            (self.spouse_middle_name or "").strip(),
+            self.spouse_last_name,
+        ]
+        composed = " ".join(p for p in parts if p)
+        if composed:
+            self.spouse_name = composed
 
     def apply_member_status(self, status_or_slug, *, deactivate=None):
         """
@@ -463,6 +683,36 @@ class Member(models.Model):
         verbose_name = "Member"
         verbose_name_plural = "Members"
         ordering = ['-date_joined']
+
+
+class MemberBeneficiaryDependent(models.Model):
+    """Beneficiary / dependent row from the membership application form."""
+
+    member = models.ForeignKey(
+        Member,
+        on_delete=models.CASCADE,
+        related_name="beneficiaries_dependents",
+    )
+    name = models.CharField(max_length=200)
+    date_of_birth = models.DateField(null=True, blank=True)
+    relationship = models.CharField(max_length=100, blank=True, default="")
+    is_dependent = models.BooleanField(default=False, verbose_name="Dependent")
+    is_beneficiary = models.BooleanField(default=False, verbose_name="Beneficiary")
+    sort_order = models.PositiveSmallIntegerField(default=0)
+
+    class Meta:
+        ordering = ["sort_order", "id"]
+        verbose_name = "Beneficiary / dependent"
+        verbose_name_plural = "Beneficiaries / dependents"
+
+    def __str__(self):
+        flags = []
+        if self.is_dependent:
+            flags.append("dependent")
+        if self.is_beneficiary:
+            flags.append("beneficiary")
+        suffix = f" ({', '.join(flags)})" if flags else ""
+        return f"{self.name}{suffix}"
 
 
 class ConcessionDiscountPolicy(models.Model):
