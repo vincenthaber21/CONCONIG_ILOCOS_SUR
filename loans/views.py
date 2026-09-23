@@ -1061,26 +1061,47 @@ class LoanDocumentationView(LoanStaffMixin, PipelineStepLockMixin, View):
     def _get_documentation(self, application):
         return models.LoanDocumentation.objects.filter(application=application).first()
 
+    def _authorized_personnel_name(self, user):
+        return _staff_approver_label(user) if user and user.is_authenticated else ""
+
     def get(self, request, pk):
         application = get_object_or_404(
             models.LoanApplication.objects.select_related("loan_product", "member"),
             pk=pk,
         )
         documentation = self._get_documentation(application)
-        documentation = services.generate_loan_agreement(application, documentation)
-        form = forms.LoanDocumentationForm(instance=documentation)
-        return self._render(request, application, form, documentation)
+        documentation = services.generate_loan_agreement(
+            application,
+            documentation,
+            authorized_personnel_name=self._authorized_personnel_name(request.user),
+        )
+        contract = services.build_loan_agreement_context(application)
+        form = forms.LoanDocumentationForm(
+            instance=documentation,
+            default_prepared_by_name=self._authorized_personnel_name(request.user),
+            default_spouse_name=contract.get("spouse_name") or "",
+        )
+        return self._render(request, application, form, documentation, contract=contract)
 
     def post(self, request, pk):
         application = get_object_or_404(
             models.LoanApplication.objects.select_related("loan_product", "member"),
             pk=pk,
         )
+        personnel_name = self._authorized_personnel_name(request.user)
         documentation = self._get_documentation(application)
         if documentation is None:
-            documentation = services.generate_loan_agreement(application)
+            documentation = services.generate_loan_agreement(
+                application,
+                authorized_personnel_name=personnel_name,
+            )
+        contract = services.build_loan_agreement_context(application)
         form = forms.LoanDocumentationForm(
-            request.POST, request.FILES, instance=documentation
+            request.POST,
+            request.FILES,
+            instance=documentation,
+            default_prepared_by_name=personnel_name,
+            default_spouse_name=contract.get("spouse_name") or "",
         )
         if form.is_valid():
             documentation = form.save(commit=False)
@@ -1089,6 +1110,19 @@ class LoanDocumentationView(LoanStaffMixin, PipelineStepLockMixin, View):
             signing_method = form.cleaned_data.get("signing_method")
             documentation.signing_method = signing_method
             hard_copy_file = form.cleaned_data.get("signed_hard_copy")
+            documentation.witnessed_by = request.user
+            documentation.spouse_signer_name = (
+                form.cleaned_data.get("spouse_signer_name") or ""
+            ).strip()
+            documentation.prepared_by_name = (
+                form.cleaned_data.get("prepared_by_name") or ""
+            ).strip() or personnel_name
+            documentation.comaker1_name = (
+                form.cleaned_data.get("comaker1_name") or ""
+            ).strip()
+            documentation.comaker2_name = (
+                form.cleaned_data.get("comaker2_name") or ""
+            ).strip()
 
             if signing_method == models.LoanDocumentation.SigningMethod.HARD_COPY:
                 if hard_copy_file:
@@ -1103,7 +1137,11 @@ class LoanDocumentationView(LoanStaffMixin, PipelineStepLockMixin, View):
                 )
                 documentation.save()
                 if form.cleaned_data.get("regenerate_contract") or not documentation.agreement_file:
-                    documentation = services.generate_loan_agreement(application, documentation)
+                    documentation = services.generate_loan_agreement(
+                        application,
+                        documentation,
+                        authorized_personnel_name=personnel_name,
+                    )
             else:
                 if form.cleaned_data.get("clear_borrower_signature") and documentation.borrower_signature:
                     documentation.borrower_signature.delete(save=False)
@@ -1114,6 +1152,26 @@ class LoanDocumentationView(LoanStaffMixin, PipelineStepLockMixin, View):
                     documentation.personnel_signature.delete(save=False)
                     documentation.personnel_signature = None
                     documentation.signed_by_authorized_personnel_at = None
+
+                if form.cleaned_data.get("clear_spouse_signature") and documentation.spouse_signature:
+                    documentation.spouse_signature.delete(save=False)
+                    documentation.spouse_signature = None
+                    documentation.signed_by_spouse_at = None
+
+                if form.cleaned_data.get("clear_prepared_by_signature") and documentation.prepared_by_signature:
+                    documentation.prepared_by_signature.delete(save=False)
+                    documentation.prepared_by_signature = None
+                    documentation.prepared_by_signed_at = None
+
+                if form.cleaned_data.get("clear_comaker1_signature") and documentation.comaker1_signature:
+                    documentation.comaker1_signature.delete(save=False)
+                    documentation.comaker1_signature = None
+                    documentation.signed_by_comaker1_at = None
+
+                if form.cleaned_data.get("clear_comaker2_signature") and documentation.comaker2_signature:
+                    documentation.comaker2_signature.delete(save=False)
+                    documentation.comaker2_signature = None
+                    documentation.signed_by_comaker2_at = None
 
                 borrower_data = form.cleaned_data.get("borrower_signature_data")
                 if borrower_data:
@@ -1137,8 +1195,56 @@ class LoanDocumentationView(LoanStaffMixin, PipelineStepLockMixin, View):
                 elif documentation.personnel_signature and not documentation.signed_by_authorized_personnel_at:
                     documentation.signed_by_authorized_personnel_at = now
 
+                spouse_data = form.cleaned_data.get("spouse_signature_data")
+                if spouse_data:
+                    _save_signature_data_url(
+                        documentation.spouse_signature,
+                        spouse_data,
+                        f"spouse_{application.pk}",
+                    )
+                    documentation.signed_by_spouse_at = now
+                elif documentation.spouse_signature and not documentation.signed_by_spouse_at:
+                    documentation.signed_by_spouse_at = now
+
+                prepared_data = form.cleaned_data.get("prepared_by_signature_data")
+                if prepared_data:
+                    _save_signature_data_url(
+                        documentation.prepared_by_signature,
+                        prepared_data,
+                        f"prepared_{application.pk}",
+                    )
+                    documentation.prepared_by_signed_at = now
+                elif documentation.prepared_by_signature and not documentation.prepared_by_signed_at:
+                    documentation.prepared_by_signed_at = now
+
+                comaker1_data = form.cleaned_data.get("comaker1_signature_data")
+                if comaker1_data:
+                    _save_signature_data_url(
+                        documentation.comaker1_signature,
+                        comaker1_data,
+                        f"comaker1_{application.pk}",
+                    )
+                    documentation.signed_by_comaker1_at = now
+                elif documentation.comaker1_signature and not documentation.signed_by_comaker1_at:
+                    documentation.signed_by_comaker1_at = now
+
+                comaker2_data = form.cleaned_data.get("comaker2_signature_data")
+                if comaker2_data:
+                    _save_signature_data_url(
+                        documentation.comaker2_signature,
+                        comaker2_data,
+                        f"comaker2_{application.pk}",
+                    )
+                    documentation.signed_by_comaker2_at = now
+                elif documentation.comaker2_signature and not documentation.signed_by_comaker2_at:
+                    documentation.signed_by_comaker2_at = now
+
                 documentation.save()
-                documentation = services.generate_loan_agreement(application, documentation)
+                documentation = services.generate_loan_agreement(
+                    application,
+                    documentation,
+                    authorized_personnel_name=personnel_name,
+                )
 
             hard_copy_name = ""
             if documentation.signed_hard_copy:
@@ -1158,6 +1264,11 @@ class LoanDocumentationView(LoanStaffMixin, PipelineStepLockMixin, View):
                 ),
                 metadata={
                     "signing_method": signing_method,
+                    "authorized_personnel_name": personnel_name,
+                    "spouse_signer_name": documentation.spouse_signer_name,
+                    "prepared_by_name": documentation.prepared_by_name,
+                    "comaker1_name": documentation.comaker1_name,
+                    "comaker2_name": documentation.comaker2_name,
                     "borrower_signed_at": (
                         documentation.signed_by_borrower_at.isoformat()
                         if documentation.signed_by_borrower_at
@@ -1190,10 +1301,41 @@ class LoanDocumentationView(LoanStaffMixin, PipelineStepLockMixin, View):
                     "Contract saved, but the application is not ready for documentation signing.",
                 )
             return redirect("loans:application-detail", pk=application.pk)
-        return self._render(request, application, form, documentation)
+        return self._render(request, application, form, documentation, contract=contract)
 
-    def _render(self, request, application, form, documentation=None):
-        contract = services.build_loan_agreement_context(application)
+    def _render(self, request, application, form, documentation=None, contract=None):
+        if contract is None:
+            contract = services.build_loan_agreement_context(application)
+        contract["authorized_personnel_name"] = self._authorized_personnel_name(
+            request.user
+        )
+        spouse_display = ""
+        prepared_display = ""
+        comaker1_display = ""
+        comaker2_display = ""
+        if documentation is not None:
+            spouse_display = (documentation.spouse_signer_name or "").strip()
+            prepared_display = (documentation.prepared_by_name or "").strip()
+            comaker1_display = (documentation.comaker1_name or "").strip()
+            comaker2_display = (documentation.comaker2_name or "").strip()
+        if not spouse_display:
+            spouse_display = form["spouse_signer_name"].value() or ""
+        if not spouse_display:
+            spouse_name = contract.get("spouse_name") or ""
+            spouse_display = "" if spouse_name == "—" else spouse_name
+        if not prepared_display:
+            prepared_display = (
+                form["prepared_by_name"].value()
+                or contract["authorized_personnel_name"]
+            )
+        if not comaker1_display:
+            comaker1_display = form["comaker1_name"].value() or ""
+        if not comaker2_display:
+            comaker2_display = form["comaker2_name"].value() or ""
+        contract["spouse_signer_display"] = spouse_display or ""
+        contract["prepared_by_display"] = prepared_display or ""
+        contract["comaker1_display"] = comaker1_display or ""
+        contract["comaker2_display"] = comaker2_display or ""
         return render(
             request,
             self.template_name,

@@ -29,6 +29,7 @@
     </div>
   </header>
 
+  <div class="loan-doc-page__desktop">
   <div id="loan-contract" class="loan-form-pack">
 
   {# ---------- 1. Loan Agreement ---------- #}
@@ -64,12 +65,11 @@
       Kas pammatalged, agpermaak ditoy baba kasta met ti asawak, anak wenno kabsat.
     </p>
     <div class="loan-contract__signatures">
-      <div class="loan-contract__signature">
-        {% if documentation.borrower_signature %}
-        <img class="loan-contract__sig-img" src="{{ documentation.borrower_signature.url }}" alt="Borrower signature">
-        {% else %}
-        <div class="loan-contract__signature-line"></div>
-        {% endif %}
+      <div class="loan-contract__signature" data-sig-slot="borrower">
+        <img class="loan-contract__sig-img" data-live-sig="borrower"
+             alt="Borrower signature"
+             {% if documentation.borrower_signature %}src="{{ documentation.borrower_signature.url }}"{% else %}hidden{% endif %}>
+        <div class="loan-contract__signature-line" data-sig-line="borrower"></div>
         <div class="loan-contract__signature-role">Nagan ken Pirma ti Immutang</div>
         <strong>{{ contract.member_name }}</strong>
         {% if documentation.signed_by_borrower_at %}
@@ -79,10 +79,19 @@
         </div>
         {% endif %}
       </div>
-      <div class="loan-contract__signature">
-        <div class="loan-contract__signature-line"></div>
+      <div class="loan-contract__signature" data-sig-slot="spouse">
+        <img class="loan-contract__sig-img" data-live-sig="spouse"
+             alt="Spouse signature"
+             {% if documentation.spouse_signature %}src="{{ documentation.spouse_signature.url }}"{% else %}hidden{% endif %}>
+        <div class="loan-contract__signature-line" data-sig-line="spouse"></div>
         <div class="loan-contract__signature-role">Nagan ken pirma ti asawa (anak wenno kabsat)</div>
-        <strong>{% if contract.spouse_name != "—" %}{{ contract.spouse_name }}{% endif %}</strong>
+        <strong data-live-name="spouse">{{ contract.spouse_signer_display }}</strong>
+        {% if documentation.signed_by_spouse_at %}
+        <div class="loan-contract__signature-stamp">
+          <i class="bi bi-check-circle-fill"></i>
+          Recorded {{ documentation.signed_by_spouse_at|date:"M j, Y g:i A" }}
+        </div>
+        {% endif %}
       </div>
     </div>
   </section>
@@ -161,37 +170,49 @@
       seguridad/collateral para iti utangek a kantidad.
     </p>
     <div class="loan-contract__signatures">
-      <div class="loan-contract__signature">
-        {% if documentation.borrower_signature %}
-        <img class="loan-contract__sig-img" src="{{ documentation.borrower_signature.url }}" alt="Borrower signature">
-        {% else %}
-        <div class="loan-contract__signature-line"></div>
-        {% endif %}
+      <div class="loan-contract__signature" data-sig-slot="borrower">
+        <img class="loan-contract__sig-img" data-live-sig="borrower"
+             alt="Borrower signature"
+             {% if documentation.borrower_signature %}src="{{ documentation.borrower_signature.url }}"{% else %}hidden{% endif %}>
+        <div class="loan-contract__signature-line" data-sig-line="borrower"></div>
         <div class="loan-contract__signature-role">Nagan ken Pirma iti Immutang</div>
         <strong>{{ contract.member_name }}</strong>
       </div>
-      <div class="loan-contract__signature">
-        <div class="loan-contract__signature-line"></div>
+      <div class="loan-contract__signature" data-sig-slot="spouse">
+        <img class="loan-contract__sig-img" data-live-sig="spouse"
+             alt="Spouse signature"
+             {% if documentation.spouse_signature %}src="{{ documentation.spouse_signature.url }}"{% else %}hidden{% endif %}>
+        <div class="loan-contract__signature-line" data-sig-line="spouse"></div>
         <div class="loan-contract__signature-role">Nagan ken Pirma ti Asawa (anak/kabsat)</div>
-        <strong>{% if contract.spouse_name != "—" %}{{ contract.spouse_name }}{% endif %}</strong>
+        <strong data-live-name="spouse">{{ contract.spouse_signer_display }}</strong>
       </div>
     </div>
     <h3 class="loan-form-sheet__h">Pammaneknek ti panagutang</h3>
     <p class="loan-form-sheet__body">UMUTANG: <strong>{{ contract.member_name }}</strong></p>
-    <p class="loan-form-sheet__body">Co-Maker: _______________________________</p>
-    <p class="loan-form-sheet__body">Co-Maker: _______________________________</p>
+    <p class="loan-form-sheet__body">Co-Maker: <strong data-live-name="comaker1">{{ contract.comaker1_display }}</strong></p>
+    <p class="loan-form-sheet__body">Co-Maker: <strong data-live-name="comaker2">{{ contract.comaker2_display }}</strong></p>
     <div class="loan-contract__signatures">
-      <div class="loan-contract__signature">
-        <div class="loan-contract__signature-line"></div>
+      <div class="loan-contract__signature" data-sig-slot="prepared">
+        <img class="loan-contract__sig-img" data-live-sig="prepared"
+             alt="Prepared by signature"
+             {% if documentation.prepared_by_signature %}src="{{ documentation.prepared_by_signature.url }}"{% else %}hidden{% endif %}>
+        <div class="loan-contract__signature-line" data-sig-line="prepared"></div>
         <div class="loan-contract__signature-role">Prepared By</div>
-      </div>
-      <div class="loan-contract__signature">
-        {% if documentation.personnel_signature %}
-        <img class="loan-contract__sig-img" src="{{ documentation.personnel_signature.url }}" alt="Personnel signature">
-        {% else %}
-        <div class="loan-contract__signature-line"></div>
+        <strong data-live-name="prepared">{{ contract.prepared_by_display }}</strong>
+        {% if documentation.prepared_by_signed_at %}
+        <div class="loan-contract__signature-stamp">
+          <i class="bi bi-check-circle-fill"></i>
+          Recorded {{ documentation.prepared_by_signed_at|date:"M j, Y g:i A" }}
+        </div>
         {% endif %}
+      </div>
+      <div class="loan-contract__signature" data-sig-slot="personnel">
+        <img class="loan-contract__sig-img" data-live-sig="personnel"
+             alt="Personnel signature"
+             {% if documentation.personnel_signature %}src="{{ documentation.personnel_signature.url }}"{% else %}hidden{% endif %}>
+        <div class="loan-contract__signature-line" data-sig-line="personnel"></div>
         <div class="loan-contract__signature-role">Recommending Approval / Manager</div>
+        <strong>{{ contract.authorized_personnel_name }}</strong>
         {% if documentation.signed_by_authorized_personnel_at %}
         <div class="loan-contract__signature-stamp">
           <i class="bi bi-check-circle-fill"></i>
@@ -252,28 +273,51 @@
       iti 25% nga kas Attorney's Fee ken dadduma pay nga gastos maipanggep daytoy nga kaso.
     </p>
     <div class="loan-contract__signatures">
-      <div class="loan-contract__signature">
-        {% if documentation.borrower_signature %}
-        <img class="loan-contract__sig-img" src="{{ documentation.borrower_signature.url }}" alt="Borrower signature">
-        {% else %}
-        <div class="loan-contract__signature-line"></div>
-        {% endif %}
+      <div class="loan-contract__signature" data-sig-slot="borrower">
+        <img class="loan-contract__sig-img" data-live-sig="borrower"
+             alt="Borrower signature"
+             {% if documentation.borrower_signature %}src="{{ documentation.borrower_signature.url }}"{% else %}hidden{% endif %}>
+        <div class="loan-contract__signature-line" data-sig-line="borrower"></div>
         <div class="loan-contract__signature-role">Nagan ken Pirma ti Immutang</div>
         <strong>{{ contract.member_name }}</strong>
       </div>
-      <div class="loan-contract__signature">
-        <div class="loan-contract__signature-line"></div>
+      <div class="loan-contract__signature" data-sig-slot="spouse">
+        <img class="loan-contract__sig-img" data-live-sig="spouse"
+             alt="Spouse signature"
+             {% if documentation.spouse_signature %}src="{{ documentation.spouse_signature.url }}"{% else %}hidden{% endif %}>
+        <div class="loan-contract__signature-line" data-sig-line="spouse"></div>
         <div class="loan-contract__signature-role">Nagan ken Pirma ti Asawa (Anak wenno Kabsat)</div>
+        <strong data-live-name="spouse">{{ contract.spouse_signer_display }}</strong>
       </div>
     </div>
     <div class="loan-contract__signatures">
-      <div class="loan-contract__signature">
-        <div class="loan-contract__signature-line"></div>
+      <div class="loan-contract__signature" data-sig-slot="comaker1">
+        <img class="loan-contract__sig-img" data-live-sig="comaker1"
+             alt="Co-Maker 1 signature"
+             {% if documentation.comaker1_signature %}src="{{ documentation.comaker1_signature.url }}"{% else %}hidden{% endif %}>
+        <div class="loan-contract__signature-line" data-sig-line="comaker1"></div>
         <div class="loan-contract__signature-role">Nagan ken Pirma ti Co-Maker</div>
+        <strong data-live-name="comaker1">{{ contract.comaker1_display }}</strong>
+        {% if documentation.signed_by_comaker1_at %}
+        <div class="loan-contract__signature-stamp">
+          <i class="bi bi-check-circle-fill"></i>
+          Recorded {{ documentation.signed_by_comaker1_at|date:"M j, Y g:i A" }}
+        </div>
+        {% endif %}
       </div>
-      <div class="loan-contract__signature">
-        <div class="loan-contract__signature-line"></div>
+      <div class="loan-contract__signature" data-sig-slot="comaker2">
+        <img class="loan-contract__sig-img" data-live-sig="comaker2"
+             alt="Co-Maker 2 signature"
+             {% if documentation.comaker2_signature %}src="{{ documentation.comaker2_signature.url }}"{% else %}hidden{% endif %}>
+        <div class="loan-contract__signature-line" data-sig-line="comaker2"></div>
         <div class="loan-contract__signature-role">Nagan ken Pirma ti Co-Maker</div>
+        <strong data-live-name="comaker2">{{ contract.comaker2_display }}</strong>
+        {% if documentation.signed_by_comaker2_at %}
+        <div class="loan-contract__signature-stamp">
+          <i class="bi bi-check-circle-fill"></i>
+          Recorded {{ documentation.signed_by_comaker2_at|date:"M j, Y g:i A" }}
+        </div>
+        {% endif %}
       </div>
     </div>
     <p class="loan-form-sheet__small">Dagiti Nakaimatang / Witness: ______________ &nbsp; ______________ &nbsp; ______________</p>
@@ -359,20 +403,19 @@
     </p>
     {% endif %}
     <div class="loan-contract__signatures">
-      <div class="loan-contract__signature">
-        {% if documentation.personnel_signature %}
-        <img class="loan-contract__sig-img" src="{{ documentation.personnel_signature.url }}" alt="Personnel signature">
-        {% else %}
-        <div class="loan-contract__signature-line"></div>
-        {% endif %}
+      <div class="loan-contract__signature" data-sig-slot="personnel">
+        <img class="loan-contract__sig-img" data-live-sig="personnel"
+             alt="Personnel signature"
+             {% if documentation.personnel_signature %}src="{{ documentation.personnel_signature.url }}"{% else %}hidden{% endif %}>
+        <div class="loan-contract__signature-line" data-sig-line="personnel"></div>
         <div class="loan-contract__signature-role">Signature of Authorized Representative</div>
+        <strong>{{ contract.authorized_personnel_name }}</strong>
       </div>
-      <div class="loan-contract__signature">
-        {% if documentation.borrower_signature %}
-        <img class="loan-contract__sig-img" src="{{ documentation.borrower_signature.url }}" alt="Borrower signature">
-        {% else %}
-        <div class="loan-contract__signature-line"></div>
-        {% endif %}
+      <div class="loan-contract__signature" data-sig-slot="borrower">
+        <img class="loan-contract__sig-img" data-live-sig="borrower"
+             alt="Borrower signature"
+             {% if documentation.borrower_signature %}src="{{ documentation.borrower_signature.url }}"{% else %}hidden{% endif %}>
+        <div class="loan-contract__signature-line" data-sig-line="borrower"></div>
         <div class="loan-contract__signature-role">Name &amp; Signature of Borrower</div>
         <strong>{{ contract.member_name }}</strong>
         <div class="loan-form-sheet__small">Date: {{ contract.issued_on|date:"F j, Y" }}</div>
@@ -384,13 +427,21 @@
     </p>
     <p class="loan-form-sheet__small">Signed in the Presence of:</p>
     <div class="loan-contract__signatures">
-      <div class="loan-contract__signature">
-        <div class="loan-contract__signature-line"></div>
+      <div class="loan-contract__signature" data-sig-slot="comaker1">
+        <img class="loan-contract__sig-img" data-live-sig="comaker1"
+             alt="Co-Maker 1 signature"
+             {% if documentation.comaker1_signature %}src="{{ documentation.comaker1_signature.url }}"{% else %}hidden{% endif %}>
+        <div class="loan-contract__signature-line" data-sig-line="comaker1"></div>
         <div class="loan-contract__signature-role">Co-Maker</div>
+        <strong data-live-name="comaker1">{{ contract.comaker1_display }}</strong>
       </div>
-      <div class="loan-contract__signature">
-        <div class="loan-contract__signature-line"></div>
+      <div class="loan-contract__signature" data-sig-slot="comaker2">
+        <img class="loan-contract__sig-img" data-live-sig="comaker2"
+             alt="Co-Maker 2 signature"
+             {% if documentation.comaker2_signature %}src="{{ documentation.comaker2_signature.url }}"{% else %}hidden{% endif %}>
+        <div class="loan-contract__signature-line" data-sig-line="comaker2"></div>
         <div class="loan-contract__signature-role">Co-Maker</div>
+        <strong data-live-name="comaker2">{{ contract.comaker2_display }}</strong>
       </div>
     </div>
   </section>
@@ -408,8 +459,16 @@
       {% csrf_token %}
       {{ form.borrower_signature_data }}
       {{ form.personnel_signature_data }}
+      {{ form.spouse_signature_data }}
+      {{ form.prepared_by_signature_data }}
+      {{ form.comaker1_signature_data }}
+      {{ form.comaker2_signature_data }}
       {{ form.clear_borrower_signature }}
       {{ form.clear_personnel_signature }}
+      {{ form.clear_spouse_signature }}
+      {{ form.clear_prepared_by_signature }}
+      {{ form.clear_comaker1_signature }}
+      {{ form.clear_comaker2_signature }}
 
       {% if form.non_field_errors %}
       <div class="loan-doc-form__errors">{{ form.non_field_errors }}</div>
@@ -426,7 +485,7 @@
           <span>
             <strong>{{ radio.choice_label }}</strong>
             {% if radio.data.value == "DIGITAL" %}
-            <em>Draw borrower and staff signatures on this page.</em>
+            <em>Draw borrower, spouse, co-maker, prepared-by, and staff signatures on this page.</em>
             {% else %}
             <em>Scan or photograph the signed paper contract and upload it here.</em>
             {% endif %}
@@ -491,11 +550,45 @@
           <p class="helptext">Sign above the line</p>
         </div>
 
+        <div class="sig-pad" data-pad="spouse">
+          <div class="sig-pad__head">
+            <div>
+              <strong>Asawa / anak / kabsat</strong>
+              {{ form.spouse_signer_name }}
+            </div>
+            <button type="button" class="btn--secondary sig-pad__clear" data-clear="spouse">Clear</button>
+          </div>
+          <div class="sig-pad__canvas-wrap">
+            {% if documentation.spouse_signature %}
+            <img class="sig-pad__existing" id="spouse-existing" src="{{ documentation.spouse_signature.url }}" alt="Existing spouse signature">
+            {% endif %}
+            <canvas id="spouse-pad" width="520" height="180" aria-label="Spouse signature pad"></canvas>
+          </div>
+          <p class="helptext">Sign above the line</p>
+        </div>
+
+        <div class="sig-pad" data-pad="prepared">
+          <div class="sig-pad__head">
+            <div>
+              <strong>Prepared By</strong>
+              {{ form.prepared_by_name }}
+            </div>
+            <button type="button" class="btn--secondary sig-pad__clear" data-clear="prepared">Clear</button>
+          </div>
+          <div class="sig-pad__canvas-wrap">
+            {% if documentation.prepared_by_signature %}
+            <img class="sig-pad__existing" id="prepared-existing" src="{{ documentation.prepared_by_signature.url }}" alt="Existing prepared-by signature">
+            {% endif %}
+            <canvas id="prepared-pad" width="520" height="180" aria-label="Prepared by signature pad"></canvas>
+          </div>
+          <p class="helptext">Sign above the line</p>
+        </div>
+
         <div class="sig-pad" data-pad="personnel">
           <div class="sig-pad__head">
             <div>
               <strong>Authorized personnel</strong>
-              <span>Staff / officer signature</span>
+              <span>{{ contract.authorized_personnel_name }}</span>
             </div>
             <button type="button" class="btn--secondary sig-pad__clear" data-clear="personnel">Clear</button>
           </div>
@@ -507,18 +600,41 @@
           </div>
           <p class="helptext">Sign above the line</p>
         </div>
-      </div>
-      </div>
 
-      <div class="loan-doc-form__field">
-        <label for="{{ form.witnessed_by.id_for_label }}">Witnessed by</label>
-        {{ form.witnessed_by }}
-        {% if form.witnessed_by.help_text %}
-        <p class="helptext">{{ form.witnessed_by.help_text }}</p>
-        {% endif %}
-        {% if form.witnessed_by.errors %}
-        <div class="loan-doc-form__errors">{{ form.witnessed_by.errors }}</div>
-        {% endif %}
+        <div class="sig-pad" data-pad="comaker1">
+          <div class="sig-pad__head">
+            <div>
+              <strong>Co-Maker 1</strong>
+              {{ form.comaker1_name }}
+            </div>
+            <button type="button" class="btn--secondary sig-pad__clear" data-clear="comaker1">Clear</button>
+          </div>
+          <div class="sig-pad__canvas-wrap">
+            {% if documentation.comaker1_signature %}
+            <img class="sig-pad__existing" id="comaker1-existing" src="{{ documentation.comaker1_signature.url }}" alt="Existing co-maker 1 signature">
+            {% endif %}
+            <canvas id="comaker1-pad" width="520" height="180" aria-label="Co-Maker 1 signature pad"></canvas>
+          </div>
+          <p class="helptext">Sign above the line</p>
+        </div>
+
+        <div class="sig-pad" data-pad="comaker2">
+          <div class="sig-pad__head">
+            <div>
+              <strong>Co-Maker 2</strong>
+              {{ form.comaker2_name }}
+            </div>
+            <button type="button" class="btn--secondary sig-pad__clear" data-clear="comaker2">Clear</button>
+          </div>
+          <div class="sig-pad__canvas-wrap">
+            {% if documentation.comaker2_signature %}
+            <img class="sig-pad__existing" id="comaker2-existing" src="{{ documentation.comaker2_signature.url }}" alt="Existing co-maker 2 signature">
+            {% endif %}
+            <canvas id="comaker2-pad" width="520" height="180" aria-label="Co-Maker 2 signature pad"></canvas>
+          </div>
+          <p class="helptext">Sign above the line</p>
+        </div>
+      </div>
       </div>
 
       <label class="loan-doc-form__check loan-doc-form__regen">
@@ -534,13 +650,36 @@
       </div>
     </form>
   </section>
+  </div>
 </div>
 
 <style>
   .loan-doc-page {
     width: 100%;
-    max-width: 860px;
+    max-width: 1280px;
     margin-inline: auto;
+  }
+
+  .loan-doc-page__desktop {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.25rem;
+    align-items: start;
+  }
+
+  @media (min-width: 1100px) {
+    .loan-doc-page__desktop {
+      grid-template-columns: minmax(0, 1fr) minmax(360px, 420px);
+    }
+    .loan-doc-page__desktop > .loan-doc-form {
+      position: sticky;
+      top: 1rem;
+      max-height: calc(100vh - 2rem);
+      overflow-y: auto;
+    }
+    .loan-doc-page__desktop .sig-pads {
+      grid-template-columns: 1fr;
+    }
   }
 
   .loan-doc-page__header { margin-bottom: 1.25rem; }
@@ -706,7 +845,11 @@
     height: 72px;
     object-fit: contain;
     object-position: left bottom;
-    margin-bottom: .35rem;
+    margin-bottom: 0;
+  }
+  /* Keep the rule under the ink; collapse the empty signing gap when filled */
+  .loan-contract__signature:has(.loan-contract__sig-img:not([hidden])) .loan-contract__signature-line {
+    margin-top: 0;
   }
   .loan-contract__signature-role {
     color: #64748b;
@@ -826,6 +969,22 @@
     color: #64748b;
     font-size: .78rem;
   }
+  .sig-pad__head input[type="text"] {
+    display: block;
+    width: 100%;
+    margin-top: .3rem;
+    padding: .35rem .5rem;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    background: #fff;
+    color: #0f172a;
+    font-size: .82rem;
+  }
+  .sig-pad__head input[type="text"]:focus {
+    outline: none;
+    border-color: #228B22;
+    box-shadow: 0 0 0 3px rgba(34, 139, 34, .12);
+  }
   .sig-pad__clear {
     margin: 0;
     padding: 4px 10px;
@@ -943,6 +1102,11 @@
     .super-nav, nav, form, .btn-loan, .btn--secondary,
     .loan-doc-page__back, .loan-doc-page__actions, .loan-doc-form { display: none !important; }
     body { background: #fff; }
+    .loan-doc-page { max-width: none; }
+    .loan-doc-page__desktop {
+      display: block;
+      grid-template-columns: none;
+    }
     .card { box-shadow: none; border: 1px solid #334155; }
     .loan-form-sheet { break-after: page; page-break-after: always; }
     .loan-form-sheet:last-child { break-after: auto; page-break-after: auto; }
@@ -953,11 +1117,35 @@
 {% block extra_scripts %}
 <script>
 (function () {
+  function syncContractSignature(role, dataUrl) {
+    document.querySelectorAll('[data-live-sig="' + role + '"]').forEach(function (img) {
+      if (dataUrl) {
+        img.src = dataUrl;
+        img.hidden = false;
+      } else {
+        img.removeAttribute("src");
+        img.hidden = true;
+      }
+    });
+    // Signature line always stays visible under the ink / empty gap.
+  }
+
   function createPad(canvas, options) {
     var ctx = canvas.getContext("2d");
     var drawing = false;
     var dirty = false;
     var ratio = Math.max(window.devicePixelRatio || 1, 1);
+    var syncScheduled = false;
+
+    function notifyChange() {
+      if (!options || !options.onChange) return;
+      if (syncScheduled) return;
+      syncScheduled = true;
+      requestAnimationFrame(function () {
+        syncScheduled = false;
+        options.onChange();
+      });
+    }
 
     function resize() {
       var rect = canvas.getBoundingClientRect();
@@ -975,6 +1163,7 @@
         var img = new Image();
         img.onload = function () {
           ctx.drawImage(img, 0, 0, w, h);
+          notifyChange();
         };
         img.src = snapshot;
       }
@@ -1005,12 +1194,14 @@
       var p = pos(e);
       ctx.lineTo(p.x, p.y);
       ctx.stroke();
+      notifyChange();
     }
 
     function end(e) {
       if (!drawing) return;
       e.preventDefault();
       drawing = false;
+      notifyChange();
     }
 
     canvas.addEventListener("mousedown", start);
@@ -1028,6 +1219,7 @@
       clear: function () {
         dirty = false;
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (options && options.onChange) options.onChange();
       },
       toDataURL: function () {
         return dirty ? canvas.toDataURL("image/png") : "";
@@ -1037,44 +1229,99 @@
 
   var borrowerExisting = document.getElementById("borrower-existing");
   var personnelExisting = document.getElementById("personnel-existing");
-  var borrowerWrap = document.querySelector('[data-pad="borrower"]');
-  var personnelWrap = document.querySelector('[data-pad="personnel"]');
+  var spouseExisting = document.getElementById("spouse-existing");
+  var preparedExisting = document.getElementById("prepared-existing");
+  var comaker1Existing = document.getElementById("comaker1-existing");
+  var comaker2Existing = document.getElementById("comaker2-existing");
 
-  if (borrowerExisting) borrowerWrap.classList.add("has-existing");
-  if (personnelExisting) personnelWrap.classList.add("has-existing");
-
-  var borrowerPad = createPad(document.getElementById("borrower-pad"), {
-    onStart: function () {
-      borrowerWrap.classList.add("is-drawing");
-      borrowerWrap.classList.remove("has-existing");
-      document.getElementById("id_clear_borrower_signature").value = borrowerExisting ? "on" : "";
-      if (borrowerExisting) borrowerExisting.style.display = "none";
+  function bindPad(role, clearFieldId, dataFieldId, existingEl) {
+    var wrap = document.querySelector('[data-pad="' + role + '"]');
+    var canvas = document.getElementById(role + "-pad");
+    if (!wrap || !canvas) return null;
+    if (existingEl) wrap.classList.add("has-existing");
+    var pad = createPad(canvas, {
+      onStart: function () {
+        wrap.classList.add("is-drawing");
+        wrap.classList.remove("has-existing");
+        document.getElementById(clearFieldId).value = existingEl ? "on" : "";
+        if (existingEl) existingEl.style.display = "none";
+      },
+      onChange: function () {
+        var dataUrl = pad.toDataURL();
+        if (dataUrl) {
+          syncContractSignature(role, dataUrl);
+        } else if (!existingEl || document.getElementById(clearFieldId).value === "on") {
+          syncContractSignature(role, "");
+        }
+      }
+    });
+    var clearBtn = document.querySelector('[data-clear="' + role + '"]');
+    if (clearBtn) {
+      clearBtn.addEventListener("click", function () {
+        pad.clear();
+        wrap.classList.remove("is-drawing", "has-existing");
+        document.getElementById(dataFieldId).value = "";
+        document.getElementById(clearFieldId).value = "on";
+        if (existingEl) existingEl.style.display = "none";
+        syncContractSignature(role, "");
+      });
     }
-  });
-  var personnelPad = createPad(document.getElementById("personnel-pad"), {
-    onStart: function () {
-      personnelWrap.classList.add("is-drawing");
-      personnelWrap.classList.remove("has-existing");
-      document.getElementById("id_clear_personnel_signature").value = personnelExisting ? "on" : "";
-      if (personnelExisting) personnelExisting.style.display = "none";
+    return pad;
+  }
+
+  var borrowerPad = bindPad(
+    "borrower",
+    "id_clear_borrower_signature",
+    "id_borrower_signature_data",
+    borrowerExisting
+  );
+  var personnelPad = bindPad(
+    "personnel",
+    "id_clear_personnel_signature",
+    "id_personnel_signature_data",
+    personnelExisting
+  );
+  var spousePad = bindPad(
+    "spouse",
+    "id_clear_spouse_signature",
+    "id_spouse_signature_data",
+    spouseExisting
+  );
+  var preparedPad = bindPad(
+    "prepared",
+    "id_clear_prepared_by_signature",
+    "id_prepared_by_signature_data",
+    preparedExisting
+  );
+  var comaker1Pad = bindPad(
+    "comaker1",
+    "id_clear_comaker1_signature",
+    "id_comaker1_signature_data",
+    comaker1Existing
+  );
+  var comaker2Pad = bindPad(
+    "comaker2",
+    "id_clear_comaker2_signature",
+    "id_comaker2_signature_data",
+    comaker2Existing
+  );
+
+  function syncLiveName(role, inputId) {
+    var input = document.getElementById(inputId);
+    if (!input) return;
+    function apply() {
+      var value = (input.value || "").trim();
+      document.querySelectorAll('[data-live-name="' + role + '"]').forEach(function (el) {
+        el.textContent = value;
+      });
     }
-  });
-
-  document.querySelector('[data-clear="borrower"]').addEventListener("click", function () {
-    borrowerPad.clear();
-    borrowerWrap.classList.remove("is-drawing", "has-existing");
-    document.getElementById("id_borrower_signature_data").value = "";
-    document.getElementById("id_clear_borrower_signature").value = "on";
-    if (borrowerExisting) borrowerExisting.style.display = "none";
-  });
-
-  document.querySelector('[data-clear="personnel"]').addEventListener("click", function () {
-    personnelPad.clear();
-    personnelWrap.classList.remove("is-drawing", "has-existing");
-    document.getElementById("id_personnel_signature_data").value = "";
-    document.getElementById("id_clear_personnel_signature").value = "on";
-    if (personnelExisting) personnelExisting.style.display = "none";
-  });
+    input.addEventListener("input", apply);
+    apply();
+  }
+  syncLiveName("spouse", "id_spouse_signer_name");
+  syncLiveName("prepared", "id_prepared_by_name");
+  syncLiveName("comaker1", "id_comaker1_name");
+  syncLiveName("comaker2", "id_comaker2_name");
 
   var form = document.getElementById("signature-form");
   var submitBtn = document.getElementById("doc-submit-btn");
@@ -1106,29 +1353,31 @@
   });
   syncMethodPanels();
 
+  function packPad(pad, existingEl, dataFieldId, clearFieldId) {
+    var dataField = document.getElementById(dataFieldId);
+    var clearOn = document.getElementById(clearFieldId).value === "on";
+    if (pad && pad.isDirty()) {
+      dataField.value = pad.toDataURL();
+    } else if (!existingEl || clearOn) {
+      dataField.value = "";
+    }
+  }
+
   form.addEventListener("submit", function (e) {
     if (selectedMethod() === "HARD_COPY") {
       return;
     }
-    var borrowerData = document.getElementById("id_borrower_signature_data");
-    var personnelData = document.getElementById("id_personnel_signature_data");
+    packPad(borrowerPad, borrowerExisting, "id_borrower_signature_data", "id_clear_borrower_signature");
+    packPad(personnelPad, personnelExisting, "id_personnel_signature_data", "id_clear_personnel_signature");
+    packPad(spousePad, spouseExisting, "id_spouse_signature_data", "id_clear_spouse_signature");
+    packPad(preparedPad, preparedExisting, "id_prepared_by_signature_data", "id_clear_prepared_by_signature");
+    packPad(comaker1Pad, comaker1Existing, "id_comaker1_signature_data", "id_clear_comaker1_signature");
+    packPad(comaker2Pad, comaker2Existing, "id_comaker2_signature_data", "id_clear_comaker2_signature");
+
     var clearBorrower = document.getElementById("id_clear_borrower_signature").value === "on";
     var clearPersonnel = document.getElementById("id_clear_personnel_signature").value === "on";
-
-    if (borrowerPad.isDirty()) {
-      borrowerData.value = borrowerPad.toDataURL();
-    } else if (!borrowerExisting || clearBorrower) {
-      borrowerData.value = "";
-    }
-
-    if (personnelPad.isDirty()) {
-      personnelData.value = personnelPad.toDataURL();
-    } else if (!personnelExisting || clearPersonnel) {
-      personnelData.value = "";
-    }
-
-    var hasBorrower = borrowerData.value || (borrowerExisting && !clearBorrower);
-    var hasPersonnel = personnelData.value || (personnelExisting && !clearPersonnel);
+    var hasBorrower = document.getElementById("id_borrower_signature_data").value || (borrowerExisting && !clearBorrower);
+    var hasPersonnel = document.getElementById("id_personnel_signature_data").value || (personnelExisting && !clearPersonnel);
     if (!hasBorrower || !hasPersonnel) {
       e.preventDefault();
       alert("Please draw both the borrower and authorized personnel signatures before saving.");

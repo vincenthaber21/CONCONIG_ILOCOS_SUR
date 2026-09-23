@@ -1707,15 +1707,21 @@ def build_loan_agreement_context(application):
         "coop_name": COOP_FORM_NAME,
         "coop_address": COOP_FORM_ADDRESS,
         "coop_reg": COOP_FORM_REG,
+        "authorized_personnel_name": "",
     }
 
 
-def generate_loan_agreement(application, documentation=None):
+def generate_loan_agreement(
+    application, documentation=None, authorized_personnel_name=""
+):
     """Generate the Complete Loan Form PDF (A4) and attach it to documentation.
 
     Creates/updates ``LoanDocumentation.agreement_file``. Returns the documentation.
     Layout follows Conconig's Complete-Loan-Form (agreement, application,
     promissory note, disclosure statement) on professional A4 pages.
+
+    ``authorized_personnel_name`` is the logged-in staff/officer printed under
+    authorized-representative signature slots.
     """
     from .models import LoanDocumentation
 
@@ -1723,6 +1729,10 @@ def generate_loan_agreement(application, documentation=None):
         documentation, _ = LoanDocumentation.objects.get_or_create(application=application)
 
     ctx = build_loan_agreement_context(application)
+    if authorized_personnel_name:
+        ctx["authorized_personnel_name"] = authorized_personnel_name
+    else:
+        ctx.setdefault("authorized_personnel_name", "")
     buffer_path = (
         Path(settings.MEDIA_ROOT) / "loan_agreements" / f"{application.id}_contract.pdf"
     )
@@ -1939,8 +1949,29 @@ def generate_loan_agreement(application, documentation=None):
 
     borrower_sig = getattr(documentation, "borrower_signature", None)
     personnel_sig = getattr(documentation, "personnel_signature", None)
+    spouse_sig = getattr(documentation, "spouse_signature", None)
+    prepared_sig = getattr(documentation, "prepared_by_signature", None)
+    comaker1_sig = getattr(documentation, "comaker1_signature", None)
+    comaker2_sig = getattr(documentation, "comaker2_signature", None)
     borrower_at = getattr(documentation, "signed_by_borrower_at", None)
     personnel_at = getattr(documentation, "signed_by_authorized_personnel_at", None)
+    spouse_at = getattr(documentation, "signed_by_spouse_at", None)
+    prepared_at = getattr(documentation, "prepared_by_signed_at", None)
+    comaker1_at = getattr(documentation, "signed_by_comaker1_at", None)
+    comaker2_at = getattr(documentation, "signed_by_comaker2_at", None)
+
+    spouse_display = (getattr(documentation, "spouse_signer_name", None) or "").strip()
+    if not spouse_display:
+        spouse_display = ctx["spouse_name"] if ctx.get("spouse_name") != "—" else ""
+    prepared_display = (getattr(documentation, "prepared_by_name", None) or "").strip()
+    if not prepared_display:
+        prepared_display = ctx.get("authorized_personnel_name") or ""
+    comaker1_display = (getattr(documentation, "comaker1_name", None) or "").strip()
+    comaker2_display = (getattr(documentation, "comaker2_name", None) or "").strip()
+    ctx["spouse_signer_display"] = spouse_display
+    ctx["prepared_by_display"] = prepared_display
+    ctx["comaker1_display"] = comaker1_display
+    ctx["comaker2_display"] = comaker2_display
 
     def draw_dual_signatures(
         left_label,
@@ -1968,15 +1999,18 @@ def generate_loan_agreement(application, documentation=None):
             set_ink(rule)
             pdf.setLineWidth(0.7)
             pdf.roundRect(x0, y - box_h, box_w, box_h, 3, stroke=1, fill=0)
+            # Signature sits above the rule; the rule is always drawn.
             line_y = y - box_h + (22 if compact else 28)
             if image:
                 _draw_signature_image(
                     image,
                     x0 + 8,
-                    line_y + 2,
+                    line_y + 3,
                     sig_width=box_w - 16,
-                    sig_height=36 if compact else 48,
+                    sig_height=34 if compact else 44,
                 )
+            set_ink(rule)
+            pdf.setLineWidth(0.9)
             pdf.line(x0 + 10, line_y, x0 + box_w - 10, line_y)
             set_ink(muted)
             pdf.setFont(body, 7 if compact else 7.5)
@@ -2037,9 +2071,11 @@ def generate_loan_agreement(application, documentation=None):
         "Nagan ken Pirma ti Immutang",
         "Nagan ken pirma ti asawa (anak wenno kabsat)",
         left_name=ctx["member_name"],
-        right_name=ctx["spouse_name"] if ctx["spouse_name"] != "—" else "",
+        right_name=spouse_display,
         left_image=borrower_sig,
+        right_image=spouse_sig,
         left_stamp=borrower_at,
+        right_stamp=spouse_at,
     )
 
     # ------------------------------------------------------------------ page 2: Application
@@ -2117,9 +2153,11 @@ def generate_loan_agreement(application, documentation=None):
         "Nagan ken Pirma iti Immutang",
         "Nagan ken Pirma ti Asawa (anak/kabsat)",
         left_name=ctx["member_name"],
-        right_name=ctx["spouse_name"] if ctx["spouse_name"] != "—" else "",
+        right_name=spouse_display,
         left_image=borrower_sig,
+        right_image=spouse_sig,
         left_stamp=borrower_at,
+        right_stamp=spouse_at,
     )
     pdf.setFont(body_bold, 10)
     pdf.drawString(left, y, "Pammaneknek ti panagutang")
@@ -2127,15 +2165,19 @@ def generate_loan_agreement(application, documentation=None):
     draw_kv_box(
         [
             ("Umutang", ctx["member_name"]),
-            ("Co-Maker 1", "_______________________________"),
-            ("Co-Maker 2", "_______________________________"),
+            ("Co-Maker 1", comaker1_display or "_______________________________"),
+            ("Co-Maker 2", comaker2_display or "_______________________________"),
         ]
     )
     draw_dual_signatures(
         "Prepared By",
         "Recommending Approval / Manager",
+        left_image=prepared_sig,
+        left_stamp=prepared_at,
+        left_name=prepared_display,
         right_image=personnel_sig,
         right_stamp=personnel_at,
+        right_name=ctx.get("authorized_personnel_name") or "",
     )
     set_ink(muted)
     pdf.setFont(body, 8.5)
@@ -2218,13 +2260,21 @@ def generate_loan_agreement(application, documentation=None):
         "Nagan ken Pirma ti Immutang",
         "Nagan ken Pirma ti Asawa (Anak wenno Kabsat)",
         left_name=ctx["member_name"],
-        right_name=ctx["spouse_name"] if ctx["spouse_name"] != "—" else "",
+        right_name=spouse_display,
         left_image=borrower_sig,
+        right_image=spouse_sig,
         left_stamp=borrower_at,
+        right_stamp=spouse_at,
     )
     draw_dual_signatures(
         "Nagan ken Pirma ti Co-Maker",
         "Nagan ken Pirma ti Co-Maker",
+        left_name=comaker1_display,
+        right_name=comaker2_display,
+        left_image=comaker1_sig,
+        right_image=comaker2_sig,
+        left_stamp=comaker1_at,
+        right_stamp=comaker2_at,
     )
     set_ink()
     pdf.setFont(body_bold, 10)
@@ -2320,6 +2370,7 @@ def generate_loan_agreement(application, documentation=None):
         right_image=borrower_sig,
         left_stamp=personnel_at,
         right_stamp=borrower_at,
+        left_name=ctx.get("authorized_personnel_name") or "",
         right_name=ctx["member_name"],
         compact=True,
     )
@@ -2340,7 +2391,17 @@ def generate_loan_agreement(application, documentation=None):
     pdf.setFont(body_bold, 10)
     pdf.drawString(left, y, "Signed in the Presence of:")
     y -= 6
-    draw_dual_signatures("Co-Maker", "Co-Maker", compact=True)
+    draw_dual_signatures(
+        "Co-Maker",
+        "Co-Maker",
+        left_name=comaker1_display,
+        right_name=comaker2_display,
+        left_image=comaker1_sig,
+        right_image=comaker2_sig,
+        left_stamp=comaker1_at,
+        right_stamp=comaker2_at,
+        compact=True,
+    )
 
     pdf.save()
 

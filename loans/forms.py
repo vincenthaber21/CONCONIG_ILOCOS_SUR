@@ -560,8 +560,28 @@ class LoanDocumentationForm(forms.ModelForm):
         required=False,
         widget=forms.HiddenInput(attrs={"id": "id_personnel_signature_data"}),
     )
+    spouse_signature_data = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={"id": "id_spouse_signature_data"}),
+    )
+    prepared_by_signature_data = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={"id": "id_prepared_by_signature_data"}),
+    )
+    comaker1_signature_data = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={"id": "id_comaker1_signature_data"}),
+    )
+    comaker2_signature_data = forms.CharField(
+        required=False,
+        widget=forms.HiddenInput(attrs={"id": "id_comaker2_signature_data"}),
+    )
     clear_borrower_signature = forms.BooleanField(required=False, widget=forms.HiddenInput)
     clear_personnel_signature = forms.BooleanField(required=False, widget=forms.HiddenInput)
+    clear_spouse_signature = forms.BooleanField(required=False, widget=forms.HiddenInput)
+    clear_prepared_by_signature = forms.BooleanField(required=False, widget=forms.HiddenInput)
+    clear_comaker1_signature = forms.BooleanField(required=False, widget=forms.HiddenInput)
+    clear_comaker2_signature = forms.BooleanField(required=False, widget=forms.HiddenInput)
     regenerate_contract = forms.BooleanField(
         required=False,
         initial=False,
@@ -570,15 +590,66 @@ class LoanDocumentationForm(forms.ModelForm):
 
     class Meta:
         model = models.LoanDocumentation
-        fields = ["signing_method", "signed_hard_copy", "witnessed_by"]
+        fields = [
+            "signing_method",
+            "signed_hard_copy",
+            "spouse_signer_name",
+            "prepared_by_name",
+            "comaker1_name",
+            "comaker2_name",
+        ]
+        widgets = {
+            "spouse_signer_name": forms.TextInput(
+                attrs={
+                    "id": "id_spouse_signer_name",
+                    "placeholder": "Name of spouse / anak / kabsat",
+                    "autocomplete": "name",
+                }
+            ),
+            "prepared_by_name": forms.TextInput(
+                attrs={
+                    "id": "id_prepared_by_name",
+                    "placeholder": "Name of preparer",
+                    "autocomplete": "name",
+                }
+            ),
+            "comaker1_name": forms.TextInput(
+                attrs={
+                    "id": "id_comaker1_name",
+                    "placeholder": "Co-Maker 1 name",
+                    "autocomplete": "name",
+                }
+            ),
+            "comaker2_name": forms.TextInput(
+                attrs={
+                    "id": "id_comaker2_name",
+                    "placeholder": "Co-Maker 2 name",
+                    "autocomplete": "name",
+                }
+            ),
+        }
 
     def __init__(self, *args, **kwargs):
+        default_prepared_by = kwargs.pop("default_prepared_by_name", "")
+        default_spouse = kwargs.pop("default_spouse_name", "")
         super().__init__(*args, **kwargs)
-        self.fields["witnessed_by"].required = False
-        self.fields["witnessed_by"].help_text = "Optional witness for the signing."
         instance = getattr(self, "instance", None)
         if instance and instance.signing_method:
             self.fields["signing_method"].initial = instance.signing_method
+        self.fields["spouse_signer_name"].required = False
+        self.fields["spouse_signer_name"].label = "Spouse / anak / kabsat name"
+        self.fields["prepared_by_name"].required = False
+        self.fields["prepared_by_name"].label = "Prepared by name"
+        self.fields["comaker1_name"].required = False
+        self.fields["comaker1_name"].label = "Co-Maker 1 name"
+        self.fields["comaker2_name"].required = False
+        self.fields["comaker2_name"].label = "Co-Maker 2 name"
+        if not (instance and instance.pk and instance.spouse_signer_name):
+            if default_spouse and default_spouse != "—":
+                self.fields["spouse_signer_name"].initial = default_spouse
+        if not (instance and instance.pk and instance.prepared_by_name):
+            if default_prepared_by:
+                self.fields["prepared_by_name"].initial = default_prepared_by
 
     def clean_signed_hard_copy(self):
         uploaded = self.cleaned_data.get("signed_hard_copy")

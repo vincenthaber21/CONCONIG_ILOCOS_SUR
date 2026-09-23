@@ -710,8 +710,44 @@ class LoanDocumentation(TimeStampedModel):
     personnel_signature = models.ImageField(
         upload_to="loan_signatures/%Y/%m/", blank=True, null=True
     )
+    spouse_signer_name = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Name of the spouse, child, or sibling who co-signs the contract.",
+    )
+    spouse_signature = models.ImageField(
+        upload_to="loan_signatures/%Y/%m/", blank=True, null=True
+    )
+    prepared_by_name = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Name of the staff member who prepared the loan documents.",
+    )
+    prepared_by_signature = models.ImageField(
+        upload_to="loan_signatures/%Y/%m/", blank=True, null=True
+    )
+    comaker1_name = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Name of the first co-maker.",
+    )
+    comaker1_signature = models.ImageField(
+        upload_to="loan_signatures/%Y/%m/", blank=True, null=True
+    )
+    comaker2_name = models.CharField(
+        max_length=255,
+        blank=True,
+        help_text="Name of the second co-maker.",
+    )
+    comaker2_signature = models.ImageField(
+        upload_to="loan_signatures/%Y/%m/", blank=True, null=True
+    )
     signed_by_borrower_at = models.DateTimeField(null=True, blank=True)
     signed_by_authorized_personnel_at = models.DateTimeField(null=True, blank=True)
+    signed_by_spouse_at = models.DateTimeField(null=True, blank=True)
+    prepared_by_signed_at = models.DateTimeField(null=True, blank=True)
+    signed_by_comaker1_at = models.DateTimeField(null=True, blank=True)
+    signed_by_comaker2_at = models.DateTimeField(null=True, blank=True)
     witnessed_by = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
