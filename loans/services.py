@@ -238,16 +238,70 @@ def committee_approval_status(application, current_user=None):
                 }
             )
 
+    # Superusers (and any other authorized voter not on the member roster) may
+    # cast votes; those must count toward the threshold — especially when only
+    # one approval is required.
+    orphan_votes = (
+        application.committee_votes.exclude(user_id__in=voter_user_ids)
+        .select_related("user")
+        if voter_user_ids is not None
+        else application.committee_votes.none()
+    )
+    for vote in orphan_votes:
+        voter = vote.user
+        if not user_can_committee_vote(voter):
+            continue
+        is_approve = vote.vote == LoanCommitteeVote.Vote.APPROVE
+        is_reject = vote.vote == LoanCommitteeVote.Vote.REJECT
+        display_name = (
+            (getattr(voter, "get_full_name", lambda: "")() or "").strip()
+            or getattr(voter, "username", "")
+            or "Authorized approver"
+        )
+        all_items.append(
+            {
+                "member": None,
+                "user_id": voter.pk,
+                "username": getattr(voter, "username", "") or "",
+                "name": display_name,
+                "role": "Administrator" if getattr(voter, "is_superuser", False) else "Authorized",
+                "role_slug": "admin" if getattr(voter, "is_superuser", False) else "authorized",
+                "vote": vote.vote,
+                "voted": True,
+                "approved": is_approve,
+                "rejected": is_reject,
+                "pending": False,
+                "is_current_user": bool(
+                    current_user and getattr(current_user, "pk", None) == voter.pk
+                ),
+                "group_label": (
+                    "Administrator"
+                    if getattr(voter, "is_superuser", False)
+                    else "Authorized approver"
+                ),
+            }
+        )
+        votes[voter.pk] = vote
+
     maturity = application_membership_maturity(application)
-    total_required = len(all_items)
+    # Denominator is the member roster; orphan (e.g. superuser) votes still count
+    # in the numerator so a single authorized approval can proceed.
+    total_required = len(voters)
     total_approved = sum(1 for item in all_items if item["approved"])
     total_rejected = sum(1 for item in all_items if item["rejected"])
-    votes_needed = _committee_votes_needed(total_required, single_approver=single_approver)
-    majority_reached = total_required == 0 or total_approved >= votes_needed
-    reject_majority_reached = total_required > 0 and total_rejected >= votes_needed
+    if single_approver:
+        votes_needed = 1
+        majority_reached = total_approved >= 1
+        reject_majority_reached = total_rejected >= 1
+    else:
+        votes_needed = _committee_votes_needed(total_required, single_approver=False)
+        majority_reached = total_required == 0 or total_approved >= votes_needed
+        reject_majority_reached = total_required > 0 and total_rejected >= votes_needed
     maturity_met = bool(maturity.get("allowed", False))
     current_user_id = getattr(current_user, "pk", None)
     user_vote = votes.get(current_user_id) if current_user_id else None
+    if user_vote is None and current_user_id:
+        user_vote = application.committee_votes.filter(user_id=current_user_id).first()
     user_can_vote = user_can_committee_vote(current_user) if current_user else False
     user_can_approve_now = bool(
         user_can_vote
@@ -255,6 +309,9 @@ def committee_approval_status(application, current_user=None):
         and not (user_vote and user_vote.vote == LoanCommitteeVote.Vote.APPROVE)
     )
     pending_approvers = [item for item in all_items if item["pending"]]
+    if single_approver and majority_reached:
+        # One yes is enough — do not keep listing remaining roster names as blockers.
+        pending_approvers = []
     can_finalize_approve = bool(
         maturity_met and majority_reached and not reject_majority_reached
     )
