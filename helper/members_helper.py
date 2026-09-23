@@ -366,7 +366,15 @@ def _save_member_signature_data_url(member, data_url: str) -> bool:
         raw = base64.b64decode(encoded)
     except (ValueError, TypeError):
         return False
+    if not raw:
+        return False
     filename = f"member_sig_{uuid.uuid4().hex[:10]}.{ext}"
+    # Replace any previous file so edits don't leave orphans / stale names.
+    if getattr(member, "signature", None) and member.signature:
+        try:
+            member.signature.delete(save=False)
+        except Exception:
+            pass
     member.signature.save(filename, ContentFile(raw), save=False)
     return True
 
@@ -385,8 +393,27 @@ def apply_member_uploads(member, files: dict | None, data: dict | None = None) -
     if files.get("thumb_mark") is not None:
         member.thumb_mark = files["thumb_mark"]
 
-    if files.get("signature") is not None:
-        member.signature = files["signature"]
+    uploaded_signature = files.get("signature")
+    if uploaded_signature is not None:
+        import uuid
+
+        # Normalize name so ImageField always stores under members/signatures/.
+        name = getattr(uploaded_signature, "name", "") or "signature.png"
+        ext = "png"
+        lower = name.lower()
+        if lower.endswith((".jpg", ".jpeg")):
+            ext = "jpg"
+        elif lower.endswith(".webp"):
+            ext = "webp"
+        elif lower.endswith(".gif"):
+            ext = "gif"
+        filename = f"member_sig_{uuid.uuid4().hex[:10]}.{ext}"
+        if getattr(member, "signature", None) and member.signature:
+            try:
+                member.signature.delete(save=False)
+            except Exception:
+                pass
+        member.signature.save(filename, uploaded_signature, save=False)
         return
 
     signature_data = (data.get("signature_data") or "").strip()
@@ -396,7 +423,7 @@ def apply_member_uploads(member, files: dict | None, data: dict | None = None) -
 
     clear_signature = data.get("clear_signature")
     if clear_signature in (True, "true", "1", "on", "yes"):
-        if getattr(member, "signature", None):
+        if getattr(member, "signature", None) and member.signature:
             member.signature.delete(save=False)
             member.signature = None
 
@@ -480,7 +507,11 @@ def member_complete_details_dict(member) -> dict:
         "date_of_mf_recog": _d(member.date_of_mf_recog),
         "mf_center": member.mf_center or "",
         "photo_url": member.photo.url if getattr(member, "photo", None) and member.photo else "",
-        "signature_url": member.signature.url if getattr(member, "signature", None) and member.signature else "",
+        "signature_url": (
+            member.signature.url
+            if getattr(member, "signature", None) and bool(getattr(member.signature, "name", None))
+            else ""
+        ),
         "thumb_mark_url": member.thumb_mark.url if getattr(member, "thumb_mark", None) and member.thumb_mark else "",
         "beneficiaries": member_beneficiaries_list(member),
     }

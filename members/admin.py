@@ -581,7 +581,8 @@ class MemberAdmin(ImportExportModelAdmin):
                     'description': (
                         'Enter the exact <strong>registration date</strong> when this member joined. '
                         'Loan requests are allowed only after the waiting period set in '
-                        '<strong>Loans → Loan Settings → Minimum membership months</strong>. '
+                        '<strong>Loans → Loan Settings</strong> '
+                        '(enable/disable the rule and set minimum membership months). '
                         'Leave blank to use the current date and time.'
                     ),
                 },
@@ -695,10 +696,15 @@ class MemberAdmin(ImportExportModelAdmin):
         month_word = 'month' if required == 1 else 'months'
 
         if required <= 0:
+            disabled_note = (
+                'Loan waiting-period rule is disabled.'
+                if not info.get('rule_enabled', True)
+                else 'Loan waiting period is disabled (0 months required).'
+            )
             return format_html(
                 '<span style="color:#2e7d32;font-weight:600;">Eligible now</span>'
-                '<br><span style="color:#666;font-size:12px;">'
-                'Loan waiting period is disabled (0 months required).</span>'
+                '<br><span style="color:#666;font-size:12px;">{}</span>',
+                disabled_note,
             )
 
         joined_local = timezone.localtime(joined) if joined and timezone.is_aware(joined) else joined

@@ -227,12 +227,14 @@
                       <img class="member-sig-pad__existing" id="{{ p }}SignatureExisting" alt="Current signature" hidden>
                       <canvas id="{{ p }}SignaturePad" width="640" height="180" aria-label="Draw signature"></canvas>
                       <div class="member-sig-pad__line" aria-hidden="true"></div>
-                    </div>
-                    <div class="member-sig-pad__footer">
-                      <div class="member-sig-pad__printed-wrap">
+                      <div class="member-sig-pad__name-overlay">
                         <span class="member-sig-pad__printed-label">Printed name</span>
                         <strong class="member-sig-pad__printed" id="{{ p }}SignaturePrintedName">—</strong>
-                        <small class="text-muted d-block">Auto-filled from Surname, First name, and Middle name above.</small>
+                      </div>
+                    </div>
+                    <div class="member-sig-pad__footer">
+                      <div class="member-sig-pad__footer-hint">
+                        Draw your signature above the printed name. Name auto-fills from Surname, First name, and Middle name.
                       </div>
                       <button type="button" class="btn btn-sm btn-outline-secondary member-sig-clear-btn" data-sig-prefix="{{ p }}">
                         Clear

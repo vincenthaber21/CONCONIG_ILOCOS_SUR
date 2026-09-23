@@ -1067,8 +1067,7 @@ class LoanDocumentationView(LoanStaffMixin, PipelineStepLockMixin, View):
             pk=pk,
         )
         documentation = self._get_documentation(application)
-        if documentation is None or not documentation.agreement_file:
-            documentation = services.generate_loan_agreement(application, documentation)
+        documentation = services.generate_loan_agreement(application, documentation)
         form = forms.LoanDocumentationForm(instance=documentation)
         return self._render(request, application, form, documentation)
 

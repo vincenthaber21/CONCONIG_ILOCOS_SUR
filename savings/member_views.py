@@ -33,11 +33,17 @@ def _require_member_account(request, pk):
     member = _get_active_member(request)
     if not member:
         raise Http404("Savings account not found.")
-    return get_object_or_404(
-        models.MemberSavingsAccount.objects.select_related("member", "product"),
+    account = get_object_or_404(
+        models.MemberSavingsAccount.objects.select_related("member", "product")
+        .prefetch_related("joint_owner_links__member"),
         pk=pk,
-        member=member,
     )
+    is_holder = account.member_id == member.pk or account.joint_owners.filter(
+        pk=member.pk
+    ).exists()
+    if not is_holder:
+        raise Http404("Savings account not found.")
+    return account
 
 
 @member_or_login_required
@@ -52,11 +58,7 @@ def member_savings_list(request):
         display_name = request.user.get_full_name() or request.user.username
     if member:
         display_name = member.full_name
-        accounts = list(
-            models.MemberSavingsAccount.objects.filter(member=member)
-            .select_related("product")
-            .order_by("-opened_at")
-        )
+        accounts = list(services.accounts_for_member_qs(member))
         for account in accounts:
             services.auto_credit_due_interest(account=account)
             account.refresh_from_db()

@@ -16,16 +16,19 @@ class LoanSettingsForm(forms.ModelForm):
         model = models.LoanSettings
         fields = [
             "grace_period_days",
+            "min_membership_enabled",
             "min_membership_months",
             "committee_single_approver",
         ]
         widgets = {
             "grace_period_days": forms.NumberInput(attrs={"min": 0, "step": 1}),
+            "min_membership_enabled": forms.CheckboxInput(),
             "min_membership_months": forms.NumberInput(attrs={"min": 0, "step": 1}),
             "committee_single_approver": forms.CheckboxInput(),
         }
         labels = {
             "grace_period_days": "Late-payment grace period (days)",
+            "min_membership_enabled": "Require minimum membership before loan",
             "min_membership_months": "Minimum membership (months)",
             "committee_single_approver": "Allow one-person committee approval",
         }
@@ -35,8 +38,13 @@ class LoanSettingsForm(forms.ModelForm):
                 "late-payment interest. 0 means late interest starts the day after "
                 "the due date."
             ),
+            "min_membership_enabled": (
+                "When checked, members must wait the months below before requesting a loan. "
+                "Uncheck to allow any member to apply immediately."
+            ),
             "min_membership_months": (
-                "Minimum months a member must be registered before they can request a loan. "
+                "Minimum months a member must be registered before they can request a loan "
+                "(used only when the rule above is enabled). "
                 "Set to 0 to allow loan requests immediately."
             ),
             "committee_single_approver": (

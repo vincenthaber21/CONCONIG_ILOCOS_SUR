@@ -163,21 +163,25 @@
       border-radius: 10px;
       overflow: hidden;
       touch-action: none;
+      min-height: 180px;
     }
     .member-sig-pad__canvas-wrap canvas {
+      position: relative;
+      z-index: 1;
       display: block;
       width: 100%;
       height: 180px;
       cursor: crosshair;
+      touch-action: none;
     }
     .member-sig-pad__line {
       position: absolute;
       left: 1rem;
       right: 1rem;
-      bottom: 0.85rem;
+      bottom: 2.65rem;
       border-top: 1px solid #0f172a;
       pointer-events: none;
-      z-index: 2;
+      z-index: 3;
     }
     .member-sig-pad__existing {
       position: absolute;
@@ -185,13 +189,40 @@
       width: 100%;
       height: 100%;
       object-fit: contain;
+      object-position: center 40%;
       background: #fff;
       pointer-events: none;
-      z-index: 1;
+      z-index: 2;
     }
     .member-sig-pad.is-drawing .member-sig-pad__existing,
     .member-sig-pad.has-cleared .member-sig-pad__existing {
       display: none !important;
+    }
+    .member-sig-pad__name-overlay {
+      position: absolute;
+      left: 1rem;
+      right: 1rem;
+      bottom: 0.55rem;
+      text-align: center;
+      pointer-events: none;
+      z-index: 3;
+    }
+    .member-sig-pad__printed-label {
+      display: block;
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #94a3b8;
+      line-height: 1.2;
+    }
+    .member-sig-pad__printed {
+      display: block;
+      font-size: 0.95rem;
+      color: #0f172a;
+      font-weight: 700;
+      word-break: break-word;
+      min-height: 1.2em;
+      line-height: 1.25;
     }
     .member-sig-pad__footer {
       display: flex;
@@ -201,24 +232,11 @@
       margin-top: 0.55rem;
       flex-wrap: wrap;
     }
-    .member-sig-pad__printed-wrap {
+    .member-sig-pad__footer-hint {
       min-width: 0;
       flex: 1;
-    }
-    .member-sig-pad__printed-label {
-      display: block;
-      font-size: 0.7rem;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      color: #94a3b8;
-    }
-    .member-sig-pad__printed {
-      display: block;
-      font-size: 1rem;
-      color: #0f172a;
-      font-weight: 700;
-      word-break: break-word;
-      min-height: 1.35em;
+      font-size: 0.75rem;
+      color: #64748b;
     }
 
     .member-form-section--discount > .mt-3.mb-1:first-child {
@@ -2158,7 +2176,7 @@
       const ctx = canvas.getContext('2d');
       let drawing = false;
       let dirty = false;
-      let ratio = window.devicePixelRatio || 1;
+      let ratio = Math.min(window.devicePixelRatio || 1, 2);
 
       function applyStrokeStyle() {
         ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
@@ -2176,42 +2194,57 @@
         applyStrokeStyle();
       }
 
+      function measureSize() {
+        // Never trust a locked inline size from a previous (hidden-modal) init.
+        canvas.style.removeProperty('width');
+        canvas.style.removeProperty('height');
+        const wrapEl = canvas.parentElement;
+        const width = Math.floor(
+          (wrapEl && wrapEl.clientWidth) ||
+          canvas.getBoundingClientRect().width ||
+          0
+        );
+        // Match CSS canvas height; keep room above the printed-name overlay.
+        const height = 180;
+        return { width: width, height: height };
+      }
+
       function resize() {
-        const rect = canvas.getBoundingClientRect();
-        ratio = window.devicePixelRatio || 1;
-        const width = Math.max(280, Math.floor(rect.width || 640));
-        const height = Math.max(140, Math.floor(rect.height || 180));
-        // Avoid wiping a finished signature: only rebuild backing store when size changes.
+        const size = measureSize();
+        // Modal still hidden / not laid out — skip until shown.bs.modal.
+        if (!size.width) return;
+
+        ratio = Math.min(window.devicePixelRatio || 1, 2);
+        const width = Math.max(280, size.width);
+        const height = Math.max(140, size.height);
         const nextW = Math.floor(width * ratio);
         const nextH = Math.floor(height * ratio);
+
+        // Avoid wiping a finished signature: only rebuild backing store when size changes.
         if (canvas.width === nextW && canvas.height === nextH) {
           applyStrokeStyle();
           return;
         }
-        const snapshot = dirty ? canvas.toDataURL('image/png') : null;
+
+        // Once the user has drawn, do not rebuild the bitmap (async snapshot restore
+        // can race with Save and persist a blank signature).
+        if (dirty) {
+          applyStrokeStyle();
+          return;
+        }
+
         canvas.width = nextW;
         canvas.height = nextH;
-        canvas.style.width = width + 'px';
-        canvas.style.height = height + 'px';
         applyStrokeStyle();
-        if (snapshot) {
-          const img = new Image();
-          img.onload = function () {
-            clearBitmap();
-            ctx.drawImage(img, 0, 0, width, height);
-          };
-          img.src = snapshot;
-        }
       }
 
       function pos(e) {
         const rect = canvas.getBoundingClientRect();
         const point = e.touches && e.touches[0] ? e.touches[0] : e;
-        const scaleX = rect.width ? (canvas.width / ratio) / rect.width : 1;
-        const scaleY = rect.height ? (canvas.height / ratio) / rect.height : 1;
+        // Coordinates are in CSS pixels; ctx transform scales by devicePixelRatio.
         return {
-          x: (point.clientX - rect.left) * scaleX,
-          y: (point.clientY - rect.top) * scaleY
+          x: point.clientX - rect.left,
+          y: point.clientY - rect.top
         };
       }
 
@@ -2248,6 +2281,7 @@
       canvas.addEventListener('touchmove', move, { passive: false });
       canvas.addEventListener('touchend', end, { passive: false });
       window.addEventListener('resize', resize);
+      applyStrokeStyle();
       resize();
 
       return {
@@ -2349,8 +2383,11 @@
 
       if (existingEl) {
         if (signatureUrl) {
-          existingEl.src = signatureUrl;
+          // Cache-bust so a freshly saved signature shows after reload/edit.
+          const sep = signatureUrl.indexOf('?') >= 0 ? '&' : '?';
+          existingEl.src = signatureUrl + sep + 'v=' + Date.now();
           existingEl.hidden = false;
+          existingEl.style.display = '';
           if (wrap) wrap.classList.add('has-existing');
           window.setMemberSignatureHint(prefix, 'Current signature on file. Draw to replace, or clear first.');
         } else {
@@ -2371,26 +2408,52 @@
       });
     };
 
+    window.dataURLtoFile = function (dataUrl, filename) {
+      if (!dataUrl || dataUrl.indexOf('data:image') !== 0) return null;
+      const parts = String(dataUrl).split(',');
+      if (parts.length < 2) return null;
+      const mimeMatch = parts[0].match(/:(.*?);/);
+      const mime = (mimeMatch && mimeMatch[1]) ? mimeMatch[1] : 'image/png';
+      const binary = atob(parts[1]);
+      const len = binary.length;
+      const bytes = new Uint8Array(len);
+      for (let i = 0; i < len; i += 1) bytes[i] = binary.charCodeAt(i);
+      try {
+        return new File([bytes], filename || 'signature.png', { type: mime });
+      } catch (err) {
+        return new Blob([bytes], { type: mime });
+      }
+    };
+
     window.collectMemberSignaturePayload = function (prefix) {
       // Do NOT resize here — resizing wipes the canvas bitmap and would save a blank signature.
       const pad = window._memberSignaturePads[prefix] || window.initMemberSignaturePad(prefix);
       const dataEl = document.getElementById(prefix + 'SignatureData');
       const clearEl = document.getElementById(prefix + 'ClearSignature');
       const fileEl = document.getElementById(prefix + 'Signature');
-      const hasFile = !!(fileEl && fileEl.files && fileEl.files[0]);
+      const hasUpload = !!(fileEl && fileEl.files && fileEl.files[0]);
       let signatureData = '';
-      if (!hasFile) {
-        if (pad && pad.isDirty()) {
-          signatureData = pad.toDataURL();
-        } else if (dataEl && dataEl.value) {
+      if (!hasUpload) {
+        // Prefer the data-URL committed on stroke end (stable across later resizes).
+        if (dataEl && dataEl.value && dataEl.value.indexOf('data:image') === 0) {
           signatureData = dataEl.value;
+        } else if (pad && pad.isDirty()) {
+          signatureData = pad.toDataURL();
+          if (signatureData && dataEl) dataEl.value = signatureData;
         }
-        if (signatureData && dataEl) dataEl.value = signatureData;
       }
+
+      let signatureFile = hasUpload ? fileEl.files[0] : null;
+      // Prefer multipart file upload (reliable DB persistence; avoids huge JSON bodies).
+      if (!signatureFile && signatureData) {
+        signatureFile = window.dataURLtoFile(signatureData, prefix + '_signature.png');
+        if (signatureFile) signatureData = '';
+      }
+
       return {
         signature_data: signatureData,
-        clear_signature: !hasFile && !signatureData && clearEl && clearEl.value === 'on',
-        signature_file: hasFile ? fileEl.files[0] : null,
+        clear_signature: !hasUpload && !signatureFile && !signatureData && clearEl && clearEl.value === 'on',
+        signature_file: signatureFile,
       };
     };
 
@@ -2413,8 +2476,13 @@
       if (!modalEl) return;
       modalEl.addEventListener('shown.bs.modal', function () {
         const prefix = modalEl.id === 'addMemberAdminModal' ? 'adminAdd' : 'member';
-        window.initMemberSignaturePad(prefix, { resize: true });
-        window.syncMemberSignaturePrintedName(prefix);
+        // Double rAF: wait until Bootstrap finishes layout so the canvas wrap has a real width.
+        requestAnimationFrame(function () {
+          requestAnimationFrame(function () {
+            window.initMemberSignaturePad(prefix, { resize: true });
+            window.syncMemberSignaturePrintedName(prefix);
+          });
+        });
       });
     });
 
@@ -2486,7 +2554,13 @@
       fd.append('data', JSON.stringify(payload || {}));
       Object.keys(fileMap || {}).forEach(function (key) {
         const file = fileMap[key];
-        if (file) fd.append(key, file);
+        if (!file) return;
+        // Always include a filename so Django puts the part in request.FILES.
+        if (typeof File !== 'undefined' && file instanceof File) {
+          fd.append(key, file);
+        } else {
+          fd.append(key, file, key + '.png');
+        }
       });
       return fd;
     };

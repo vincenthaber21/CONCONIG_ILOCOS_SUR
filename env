@@ -132,3 +132,5 @@ https://console.cloud.google.com/auth/clients/134396661844-n0c8q1jok6thkkosp54h2
 
 
 python manage.py collectstatic --noinput
+
+git checkout -- coop_kiosk/settings.py

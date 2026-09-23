@@ -5,6 +5,7 @@ from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from . import models
@@ -75,11 +76,46 @@ def _ensure_within_max_balance(account, credit_amount):
 
 
 def member_has_closed_savings(member) -> bool:
-    """True when the member has ever closed a savings account (permanent bar)."""
-    return models.MemberSavingsAccount.objects.filter(
-        member_id=getattr(member, "pk", member),
+    """True when the member has ever closed a savings account (permanent bar).
+
+    Covers primary-holder closures and joint accounts where the member was a
+    co-owner when the account closed.
+    """
+    member_id = getattr(member, "pk", member)
+    if models.MemberSavingsAccount.objects.filter(
+        member_id=member_id,
         status=models.MemberSavingsAccount.Status.CLOSED,
+    ).exists():
+        return True
+    return models.SavingsJointOwner.objects.filter(
+        member_id=member_id,
+        account__status=models.MemberSavingsAccount.Status.CLOSED,
     ).exists()
+
+
+def member_open_product_accounts_qs(member, product=None):
+    """Open (non-closed) accounts where *member* is primary or joint co-owner."""
+    member_id = getattr(member, "pk", member)
+    qs = models.MemberSavingsAccount.objects.filter(
+        Q(member_id=member_id) | Q(joint_owners__id=member_id)
+    ).exclude(status=models.MemberSavingsAccount.Status.CLOSED)
+    if product is not None:
+        qs = qs.filter(product_id=getattr(product, "pk", product))
+    return qs.distinct()
+
+
+def accounts_for_member_qs(member):
+    """All savings accounts visible to a member (primary or joint co-owner)."""
+    member_id = getattr(member, "pk", member)
+    return (
+        models.MemberSavingsAccount.objects.filter(
+            Q(member_id=member_id) | Q(joint_owners__id=member_id)
+        )
+        .distinct()
+        .select_related("member", "product")
+        .prefetch_related("joint_owner_links__member")
+        .order_by("-opened_at")
+    )
 
 
 def assert_member_can_open_savings(member, product=None):
@@ -91,25 +127,61 @@ def assert_member_can_open_savings(member, product=None):
         )
     if product is None:
         return
-    open_existing = (
-        models.MemberSavingsAccount.objects.filter(
-            member_id=getattr(member, "pk", member),
-            product_id=getattr(product, "pk", product),
-        )
-        .exclude(status=models.MemberSavingsAccount.Status.CLOSED)
-        .exists()
-    )
-    if open_existing:
+    if member_open_product_accounts_qs(member, product).exists():
         raise ValidationError(
-            "This member already has an open savings account for this product."
+            "This member already has an open savings account for this product "
+            "(as primary or joint co-owner)."
         )
+
+
+def _normalize_joint_owners(*, primary, joint_owners):
+    """Return a de-duplicated list of co-owners (never including the primary)."""
+    if not joint_owners:
+        return []
+    seen = {getattr(primary, "pk", primary)}
+    owners = []
+    for owner in joint_owners:
+        owner_id = getattr(owner, "pk", owner)
+        if owner_id in seen:
+            continue
+        seen.add(owner_id)
+        owners.append(owner)
+    return owners
 
 
 @transaction.atomic
-def open_account(*, member, product, opening_amount, performed_by=None, notes="", opening_date=None):
+def open_account(
+    *,
+    member,
+    product,
+    opening_amount,
+    performed_by=None,
+    notes="",
+    opening_date=None,
+    is_joint=False,
+    joint_owners=None,
+):
     if not product.is_active:
         raise ValidationError("This savings product is not active.")
+
+    co_owners = _normalize_joint_owners(primary=member, joint_owners=joint_owners or [])
+    if is_joint and not co_owners:
+        raise ValidationError(
+            "A joint account needs at least one co-owner member "
+            "(different from the primary holder)."
+        )
+    if not is_joint and co_owners:
+        raise ValidationError("Co-owners can only be added on a joint account.")
+    for co_owner in co_owners:
+        if getattr(co_owner, "pk", co_owner) == getattr(member, "pk", member):
+            raise ValidationError(
+                "Duplicate member: the co-owner must be different from the primary holder."
+            )
+
     assert_member_can_open_savings(member, product)
+    for co_owner in co_owners:
+        assert_member_can_open_savings(co_owner, product)
+
     amount = _money(opening_amount)
     if amount < _money(product.min_opening_deposit):
         raise ValidationError(
@@ -125,6 +197,7 @@ def open_account(*, member, product, opening_amount, performed_by=None, notes=""
     account = models.MemberSavingsAccount(
         member=member,
         product=product,
+        is_joint=bool(is_joint),
         balance=ZERO,
         status=models.MemberSavingsAccount.Status.ACTIVE,
         opened_at=opened_at,
@@ -132,12 +205,26 @@ def open_account(*, member, product, opening_amount, performed_by=None, notes=""
         notes=notes or "",
     )
     account.save()
+    if co_owners:
+        models.SavingsJointOwner.objects.bulk_create(
+            [
+                models.SavingsJointOwner(
+                    account=account,
+                    member=co_owner,
+                    added_at=opened_at,
+                )
+                for co_owner in co_owners
+            ]
+        )
+    opening_note = notes or (
+        "Joint opening deposit" if account.is_joint else "Opening deposit"
+    )
     _post(
         account,
         models.SavingsTransaction.TxnType.OPENING,
         amount,
         performed_by=performed_by,
-        notes=notes or "Opening deposit",
+        notes=opening_note,
         posted_at=opened_at,
     )
     return account

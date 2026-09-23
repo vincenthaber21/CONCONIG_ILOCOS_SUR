@@ -64,12 +64,21 @@ class LoanSettings(models.Model):
             "the due date."
         ),
     )
+    min_membership_enabled = models.BooleanField(
+        default=True,
+        help_text=(
+            "When enabled, members must wait the minimum membership months below "
+            "before they can request a loan. When disabled, any member can apply "
+            "immediately (the months value is ignored)."
+        ),
+    )
     min_membership_months = models.PositiveIntegerField(
         default=3,
         help_text=(
             "Minimum months a member must be registered before they can request a loan. "
             "Example: 3 means a member who joined only 1 week ago cannot apply yet. "
-            "Set to 0 to allow loan requests immediately."
+            "Only used when the waiting-period rule above is enabled. "
+            "Set to 0 to allow loan requests immediately even when the rule is on."
         ),
     )
     committee_single_approver = models.BooleanField(
@@ -88,9 +97,17 @@ class LoanSettings(models.Model):
 
     def __str__(self):
         days = int(self.grace_period_days or 0)
-        if days == 1:
-            return "Loan settings — 1 day grace period"
-        return f"Loan settings — {days} days grace period"
+        grace = "1 day grace" if days == 1 else f"{days} days grace"
+        if not self.min_membership_enabled:
+            wait = "membership wait off"
+        else:
+            months = int(self.min_membership_months or 0)
+            wait = (
+                "no membership wait"
+                if months <= 0
+                else f"{months}-month membership wait"
+            )
+        return f"Loan settings — {grace}, {wait}"
 
     def save(self, *args, **kwargs):
         self.pk = 1
@@ -105,6 +122,7 @@ class LoanSettings(models.Model):
             pk=1,
             defaults={
                 "grace_period_days": 0,
+                "min_membership_enabled": True,
                 "min_membership_months": 3,
                 "committee_single_approver": True,
             },

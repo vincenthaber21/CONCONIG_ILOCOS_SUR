@@ -15,7 +15,8 @@ from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.core.files.base import ContentFile
 from django.utils import timezone
-from reportlab.lib.pagesizes import letter
+from reportlab.lib.pagesizes import A4, letter
+from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 
 TWO_PLACES = Decimal("0.01")
@@ -36,16 +37,22 @@ def _add_calendar_months(dt, months):
 def member_loan_waiting_period(member, user=None):
     """Whether a member has been registered long enough to request a loan.
 
-    Admin sets ``LoanSettings.min_membership_months`` (default 3). A member
-    who joined only a week ago cannot apply until that waiting period passes.
-    Set the value to 0 to allow loan requests immediately.
+    Admin can enable/disable the waiting-period rule via
+    ``LoanSettings.min_membership_enabled``. When enabled, members must wait
+    ``LoanSettings.min_membership_months`` (default 3) before applying.
+    Disable the rule (or set months to 0) to allow loan requests immediately.
     """
     from .models import LoanSettings
 
-    required_months = int(getattr(LoanSettings.get(), "min_membership_months", 0) or 0)
+    settings_obj = LoanSettings.get()
+    rule_enabled = bool(getattr(settings_obj, "min_membership_enabled", True))
+    required_months = int(getattr(settings_obj, "min_membership_months", 0) or 0)
+    if not rule_enabled:
+        required_months = 0
     empty = {
         "allowed": True,
         "required_months": required_months,
+        "rule_enabled": rule_enabled,
         "eligible_on": None,
         "joined_on": None,
         "message": "",
@@ -64,6 +71,7 @@ def member_loan_waiting_period(member, user=None):
         return {
             "allowed": False,
             "required_months": required_months,
+            "rule_enabled": rule_enabled,
             "eligible_on": None,
             "joined_on": None,
             "message": (
@@ -88,6 +96,7 @@ def member_loan_waiting_period(member, user=None):
     return {
         "allowed": False,
         "required_months": required_months,
+        "rule_enabled": rule_enabled,
         "eligible_on": eligible_on,
         "joined_on": joined,
         "message": (
@@ -1476,6 +1485,11 @@ def _is_fully_settled(application):
     )
 
 
+COOP_FORM_NAME = "CONCONIG EAST FARMERS MULTI-PURPOSE COOPERATIVE"
+COOP_FORM_ADDRESS = "Conconig East, Sta. Lucia, Ilocos Sur"
+COOP_FORM_REG = "CDA Registration No. 9520-01004557 / TIN 004-964-838-000"
+
+
 def _member_display_name(member):
     """Best-effort display name for a Django user / applicant."""
     getter = getattr(member, "get_full_name", None)
@@ -1486,10 +1500,85 @@ def _member_display_name(member):
     return str(member)
 
 
+def _resolve_member_profile(user):
+    """Return the linked ``members.Member`` row for a loan applicant user, if any."""
+    if user is None:
+        return None
+    try:
+        from members.models import Member
+    except Exception:
+        return None
+    try:
+        profile = getattr(user, "member", None)
+        if profile is not None and getattr(profile, "pk", None):
+            return profile
+    except Exception:
+        pass
+    qs = Member.objects.all()
+    profile = qs.filter(user=user).first()
+    if profile:
+        return profile
+    username = (getattr(user, "username", None) or "").strip()
+    if username:
+        return qs.filter(username=username).first()
+    return None
+
+
+def _format_php(amount):
+    value = Decimal(amount or 0).quantize(TWO_PLACES)
+    return f"{value:,.2f}"
+
+
+def _amount_in_words(amount):
+    """Spell out a peso amount in English for disclosure / promissory blanks."""
+    ones = [
+        "", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+        "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen",
+        "Seventeen", "Eighteen", "Nineteen",
+    ]
+    tens = [
+        "", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety",
+    ]
+
+    def under_thousand(n):
+        n = int(n)
+        if n == 0:
+            return ""
+        if n < 20:
+            return ones[n]
+        if n < 100:
+            return f"{tens[n // 10]}{(' ' + ones[n % 10]) if n % 10 else ''}".strip()
+        return f"{ones[n // 100]} Hundred{(' ' + under_thousand(n % 100)) if n % 100 else ''}"
+
+    value = Decimal(amount or 0).quantize(TWO_PLACES)
+    pesos = int(value)
+    centavos = int((value - pesos) * 100)
+    if pesos == 0:
+        words = "Zero"
+    else:
+        parts = []
+        billions, pesos = divmod(pesos, 1_000_000_000)
+        millions, pesos = divmod(pesos, 1_000_000)
+        thousands, pesos = divmod(pesos, 1_000)
+        if billions:
+            parts.append(f"{under_thousand(billions)} Billion")
+        if millions:
+            parts.append(f"{under_thousand(millions)} Million")
+        if thousands:
+            parts.append(f"{under_thousand(thousands)} Thousand")
+        if pesos:
+            parts.append(under_thousand(pesos))
+        words = " ".join(parts)
+    result = f"{words} Pesos"
+    if centavos:
+        result += f" and {under_thousand(centavos)} Centavos"
+    return f"{result} Only"
+
+
 def build_loan_agreement_context(application):
-    """Collect loan details used by the on-screen and PDF payment contract."""
+    """Collect loan details used by the Complete Loan Form (HTML + PDF)."""
     product = application.loan_product
-    late_rate = application.effective_interest_rate()
+    late_rate = Decimal(application.effective_interest_rate() or 0)
     plan = estimate_payment_schedule(
         application.amount_requested,
         late_rate,
@@ -1497,35 +1586,136 @@ def build_loan_agreement_context(application):
         product.interest_start_month,
     )
     attach_missed_payment_costs(plan)
-    member_name = _member_display_name(application.member)
     today = timezone.localdate()
-    # Interest is charged at payment time from usable dates, not at apply time.
     interest_breakdown = application.interest_balance_breakdown()
     total_on_time = (
         plan.get("total_if_on_time")
         or plan.get("total_payment")
         or Decimal(application.amount_requested or 0)
     )
+
+    profile = _resolve_member_profile(application.member)
+    if profile:
+        member_name = profile.full_name or _member_display_name(application.member)
+        first_name = profile.first_name or ""
+        middle_name = profile.middle_name or ""
+        last_name = profile.last_name or ""
+        barangay = (profile.barangay or "").strip()
+        municipality = (profile.municipality or "").strip() or "Sta. Lucia"
+        province = (profile.province or "").strip() or "Ilocos Sur"
+        address_parts = [
+            (profile.home_address or "").strip(),
+            barangay,
+            municipality,
+            province,
+        ]
+        address = ", ".join(p for p in address_parts if p) or "—"
+        place_taga = barangay or (profile.home_address or "").strip() or municipality
+        birth_date = profile.date_of_birth
+        spouse_name = (profile.spouse_full_name or "").strip()
+        area = (getattr(profile, "area", None) or "").strip()
+    else:
+        member_name = _member_display_name(application.member)
+        first_name = getattr(application.member, "first_name", "") or ""
+        middle_name = ""
+        last_name = getattr(application.member, "last_name", "") or ""
+        barangay = ""
+        municipality = "Sta. Lucia"
+        province = "Ilocos Sur"
+        address = "—"
+        place_taga = municipality
+        birth_date = None
+        spouse_name = ""
+        area = ""
+
+    disbursement = getattr(application, "disbursement", None)
+    if disbursement and disbursement.disbursement_date:
+        date_granted = timezone.localdate(disbursement.disbursement_date)
+        service_fee = Decimal(disbursement.transaction_fee or 0)
+        other_charges = Decimal(disbursement.other_deduction_amount or 0)
+        other_charges_label = (disbursement.other_deduction_label or "").strip() or "Others"
+        net_proceeds = Decimal(disbursement.amount_released or 0)
+    else:
+        date_granted = today
+        service_fee = Decimal("0.00")
+        other_charges = Decimal("0.00")
+        other_charges_label = "Others"
+        net_proceeds = Decimal(application.amount_requested or 0)
+
+    date_due = _add_calendar_months(date_granted, int(application.term_months or 0))
+    amount = Decimal(application.amount_requested or 0).quantize(TWO_PLACES)
+    late_rate_pct = (late_rate * Decimal("100")).quantize(Decimal("0.001"))
+    finance_charges = (service_fee + other_charges).quantize(TWO_PLACES)
+    # On-time loans in this system charge principal only; show zero finance interest.
+    interest_on_loan = Decimal("0.00")
+
+    payment_option = getattr(application, "payment_option", None)
+    if payment_option and payment_option.option == "LUMP_SUM":
+        payment_mode = "Gulpi / Lump sum"
+        payment_mode_short = "gulpi"
+    else:
+        payment_mode = "Hulugan kada bulan / Monthly"
+        payment_mode_short = "hulugan kada bulan"
+
+    collaterals = list(application.collaterals.all())
+    schedule_rows = plan.get("rows") or []
+    first_due = schedule_rows[0].get("due_date") if schedule_rows else date_due
+
     return {
         "application": application,
         "member_name": member_name,
+        "first_name": first_name,
+        "middle_name": middle_name,
+        "last_name": last_name,
+        "barangay": barangay or place_taga,
+        "place_taga": place_taga,
+        "municipality": municipality,
+        "province": province,
+        "address": address,
+        "birth_date": birth_date,
+        "spouse_name": spouse_name or "—",
+        "area": area or "—",
         "product": product,
         "plan": plan,
         "issued_on": today,
+        "date_granted": date_granted,
+        "date_due": date_due,
+        "first_due": first_due,
         "application_ref": str(application.id)[:8].upper(),
+        "pn_number": f"PN-{str(application.id)[:8].upper()}",
         "monthly_payment": plan.get("monthly_payment") or Decimal("0.00"),
         "total_on_time": total_on_time,
         "interest_breakdown": interest_breakdown,
         "late_rate": late_rate,
+        "late_rate_pct": late_rate_pct,
         "interest_start_month": product.interest_start_month,
         "purpose": (application.purpose or "").strip() or "—",
+        "amount": amount,
+        "amount_php": _format_php(amount),
+        "amount_words": _amount_in_words(amount),
+        "term_months": int(application.term_months or 0),
+        "payment_mode": payment_mode,
+        "payment_mode_short": payment_mode_short,
+        "is_lump_sum": payment_mode_short.startswith("gulpi"),
+        "collaterals": collaterals,
+        "service_fee": service_fee,
+        "other_charges": other_charges,
+        "other_charges_label": other_charges_label,
+        "interest_on_loan": interest_on_loan,
+        "finance_charges": finance_charges,
+        "net_proceeds": net_proceeds,
+        "coop_name": COOP_FORM_NAME,
+        "coop_address": COOP_FORM_ADDRESS,
+        "coop_reg": COOP_FORM_REG,
     }
 
 
 def generate_loan_agreement(application, documentation=None):
-    """Generate a payment contract PDF from the loan application and attach it.
+    """Generate the Complete Loan Form PDF (A4) and attach it to documentation.
 
     Creates/updates ``LoanDocumentation.agreement_file``. Returns the documentation.
+    Layout follows Conconig's Complete-Loan-Form (agreement, application,
+    promissory note, disclosure statement) on professional A4 pages.
     """
     from .models import LoanDocumentation
 
@@ -1538,141 +1728,195 @@ def generate_loan_agreement(application, documentation=None):
     )
     buffer_path.parent.mkdir(parents=True, exist_ok=True)
 
-    pdf = canvas.Canvas(str(buffer_path), pagesize=letter)
-    width, height = letter
-    left = 54
-    right = width - 54
-    y = height - 56
+    # ISO A4 — 210mm × 297mm
+    pdf = canvas.Canvas(str(buffer_path), pagesize=A4)
+    width, height = A4
+    margin = 18 * mm
+    left = margin
+    right = width - margin
+    content_width = right - left
+    top_y = height - margin
+    bottom_y = margin + 12 * mm
+    y = top_y
+    page_no = 1
+    total_pages = 4
+    body = "Times-Roman"
+    body_bold = "Times-Bold"
+    ink = (0.08, 0.12, 0.18)
+    muted = (0.35, 0.40, 0.48)
+    rule = (0.15, 0.22, 0.28)
+    fill_soft = (0.96, 0.97, 0.98)
+
+    def set_ink(rgb=ink):
+        pdf.setFillColorRGB(*rgb)
+        pdf.setStrokeColorRGB(*rgb)
+
+    def draw_page_chrome():
+        """Outer frame + footer for a formal A4 document look."""
+        set_ink(rule)
+        pdf.setLineWidth(1.15)
+        pdf.rect(10 * mm, 10 * mm, width - 20 * mm, height - 20 * mm, stroke=1, fill=0)
+        pdf.setLineWidth(0.35)
+        pdf.rect(11.5 * mm, 11.5 * mm, width - 23 * mm, height - 23 * mm, stroke=1, fill=0)
+        pdf.setLineWidth(1)
+        set_ink(muted)
+        pdf.setFont(body, 7.5)
+        pdf.drawString(left, 12.5 * mm, f"Ref. {ctx['application_ref']}")
+        pdf.drawCentredString(
+            width / 2,
+            12.5 * mm,
+            "Complete Loan Form — Conconig East Farmers Multi-Purpose Cooperative",
+        )
+        pdf.drawRightString(right, 12.5 * mm, f"Page {page_no} of {total_pages}")
+        set_ink()
 
     def new_page():
-        nonlocal y
+        nonlocal y, page_no
         pdf.showPage()
-        y = height - 56
+        page_no += 1
+        draw_page_chrome()
+        y = top_y
 
     def ensure_space(needed=48):
         nonlocal y
-        if y < needed:
+        if y < bottom_y + needed:
             new_page()
 
-    def draw_wrapped(text, font="Helvetica", size=10, leading=14, max_width=None):
+    def draw_header(section_title=""):
         nonlocal y
-        max_width = max_width or (right - left)
+        set_ink()
+        pdf.setFont(body_bold, 11.5)
+        pdf.drawCentredString(width / 2, y, ctx["coop_name"])
+        y -= 13
+        pdf.setFont(body, 9)
+        set_ink(muted)
+        pdf.drawCentredString(width / 2, y, ctx["coop_address"])
+        y -= 11
+        pdf.drawCentredString(width / 2, y, ctx["coop_reg"])
+        y -= 8
+        set_ink(rule)
+        pdf.setLineWidth(1.4)
+        pdf.line(left, y, right, y)
+        y -= 2.5
+        pdf.setLineWidth(0.4)
+        pdf.line(left, y, right, y)
+        pdf.setLineWidth(1)
+        y -= 14
+        set_ink()
+        if section_title:
+            pdf.setFont(body_bold, 12)
+            pdf.drawCentredString(width / 2, y, section_title)
+            y -= 16
+
+    def draw_wrapped(
+        text,
+        font=body,
+        size=10,
+        leading=13.5,
+        max_width=None,
+        indent=0,
+        justify=True,
+        first_indent=0,
+    ):
+        nonlocal y
+        max_width = max_width or (content_width - indent)
         pdf.setFont(font, size)
+        set_ink()
         words = str(text).split()
         if not words:
             y -= leading
             return
+        lines = []
         line = words[0]
         for word in words[1:]:
             trial = f"{line} {word}"
-            if pdf.stringWidth(trial, font, size) <= max_width:
+            width_limit = max_width - (first_indent if not lines else 0)
+            if pdf.stringWidth(trial, font, size) <= width_limit:
                 line = trial
             else:
-                ensure_space(leading + 20)
-                pdf.drawString(left, y, line)
-                y -= leading
+                lines.append(line)
                 line = word
-        ensure_space(leading + 20)
-        pdf.drawString(left, y, line)
-        y -= leading
+        lines.append(line)
+        for idx, line_text in enumerate(lines):
+            ensure_space(leading + 16)
+            x0 = left + indent + (first_indent if idx == 0 else 0)
+            avail = max_width - (first_indent if idx == 0 else 0)
+            parts = line_text.split()
+            if justify and idx < len(lines) - 1 and len(parts) > 1:
+                text_w = sum(pdf.stringWidth(p, font, size) for p in parts)
+                gap = (avail - text_w) / (len(parts) - 1)
+                cursor = x0
+                for part in parts:
+                    pdf.drawString(cursor, y, part)
+                    cursor += pdf.stringWidth(part, font, size) + gap
+            else:
+                pdf.drawString(x0, y, line_text)
+            y -= leading
 
-    pdf.setFont("Helvetica-Bold", 16)
-    pdf.drawCentredString(width / 2, y, "LOAN PAYMENT CONTRACT")
-    y -= 18
-    pdf.setFont("Helvetica", 10)
-    pdf.drawCentredString(
-        width / 2,
-        y,
-        f"Application Ref. LPC-{ctx['application_ref']}  |  Issued {ctx['issued_on']:%B %d, %Y}",
-    )
-    y -= 28
+    def draw_kv_box(rows):
+        """Professional key/value panel instead of fill-in underlines."""
+        nonlocal y
+        row_h = 16
+        box_h = row_h * len(rows) + 8
+        ensure_space(box_h + 12)
+        label_w = content_width * 0.34
+        set_ink(fill_soft)
+        pdf.rect(left, y - box_h + 4, content_width, box_h, stroke=0, fill=1)
+        set_ink(rule)
+        pdf.setLineWidth(0.7)
+        pdf.rect(left, y - box_h + 4, content_width, box_h, stroke=1, fill=0)
+        pdf.line(left + label_w, y + 4, left + label_w, y - box_h + 4)
+        for i, (label, value) in enumerate(rows):
+            row_top = y - i * row_h
+            if i:
+                pdf.line(left, row_top + 4, right, row_top + 4)
+            set_ink(muted)
+            pdf.setFont(body, 8.5)
+            pdf.drawString(left + 6, row_top - 7, str(label).upper())
+            set_ink()
+            pdf.setFont(body_bold, 10)
+            pdf.drawString(left + label_w + 8, row_top - 7, str(value))
+        y -= box_h + 10
+        pdf.setLineWidth(1)
 
-    paragraphs = [
-        (
-            f"This Loan Payment Contract is entered into between the Cooperative "
-            f"(the Lender) and {ctx['member_name']} (the Borrower) for the loan product "
-            f"\"{ctx['product'].name}\"."
-        ),
-        (
-            f"1. LOAN AMOUNT. The Borrower applied for and, upon approval and "
-            f"disbursement, agrees to repay a principal amount of "
-            f"PHP {application.amount_requested:,.2f}."
-        ),
-        (
-            f"2. TERM. The repayment term is {application.term_months} month(s), "
-            f"payable in equal monthly installments of approximately "
-            f"PHP {ctx['monthly_payment']:,.2f} when paid on or before each due date."
-        ),
-        (
-            f"3. PURPOSE. {ctx['purpose']}"
-        ),
-        (
-            f"4. INTEREST. No interest is charged when an installment is paid on or "
-            f"before its due date. Late-payment interest at a monthly rate of "
-            f"{Decimal(ctx['late_rate'])} (daily rate = monthly rate ÷ 30) applies from installment month "
-            f"{ctx['interest_start_month']} onward if an installment remains unpaid after its due date."
-        ),
-        (
-            f"5. TOTAL IF PAID ON TIME. If all installments are paid on time, the "
-            f"Borrower shall pay a total of PHP {ctx['total_on_time']:,.2f} "
-            f"(principal only; PHP 0.00 interest)."
-        ),
-        (
-            "6. PAYMENT SCHEDULE. The Borrower agrees to pay according to the "
-            "monthly schedule below (or the official amortization schedule issued "
-            "upon disbursement)."
-        ),
-    ]
-    for paragraph in paragraphs:
-        draw_wrapped(paragraph, size=10, leading=13)
-        y -= 6
+    def draw_table(headers, rows, col_weights=None):
+        nonlocal y
+        col_weights = col_weights or [1] * len(headers)
+        total_w = sum(col_weights)
+        cols = [content_width * (w / total_w) for w in col_weights]
+        row_h = 15
+        header_h = 16
+        ensure_space(header_h + row_h * max(len(rows), 1) + 20)
+        set_ink(rule)
+        pdf.setFillColorRGB(0.18, 0.25, 0.32)
+        pdf.rect(left, y - header_h + 3, content_width, header_h, stroke=0, fill=1)
+        pdf.setFillColorRGB(1, 1, 1)
+        pdf.setFont(body_bold, 8)
+        x = left
+        for header, col_w in zip(headers, cols):
+            pdf.drawString(x + 5, y - 8, str(header).upper())
+            x += col_w
+        y -= header_h
+        set_ink()
+        for ri, row in enumerate(rows):
+            ensure_space(row_h + 12)
+            if ri % 2 == 1:
+                set_ink(fill_soft)
+                pdf.rect(left, y - row_h + 3, content_width, row_h, stroke=0, fill=1)
+            set_ink(rule)
+            pdf.setLineWidth(0.4)
+            pdf.rect(left, y - row_h + 3, content_width, row_h, stroke=1, fill=0)
+            x = left
+            set_ink()
+            pdf.setFont(body, 9)
+            for cell, col_w in zip(row, cols):
+                pdf.drawString(x + 5, y - 8, str(cell)[:48])
+                x += col_w
+            y -= row_h
+        pdf.setLineWidth(1)
+        y -= 8
 
-    y -= 4
-    ensure_space(80)
-    pdf.setFont("Helvetica-Bold", 10)
-    pdf.drawString(left, y, "Month")
-    pdf.drawString(left + 55, y, "Due date")
-    pdf.drawString(left + 160, y, "Principal due")
-    pdf.drawString(left + 280, y, "Pay on time")
-    y -= 4
-    pdf.line(left, y, right, y)
-    y -= 14
-
-    for row in ctx["plan"].get("rows") or []:
-        ensure_space(28)
-        pdf.setFont("Helvetica", 9)
-        due = row.get("due_date")
-        due_txt = due.strftime("%b %d, %Y") if due else "—"
-        principal = row.get("principal_due") or Decimal("0.00")
-        on_time = row.get("on_time_pay") or row.get("total_due") or principal
-        pdf.drawString(left, y, str(row.get("month")))
-        pdf.drawString(left + 55, y, due_txt)
-        pdf.drawString(left + 160, y, f"PHP {principal:,.2f}")
-        pdf.drawString(left + 280, y, f"PHP {on_time:,.2f}")
-        y -= 13
-
-    y -= 10
-    draw_wrapped(
-        "7. BORROWER UNDERTAKING. The Borrower acknowledges the loan details above "
-        "and agrees to repay the loan according to this contract and cooperative policy.",
-        size=10,
-        leading=13,
-    )
-    y -= 8
-    draw_wrapped(
-        "8. SIGNATURES. By signing below, the parties confirm they have read and "
-        "accepted this Loan Payment Contract.",
-        size=10,
-        leading=13,
-    )
-
-    ensure_space(150)
-    y -= 10
-    sig_width = 200
-    sig_height = 70
-    line_y = y - sig_height - 4
-
-    def _draw_signature_image(image_field, x, bottom_y):
+    def _draw_signature_image(image_field, x, bottom_y, sig_width=170, sig_height=48):
         if not image_field:
             return False
         try:
@@ -1693,42 +1937,411 @@ def generate_loan_agreement(application, documentation=None):
         )
         return True
 
-    borrower_drawn = _draw_signature_image(
-        getattr(documentation, "borrower_signature", None),
-        left,
-        line_y + 6,
-    )
-    personnel_drawn = _draw_signature_image(
-        getattr(documentation, "personnel_signature", None),
-        left + 280,
-        line_y + 6,
-    )
-
-    pdf.setStrokeColorRGB(0.58, 0.64, 0.72)
-    pdf.line(left, line_y, left + 220, line_y)
-    pdf.line(left + 280, line_y, left + 500, line_y)
-    pdf.setStrokeColorRGB(0, 0, 0)
-
-    y = line_y - 14
-    pdf.setFont("Helvetica", 10)
-    pdf.drawString(left, y, "Borrower signature / date")
-    pdf.drawString(left + 280, y, "Authorized personnel / date")
-    y -= 12
-    pdf.setFont("Helvetica-Oblique", 9)
-    pdf.drawString(left, y, ctx["member_name"])
-
+    borrower_sig = getattr(documentation, "borrower_signature", None)
+    personnel_sig = getattr(documentation, "personnel_signature", None)
     borrower_at = getattr(documentation, "signed_by_borrower_at", None)
     personnel_at = getattr(documentation, "signed_by_authorized_personnel_at", None)
-    y -= 12
-    pdf.setFont("Helvetica", 8)
-    if borrower_drawn and borrower_at:
-        local_at = timezone.localtime(borrower_at)
-        pdf.drawString(left, y, f"Signed {local_at:%b %d, %Y %I:%M %p}")
-    if personnel_drawn and personnel_at:
-        local_at = timezone.localtime(personnel_at)
-        pdf.drawString(left + 280, y, f"Signed {local_at:%b %d, %Y %I:%M %p}")
 
-    pdf.showPage()
+    def draw_dual_signatures(
+        left_label,
+        right_label,
+        left_name="",
+        right_name="",
+        left_image=None,
+        right_image=None,
+        left_stamp=None,
+        right_stamp=None,
+        compact=False,
+    ):
+        nonlocal y
+        ensure_space(90 if compact else 110)
+        gap = 12 if compact else 14
+        box_w = (content_width - gap) / 2
+        box_h = 58 if compact else 78
+        boxes = (
+            (left, left_label, left_name, left_image, left_stamp),
+            (left + box_w + gap, right_label, right_name, right_image, right_stamp),
+        )
+        for x0, label, name, image, stamp in boxes:
+            set_ink(fill_soft)
+            pdf.roundRect(x0, y - box_h, box_w, box_h, 3, stroke=0, fill=1)
+            set_ink(rule)
+            pdf.setLineWidth(0.7)
+            pdf.roundRect(x0, y - box_h, box_w, box_h, 3, stroke=1, fill=0)
+            line_y = y - box_h + (22 if compact else 28)
+            if image:
+                _draw_signature_image(
+                    image,
+                    x0 + 8,
+                    line_y + 2,
+                    sig_width=box_w - 16,
+                    sig_height=36 if compact else 48,
+                )
+            pdf.line(x0 + 10, line_y, x0 + box_w - 10, line_y)
+            set_ink(muted)
+            pdf.setFont(body, 7 if compact else 7.5)
+            pdf.drawCentredString(x0 + box_w / 2, y - box_h + (12 if compact else 16), label)
+            set_ink()
+            pdf.setFont(body_bold, 8.5 if compact else 9)
+            if name:
+                pdf.drawCentredString(x0 + box_w / 2, y - box_h + (4 if compact else 6), name)
+            if stamp:
+                local_at = timezone.localtime(stamp)
+                set_ink(muted)
+                pdf.setFont(body, 6.5)
+                pdf.drawCentredString(
+                    x0 + box_w / 2,
+                    y - (8 if compact else 10),
+                    f"Signed {local_at:%b %d, %Y %I:%M %p}",
+                )
+        y -= box_h + (10 if compact else 14)
+        pdf.setLineWidth(1)
+        set_ink()
+
+    # ------------------------------------------------------------------ page 1: Loan Agreement
+    draw_page_chrome()
+    draw_header("LOAN AGREEMENT")
+    draw_kv_box(
+        [
+            ("Date Granted", ctx["date_granted"].strftime("%B %d, %Y")),
+            ("Date Due", ctx["date_due"].strftime("%B %d, %Y")),
+            ("Amount of Loan", f"Php {ctx['amount_php']}"),
+            ("Reference", ctx["application_ref"]),
+        ]
+    )
+
+    agreement_text = (
+        f"Siak ni {ctx['member_name']} a taga {ctx['place_taga']}, {ctx['municipality']}, "
+        f"{ctx['province']} ket immutang ti gatad nga {ctx['amount_words']} "
+        f"(Php {ctx['amount_php']}) ti {ctx['coop_name']}. Ti collateral ti nasao nga "
+        f"utang ko ket ti produkto nga apet ko. Daytoy nga utang ko ket bayadak sakbay "
+        f"wenno ti aldaw nga panagpaso ti nasao nga utang ko. No diak makabayad ti dayta "
+        f"nga tiempo, siaannugutaak nga umay da alaen ti produkto nga adda ti uneg ti "
+        f"balay ko nga awan nga pulos ti panagkedked ko. Ket no awan ti produkto nga "
+        f"adda iti uneg ti balay ko kayat na sawen nga naelako kon. No diak pay la apan "
+        f"bayadan, siaannugutak nga inda alaen iti aniaman nga adda iti uneg ti balayko "
+        f"ket ti presio ti coop masurot. Ket no awan latta ti natibker nga rason no apay "
+        f"nga saan nak nga nakabayad, siannugutak nga agfile ti {ctx['coop_name']} ti "
+        f"kaso maikontra kaniak ket amin nga gastos ti abogado ket siak ti mangbayad."
+    )
+    draw_wrapped(agreement_text, size=10.5, leading=14.5, first_indent=18)
+    y -= 8
+    draw_wrapped(
+        "Kas pammatalged, agpermaak ditoy baba kasta met ti asawak, anak wenno kabsat.",
+        size=10.5,
+        leading=14.5,
+        first_indent=18,
+    )
+    y -= 18
+    draw_dual_signatures(
+        "Nagan ken Pirma ti Immutang",
+        "Nagan ken pirma ti asawa (anak wenno kabsat)",
+        left_name=ctx["member_name"],
+        right_name=ctx["spouse_name"] if ctx["spouse_name"] != "—" else "",
+        left_image=borrower_sig,
+        left_stamp=borrower_at,
+    )
+
+    # ------------------------------------------------------------------ page 2: Application
+    new_page()
+    draw_header("LOAN APPLICATION")
+    app_text = (
+        f"Siak ni {ctx['member_name']} agaplikar ti kantidad {ctx['amount_words']} "
+        f"pesos (php {ctx['amount_php']}) nga utangen iti las-ud ti {ctx['term_months']} "
+        f"a bayadak nga {ctx['payment_mode_short']}. Ti panagtinnag ko ket "
+        f"Php {_format_php(ctx['monthly_payment'])} agraman ti interes."
+    )
+    draw_wrapped(app_text, size=10.5, leading=14.5, first_indent=18)
+    y -= 4
+    draw_kv_box(
+        [
+            ("Pagusaran / Proyekto", ctx["purpose"]),
+            ("Kalawa ti taltalonen", ctx["area"]),
+            ("Petsa ti panagkasapulan", ctx["date_granted"].strftime("%B %d, %Y")),
+            ("Termino", f"{ctx['term_months']} bulan — {ctx['payment_mode']}"),
+        ]
+    )
+    pdf.setFont(body_bold, 10)
+    set_ink()
+    pdf.drawString(left, y, "Ikarik nga usaren toy utangek kadagiti sumaganad:")
+    y -= 12
+    draw_table(
+        ["Kaadu", "Klase / nagan ti kasapulan", "Kantidad"],
+        [
+            ["1", str(ctx["purpose"])[:50], f"Php {ctx['amount_php']}"],
+            ["", "", ""],
+            ["", "", ""],
+        ],
+        col_weights=[1, 4.5, 2],
+    )
+
+    pdf.setFont(body_bold, 10)
+    pdf.drawString(left, y, "Dagitoy dagiti intedmi a talged wenno seguridad (collateral):")
+    y -= 12
+    collateral_rows = []
+    if ctx["collaterals"]:
+        for item in ctx["collaterals"]:
+            collateral_rows.append(
+                [
+                    str(item.description)[:36],
+                    "—",
+                    f"Php {_format_php(item.estimated_value)}",
+                    f"Php {ctx['amount_php']}",
+                ]
+            )
+    else:
+        collateral_rows.append(
+            [
+                "Produkto nga apet / as per agreement",
+                str(ctx["address"])[:28],
+                "—",
+                f"Php {ctx['amount_php']}",
+            ]
+        )
+    draw_table(
+        ["Sanikua / talged", "Lokasyon", "Balor", "Gatad ti mautang"],
+        collateral_rows,
+        col_weights=[3, 2.2, 1.6, 1.8],
+    )
+
+    draw_wrapped(
+        "Sertipikarik/paneknekak nga amin nga indatag ken inpalawag ko agraman dagiti "
+        "dokumento ket agpaypayso ken kompleto. Ket sitataalogudak nga mangted kadagitoy "
+        "nga agbalin nga seguridad/collateral para iti utangek a kantidad.",
+        size=10,
+        leading=13.5,
+        first_indent=14,
+    )
+    y -= 8
+    draw_dual_signatures(
+        "Nagan ken Pirma iti Immutang",
+        "Nagan ken Pirma ti Asawa (anak/kabsat)",
+        left_name=ctx["member_name"],
+        right_name=ctx["spouse_name"] if ctx["spouse_name"] != "—" else "",
+        left_image=borrower_sig,
+        left_stamp=borrower_at,
+    )
+    pdf.setFont(body_bold, 10)
+    pdf.drawString(left, y, "Pammaneknek ti panagutang")
+    y -= 12
+    draw_kv_box(
+        [
+            ("Umutang", ctx["member_name"]),
+            ("Co-Maker 1", "_______________________________"),
+            ("Co-Maker 2", "_______________________________"),
+        ]
+    )
+    draw_dual_signatures(
+        "Prepared By",
+        "Recommending Approval / Manager",
+        right_image=personnel_sig,
+        right_stamp=personnel_at,
+    )
+    set_ink(muted)
+    pdf.setFont(body, 8.5)
+    pdf.drawString(
+        left,
+        y,
+        "Action taken by:  Credit Committee (  )    Board of Directors (  )    Manager (  )",
+    )
+    y -= 14
+    pdf.drawString(left, y, "Credit Committee: ______________   ______________   ______________")
+    y -= 11
+    pdf.drawString(left, y, "                Chairman                    Member                      Member")
+    y -= 14
+    pdf.drawString(left, y, "Board of Directors: ______________   ______________   ______________")
+    y -= 11
+    pdf.drawString(left, y, "                   Chairman               Vice Chairman                Member")
+
+    # ------------------------------------------------------------------ page 3: Promissory Note
+    new_page()
+    draw_header("PROMISSORY NOTE")
+    draw_kv_box(
+        [
+            ("Numero ti P.N.", ctx["pn_number"]),
+            ("Petsa ti pannakaawat ti utang", ctx["date_granted"].strftime("%B %d, %Y")),
+            ("Gatad", f"Php {ctx['amount_php']}"),
+            ("Petsa ti Panagpaso ti utang", ctx["date_due"].strftime("%B %d, %Y")),
+        ]
+    )
+    pn_text = (
+        f"Gapu ta inawat ko/mi nga gatad I kwarta, siak/sikami {ctx['member_name']} "
+        f"nga nakapirma ditoy baba ket immutang ti gatad nga {ctx['amount_words']} "
+        f"ket isapatak/isapatami nga bayadan ti {ctx['coop_name']} ti "
+        f"{ctx['amount_words']} (Php {ctx['amount_php']}) ken interes nga "
+        f"{ctx['late_rate_pct']}% per month ({ctx['late_rate']}) babaen ti sumaganad:"
+    )
+    draw_wrapped(pn_text, size=10.5, leading=14.5, first_indent=18)
+    y -= 4
+    draw_kv_box(
+        [
+            ("Gatad", f"Php {ctx['amount_php']}"),
+            ("Termino", f"{ctx['term_months']} bulan"),
+            ("Wagas ti panagbayad", ctx["payment_mode"]),
+            (
+                "Petsa ti panagbayad",
+                ctx["first_due"].strftime("%B %d, %Y") if ctx["first_due"] else "—",
+            ),
+            ("Tipu (Type of Loan)", ctx["product"].name),
+        ]
+    )
+
+    draw_wrapped(
+        f"No kas pangarigan saan ko nga mabayadan daytoy nga utang ko inton madanon ti "
+        f"termino na, siak nga makautang ket umannugot nga agbayad ti multa (penalty) "
+        f"nga {ctx['late_rate_pct']}% base suma total ko kada bulan. Kasta met nga ti "
+        f"kooperatiba ket maddaan karbengan nga mangremata ti/dagiti inted me nga byenes.",
+        size=10,
+        leading=13.5,
+    )
+    y -= 4
+    draw_wrapped(
+        "Ket daytoy nga beyenes nga nasao ket mailako kalpasan ti _____________ "
+        "aldaw/bulan manipud pannakaremata na iti kangatuan nga bidder wenno gumatang. "
+        "No adda masobra ket matratar nga maisubli idiay akinkukua, ngem no agkurang, "
+        "sidadaan ken mayatak nga mangbayad iti aniaman nga pagkurangan na.",
+        size=10,
+        leading=13.5,
+        first_indent=14,
+    )
+    y -= 4
+    draw_wrapped(
+        "No daytoy ket maiyamang ti husgado, ti mangmanmaneho ket addaan karbengan "
+        "nga mangsingir iti 25% nga kas Attorney's Fee ken dadduma pay nga gastos "
+        "maipanggep daytoy nga kaso.",
+        size=10,
+        leading=13.5,
+        first_indent=14,
+    )
+    y -= 10
+    draw_dual_signatures(
+        "Nagan ken Pirma ti Immutang",
+        "Nagan ken Pirma ti Asawa (Anak wenno Kabsat)",
+        left_name=ctx["member_name"],
+        right_name=ctx["spouse_name"] if ctx["spouse_name"] != "—" else "",
+        left_image=borrower_sig,
+        left_stamp=borrower_at,
+    )
+    draw_dual_signatures(
+        "Nagan ken Pirma ti Co-Maker",
+        "Nagan ken Pirma ti Co-Maker",
+    )
+    set_ink()
+    pdf.setFont(body_bold, 10)
+    pdf.drawString(left, y, "Dagiti Nakaimatang / Witness:")
+    y -= 16
+    pdf.setFont(body, 9)
+    set_ink(muted)
+    pdf.drawString(left, y, "______________     ______________     ______________")
+
+    # ------------------------------------------------------------------ page 4: Disclosure Statement
+    new_page()
+    draw_header("DISCLOSURE STATEMENT")
+    draw_kv_box(
+        [
+            ("Borrower", f"{ctx['last_name'] or '—'}, {ctx['first_name'] or '—'} {ctx['middle_name'] or ''}".strip()),
+            (
+                "Birth Date / PN#",
+                f"{ctx['birth_date'].strftime('%B %d, %Y') if ctx['birth_date'] else '—'}  |  {ctx['pn_number']}",
+            ),
+            ("Address", ctx["address"]),
+            ("Loan Type / Purpose", f"{ctx['product'].name} (X Loan) — {ctx['purpose']}"),
+            (
+                "Date Granted / Due",
+                f"{ctx['date_granted'].strftime('%b %d, %Y')}  →  {ctx['date_due'].strftime('%b %d, %Y')}",
+            ),
+        ]
+    )
+    draw_wrapped(
+        f'Pursuant to RA No. 3765 or otherwise known as the "Truth in Lending Act," '
+        f"the {ctx['coop_name']} hereby discloses fully the following terms and "
+        f"conditions of Credit to the Debtor, to wit:",
+        size=10,
+        leading=13.5,
+    )
+    y -= 4
+    draw_table(
+        ["Particulars", "Amount"],
+        [
+            ["LOAN GRANTED (A)", f"Php {ctx['amount_php']}"],
+            ["Interest on loan", f"Php {_format_php(ctx['interest_on_loan'])}"],
+            ["Service Fee", f"Php {_format_php(ctx['service_fee'])}"],
+            ["TOTAL FINANCE CHARGES (B)", f"Php {_format_php(ctx['finance_charges'])}"],
+            [ctx["other_charges_label"], f"Php {_format_php(ctx['other_charges'])}"],
+            ["TOTAL NON-FINANCE CHARGES (C)", f"Php {_format_php(ctx['other_charges'])}"],
+            ["NET LOAN PROCEEDS A-B-C (D)", f"Php {_format_php(ctx['net_proceeds'])}"],
+        ],
+        col_weights=[3.4, 1.6],
+    )
+    set_ink()
+    pdf.setFont(body, 9.5)
+    pdf.drawString(
+        left,
+        y,
+        f"Interest Rate: {ctx['late_rate_pct']}% per month (late / unpaid balance)",
+    )
+    y -= 14
+    pdf.setFont(body_bold, 10)
+    pdf.drawString(left, y, "Schedule of Payment")
+    y -= 12
+    pdf.setFont(body, 9.5)
+    if ctx["is_lump_sum"]:
+        pdf.drawString(
+            left + 8,
+            y,
+            f"a) Single Payment due on {ctx['date_due'].strftime('%b %d, %Y')} — "
+            f"Php {ctx['amount_php']}",
+        )
+        y -= 12
+        pdf.drawString(left + 8, y, "b.) Total Installment Payable —")
+    else:
+        pdf.drawString(left + 8, y, "a) Single Payment due on —")
+        y -= 12
+        pdf.drawString(
+            left + 8,
+            y,
+            f"b.) Total Installment Payable Php {_format_php(ctx['total_on_time'])}",
+        )
+        y -= 12
+        pdf.drawString(
+            left + 18,
+            y,
+            f"b.1) No. of Payments {ctx['term_months']} in monthly installments — "
+            f"Php {_format_php(ctx['monthly_payment'])}",
+        )
+    y -= 12
+    pdf.setFont(body_bold, 10)
+    pdf.drawString(left, y, "Certified Correct")
+    y -= 6
+    draw_dual_signatures(
+        "Signature of Authorized Representative",
+        "Name & Signature of Borrower",
+        left_image=personnel_sig,
+        right_image=borrower_sig,
+        left_stamp=personnel_at,
+        right_stamp=borrower_at,
+        right_name=ctx["member_name"],
+        compact=True,
+    )
+    draw_wrapped(
+        "I/WE ACKNOWLEDGE RECEIPT OF THIS STATEMENT PRIOR TO THE CONSUMMATION OF THE "
+        "CREDIT TRANSACTION AND THAT WE UNDERSTAND AND FULLY AGREE TO THE TERMS AND "
+        "CONDITIONS THEREOF.",
+        size=8.5,
+        leading=11,
+        justify=False,
+    )
+    y -= 4
+    set_ink(muted)
+    pdf.setFont(body, 9)
+    pdf.drawString(left, y, f"Date: {ctx['issued_on'].strftime('%B %d, %Y')}")
+    y -= 12
+    set_ink()
+    pdf.setFont(body_bold, 10)
+    pdf.drawString(left, y, "Signed in the Presence of:")
+    y -= 6
+    draw_dual_signatures("Co-Maker", "Co-Maker", compact=True)
+
     pdf.save()
 
     with open(buffer_path, "rb") as fh:

@@ -34,6 +34,12 @@
   .filter-bar .form-control { min-width: 220px; flex: 1; }
   .member-cell { display: flex; flex-direction: column; gap: 2px; }
   .member-cell small { color: #64748b; font-size: 0.78rem; }
+  .joint-badge {
+    display: inline-flex; align-items: center; gap: .25rem;
+    margin-top: 4px; padding: 2px 8px; border-radius: 999px;
+    background: #eff6ff; color: #1d4ed8; font-size: .72rem; font-weight: 700;
+    width: fit-content;
+  }
   .savings-actions { text-align: right; white-space: nowrap; }
   .savings-actions .btn--danger {
     display: inline-block;
@@ -86,6 +92,9 @@
       </a>
       <a class="btn btn-dark rounded-pill px-4 fw-semibold" href="{% url 'savings:account-open' %}">
         <i class="bi bi-plus-lg me-1"></i>Open account
+      </a>
+      <a class="btn btn-outline-light rounded-pill px-4 fw-semibold" href="{% url 'savings:account-open' %}?joint=1">
+        <i class="bi bi-people me-1"></i>Joint account
       </a>
     </div>
   </div>
@@ -194,8 +203,11 @@
           <td>
             <a href="{% url 'savings:account-detail' account.pk %}" class="text-decoration-none text-dark">
               <div class="member-cell">
-                <strong>{{ account.member.full_name }}</strong>
+                <strong>{{ account.holders_display }}</strong>
                 <small>{{ account.member.username|default:account.member.email|default:"—" }}</small>
+                {% if account.is_joint %}
+                <span class="joint-badge"><i class="bi bi-people-fill"></i> Joint</span>
+                {% endif %}
               </div>
             </a>
           </td>

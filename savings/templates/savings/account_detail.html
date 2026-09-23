@@ -9,12 +9,18 @@
         <i class="bi bi-arrow-left"></i> All accounts
       </a>
       <div class="acct-detail__title-row">
-        <h1>{{ account.member.full_name }}</h1>
+        <h1>{{ account.holders_display }}</h1>
         <span class="status-pill status-pill--{{ account.status }}">{{ account.get_status_display }}</span>
+        {% if account.is_joint %}
+        <span class="status-pill" style="background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe;">Joint</span>
+        {% endif %}
       </div>
       <p class="acct-detail__meta">
         <span><i class="bi bi-upc"></i> {{ account.account_number }}</span>
         <span><i class="bi bi-piggy-bank"></i> Regular Savings</span>
+        {% if account.is_joint %}
+        <span><i class="bi bi-people"></i> Joint · primary {{ account.member.full_name }}{% for co in account.co_owner_list %} · co-owner {{ co.full_name }}{% endfor %}</span>
+        {% endif %}
         {% if account.member.member_status %}
         <span><i class="bi bi-person-badge"></i> {{ account.member.member_status.name }}</span>
         {% elif account.member.membership_status %}

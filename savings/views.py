@@ -45,7 +45,9 @@ def _receipt_context(request, account, transactions, *, single=False, txn=None, 
         "transactions": transactions,
         "txn": txn,
         "single": single,
-        "member_name": member.full_name,
+        "member_name": account.holders_display() if account.is_joint else member.full_name,
+        "is_joint": account.is_joint,
+        "joint_co_owners": account.co_owner_list() if account.is_joint else [],
         "back_url": back_url or reverse("savings:account-detail", kwargs={"pk": account.pk}),
     }
     ctx.update(get_receipt_store_context(request))
@@ -71,6 +73,7 @@ class SavingsOverviewView(SavingsStaffMixin, View):
 
         accounts_qs = (
             models.MemberSavingsAccount.objects.select_related("member", "product")
+            .prefetch_related("joint_owner_links__member")
             .order_by("-opened_at")
         )
         if status_filter != "all":
@@ -82,7 +85,10 @@ class SavingsOverviewView(SavingsStaffMixin, View):
                 | Q(member__username__icontains=search_query)
                 | Q(account_number__icontains=search_query)
                 | Q(product__name__icontains=search_query)
-            )
+                | Q(joint_owners__first_name__icontains=search_query)
+                | Q(joint_owners__last_name__icontains=search_query)
+                | Q(joint_owners__username__icontains=search_query)
+            ).distinct()
 
         page = Paginator(accounts_qs, 25).get_page(request.GET.get("page") or 1)
         active_status = models.MemberSavingsAccount.Status.ACTIVE
@@ -205,11 +211,14 @@ class OpenSavingsAccountView(SavingsStaffMixin, View):
     template_name = "savings/account_form.html"
 
     def get(self, request):
+        initial = {}
+        if (request.GET.get("joint") or "").strip() in ("1", "true", "yes"):
+            initial["is_joint"] = True
         return render(
             request,
             self.template_name,
             {
-                "form": forms.OpenSavingsAccountForm(),
+                "form": forms.OpenSavingsAccountForm(initial=initial),
                 "savings_policy": regular_savings_policy(),
             },
         )
@@ -225,13 +234,20 @@ class OpenSavingsAccountView(SavingsStaffMixin, View):
                     performed_by=request.user,
                     notes=form.cleaned_data.get("notes") or "",
                     opening_date=form.cleaned_data.get("opening_date"),
+                    is_joint=bool(form.cleaned_data.get("is_joint")),
+                    joint_owners=(
+                        [form.cleaned_data["joint_member"]]
+                        if form.cleaned_data.get("joint_member")
+                        else None
+                    ),
                 )
             except ValidationError as exc:
                 form.add_error(None, exc)
             else:
+                holders = account.holders_display()
                 messages.success(
                     request,
-                    f"Opened {account.account_number} for {account.member.full_name}.",
+                    f"Opened {account.account_number} ({account.account_kind_display}) for {holders}.",
                 )
                 opening = account.transactions.filter(
                     transaction_type=models.SavingsTransaction.TxnType.OPENING
@@ -260,7 +276,7 @@ class SavingsAccountDetailView(SavingsStaffMixin, DetailView):
             "member",
             "member__member_status",
             "product",
-        )
+        ).prefetch_related("joint_owner_links__member")
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)

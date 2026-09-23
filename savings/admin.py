@@ -235,19 +235,23 @@ class MemberSavingsAccountAdmin(admin.ModelAdmin):
     list_display = (
         "account_number",
         "member",
+        "is_joint",
         "product",
         "balance",
         "status",
         "opened_at",
         "maturity_date",
     )
-    list_filter = ("status", "product")
+    list_filter = ("status", "is_joint", "product")
     search_fields = (
         "account_number",
         "member__first_name",
         "member__last_name",
         "member__username",
         "member__rfid_card_number",
+        "joint_owners__first_name",
+        "joint_owners__last_name",
+        "joint_owners__username",
     )
     autocomplete_fields = ("member", "product")
     readonly_fields = ("account_number", "balance", "opened_at", "maturity_date")
@@ -256,10 +260,11 @@ class MemberSavingsAccountAdmin(admin.ModelAdmin):
         (
             None,
             {
-                "fields": ("member", "product", "opening_amount", "opening_date", "status", "notes"),
+                "fields": ("member", "product", "is_joint", "opening_amount", "opening_date", "status", "notes"),
                 "description": (
                     "Saving a new account writes it to the database, assigns an "
-                    "account number, and posts the opening deposit to the ledger."
+                    "account number, and posts the opening deposit to the ledger. "
+                    "Use the desk Open Account form to attach joint co-owners."
                 ),
             },
         ),
@@ -274,7 +279,7 @@ class MemberSavingsAccountAdmin(admin.ModelAdmin):
     def get_fieldsets(self, request, obj=None):
         if obj:
             return (
-                (None, {"fields": ("member", "product", "status", "notes")}),
+                (None, {"fields": ("member", "product", "is_joint", "status", "notes")}),
                 (
                     "Record",
                     {
@@ -293,7 +298,7 @@ class MemberSavingsAccountAdmin(admin.ModelAdmin):
     def get_readonly_fields(self, request, obj=None):
         readonly = list(self.readonly_fields)
         if obj:
-            readonly.extend(["member", "product"])
+            readonly.extend(["member", "product", "is_joint"])
         return readonly
 
     def save_model(self, request, obj, form, change):

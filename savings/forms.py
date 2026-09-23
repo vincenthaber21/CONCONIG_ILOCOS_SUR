@@ -82,8 +82,25 @@ class OpenSavingsAccountForm(forms.Form):
             is_active=True,
             member_role__slug="member",
         ).order_by("last_name", "first_name"),
-        label="Member",
+        label="Primary member",
         empty_label="Search member...",
+        widget=forms.Select(attrs={"autocomplete": "off"}),
+    )
+    is_joint = forms.BooleanField(
+        required=False,
+        initial=False,
+        label="Joint account",
+        help_text="Share this Regular Savings account with another member (co-owner).",
+        widget=forms.CheckboxInput(attrs={"class": "form-check-input", "id": "id_is_joint"}),
+    )
+    joint_member = forms.ModelChoiceField(
+        queryset=Member.objects.filter(
+            is_active=True,
+            member_role__slug="member",
+        ).order_by("last_name", "first_name"),
+        required=False,
+        label="Joint co-owner",
+        empty_label="Search co-owner...",
         widget=forms.Select(attrs={"autocomplete": "off"}),
     )
     product = forms.ModelChoiceField(
@@ -134,28 +151,40 @@ class OpenSavingsAccountForm(forms.Form):
             is_active=True,
             product_type=models.SavingsProduct.ProductType.REGULAR,
         ).order_by("name")
-        # Members who closed savings (or already hold an open Regular account)
-        # cannot open again.
-        closed_member_ids = models.MemberSavingsAccount.objects.filter(
+        # Members who closed savings (or already hold an open Regular account
+        # as primary or joint co-owner) cannot open again.
+        closed_primary_ids = models.MemberSavingsAccount.objects.filter(
             status=models.MemberSavingsAccount.Status.CLOSED,
         ).values("member_id")
-        open_regular_member_ids = models.MemberSavingsAccount.objects.filter(
+        closed_joint_ids = models.SavingsJointOwner.objects.filter(
+            account__status=models.MemberSavingsAccount.Status.CLOSED,
+        ).values("member_id")
+        open_regular_primary_ids = models.MemberSavingsAccount.objects.filter(
             product__product_type=models.SavingsProduct.ProductType.REGULAR,
         ).exclude(
             status=models.MemberSavingsAccount.Status.CLOSED,
         ).values("member_id")
-        self.fields["member"].queryset = (
+        open_regular_joint_ids = models.SavingsJointOwner.objects.filter(
+            account__product__product_type=models.SavingsProduct.ProductType.REGULAR,
+        ).exclude(
+            account__status=models.MemberSavingsAccount.Status.CLOSED,
+        ).values("member_id")
+        eligible_qs = (
             Member.objects.filter(
                 is_active=True,
                 member_role__slug="member",
             )
-            .exclude(pk__in=closed_member_ids)
-            .exclude(pk__in=open_regular_member_ids)
+            .exclude(pk__in=closed_primary_ids)
+            .exclude(pk__in=closed_joint_ids)
+            .exclude(pk__in=open_regular_primary_ids)
+            .exclude(pk__in=open_regular_joint_ids)
             .order_by("last_name", "first_name")
         )
-        self.fields["member"].label_from_instance = (
-            lambda m: f"{m.full_name} ({m.username or m.rfid_card_number or m.pk})"
-        )
+        label_fn = lambda m: f"{m.full_name} ({m.username or m.rfid_card_number or m.pk})"
+        self.fields["member"].queryset = eligible_qs
+        self.fields["member"].label_from_instance = label_fn
+        self.fields["joint_member"].queryset = eligible_qs
+        self.fields["joint_member"].label_from_instance = label_fn
         self.regular_product = (
             self.fields["product"].queryset.filter(pk=regular_product.pk).first()
             or self.fields["product"].queryset.first()
@@ -193,6 +222,30 @@ class OpenSavingsAccountForm(forms.Form):
             ) from exc
         return member
 
+    def clean_joint_member(self):
+        joint_member = self.cleaned_data.get("joint_member")
+        if not joint_member:
+            return joint_member
+        # Primary may already be in cleaned_data; fall back to raw POST/data.
+        primary = self.cleaned_data.get("member")
+        if primary is None:
+            raw = (self.data.get("member") or "").strip()
+            if raw:
+                primary = Member.objects.filter(pk=raw).first()
+        if primary and joint_member.pk == primary.pk:
+            raise forms.ValidationError(
+                "Duplicate member: the co-owner must be different from the primary holder."
+            )
+        from . import services
+
+        try:
+            services.assert_member_can_open_savings(joint_member, product=None)
+        except ValidationError as exc:
+            raise forms.ValidationError(
+                " ".join(exc.messages) if hasattr(exc, "messages") else str(exc)
+            ) from exc
+        return joint_member
+
     def clean_product(self):
         product = self.cleaned_data.get("product") or self.regular_product
         if not product:
@@ -215,9 +268,27 @@ class OpenSavingsAccountForm(forms.Form):
             cleaned["product"] = self.regular_product or models.SavingsProduct.ensure_regular_product()
         member = cleaned.get("member")
         product = cleaned.get("product")
-        if member and product:
-            from . import services
+        is_joint = bool(cleaned.get("is_joint"))
+        joint_member = cleaned.get("joint_member")
+        cleaned["is_joint"] = is_joint
 
+        if is_joint:
+            if not joint_member:
+                self.add_error("joint_member", "Select a joint co-owner for this account.")
+            elif member and joint_member and joint_member.pk == member.pk:
+                self.add_error(
+                    "joint_member",
+                    "Duplicate member: the co-owner must be different from the primary holder.",
+                )
+                cleaned["joint_member"] = None
+                joint_member = None
+        else:
+            cleaned["joint_member"] = None
+            joint_member = None
+
+        from . import services
+
+        if member and product:
             try:
                 services.assert_member_can_open_savings(member, product)
             except ValidationError as exc:
@@ -225,6 +296,15 @@ class OpenSavingsAccountForm(forms.Form):
                     "member",
                     " ".join(exc.messages) if hasattr(exc, "messages") else str(exc),
                 )
+        if joint_member and product:
+            try:
+                services.assert_member_can_open_savings(joint_member, product)
+            except ValidationError as exc:
+                self.add_error(
+                    "joint_member",
+                    " ".join(exc.messages) if hasattr(exc, "messages") else str(exc),
+                )
+
         amount = cleaned.get("opening_amount")
         if product and amount is not None:
             min_open = product.min_opening_deposit

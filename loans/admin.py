@@ -22,11 +22,12 @@ class LoanSettingsAdmin(admin.ModelAdmin):
             "Loan eligibility",
             {
                 "description": (
-                    "Waiting period before a member can request a loan. A new member "
-                    "(for example, only 1 week registered) cannot apply until this many "
-                    "months have passed. Set to 0 to allow loans immediately."
+                    "Waiting period before a member can request a loan. Enable the rule "
+                    "and set months (default 3). A new member (for example, only 1 week "
+                    "registered) cannot apply until that many months have passed. "
+                    "Disable the rule to allow loans immediately."
                 ),
-                "fields": ("min_membership_months",),
+                "fields": ("min_membership_enabled", "min_membership_months"),
             },
         ),
         (

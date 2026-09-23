@@ -231,7 +231,12 @@ class SavingsProduct(BaseModel):
 
 
 class MemberSavingsAccount(BaseModel):
-    """A member's savings account for one product."""
+    """A member's savings account for one product.
+
+    Individual accounts have a single ``member`` (primary holder).
+    Joint accounts set ``is_joint=True`` and link one or more co-owners via
+    ``joint_owners`` / ``SavingsJointOwner``.
+    """
 
     class Status(models.TextChoices):
         ACTIVE = "active", "Active"
@@ -243,11 +248,24 @@ class MemberSavingsAccount(BaseModel):
         "members.Member",
         on_delete=models.CASCADE,
         related_name="savings_accounts",
+        help_text="Primary account holder.",
     )
     product = models.ForeignKey(
         SavingsProduct,
         on_delete=models.CASCADE,
         related_name="accounts",
+    )
+    is_joint = models.BooleanField(
+        default=False,
+        db_index=True,
+        help_text="Shared by the primary member and one or more joint co-owners.",
+    )
+    joint_owners = models.ManyToManyField(
+        "members.Member",
+        through="SavingsJointOwner",
+        related_name="joint_savings_accounts",
+        blank=True,
+        help_text="Additional members on a joint savings account (not the primary).",
     )
     account_number = models.CharField(max_length=32, unique=True, editable=False)
     balance = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
@@ -278,7 +296,8 @@ class MemberSavingsAccount(BaseModel):
         verbose_name_plural = "Member savings accounts"
 
     def __str__(self):
-        return f"{self.account_number} — {self.member.full_name}"
+        kind = "Joint" if self.is_joint else "Individual"
+        return f"{self.account_number} — {self.member.full_name} ({kind})"
 
     def save(self, *args, **kwargs):
         if not self.account_number:
@@ -298,7 +317,7 @@ class MemberSavingsAccount(BaseModel):
         stamp = self.opened_at or timezone.now()
         if timezone.is_aware(stamp):
             stamp = timezone.localtime(stamp)
-        prefix = stamp.strftime("SAV-%Y%m%d")
+        prefix = stamp.strftime("JSA-%Y%m%d" if self.is_joint else "SAV-%Y%m%d")
         for _ in range(12):
             candidate = f"{prefix}-{secrets.randbelow(1_000_000):06d}"
             if not MemberSavingsAccount.objects.filter(account_number=candidate).exists():
@@ -308,6 +327,66 @@ class MemberSavingsAccount(BaseModel):
     @property
     def can_transact(self):
         return self.status == self.Status.ACTIVE
+
+    @property
+    def account_kind_display(self):
+        return "Joint account" if self.is_joint else "Individual"
+
+    def co_owner_list(self):
+        """Joint co-owners (excludes primary). Prefetch ``joint_owner_links`` when listing."""
+        if not self.is_joint:
+            return []
+        if hasattr(self, "_prefetched_objects_cache") and "joint_owner_links" in self._prefetched_objects_cache:
+            return [link.member for link in self.joint_owner_links.all()]
+        return list(self.joint_owners.all())
+
+    def all_holder_names(self):
+        names = [self.member.full_name]
+        names.extend(m.full_name for m in self.co_owner_list())
+        return names
+
+    def holders_display(self):
+        names = self.all_holder_names()
+        if len(names) <= 1:
+            return names[0] if names else ""
+        return " & ".join(names)
+
+
+class SavingsJointOwner(BaseModel):
+    """Co-owner link on a joint member savings account."""
+
+    account = models.ForeignKey(
+        MemberSavingsAccount,
+        on_delete=models.CASCADE,
+        related_name="joint_owner_links",
+    )
+    member = models.ForeignKey(
+        "members.Member",
+        on_delete=models.CASCADE,
+        related_name="savings_joint_owner_links",
+    )
+    added_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        ordering = ["added_at", "id"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["account", "member"],
+                name="savings_joint_owner_unique",
+            ),
+        ]
+        verbose_name = "Savings joint owner"
+        verbose_name_plural = "Savings joint owners"
+
+    def __str__(self):
+        return f"{self.member.full_name} on {self.account.account_number}"
+
+    def clean(self):
+        super().clean()
+        if self.account_id and self.member_id and self.account.member_id == self.member_id:
+            raise ValidationError(
+                {"member": "The primary holder is already on this account; pick a different co-owner."}
+            )
 
 
 class SavingsTransaction(TimeStampedModel):

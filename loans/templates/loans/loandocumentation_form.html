@@ -9,10 +9,11 @@
     </a>
     <div class="loan-doc-page__title-row">
       <div>
-        <h1>Loan Documentation</h1>
+        <h1>Complete Loan Form</h1>
         <p class="subtitle loan-doc-page__sub">
-          {{ contract.member_name }} &middot; Ref. LPC-{{ contract.application_ref }}
-          — print a paper copy if needed, then sign on screen or upload the signed hard copy.
+          {{ contract.member_name }} &middot; Ref. {{ contract.application_ref }}
+          — Complete Loan Form (agreement, application, promissory note, disclosure).
+          Print if needed, then sign on screen or upload the signed hard copy.
         </p>
       </div>
       <div class="loan-doc-page__actions">
@@ -28,117 +29,48 @@
     </div>
   </header>
 
-  <section class="card loan-doc-page__card" id="loan-contract">
-    <div class="loan-contract__masthead">
-      <div class="loan-contract__title">Loan Payment Contract</div>
-      <div class="loan-contract__meta">
-        Ref. LPC-{{ contract.application_ref }} &middot; Issued {{ contract.issued_on|date:"M j, Y" }}
-      </div>
+  <div id="loan-contract" class="loan-form-pack">
+
+  {# ---------- 1. Loan Agreement ---------- #}
+  <section class="card loan-doc-page__card loan-form-sheet">
+    <div class="loan-form-sheet__header">
+      <div class="loan-form-sheet__coop">{{ contract.coop_name }}</div>
+      <div>{{ contract.coop_address }}</div>
+      <div>{{ contract.coop_reg }}</div>
     </div>
-
-    <p>
-      This Loan Payment Contract is entered into between the Cooperative (the Lender)
-      and <strong>{{ contract.member_name }}</strong> (the Borrower) for the loan product
-      <strong>{{ contract.product.name }}</strong>.
-    </p>
-
-    <ol class="loan-contract__terms">
-      <li>
-        <strong>Loan amount.</strong>
-        The Borrower applied for and, upon approval and disbursement, agrees to repay a
-        principal amount of <strong>&#8369;{{ application.amount_requested|currency }}</strong>.
-      </li>
-      <li>
-        <strong>Term.</strong>
-        The repayment term is <strong>{{ application.term_months }} month(s)</strong>,
-        payable in equal monthly installments of approximately
-        <strong>&#8369;{{ contract.monthly_payment|currency }}</strong>
-        when paid on or before each due date.
-      </li>
-      <li>
-        <strong>Purpose.</strong> {{ contract.purpose }}
-      </li>
-      <li>
-        <strong>Interest.</strong>
-        No interest is charged when an installment is paid on or before its due date.
-        Late-payment interest at monthly rate <strong>{{ contract.late_rate|floatformat:4 }}</strong>
-        (daily = monthly rate ÷ 30)
-        may apply starting from installment month
-        <strong>{{ contract.interest_start_month }}</strong>
-        if an installment remains unpaid after its due date.
-      </li>
-      <li>
-        <strong>Total if paid on time.</strong>
-        If all installments are paid on time, the Borrower shall pay a total of
-        <strong>&#8369;{{ contract.total_on_time|currency }}</strong>
-        (principal only; &#8369;0.00 interest).
-      </li>
-      <li>
-        <strong>Payment schedule.</strong>
-        The Borrower agrees to pay according to the monthly schedule below
-        (or the official amortization schedule issued upon disbursement).
-      </li>
-    </ol>
-
-    <div class="loan-contract__table-wrap">
-      <table class="loan-contract__table">
-        <thead>
-          <tr>
-            <th>Month</th>
-            <th>Due date</th>
-            <th>Principal</th>
-            <th>Pay on time</th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for row in contract.plan.rows %}
-          <tr>
-            <td class="loan-contract__month">{{ row.month }}</td>
-            <td>{{ row.due_date|date:"M j, Y"|default:"—" }}</td>
-            <td>&#8369;{{ row.principal_due|currency }}</td>
-            <td>
-              {% if row.on_time_pay %}
-                &#8369;{{ row.on_time_pay|currency }}
-              {% else %}
-                &#8369;{{ row.total_due|currency }}
-              {% endif %}
-            </td>
-          </tr>
-          {% empty %}
-          <tr>
-            <td colspan="4" class="loan-contract__empty">No schedule available.</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-        <tfoot>
-          <tr>
-            <td colspan="2">Total (on time)</td>
-            <td>&#8369;{{ contract.plan.total_principal|currency }}</td>
-            <td>&#8369;{{ contract.total_on_time|currency }}</td>
-          </tr>
-        </tfoot>
-      </table>
+    <div class="loan-form-sheet__meta">Ref. {{ contract.application_ref }}</div>
+    <div class="loan-form-sheet__fields">
+      <div>Date Granted: <strong>{{ contract.date_granted|date:"F j, Y" }}</strong></div>
+      <div>Date Due: <strong>{{ contract.date_due|date:"F j, Y" }}</strong></div>
+      <div>Amount of Loan: <strong>Php {{ contract.amount_php }}</strong></div>
     </div>
-
-    <p style="margin-top:1rem;">
-      <strong>7. Borrower undertaking.</strong>
-      The Borrower acknowledges the loan details above and agrees to repay the loan
-      according to this contract and cooperative policy.
+    <p class="loan-form-sheet__body">
+      Siak ni <strong>{{ contract.member_name }}</strong> a taga
+      <strong>{{ contract.place_taga }}</strong>, {{ contract.municipality }},
+      {{ contract.province }} ket immutang ti gatad nga
+      <strong>{{ contract.amount_words }}</strong>
+      (Php {{ contract.amount_php }}) ti {{ contract.coop_name }}.
+      Ti collateral ti nasao nga utang ko ket ti produkto nga apet ko.
+      Daytoy nga utang ko ket bayadak sakbay wenno ti aldaw nga panagpaso ti nasao nga utang ko.
+      No diak makabayad ti dayta nga tiempo, siaannugutaak nga umay da alaen ti produkto nga
+      adda ti uneg ti balay ko nga awan nga pulos ti panagkedked ko. Ket no awan ti produkto
+      nga adda iti uneg ti balay ko kayat na sawen nga naelako kon. No diak pay la apan bayadan,
+      siaannugutak nga inda alaen iti aniaman nga adda iti uneg ti balayko ket ti presio ti coop
+      masurot. Ket no awan latta ti natibker nga rason no apay nga saan nak nga nakabayad,
+      siannugutak nga agfile ti {{ contract.coop_name }} ti kaso maikontra kaniak ket amin nga
+      gastos ti abogado ket siak ti mangbayad.
     </p>
-    <p>
-      <strong>8. Signatures.</strong>
-      By signing below, the parties confirm they have read and accepted this
-      Loan Payment Contract.
+    <p class="loan-form-sheet__body">
+      Kas pammatalged, agpermaak ditoy baba kasta met ti asawak, anak wenno kabsat.
     </p>
-
-    <div class="loan-contract__signatures loan-contract__signatures--preview">
+    <div class="loan-contract__signatures">
       <div class="loan-contract__signature">
         {% if documentation.borrower_signature %}
         <img class="loan-contract__sig-img" src="{{ documentation.borrower_signature.url }}" alt="Borrower signature">
         {% else %}
         <div class="loan-contract__signature-line"></div>
         {% endif %}
-        <div class="loan-contract__signature-role">Borrower signature / date</div>
+        <div class="loan-contract__signature-role">Nagan ken Pirma ti Immutang</div>
         <strong>{{ contract.member_name }}</strong>
         {% if documentation.signed_by_borrower_at %}
         <div class="loan-contract__signature-stamp">
@@ -148,12 +80,118 @@
         {% endif %}
       </div>
       <div class="loan-contract__signature">
+        <div class="loan-contract__signature-line"></div>
+        <div class="loan-contract__signature-role">Nagan ken pirma ti asawa (anak wenno kabsat)</div>
+        <strong>{% if contract.spouse_name != "—" %}{{ contract.spouse_name }}{% endif %}</strong>
+      </div>
+    </div>
+  </section>
+
+  {# ---------- 2. Loan Application ---------- #}
+  <section class="card loan-doc-page__card loan-form-sheet">
+    <div class="loan-form-sheet__header">
+      <div class="loan-form-sheet__coop">{{ contract.coop_name }}</div>
+      <div>{{ contract.coop_address }}</div>
+      <div>{{ contract.coop_reg }}</div>
+    </div>
+    <p class="loan-form-sheet__body">
+      Siak ni <strong>{{ contract.member_name }}</strong> agaplikar ti kantidad
+      <strong>{{ contract.amount_words }}</strong> pesos
+      (php {{ contract.amount_php }}) nga utangen iti las-ud ti
+      <strong>{{ contract.term_months }}</strong> a bayadak nga
+      {{ contract.payment_mode_short }}. Ti panagtinnag ko ket
+      <strong>Php {{ contract.monthly_payment|currency }}</strong> agraman ti interes.
+    </p>
+    <div class="loan-form-sheet__grid2">
+      <div>Ania ti pagusaran/proyekto: <strong>{{ contract.purpose }}</strong></div>
+      <div>Kalawa ti taltalonen: <strong>{{ contract.area }}</strong></div>
+      <div>Petsa ti panagkasapulan: <strong>{{ contract.date_granted|date:"F j, Y" }}</strong></div>
+      <div>Bilang ti ayop: _______________</div>
+    </div>
+    <h3 class="loan-form-sheet__h">Ikarik nga usaren toy utangek kadagiti sumaganad:</h3>
+    <table class="loan-form-sheet__table">
+      <thead>
+        <tr>
+          <th>Kaadu ti kasapulan</th>
+          <th>Klase/nagan ti kasapulan</th>
+          <th>Kantidad</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>{{ contract.purpose }}</td>
+          <td>Php {{ contract.amount_php }}</td>
+        </tr>
+        <tr><td>&nbsp;</td><td></td><td></td></tr>
+        <tr><td>&nbsp;</td><td></td><td></td></tr>
+      </tbody>
+    </table>
+    <h3 class="loan-form-sheet__h">Dagitoy dagiti intedmi a talged wenno seguridad (security/collateral):</h3>
+    <table class="loan-form-sheet__table">
+      <thead>
+        <tr>
+          <th>Sanikua/talged</th>
+          <th>Lokasyon</th>
+          <th>Balor ti sanikua</th>
+          <th>Gatad ti mautang</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in contract.collaterals %}
+        <tr>
+          <td>{{ item.description }}</td>
+          <td>—</td>
+          <td>Php {{ item.estimated_value|currency }}</td>
+          <td>Php {{ contract.amount_php }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td>Produkto nga apet / as per agreement</td>
+          <td>{{ contract.address }}</td>
+          <td>—</td>
+          <td>Php {{ contract.amount_php }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="loan-form-sheet__body">
+      Sertipikarik/paneknekak nga amin nga indatag ken inpalawag ko agraman dagiti dokumento
+      ket agpaypayso ken kompleto. Ket sitataalogudak nga mangted kadagitoy nga agbalin nga
+      seguridad/collateral para iti utangek a kantidad.
+    </p>
+    <div class="loan-contract__signatures">
+      <div class="loan-contract__signature">
+        {% if documentation.borrower_signature %}
+        <img class="loan-contract__sig-img" src="{{ documentation.borrower_signature.url }}" alt="Borrower signature">
+        {% else %}
+        <div class="loan-contract__signature-line"></div>
+        {% endif %}
+        <div class="loan-contract__signature-role">Nagan ken Pirma iti Immutang</div>
+        <strong>{{ contract.member_name }}</strong>
+      </div>
+      <div class="loan-contract__signature">
+        <div class="loan-contract__signature-line"></div>
+        <div class="loan-contract__signature-role">Nagan ken Pirma ti Asawa (anak/kabsat)</div>
+        <strong>{% if contract.spouse_name != "—" %}{{ contract.spouse_name }}{% endif %}</strong>
+      </div>
+    </div>
+    <h3 class="loan-form-sheet__h">Pammaneknek ti panagutang</h3>
+    <p class="loan-form-sheet__body">UMUTANG: <strong>{{ contract.member_name }}</strong></p>
+    <p class="loan-form-sheet__body">Co-Maker: _______________________________</p>
+    <p class="loan-form-sheet__body">Co-Maker: _______________________________</p>
+    <div class="loan-contract__signatures">
+      <div class="loan-contract__signature">
+        <div class="loan-contract__signature-line"></div>
+        <div class="loan-contract__signature-role">Prepared By</div>
+      </div>
+      <div class="loan-contract__signature">
         {% if documentation.personnel_signature %}
         <img class="loan-contract__sig-img" src="{{ documentation.personnel_signature.url }}" alt="Personnel signature">
         {% else %}
         <div class="loan-contract__signature-line"></div>
         {% endif %}
-        <div class="loan-contract__signature-role">Authorized personnel / date</div>
+        <div class="loan-contract__signature-role">Recommending Approval / Manager</div>
         {% if documentation.signed_by_authorized_personnel_at %}
         <div class="loan-contract__signature-stamp">
           <i class="bi bi-check-circle-fill"></i>
@@ -162,7 +200,202 @@
         {% endif %}
       </div>
     </div>
+    <p class="loan-form-sheet__small">
+      Action taken by: Credit Committee ( &nbsp; ) &nbsp; Board of Directors ( &nbsp; ) &nbsp; Manager ( &nbsp; )
+    </p>
   </section>
+
+  {# ---------- 3. Promissory Note ---------- #}
+  <section class="card loan-doc-page__card loan-form-sheet">
+    <div class="loan-form-sheet__header">
+      <div class="loan-form-sheet__coop">{{ contract.coop_name }}</div>
+      <div>{{ contract.coop_address }}</div>
+      <div>{{ contract.coop_reg }}</div>
+      <div class="loan-form-sheet__title">PROMISSORY NOTE</div>
+    </div>
+    <div class="loan-form-sheet__grid2">
+      <div>Numero ti P.N.: <strong>{{ contract.pn_number }}</strong></div>
+      <div>Petsa ti pannakaawat ti utang: <strong>{{ contract.date_granted|date:"M j, Y" }}</strong></div>
+      <div>Gatad: <strong>Php {{ contract.amount_php }}</strong></div>
+      <div>Petsa ti Panagpaso ti utang: <strong>{{ contract.date_due|date:"M j, Y" }}</strong></div>
+    </div>
+    <p class="loan-form-sheet__body">
+      Gapu ta inawat ko/mi nga gatad I kwarta, siak/sikami
+      <strong>{{ contract.member_name }}</strong> nga nakapirma ditoy baba ket immutang ti gatad
+      nga <strong>{{ contract.amount_words }}</strong> ket isapatak/isapatami nga bayadan ti
+      {{ contract.coop_name }} ti <strong>{{ contract.amount_words }}</strong>
+      (Php {{ contract.amount_php }}) ken interes nga
+      <strong>{{ contract.late_rate_pct }}%</strong> per month
+      ({{ contract.late_rate }}) babaen ti sumaganad:
+    </p>
+    <ul class="loan-form-sheet__list">
+      <li>Gatad: <strong>Php {{ contract.amount_php }}</strong></li>
+      <li>Termino: <strong>{{ contract.term_months }} bulan</strong></li>
+      <li>Wagas ti panagbayad: <strong>{{ contract.payment_mode }}</strong></li>
+      <li>Petsa ti panagbayad: <strong>{{ contract.first_due|date:"F j, Y"|default:"—" }}</strong></li>
+      <li>Tipu (Type of Loan): <strong>{{ contract.product.name }}</strong></li>
+    </ul>
+    <p class="loan-form-sheet__body">
+      No kas pangarigan saan ko nga mabayadan daytoy nga utang ko inton madanon ti termino na,
+      siak nga makautang ket umannugot nga agbayad ti multa (penalty) nga
+      <strong>{{ contract.late_rate_pct }}%</strong> base suma total ko kada bulan.
+      Kasta met nga ti kooperatiba ket maddaan karbengan nga mangremata ti/dagiti inted me nga byenes.
+    </p>
+    <p class="loan-form-sheet__body">
+      Ket daytoy nga beyenes nga nasao ket mailako kalpasan ti _____________ aldaw/bulan
+      manipud pannakaremata na iti kangatuan nga bidder wenno gumatang. No adda masobra ket
+      matratar nga maisubli idiay akinkukua, ngem no agkurang, sidadaan ken mayatak nga
+      mangbayad iti aniaman nga pagkurangan na.
+    </p>
+    <p class="loan-form-sheet__body">
+      No daytoy ket maiyamang ti husgado, ti mangmanmaneho ket addaan karbengan nga mangsingir
+      iti 25% nga kas Attorney's Fee ken dadduma pay nga gastos maipanggep daytoy nga kaso.
+    </p>
+    <div class="loan-contract__signatures">
+      <div class="loan-contract__signature">
+        {% if documentation.borrower_signature %}
+        <img class="loan-contract__sig-img" src="{{ documentation.borrower_signature.url }}" alt="Borrower signature">
+        {% else %}
+        <div class="loan-contract__signature-line"></div>
+        {% endif %}
+        <div class="loan-contract__signature-role">Nagan ken Pirma ti Immutang</div>
+        <strong>{{ contract.member_name }}</strong>
+      </div>
+      <div class="loan-contract__signature">
+        <div class="loan-contract__signature-line"></div>
+        <div class="loan-contract__signature-role">Nagan ken Pirma ti Asawa (Anak wenno Kabsat)</div>
+      </div>
+    </div>
+    <div class="loan-contract__signatures">
+      <div class="loan-contract__signature">
+        <div class="loan-contract__signature-line"></div>
+        <div class="loan-contract__signature-role">Nagan ken Pirma ti Co-Maker</div>
+      </div>
+      <div class="loan-contract__signature">
+        <div class="loan-contract__signature-line"></div>
+        <div class="loan-contract__signature-role">Nagan ken Pirma ti Co-Maker</div>
+      </div>
+    </div>
+    <p class="loan-form-sheet__small">Dagiti Nakaimatang / Witness: ______________ &nbsp; ______________ &nbsp; ______________</p>
+  </section>
+
+  {# ---------- 4. Disclosure Statement ---------- #}
+  <section class="card loan-doc-page__card loan-form-sheet">
+    <div class="loan-form-sheet__header">
+      <div class="loan-form-sheet__coop">{{ contract.coop_name }}</div>
+      <div>{{ contract.coop_address }}</div>
+      <div>{{ contract.coop_reg }}</div>
+      <div class="loan-form-sheet__title">DISCLOSURE STATEMENT</div>
+    </div>
+    <p class="loan-form-sheet__body"><strong>NAME OF BORROWER</strong></p>
+    <div class="loan-form-sheet__grid3">
+      <div><span>Last Name</span><strong>{{ contract.last_name|default:"—" }}</strong></div>
+      <div><span>First Name</span><strong>{{ contract.first_name|default:"—" }}</strong></div>
+      <div><span>Middle Name</span><strong>{{ contract.middle_name|default:"—" }}</strong></div>
+    </div>
+    <div class="loan-form-sheet__grid2">
+      <div>Birth Date: <strong>{% if contract.birth_date %}{{ contract.birth_date|date:"F j, Y" }}{% else %}—{% endif %}</strong></div>
+      <div>PN#: <strong>{{ contract.pn_number }}</strong></div>
+      <div>Address: <strong>{{ contract.address }}</strong></div>
+      <div>( X ) Loan &nbsp; ( &nbsp; ) Re-loan &nbsp; ( &nbsp; ) Renewal &nbsp; ( &nbsp; ) Restructured</div>
+      <div>Type: <strong>{{ contract.product.name }}</strong></div>
+      <div>Purpose: <strong>{{ contract.purpose }}</strong></div>
+      <div>Date Granted: <strong>{{ contract.date_granted|date:"F j, Y" }}</strong></div>
+      <div>Date Due: <strong>{{ contract.date_due|date:"F j, Y" }}</strong></div>
+    </div>
+    <p class="loan-form-sheet__body">
+      Pursuant to RA No. 3765 or otherwise known as the &ldquo;Truth in Lending Act,&rdquo;
+      the {{ contract.coop_name }} hereby discloses fully the following terms and conditions
+      of Credit to the Debtor, to wit:
+    </p>
+    <table class="loan-form-sheet__table loan-form-sheet__table--disclosure">
+      <tbody>
+        <tr>
+          <td>LOAN GRANTED</td>
+          <td class="loan-form-sheet__amt">Php {{ contract.amount_php }} (A)</td>
+        </tr>
+        <tr><td colspan="2"><strong>FINANCE CHARGES:</strong></td></tr>
+        <tr>
+          <td>Interest on loan</td>
+          <td class="loan-form-sheet__amt">Php {{ contract.interest_on_loan|currency }}</td>
+        </tr>
+        <tr>
+          <td>Service Fee</td>
+          <td class="loan-form-sheet__amt">Php {{ contract.service_fee|currency }}</td>
+        </tr>
+        <tr>
+          <td>TOTAL FINANCE CHARGES</td>
+          <td class="loan-form-sheet__amt">Php {{ contract.finance_charges|currency }} (B)</td>
+        </tr>
+        <tr><td colspan="2"><strong>NON-FINANCIAL CHARGES:</strong></td></tr>
+        <tr>
+          <td>{{ contract.other_charges_label }}</td>
+          <td class="loan-form-sheet__amt">Php {{ contract.other_charges|currency }}</td>
+        </tr>
+        <tr>
+          <td>TOTAL NON-FINANCE CHARGES</td>
+          <td class="loan-form-sheet__amt">Php {{ contract.other_charges|currency }} (C)</td>
+        </tr>
+        <tr>
+          <td>NET LOAN PROCEEDS (A Less B and C)</td>
+          <td class="loan-form-sheet__amt">Php {{ contract.net_proceeds|currency }} (D)</td>
+        </tr>
+      </tbody>
+    </table>
+    <p class="loan-form-sheet__body">
+      Interest Rate: <strong>{{ contract.late_rate_pct }}%</strong> per month (late / unpaid balance)
+    </p>
+    <p class="loan-form-sheet__body"><strong>Schedule of Payment:</strong></p>
+    {% if contract.is_lump_sum %}
+    <p class="loan-form-sheet__body">
+      a) Single Payment due on {{ contract.date_due|date:"M j, Y" }}
+      &mdash; Php {{ contract.amount_php }}
+    </p>
+    {% else %}
+    <p class="loan-form-sheet__body">
+      b.) Total Installment Payable Php {{ contract.total_on_time|currency }}<br>
+      b.1) No. of Payments {{ contract.term_months }} in monthly installments
+      &mdash; Php {{ contract.monthly_payment|currency }}
+    </p>
+    {% endif %}
+    <div class="loan-contract__signatures">
+      <div class="loan-contract__signature">
+        {% if documentation.personnel_signature %}
+        <img class="loan-contract__sig-img" src="{{ documentation.personnel_signature.url }}" alt="Personnel signature">
+        {% else %}
+        <div class="loan-contract__signature-line"></div>
+        {% endif %}
+        <div class="loan-contract__signature-role">Signature of Authorized Representative</div>
+      </div>
+      <div class="loan-contract__signature">
+        {% if documentation.borrower_signature %}
+        <img class="loan-contract__sig-img" src="{{ documentation.borrower_signature.url }}" alt="Borrower signature">
+        {% else %}
+        <div class="loan-contract__signature-line"></div>
+        {% endif %}
+        <div class="loan-contract__signature-role">Name &amp; Signature of Borrower</div>
+        <strong>{{ contract.member_name }}</strong>
+        <div class="loan-form-sheet__small">Date: {{ contract.issued_on|date:"F j, Y" }}</div>
+      </div>
+    </div>
+    <p class="loan-form-sheet__body loan-form-sheet__ack">
+      I/WE ACKNOWLEDGE RECEIPT OF THIS STATEMENT PRIOR TO THE CONSUMMATION OF THE CREDIT
+      TRANSACTION AND THAT WE UNDERSTAND AND FULLY AGREE TO THE TERMS AND CONDITIONS THEREOF.
+    </p>
+    <p class="loan-form-sheet__small">Signed in the Presence of:</p>
+    <div class="loan-contract__signatures">
+      <div class="loan-contract__signature">
+        <div class="loan-contract__signature-line"></div>
+        <div class="loan-contract__signature-role">Co-Maker</div>
+      </div>
+      <div class="loan-contract__signature">
+        <div class="loan-contract__signature-line"></div>
+        <div class="loan-contract__signature-role">Co-Maker</div>
+      </div>
+    </div>
+  </section>
+
+  </div>
 
   <section class="card loan-doc-page__card loan-doc-form">
     <h2>Complete documentation</h2>
@@ -344,69 +577,114 @@
     padding: 1.6rem 1.75rem;
   }
 
-  .loan-contract__masthead {
-    text-align: center;
-    padding-bottom: 1rem;
-    margin-bottom: 1.25rem;
-    border-bottom: 2px solid #0f172a;
+  .loan-form-pack { display: flex; flex-direction: column; gap: 1.1rem; }
+  .loan-form-sheet {
+    font-family: "Times New Roman", Times, Georgia, serif;
+    color: #1e293b;
+    line-height: 1.45;
   }
-  .loan-contract__title {
-    font-size: 1.15rem;
-    font-weight: 800;
-    letter-spacing: .06em;
+  .loan-form-sheet__header {
+    text-align: center;
+    margin-bottom: 1rem;
+    padding-bottom: .85rem;
+    border-bottom: 2px solid #0f172a;
+    font-size: .92rem;
+    color: #334155;
+  }
+  .loan-form-sheet__coop {
+    font-weight: 700;
+    font-size: 1.05rem;
+    letter-spacing: .02em;
+    color: #0f172a;
     text-transform: uppercase;
+  }
+  .loan-form-sheet__title {
+    margin-top: .75rem;
+    font-weight: 700;
+    font-size: 1.1rem;
+    letter-spacing: .08em;
     color: #0f172a;
   }
-  .loan-contract__meta {
-    margin-top: .25rem;
+  .loan-form-sheet__meta {
+    text-align: right;
+    font-size: .82rem;
     color: #64748b;
-    font-size: .84rem;
+    margin-bottom: .65rem;
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   }
-
-  .loan-contract__terms {
-    padding-left: 1.15rem;
-    color: #334155;
-    line-height: 1.6;
+  .loan-form-sheet__fields {
+    display: grid;
+    gap: .35rem;
+    margin-bottom: 1rem;
+    font-size: .95rem;
   }
-  .loan-contract__terms li { margin-bottom: .45rem; }
-
-  .loan-contract__table-wrap {
-    margin-top: 1rem;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    overflow: hidden;
+  .loan-form-sheet__body {
+    text-align: justify;
+    margin: 0 0 .85rem;
+    font-size: .95rem;
   }
-  .loan-contract__table {
-    width: 100%;
-    border-collapse: collapse;
+  .loan-form-sheet__h {
+    margin: 1rem 0 .55rem;
+    font-size: .95rem;
+    color: #0f172a;
+  }
+  .loan-form-sheet__small {
+    font-size: .85rem;
+    color: #475569;
+    margin: .5rem 0;
+  }
+  .loan-form-sheet__ack {
     font-size: .88rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .01em;
   }
-  .loan-contract__table th {
-    padding: .6rem .8rem;
-    text-align: left;
-    background: #f8fafc;
-    border-bottom: 1px solid #e2e8f0;
-    color: #64748b;
+  .loan-form-sheet__list {
+    margin: 0 0 1rem 1.1rem;
+    font-size: .95rem;
+  }
+  .loan-form-sheet__list li { margin-bottom: .25rem; }
+  .loan-form-sheet__grid2,
+  .loan-form-sheet__grid3 {
+    display: grid;
+    gap: .55rem 1.25rem;
+    margin-bottom: .95rem;
+    font-size: .92rem;
+  }
+  .loan-form-sheet__grid2 { grid-template-columns: 1fr 1fr; }
+  .loan-form-sheet__grid3 { grid-template-columns: 1fr 1fr 1fr; }
+  .loan-form-sheet__grid3 span {
+    display: block;
     font-size: .72rem;
-    font-weight: 700;
+    color: #64748b;
     text-transform: uppercase;
     letter-spacing: .04em;
   }
-  .loan-contract__table td {
-    padding: .55rem .8rem;
-    border-bottom: 1px solid #f1f5f9;
-    color: #334155;
+  @media (max-width: 720px) {
+    .loan-form-sheet__grid2,
+    .loan-form-sheet__grid3 { grid-template-columns: 1fr; }
   }
-  .loan-contract__table tbody tr:last-child td { border-bottom: none; }
-  .loan-contract__month { font-weight: 700; }
-  .loan-contract__empty { color: #64748b; text-align: center; padding: 1rem; }
-  .loan-contract__table tfoot td {
-    border-top: 2px solid #e2e8f0;
+  .loan-form-sheet__table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .88rem;
+    margin-bottom: .9rem;
+  }
+  .loan-form-sheet__table th,
+  .loan-form-sheet__table td {
+    border: 1px solid #cbd5e1;
+    padding: .45rem .55rem;
+    vertical-align: top;
+  }
+  .loan-form-sheet__table th {
     background: #f8fafc;
-    font-weight: 800;
-    color: #0f172a;
+    font-size: .75rem;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    color: #475569;
   }
+  .loan-form-sheet__table--disclosure td:first-child { width: 68%; }
+  .loan-form-sheet__amt { text-align: right; white-space: nowrap; font-weight: 600; }
 
   .loan-contract__signatures {
     display: grid;
@@ -661,10 +939,13 @@
   .loan-doc-form__actions .btn--secondary { margin: 0; }
 
   @media print {
+    @page { size: A4; margin: 12mm; }
     .super-nav, nav, form, .btn-loan, .btn--secondary,
     .loan-doc-page__back, .loan-doc-page__actions, .loan-doc-form { display: none !important; }
     body { background: #fff; }
-    .card { box-shadow: none; border: none; }
+    .card { box-shadow: none; border: 1px solid #334155; }
+    .loan-form-sheet { break-after: page; page-break-after: always; }
+    .loan-form-sheet:last-child { break-after: auto; page-break-after: auto; }
   }
 </style>
 {% endblock %}

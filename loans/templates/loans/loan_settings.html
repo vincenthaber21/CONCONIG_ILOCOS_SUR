@@ -28,6 +28,14 @@
         </div>
 
         <h2 class="loan-form__section">Eligibility</h2>
+        <div class="loan-form__field loan-form__field--checkbox">
+          <label class="loan-form__check">
+            {{ form.min_membership_enabled }}
+            <span>{{ form.min_membership_enabled.label }}</span>
+          </label>
+          {% if form.min_membership_enabled.help_text %}<p class="helptext">{{ form.min_membership_enabled.help_text }}</p>{% endif %}
+          {% if form.min_membership_enabled.errors %}<div class="loan-form__errors">{{ form.min_membership_enabled.errors }}</div>{% endif %}
+        </div>
         <div class="loan-form__field">
           <label for="{{ form.min_membership_months.id_for_label }}">{{ form.min_membership_months.label }}</label>
           {{ form.min_membership_months }}
@@ -82,8 +90,9 @@
         <div>
           <dt>Minimum membership</dt>
           <dd>
-            New members cannot request a loan until they have been registered
-            for this many months. Set to 0 to allow requests immediately.
+            When enabled, new members cannot request a loan until they have been
+            registered for the set number of months (default 3). Turn the rule off
+            (or set months to 0) to allow requests immediately.
           </dd>
         </div>
         <div>
