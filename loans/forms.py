@@ -602,14 +602,14 @@ class LoanDocumentationForm(forms.ModelForm):
             "spouse_signer_name": forms.TextInput(
                 attrs={
                     "id": "id_spouse_signer_name",
-                    "placeholder": "Name of spouse / anak / kabsat",
+                    "placeholder": "Name",
                     "autocomplete": "name",
                 }
             ),
             "prepared_by_name": forms.TextInput(
                 attrs={
                     "id": "id_prepared_by_name",
-                    "placeholder": "Name of preparer",
+                    "placeholder": "Name",
                     "autocomplete": "name",
                 }
             ),
@@ -637,9 +637,9 @@ class LoanDocumentationForm(forms.ModelForm):
         if instance and instance.signing_method:
             self.fields["signing_method"].initial = instance.signing_method
         self.fields["spouse_signer_name"].required = False
-        self.fields["spouse_signer_name"].label = "Spouse / anak / kabsat name"
+        self.fields["spouse_signer_name"].label = "Name"
         self.fields["prepared_by_name"].required = False
-        self.fields["prepared_by_name"].label = "Prepared by name"
+        self.fields["prepared_by_name"].label = "Name"
         self.fields["comaker1_name"].required = False
         self.fields["comaker1_name"].label = "Co-Maker 1 name"
         self.fields["comaker2_name"].required = False
