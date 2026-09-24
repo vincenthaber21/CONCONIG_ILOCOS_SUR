@@ -1,0 +1,32 @@
+{% with p=id_prefix %}
+            <div class="member-form-section member-project-category-section"
+                 id="{{ p }}ProjectCategorySection"
+                 data-role-gated="cashier"
+                 style="display:none;">
+              <div class="member-form-section-title">Project category</div>
+              <p class="text-muted small mb-2">
+                Cashiers and admins assign the member&rsquo;s project category here.
+                Select one or more. Manage the list under <strong>Inventory → Categories</strong>
+                (<code>/admin/inventory/category/</code>).
+              </p>
+              <div class="row g-3">
+                <div class="col-12">
+                  <label class="form-label" for="{{ p }}ProjectCategoryIds">Project category</label>
+                  <div class="member-project-category-picker" id="{{ p }}ProjectCategoryPicker">
+                    <select id="{{ p }}ProjectCategoryIds"
+                            class="form-select member-project-category-select"
+                            multiple
+                            autocomplete="off"
+                            placeholder="Type to search and select categories…">
+                      {% for cat in project_categories %}
+                      <option value="{{ cat.id }}">{{ cat.name }}</option>
+                      {% endfor %}
+                    </select>
+                    <small class="text-muted d-block mt-1">
+                      Click to select. Selected categories appear as tags — click × to remove.
+                    </small>
+                  </div>
+                </div>
+              </div>
+            </div>
+{% endwith %}

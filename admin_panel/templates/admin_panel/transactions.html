@@ -745,6 +745,15 @@
                 </button>
             </div>
           </div>
+          {% if transactions_cashier_scoped %}
+          <div class="alert alert-info border-0 mb-3 py-2 px-3">
+            <i class="bi bi-funnel me-1"></i>
+            Showing only transactions that include products in your assigned project categories.
+            {% if not cashier_project_category_ids %}
+            <strong>No project categories assigned</strong> — transactions are hidden until an admin assigns categories on your cashier profile.
+            {% endif %}
+          </div>
+          {% endif %}
           <form method="get" action="{% url 'export_transaction_history' %}" class="txn-export-bar" id="txnExportForm">
             <span class="fw-semibold text-secondary" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.08em;">
               <i class="bi bi-download me-1"></i>Download

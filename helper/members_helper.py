@@ -111,6 +111,9 @@ MEMBER_COMPLETE_DETAIL_CHAR_FIELDS = (
     "approved_by",
     "recorded_by",
     "resolution_number",
+    "coop_type",
+    "area",
+    "mf_center",
 )
 
 MEMBER_COMPLETE_DETAIL_DATE_FIELDS = (
@@ -235,7 +238,64 @@ def extract_member_complete_details(data: dict) -> tuple[dict | None, str | None
             if not Nationality.objects.filter(pk=out["nationality_id"]).exists():
                 return None, "Selected nationality does not exist."
 
+    # M2M handled separately via extract_member_project_category_ids / apply after save.
     return out, None
+
+
+def extract_member_project_category_ids(data: dict) -> tuple[list[int] | None, str | None]:
+    """
+    Parse optional ``project_category_ids`` (list) from an API payload.
+
+    Returns ``(None, None)`` when the key is absent (leave existing M2M unchanged),
+    ``([], None)`` when present but empty, or ``(ids, None)`` on success.
+    """
+    if not isinstance(data, dict):
+        return None, None
+    if "project_category_ids" not in data and "project_category_id" not in data:
+        return None, None
+
+    raw = data.get("project_category_ids", None)
+    if raw is None and "project_category_id" in data:
+        # Back-compat: single id from older clients
+        single = data.get("project_category_id")
+        raw = [] if single in (None, "", "null") else [single]
+
+    if raw in (None, "", []):
+        return [], None
+    if not isinstance(raw, (list, tuple)):
+        return None, "Project categories must be a list."
+
+    ids: list[int] = []
+    seen = set()
+    for item in raw:
+        if item in (None, "", "null"):
+            continue
+        try:
+            pk = int(item)
+        except (TypeError, ValueError):
+            return None, "Invalid project category."
+        if pk in seen:
+            continue
+        seen.add(pk)
+        ids.append(pk)
+
+    if not ids:
+        return [], None
+
+    from inventory.models import Category
+
+    found = set(Category.objects.filter(pk__in=ids).values_list("pk", flat=True))
+    missing = [pk for pk in ids if pk not in found]
+    if missing:
+        return None, "Selected project category does not exist."
+    return ids, None
+
+
+def apply_member_project_categories(member, category_ids: list[int] | None) -> None:
+    """Set M2M project categories when *category_ids* is not None (member must be saved)."""
+    if category_ids is None or not getattr(member, "pk", None):
+        return
+    member.project_categories.set(category_ids)
 
 
 def apply_member_complete_details(member, fields: dict) -> None:
@@ -493,6 +553,16 @@ def member_complete_details_dict(member) -> dict:
         "recorded_by": member.recorded_by or "",
         "approval_date": _d(member.approval_date),
         "resolution_number": member.resolution_number or "",
+        "project_category_ids": list(
+            member.project_categories.order_by("name").values_list("id", flat=True)
+        ) if getattr(member, "pk", None) else [],
+        "project_categories": [
+            {"id": c.id, "name": c.name}
+            for c in member.project_categories.order_by("name")
+        ] if getattr(member, "pk", None) else [],
+        "project_category": ", ".join(
+            member.project_categories.order_by("name").values_list("name", flat=True)
+        ) if getattr(member, "pk", None) else "",
         "coop_type": member.coop_type or "",
         "area": member.area or "",
         "membership_status": member.membership_status or "",

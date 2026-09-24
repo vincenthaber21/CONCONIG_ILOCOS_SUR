@@ -888,3 +888,126 @@ def set_product_giveaway(product, is_giveaway: bool = True):
     """Backward-compatible alias; all active products remain giveaway-eligible."""
     ensure_product_giveaway_active(product)
 
+
+def get_cashier_project_category_ids(user):
+    """
+    Return project category IDs for a cashier Member linked to *user*.
+
+    Returns ``None`` when the user is not a cashier (caller should not filter).
+    Returns an empty list when the cashier has no assigned project categories.
+    """
+    from helper.login_helper import is_cashier_user
+    from members.models import Member
+
+    if not user or not getattr(user, 'is_authenticated', False):
+        return None
+    if not is_cashier_user(user):
+        return None
+    member = (
+        Member.objects.filter(user=user, is_active=True)
+        .prefetch_related('project_categories')
+        .first()
+    )
+    if not member:
+        return []
+    return list(member.project_categories.values_list('id', flat=True))
+
+
+def filter_products_for_login_user(product_qs, user):
+    """
+    Cashiers only see products whose Category matches their assigned categories.
+    Uncategorized products are hidden from cashiers.
+    Cashiers with no categories see an empty list.
+    Admins / staff / Django staff see the full queryset.
+    """
+    from django.db.models import Q
+
+    cat_ids = get_cashier_project_category_ids(user)
+    if cat_ids is None:
+        return product_qs
+    if not cat_ids:
+        return product_qs.none()
+    return product_qs.filter(
+        Q(category_id__in=cat_ids) | Q(project_categories__id__in=cat_ids)
+    ).distinct()
+
+
+def filter_transactions_for_login_user(txn_qs, user):
+    """
+    Cashiers only see transactions that include at least one product in their
+    assigned categories. Cashiers with no categories see none.
+    Admins / staff see the full queryset.
+    """
+    from django.db.models import Q
+
+    cat_ids = get_cashier_project_category_ids(user)
+    if cat_ids is None:
+        return txn_qs
+    if not cat_ids:
+        return txn_qs.none()
+    return txn_qs.filter(
+        Q(items__product__category_id__in=cat_ids)
+        | Q(items__product__project_categories__id__in=cat_ids)
+    ).distinct()
+
+
+def parse_project_category_ids_from_request(get_fn) -> tuple[list[int] | None, str | None]:
+    """
+    Parse ``project_category_ids`` from a product create/update payload getter.
+
+    Supports JSON list or comma-separated string.
+    Returns ``(None, None)`` when the key is absent (leave M2M unchanged on update).
+    """
+    import json
+
+    raw = get_fn('project_category_ids', None)
+    if raw is None:
+        return None, None
+
+    if isinstance(raw, str):
+        text = raw.strip()
+        if not text:
+            return [], None
+        if text.startswith('['):
+            try:
+                raw = json.loads(text)
+            except (json.JSONDecodeError, TypeError, ValueError):
+                return None, 'Invalid project_category_ids'
+        else:
+            raw = [p.strip() for p in text.split(',') if p.strip()]
+
+    if not isinstance(raw, (list, tuple)):
+        return None, 'Project categories must be a list'
+
+    ids: list[int] = []
+    seen = set()
+    for item in raw:
+        if item in (None, '', 'null'):
+            continue
+        try:
+            pk = int(item)
+        except (TypeError, ValueError):
+            return None, 'Invalid project category'
+        if pk in seen:
+            continue
+        seen.add(pk)
+        ids.append(pk)
+
+    if not ids:
+        return [], None
+
+    from inventory.models import Category
+
+    found = set(Category.objects.filter(pk__in=ids).values_list('pk', flat=True))
+    missing = [pk for pk in ids if pk not in found]
+    if missing:
+        return None, 'Selected project category does not exist'
+    return ids, None
+
+
+def apply_product_project_categories(product, category_ids: list[int] | None) -> None:
+    """Set product M2M project categories when *category_ids* is not None."""
+    if category_ids is None or not getattr(product, 'pk', None):
+        return
+    product.project_categories.set(category_ids)
+

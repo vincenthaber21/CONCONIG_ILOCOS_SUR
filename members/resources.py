@@ -1,7 +1,7 @@
 """Import/export resources for member models (Django admin)."""
 
 from import_export import fields, resources
-from import_export.widgets import ForeignKeyWidget
+from import_export.widgets import ForeignKeyWidget, ManyToManyWidget
 
 from .models import (
     BalanceTransaction,
@@ -13,13 +13,14 @@ from .models import (
     MemberStatus,
     MemberType,
     Nationality,
+    ProjectCategory,
     PWDProfile,
     Role,
     SegmentProductGroupDiscount,
     SeniorCitizenProfile,
     ShareCapitalTransaction,
 )
-from inventory.models import ProductDiscountGroup
+from inventory.models import Category, ProductDiscountGroup
 
 
 class RoleResource(resources.ModelResource):
@@ -62,6 +63,16 @@ class NationalityResource(resources.ModelResource):
         report_skipped = True
 
 
+class ProjectCategoryResource(resources.ModelResource):
+    class Meta:
+        model = ProjectCategory
+        fields = ('id', 'slug', 'name', 'description', 'sort_order', 'is_active')
+        export_order = fields
+        import_id_fields = ('slug',)
+        skip_unchanged = True
+        report_skipped = True
+
+
 class MemberResource(resources.ModelResource):
     """
     Bulk import/export members.
@@ -88,6 +99,11 @@ class MemberResource(resources.ModelResource):
         column_name='nationality',
         attribute='nationality',
         widget=ForeignKeyWidget(Nationality, field='slug'),
+    )
+    project_categories = fields.Field(
+        column_name='project_categories',
+        attribute='project_categories',
+        widget=ManyToManyWidget(Category, field='name', separator=','),
     )
 
     class Meta:
@@ -137,6 +153,7 @@ class MemberResource(resources.ModelResource):
             'approved_by',
             'recorded_by',
             'resolution_number',
+            'project_categories',
             'coop_type',
             'area',
             'member_status',
@@ -166,7 +183,7 @@ class MemberResource(resources.ModelResource):
 
     def before_import_row(self, row, **kwargs):
         # MySQL unique nullable columns: empty string '' is NOT NULL and collides.
-        for key in ('rfid_card_number', 'email', 'username', 'member_type'):
+        for key in ('rfid_card_number', 'email', 'username', 'member_type', 'project_categories'):
             if key in row and (row[key] is None or str(row[key]).strip() == ''):
                 row[key] = None
 

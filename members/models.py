@@ -143,6 +143,42 @@ class Nationality(models.Model):
         return fallback
 
 
+class ProjectCategory(models.Model):
+    """
+    Project / livelihood category assigned when cashiers or admins register a member.
+    Managed under Members → Project categories; selectable on Add member.
+    """
+
+    slug = models.SlugField(max_length=64, unique=True, db_index=True)
+    name = models.CharField(max_length=150)
+    description = models.TextField(blank=True, default="")
+    sort_order = models.PositiveSmallIntegerField(default=0)
+    is_active = models.BooleanField(
+        default=True,
+        help_text="Uncheck to hide this category from new member assignments.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["sort_order", "name"]
+        verbose_name = "Project category"
+        verbose_name_plural = "Project categories"
+
+    def __str__(self):
+        return self.name
+
+    @classmethod
+    def resolve_slug(cls, slug):
+        s = (slug or "").strip().lower()
+        if not s:
+            return None
+        obj = cls.objects.filter(slug__iexact=s, is_active=True).first()
+        if obj:
+            return obj
+        return cls.objects.filter(slug__iexact=s).first()
+
+
 class Member(models.Model):
     GENDER_MALE = "male"
     GENDER_FEMALE = "female"
@@ -388,6 +424,16 @@ class Member(models.Model):
     )
 
     # Legacy / RSBSA profile details (optional)
+    project_categories = models.ManyToManyField(
+        "inventory.Category",
+        blank=True,
+        related_name="members",
+        verbose_name="Project categories",
+        help_text=(
+            "Project categories assigned at registration (cashier or admin). "
+            "Select one or more. Managed under Inventory → Categories."
+        ),
+    )
     coop_type = models.CharField(
         max_length=100,
         blank=True,

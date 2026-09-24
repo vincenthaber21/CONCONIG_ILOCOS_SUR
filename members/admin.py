@@ -10,6 +10,7 @@ from .models import (
     MemberStatus,
     MemberType,
     Nationality,
+    ProjectCategory,
     Member,
     MemberBeneficiaryDependent,
     BalanceTransaction,
@@ -33,6 +34,7 @@ from .resources import (
     MemberTypeResource,
     MemberStatusResource,
     NationalityResource,
+    ProjectCategoryResource,
     PWDProfileResource,
     RoleResource,
     SegmentProductGroupDiscountResource,
@@ -243,6 +245,28 @@ class NationalityAdmin(ImportExportModelAdmin):
     prepopulated_fields = {"slug": ("name",)}
 
 
+@admin.register(ProjectCategory)
+class ProjectCategoryAdmin(ImportExportModelAdmin):
+    """Cashiers/admins manage project categories used when adding members."""
+
+    resource_classes = [ProjectCategoryResource]
+    list_display = ["name", "slug", "sort_order", "is_active", "updated_at"]
+    list_filter = ["is_active"]
+    search_fields = ["name", "slug", "description"]
+    ordering = ["sort_order", "name"]
+    prepopulated_fields = {"slug": ("name",)}
+    readonly_fields = ["created_at", "updated_at"]
+    fields = (
+        "name",
+        "slug",
+        "description",
+        "sort_order",
+        "is_active",
+        "created_at",
+        "updated_at",
+    )
+
+
 @admin.register(ConcessionDiscountPolicy)
 class ConcessionDiscountPolicyAdmin(ImportExportModelAdmin):
     resource_classes = [ConcessionDiscountPolicyResource]
@@ -406,6 +430,9 @@ class MemberAdmin(ImportExportModelAdmin):
         MemberBeneficiaryDependentInline,
         ShareCapitalTransactionInline,
     ]
+    class Media:
+        js = ('admin/js/member_project_category_role.js',)
+
     list_display = [
         'full_name',
         'membership_number',
@@ -413,6 +440,7 @@ class MemberAdmin(ImportExportModelAdmin):
         'email',
         'rfid_card_number',
         'member_role',
+        'project_categories_display',
         'balance',
         'share_capital',
         'is_active',
@@ -422,8 +450,16 @@ class MemberAdmin(ImportExportModelAdmin):
         'pin_lockout_status',
         'qr_code_thumbnail',
     ]
-    list_filter = ['member_role', 'is_active', 'is_pin_locked', 'gender', 'civil_status', 'nationality']
-    autocomplete_fields = ['nationality']
+    list_filter = [
+        'member_role',
+        'is_active',
+        'is_pin_locked',
+        'gender',
+        'civil_status',
+        'nationality',
+        'project_categories',
+    ]
+    autocomplete_fields = ['nationality', 'project_categories']
     search_fields = [
         'first_name',
         'middle_name',
@@ -439,6 +475,7 @@ class MemberAdmin(ImportExportModelAdmin):
         'spouse_first_name',
         'spouse_last_name',
         'nationality__name',
+        'project_categories__name',
     ]
     readonly_fields = [
         'created_at',
@@ -475,6 +512,23 @@ class MemberAdmin(ImportExportModelAdmin):
         if nationality_id:
             initial['nationality'] = nationality_id
         return initial
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.prefetch_related('project_categories')
+
+    def formfield_for_manytomany(self, db_field, request, **kwargs):
+        if db_field.name == 'project_categories':
+            from inventory.models import Category
+            kwargs['queryset'] = Category.objects.filter(is_active=True).order_by('name')
+        return super().formfield_for_manytomany(db_field, request, **kwargs)
+
+    def project_categories_display(self, obj):
+        if not obj or not obj.pk:
+            return '—'
+        names = list(obj.project_categories.order_by('name').values_list('name', flat=True))
+        return ', '.join(names) if names else '—'
+    project_categories_display.short_description = 'Project categories'
 
     def get_fieldsets(self, request, obj=None):
         security_fields = (
@@ -572,6 +626,20 @@ class MemberAdmin(ImportExportModelAdmin):
                         'inactive_remark',
                     ),
                     'description': share_capital_description,
+                },
+            ),
+            (
+                'Project category',
+                {
+                    'classes': ('project-category-cashier-only',),
+                    'fields': (
+                        'project_categories',
+                    ),
+                    'description': (
+                        'Shown only when Role is <strong>Cashier</strong>. '
+                        'Assign one or more project categories. '
+                        'Manage the list under <strong>Inventory → Categories</strong>.'
+                    ),
                 },
             ),
             (

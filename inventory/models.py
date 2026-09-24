@@ -105,7 +105,17 @@ class Product(models.Model):
     description = models.TextField(blank=True)
     barcode = models.CharField(max_length=100, unique=True)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
-    
+    project_categories = models.ManyToManyField(
+        Category,
+        blank=True,
+        related_name='project_products',
+        verbose_name='Project categories',
+        help_text=(
+            'Assign one or more categories (same list as Inventory → Categories). '
+            'Cashiers only see products that match their assigned project categories.'
+        ),
+    )
+
     price = models.DecimalField(
         max_digits=10,
         decimal_places=2,

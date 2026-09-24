@@ -966,6 +966,15 @@
     <section class="row g-4">
       <div class="col-12">
         <div class="table-card" id="inventory-products-section">
+          {% if inventory_cashier_scoped %}
+          <div class="alert alert-info border-0 mb-3 py-2 px-3">
+            <i class="bi bi-funnel me-1"></i>
+            Showing only products in your assigned project categories.
+            {% if not cashier_project_category_ids %}
+            <strong>No project categories assigned to your cashier account</strong> — products are hidden until an admin assigns categories on your member profile.
+            {% endif %}
+          </div>
+          {% endif %}
           <div class="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center gap-2 mb-3">
             <h5 class="mb-0">All Products</h5>
             <div class="d-flex gap-2 align-items-center flex-wrap ms-sm-auto">
@@ -1487,6 +1496,7 @@
                   <option value="{{ category.id }}">{{ category.name }}</option>
                   {% endfor %}
                 </select>
+                <small class="text-muted">Cashiers only see products in their assigned categories. Manage under Inventory → Categories.</small>
               </div>
               <div class="col-md-6">
                 <label class="form-label fw-semibold">Sold by</label>
@@ -1680,6 +1690,7 @@
                   <option value="{{ category.id }}">{{ category.name }}</option>
                   {% endfor %}
                 </select>
+                <small class="text-muted">Cashiers only see products in their assigned categories. Manage under Inventory → Categories.</small>
               </div>
               <div class="col-md-6">
                 <label class="form-label fw-semibold">Sold by</label>

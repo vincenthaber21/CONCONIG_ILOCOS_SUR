@@ -63,6 +63,10 @@ from inventory.stock_history import (
 )
 from inventory.utils import (
     annotate_giveaway_units_given,
+    apply_product_project_categories,
+    filter_products_for_login_user,
+    filter_transactions_for_login_user,
+    get_cashier_project_category_ids,
     get_giveaway_summary_for_period,
     giveaway_stock_note,
     giveaway_stock_transactions_qs,
@@ -136,6 +140,7 @@ from inventory_helper import StockManager
 from login_helper import (
     is_admin_user,
     is_cashier_or_admin,
+    is_cashier_user,
     is_committee_only_user,
     is_loan_desk_user,
     is_loan_officer_only_user,
@@ -193,18 +198,40 @@ def _exclude_test_transactions(qs):
     return qs.exclude(transaction_number__startswith='DUMMY-')
 
 
-def _transaction_net_revenue(qs):
+def _scope_dashboard_items_for_user(item_qs, user=None):
+    """Cashiers only see line items for products in their project categories."""
+    if user is None:
+        return item_qs
+    cat_ids = get_cashier_project_category_ids(user)
+    if cat_ids is None:
+        return item_qs
+    if not cat_ids:
+        return item_qs.none()
+    return item_qs.filter(
+        Q(product__category_id__in=cat_ids) | Q(product__project_categories__id__in=cat_ids)
+    ).distinct()
+
+
+def _transaction_net_revenue(qs, user=None):
     """Net sales from non-refunded lines; header fallback when a sale has no lines."""
     sale_qs = qs.filter(status__in=DASHBOARD_SALE_STATUSES)
-    from_line_items = TransactionItem.objects.filter(
-        transaction__in=sale_qs,
-        refunded_at__isnull=True,
-    ).aggregate(
+    item_qs = _scope_dashboard_items_for_user(
+        TransactionItem.objects.filter(
+            transaction__in=sale_qs,
+            refunded_at__isnull=True,
+        ),
+        user,
+    )
+    from_line_items = item_qs.aggregate(
         total=Coalesce(Sum('total_price'), Decimal('0.00')),
     )['total']
-    itemless_header = sale_qs.annotate(_line_count=Count('items')).filter(_line_count=0).aggregate(
-        total=Coalesce(Sum('total_amount'), Decimal('0.00')),
-    )['total']
+    # Itemless header totals only for unscoped (admin/staff) views —
+    # cashiers are product-scoped and have nothing to attribute without lines.
+    itemless_header = Decimal('0.00')
+    if get_cashier_project_category_ids(user) is None:
+        itemless_header = sale_qs.annotate(_line_count=Count('items')).filter(_line_count=0).aggregate(
+            total=Coalesce(Sum('total_amount'), Decimal('0.00')),
+        )['total'] or Decimal('0.00')
     return (from_line_items or Decimal('0.00')) + (itemless_header or Decimal('0.00'))
 
 
@@ -294,17 +321,18 @@ def _list_price_qty_sold_series(range_start_aware, range_end_aware, current_tz, 
     return series
 
 
-def _dashboard_net_revenue_series(range_start_aware, range_end_aware, current_tz, granularity):
+def _dashboard_net_revenue_series(range_start_aware, range_end_aware, current_tz, granularity, user=None):
     """Bucket actual net sales (non-refunded line totals) by day or month."""
     items = list(
-        TransactionItem.objects.filter(
-            transaction__status__in=DASHBOARD_SALE_STATUSES,
-            refunded_at__isnull=True,
-            transaction__created_at__gte=range_start_aware,
-            transaction__created_at__lt=range_end_aware,
-        )
-        .exclude(transaction__transaction_number__startswith='DUMMY-')
-        .values('transaction__created_at', 'total_price')
+        _scope_dashboard_items_for_user(
+            TransactionItem.objects.filter(
+                transaction__status__in=DASHBOARD_SALE_STATUSES,
+                refunded_at__isnull=True,
+                transaction__created_at__gte=range_start_aware,
+                transaction__created_at__lt=range_end_aware,
+            ).exclude(transaction__transaction_number__startswith='DUMMY-'),
+            user,
+        ).values('transaction__created_at', 'total_price')
     )
 
     series = defaultdict(float)
@@ -319,34 +347,38 @@ def _dashboard_net_revenue_series(range_start_aware, range_end_aware, current_tz
             key = local_dt.date()
         series[key] += amount
 
-    # Header fallback for itemless sales in range
-    itemless_txns = (
-        _dashboard_sales_qs()
-        .filter(
-            created_at__gte=range_start_aware,
-            created_at__lt=range_end_aware,
+    # Header fallback for itemless sales in range (admin/staff only)
+    if get_cashier_project_category_ids(user) is None:
+        itemless_txns = (
+            _dashboard_sales_qs(user)
+            .filter(
+                created_at__gte=range_start_aware,
+                created_at__lt=range_end_aware,
+            )
+            .annotate(_active_lines=Count('items', filter=Q(items__refunded_at__isnull=True)))
+            .filter(_active_lines=0)
+            .values('created_at', 'total_amount')
         )
-        .annotate(_active_lines=Count('items', filter=Q(items__refunded_at__isnull=True)))
-        .filter(_active_lines=0)
-        .values('created_at', 'total_amount')
-    )
-    for row in itemless_txns:
-        amount = float(row['total_amount'] or 0)
-        if amount <= 0:
-            continue
-        local_dt = row['created_at'].astimezone(current_tz)
-        if granularity == 'monthly':
-            key = local_dt.date().replace(day=1)
-        else:
-            key = local_dt.date()
-        series[key] += amount
+        for row in itemless_txns:
+            amount = float(row['total_amount'] or 0)
+            if amount <= 0:
+                continue
+            local_dt = row['created_at'].astimezone(current_tz)
+            if granularity == 'monthly':
+                key = local_dt.date().replace(day=1)
+            else:
+                key = local_dt.date()
+            series[key] += amount
     return series
 
 
-def _dashboard_sales_qs():
-    return _exclude_test_transactions(
+def _dashboard_sales_qs(user=None):
+    qs = _exclude_test_transactions(
         Transaction.objects.filter(status__in=DASHBOARD_SALE_STATUSES)
     )
+    if user is not None:
+        qs = filter_transactions_for_login_user(qs, user)
+    return qs
 
 
 def _dashboard_refund_ledger_qs():
@@ -357,27 +389,28 @@ def _dashboard_refund_ledger_qs():
     )
 
 
-def _dashboard_refund_item_qs():
+def _dashboard_refund_item_qs(user=None):
     """Refunded sale line items — source of truth for all payment types."""
-    return TransactionItem.objects.filter(
+    qs = TransactionItem.objects.filter(
         refunded_at__isnull=False,
     ).exclude(transaction__transaction_number__startswith='DUMMY-')
+    return _scope_dashboard_items_for_user(qs, user)
 
 
-def _dashboard_refund_events_qs():
+def _dashboard_refund_events_qs(user=None):
     """One row per refund batch (transaction + refunded_at) with line-total amount."""
     return (
-        _dashboard_refund_item_qs()
+        _dashboard_refund_item_qs(user)
         .values('transaction_id', 'refunded_at')
         .annotate(refund_amount=Coalesce(Sum('total_price'), Decimal('0.00')))
         .order_by('-refunded_at')
     )
 
 
-def _dashboard_recent_refunds(range_start_aware, range_end_aware, current_tz, limit=10):
+def _dashboard_recent_refunds(range_start_aware, range_end_aware, current_tz, limit=10, user=None):
     """Latest refund batches in the selected chart period (members, walk-ins, guests)."""
     rows = list(
-        _dashboard_refund_events_qs().filter(
+        _dashboard_refund_events_qs(user).filter(
             refunded_at__gte=range_start_aware,
             refunded_at__lt=range_end_aware,
         )[:limit]
@@ -417,9 +450,10 @@ def _dashboard_refund_stats(
     range_start,
     range_end,
     range_days,
+    user=None,
 ):
     """Refund counts/amounts from refunded line items; trend buckets use refunded_at."""
-    all_events = _dashboard_refund_events_qs()
+    all_events = _dashboard_refund_events_qs(user)
     period_events = all_events.filter(
         refunded_at__gte=range_start_aware,
         refunded_at__lt=range_end_aware,
@@ -427,13 +461,13 @@ def _dashboard_refund_stats(
 
     total_refunds = all_events.count()
     total_refund_amount = float(
-        _dashboard_refund_item_qs().aggregate(
+        _dashboard_refund_item_qs(user).aggregate(
             total=Coalesce(Sum('total_price'), Decimal('0.00')),
         )['total'] or 0
     )
     period_refunds = period_events.count()
     period_refund_amount = float(
-        _dashboard_refund_item_qs()
+        _dashboard_refund_item_qs(user)
         .filter(
             refunded_at__gte=range_start_aware,
             refunded_at__lt=range_end_aware,
@@ -442,7 +476,7 @@ def _dashboard_refund_stats(
     )
 
     recent_refunds = _dashboard_recent_refunds(
-        range_start_aware, range_end_aware, current_tz, limit=10
+        range_start_aware, range_end_aware, current_tz, limit=10, user=user
     )
 
     if range_granularity == 'monthly':
@@ -501,13 +535,13 @@ def _parse_refund_txn_number_from_notes(notes):
     return match.group(1) if match else None
 
 
-def _dashboard_recent_transactions(range_start_aware, range_end_aware, current_tz, limit=12):
+def _dashboard_recent_transactions(range_start_aware, range_end_aware, current_tz, limit=12, user=None):
     """Sales and refund events in the selected period, merged newest-first."""
     payment_label_map = dict(Transaction.PAYMENT_METHODS)
     entries = []
 
     sales_qs = (
-        _dashboard_sales_qs()
+        _dashboard_sales_qs(user)
         .filter(created_at__gte=range_start_aware, created_at__lt=range_end_aware)
         .select_related('member', 'walk_in_customer')
     )
@@ -523,7 +557,7 @@ def _dashboard_recent_transactions(range_start_aware, range_end_aware, current_t
         })
 
     refund_qs = (
-        _dashboard_refund_events_qs()
+        _dashboard_refund_events_qs(user)
         .filter(
             refunded_at__gte=range_start_aware,
             refunded_at__lt=range_end_aware,
@@ -565,14 +599,17 @@ def _dashboard_recent_transactions(range_start_aware, range_end_aware, current_t
     return rows
 
 
-def _dashboard_top_products(range_start_aware, range_end_aware, limit=DASHBOARD_TOP_PRODUCTS_FETCH_MAX):
+def _dashboard_top_products(range_start_aware, range_end_aware, limit=DASHBOARD_TOP_PRODUCTS_FETCH_MAX, user=None):
     """Top products by units sold; frontend trims to visible grid capacity."""
     rows = (
-        TransactionItem.objects.filter(
-            transaction__status__in=DASHBOARD_SALE_STATUSES,
-            transaction__created_at__gte=range_start_aware,
-            transaction__created_at__lt=range_end_aware,
-            refunded_at__isnull=True,
+        _scope_dashboard_items_for_user(
+            TransactionItem.objects.filter(
+                transaction__status__in=DASHBOARD_SALE_STATUSES,
+                transaction__created_at__gte=range_start_aware,
+                transaction__created_at__lt=range_end_aware,
+                refunded_at__isnull=True,
+            ),
+            user,
         )
         .values('product_name')
         .annotate(
@@ -1169,10 +1206,10 @@ def dashboard(request):
         selected_date_from = range_start.strftime('%Y-%m-%d')
         selected_date_to = range_end.strftime('%Y-%m-%d')
 
-    base_qs = _dashboard_sales_qs()
+    base_qs = _dashboard_sales_qs(request.user)
 
     all_time_transactions = base_qs.count()
-    all_time_revenue = float(_transaction_net_revenue(base_qs))
+    all_time_revenue = float(_transaction_net_revenue(base_qs, request.user))
 
     # Build timezone-aware today range (Django 5.2 + Python 3.14 + SQLite: __date lookups are broken)
     current_tz = timezone.get_current_timezone()
@@ -1182,12 +1219,15 @@ def dashboard(request):
 
     today_qs = base_qs.filter(created_at__gte=today_start, created_at__lt=tomorrow_start)
     today_transactions = today_qs.count()
-    today_revenue = float(_transaction_net_revenue(today_qs))
+    today_revenue = float(_transaction_net_revenue(today_qs, request.user))
 
     total_members = Member.objects.filter(is_active=True).count()
 
     # Current inventory snapshot (not tied to sales period — stock levels are "now")
-    _active_products = Product.objects.filter(is_active=True)
+    _active_products = filter_products_for_login_user(
+        Product.objects.filter(is_active=True),
+        request.user,
+    )
     low_stock_products = _active_products.filter(
         stock_quantity__gt=0,
         stock_quantity__lte=F('low_stock_threshold'),
@@ -1206,19 +1246,19 @@ def dashboard(request):
         created_at__lt=range_end_aware,
     )
 
-    top_products = _dashboard_top_products(range_start_aware, range_end_aware)
+    top_products = _dashboard_top_products(range_start_aware, range_end_aware, user=request.user)
 
     recent_transactions = _dashboard_recent_transactions(
-        range_start_aware, range_end_aware, current_tz, limit=12
+        range_start_aware, range_end_aware, current_tz, limit=12, user=request.user
     )
     walk_in_insights = _dashboard_walk_in_insights(
         period_txns, range_start_aware, range_end_aware, current_tz
     )
     total_transactions = period_txns.count()
-    total_revenue = float(_transaction_net_revenue(period_txns))
+    total_revenue = float(_transaction_net_revenue(period_txns, request.user))
 
     sales_series = _dashboard_net_revenue_series(
-        range_start_aware, range_end_aware, current_tz, range_granularity
+        range_start_aware, range_end_aware, current_tz, range_granularity, user=request.user
     )
     if range_granularity == 'monthly':
         # Monthly aggregation for year view — Python-side grouping (avoids TruncMonth SQLite bug)
@@ -1248,19 +1288,23 @@ def dashboard(request):
         )
     )
 
-    category_sales = TransactionItem.objects.filter(
-        transaction__status__in=DASHBOARD_SALE_STATUSES,
-        transaction__created_at__gte=range_start_aware,
-        transaction__created_at__lt=range_end_aware,
-        refunded_at__isnull=True,
-        product__category__isnull=False
+    category_sales = _scope_dashboard_items_for_user(
+        TransactionItem.objects.filter(
+            transaction__status__in=DASHBOARD_SALE_STATUSES,
+            transaction__created_at__gte=range_start_aware,
+            transaction__created_at__lt=range_end_aware,
+            refunded_at__isnull=True,
+            product__category__isnull=False
+        ),
+        request.user,
     ).values('product__category__name').annotate(
         total=Sum('total_price')
     ).order_by('-total')[:6]
     category_labels = [entry['product__category__name'] or 'Uncategorized' for entry in category_sales]
     category_totals = [float(entry['total'] or 0) for entry in category_sales]
 
-    sale_txn_filter = Q(transactions__status__in=DASHBOARD_SALE_STATUSES)
+    scoped_sale_ids = base_qs.values('id')
+    sale_txn_filter = Q(transactions__id__in=scoped_sale_ids)
     top_members_qs = (
         Member.objects.filter(sale_txn_filter)
         .annotate(total_spent=Sum('transactions__total_amount', filter=sale_txn_filter))
@@ -1284,6 +1328,7 @@ def dashboard(request):
         range_start,
         range_end,
         range_days,
+        user=request.user,
     )
     total_refunds = refund_stats['total_refunds']
     total_refund_amount = refund_stats['total_refund_amount']
@@ -1496,11 +1541,14 @@ def api_dashboard_period_data(request):
     range_days = b['range_days']
     current_tz = b['current_tz']
 
-    base_qs = _dashboard_sales_qs()
+    base_qs = _dashboard_sales_qs(request.user)
     txns_filtered = base_qs.filter(created_at__gte=range_start_aware, created_at__lt=range_end_aware)
     total_transactions = txns_filtered.count()
-    total_revenue = float(_transaction_net_revenue(txns_filtered))
-    _active_products = Product.objects.filter(is_active=True)
+    total_revenue = float(_transaction_net_revenue(txns_filtered, request.user))
+    _active_products = filter_products_for_login_user(
+        Product.objects.filter(is_active=True),
+        request.user,
+    )
     low_stock_products = _active_products.filter(
         stock_quantity__gt=0,
         stock_quantity__lte=F('low_stock_threshold'),
@@ -1508,7 +1556,7 @@ def api_dashboard_period_data(request):
     out_of_stock_products = _active_products.filter(stock_quantity=0).count()
     inventory_alert_total = low_stock_products + out_of_stock_products
     recent_transactions = _dashboard_recent_transactions(
-        range_start_aware, range_end_aware, current_tz, limit=12
+        range_start_aware, range_end_aware, current_tz, limit=12, user=request.user
     )
 
     walk_in_insights = _dashboard_walk_in_insights(
@@ -1516,7 +1564,7 @@ def api_dashboard_period_data(request):
     )
 
     sales_series = _dashboard_net_revenue_series(
-        range_start_aware, range_end_aware, current_tz, range_granularity
+        range_start_aware, range_end_aware, current_tz, range_granularity, user=request.user
     )
     if range_granularity == 'monthly':
         daily_labels, daily_totals = [], []
@@ -1537,12 +1585,15 @@ def api_dashboard_period_data(request):
 
     payment_labels, payment_totals = _dashboard_payment_mix(txns_filtered)
 
-    category_sales = TransactionItem.objects.filter(
-        transaction__status__in=DASHBOARD_SALE_STATUSES,
-        transaction__created_at__gte=range_start_aware,
-        transaction__created_at__lt=range_end_aware,
-        refunded_at__isnull=True,
-        product__category__isnull=False,
+    category_sales = _scope_dashboard_items_for_user(
+        TransactionItem.objects.filter(
+            transaction__status__in=DASHBOARD_SALE_STATUSES,
+            transaction__created_at__gte=range_start_aware,
+            transaction__created_at__lt=range_end_aware,
+            refunded_at__isnull=True,
+            product__category__isnull=False,
+        ),
+        request.user,
     ).values('product__category__name').annotate(total=Sum('total_price')).order_by('-total')[:6]
     category_labels = [entry['product__category__name'] or 'Uncategorized' for entry in category_sales]
     category_totals = [float(entry['total'] or 0) for entry in category_sales]
@@ -1555,6 +1606,7 @@ def api_dashboard_period_data(request):
         range_start,
         range_end,
         range_days,
+        user=request.user,
     )
     all_time_refunds = refund_stats['total_refunds']
     all_time_refund_amount = refund_stats['total_refund_amount']
@@ -1564,7 +1616,7 @@ def api_dashboard_period_data(request):
     daily_refund_amounts = refund_stats['daily_refund_amounts']
     daily_refund_counts = refund_stats['daily_refund_counts']
 
-    top_products_api = _dashboard_top_products(range_start_aware, range_end_aware)
+    top_products_api = _dashboard_top_products(range_start_aware, range_end_aware, user=request.user)
 
     return JsonResponse({
         'success': True,
@@ -1608,10 +1660,11 @@ def inventory_management(request):
     if search_query:
         filter_type = 'all'
     
-    # Start with all products
+    # Start with all products (cashiers scoped to their project categories)
     products = Product.objects.select_related('category', 'giveaway').prefetch_related(
-        'stock_batches', 'sale_units',
+        'stock_batches', 'sale_units', 'project_categories',
     ).all()
+    products = filter_products_for_login_user(products, request.user)
     if request_can_manage_giveaways(request) or filter_type == 'giveaway':
         products = annotate_giveaway_units_given(products)
     
@@ -1655,20 +1708,28 @@ def inventory_management(request):
     category_page_number = request.GET.get('category_page', 1)
     categories_page = category_paginator.get_page(category_page_number)
     
-    # Calculate statistics (from all products, not filtered)
-    all_products = Product.objects.all()
+    # Statistics scoped the same way as the product list for cashiers
+    all_products = filter_products_for_login_user(Product.objects.all(), request.user)
     total_products = all_products.count()
     low_stock_products = all_products.filter(is_active=True, stock_quantity__lte=F('low_stock_threshold'), stock_quantity__gt=0).count()
     out_of_stock_products = all_products.filter(is_active=True, stock_quantity=0).count()
     total_categories = all_categories.count()
     
-    all_active_products = Product.objects.filter(is_active=True).select_related('category').order_by('name')
+    all_active_products = filter_products_for_login_user(
+        Product.objects.filter(is_active=True).select_related('category').order_by('name'),
+        request.user,
+    )
 
     can_manage_giveaways = request_can_manage_giveaways(request)
     giveaway_products = 0
     if can_manage_giveaways:
-        products_with_giveaways = annotate_giveaway_units_given(Product.objects.all())
+        products_with_giveaways = annotate_giveaway_units_given(
+            filter_products_for_login_user(Product.objects.all(), request.user)
+        )
         giveaway_products = products_with_giveaways.filter(giveaway_units_given__gt=0).count()
+
+    cashier_project_category_ids = get_cashier_project_category_ids(request.user)
+    inventory_cashier_scoped = cashier_project_category_ids is not None
 
     context = {
         'products': products_page,
@@ -1685,6 +1746,8 @@ def inventory_management(request):
         'can_manage_giveaways': can_manage_giveaways,
         'giveaway_products': giveaway_products,
         'inventory_price_summary': inventory_price_summary,
+        'inventory_cashier_scoped': inventory_cashier_scoped,
+        'cashier_project_category_ids': cashier_project_category_ids or [],
         **admin_role_badge_context(request),
     }
     
@@ -4240,6 +4303,12 @@ def api_create_product(request):
     product.save()
     set_product_giveaway(product)
 
+    # Keep cashier visibility in sync with the single Category field
+    pc_ids = [category.pk] if category else []
+    if not pc_ids and is_cashier_user(request.user):
+        pc_ids = get_cashier_project_category_ids(request.user) or []
+    apply_product_project_categories(product, pc_ids)
+
     try:
         batch_total = _apply_product_stock_batches(product, get, default_price=price, default_cost=cost)
     except ValueError as exc:
@@ -4436,6 +4505,11 @@ def api_update_product(request):
                 product.image = image_file
             product.save()
             set_product_giveaway(product)
+
+            # Keep cashier visibility in sync with the single Category field
+            apply_product_project_categories(
+                product, [category.pk] if category else []
+            )
 
             batch_total = _apply_product_stock_batches(
                 product, get, default_price=price, default_cost=cost,
@@ -5236,9 +5310,11 @@ def api_create_member(request):
 
     from helper.members_helper import (
         apply_member_complete_details,
+        apply_member_project_categories,
         apply_member_uploads,
         extract_member_beneficiaries,
         extract_member_complete_details,
+        extract_member_project_category_ids,
         generate_unique_member_username,
         normalize_rfid,
         parse_member_api_payload,
@@ -5320,6 +5396,10 @@ def api_create_member(request):
     if detail_error:
         return JsonResponse({'success': False, 'error': detail_error}, status=400)
 
+    project_category_ids, pc_error = extract_member_project_category_ids(data)
+    if pc_error:
+        return JsonResponse({'success': False, 'error': pc_error}, status=400)
+
     beneficiaries, ben_error = extract_member_beneficiaries(data, required_key=False)
     if ben_error:
         return JsonResponse({'success': False, 'error': ben_error}, status=400)
@@ -5355,6 +5435,7 @@ def api_create_member(request):
     apply_member_complete_details(member, detail_fields or {})
     apply_member_uploads(member, files, data)
     member.save()
+    apply_member_project_categories(member, project_category_ids if project_category_ids is not None else [])
     if pin:
         member.set_pin(pin)
     sync_member_beneficiaries(member, beneficiaries if beneficiaries is not None else [])
@@ -5497,9 +5578,11 @@ def api_update_member(request):
 
     from helper.members_helper import (
         apply_member_complete_details,
+        apply_member_project_categories,
         apply_member_uploads,
         extract_member_beneficiaries,
         extract_member_complete_details,
+        extract_member_project_category_ids,
         normalize_rfid,
         parse_member_api_payload,
         parse_member_date_joined,
@@ -5581,6 +5664,10 @@ def api_update_member(request):
     detail_fields, detail_error = extract_member_complete_details(data)
     if detail_error:
         return JsonResponse({'success': False, 'error': detail_error}, status=400)
+
+    project_category_ids, pc_error = extract_member_project_category_ids(data)
+    if pc_error:
+        return JsonResponse({'success': False, 'error': pc_error}, status=400)
 
     beneficiaries, ben_error = extract_member_beneficiaries(data, required_key=False)
     if ben_error:
@@ -5721,6 +5808,7 @@ def api_update_member(request):
 
     # Save all member changes (except PIN, already persisted via member.set_pin)
     member.save()
+    apply_member_project_categories(member, project_category_ids)
     sync_member_beneficiaries(member, beneficiaries)
 
     if share_capital_changed:
@@ -6091,7 +6179,7 @@ def member_management(request):
     # List members like Django admin: default shows everyone; optional active/inactive filters.
     members = Member.objects.select_related(
         'member_role', 'member_type', 'user', 'senior_profile', 'pwd_profile', 'nationality',
-    ).prefetch_related('beneficiaries_dependents')
+    ).prefetch_related('beneficiaries_dependents', 'project_categories')
     if restrict_member_role:
         members = members.filter(member_role__slug='member')
 
@@ -6206,6 +6294,7 @@ def member_management(request):
 
     member_types = MemberType.objects.filter(is_active=True).order_by('name')
     nationalities = Nationality.objects.filter(is_active=True).order_by('sort_order', 'name')
+    project_categories = Category.objects.filter(is_active=True).order_by('name')
     assignable_roles = Role.objects.filter(is_active=True).order_by('sort_order', 'name')
     
     # Calculate statistics (scope depends on caller role restrictions).
@@ -6270,6 +6359,7 @@ def member_management(request):
         'members_filter_query': members_filter_query,
         'member_types': member_types,
         'nationalities': nationalities,
+        'project_categories': project_categories,
         'member_complete_details_map': {
             str(m.pk): member_complete_details_dict(m)
             for m in members_page.object_list
@@ -6417,12 +6507,10 @@ def credit_unpaid_history(request):
     # Newest unpaid first for scanning overdue
     unpaid_rows.sort(key=lambda r: (r['days_unpaid'], r['sale_date']), reverse=True)
 
-    recent_payments = (
-        CreditPayment.objects.select_related('member', 'performed_by')
-        .order_by('-created_at')[:40]
-    )
+    recent_payments = CreditPayment.objects.select_related('member', 'performed_by')
     if restrict_member_role:
         recent_payments = recent_payments.filter(member__member_role__slug='member')
+    recent_payments = recent_payments.order_by('-created_at')[:40]
 
     context = {
         'unpaid_rows': unpaid_rows,
@@ -7231,6 +7319,7 @@ def transaction_history(request):
         .prefetch_related('items', 'refund_reason')
         .order_by('-created_at', '-id')
     )
+    transactions_base_qs = filter_transactions_for_login_user(transactions_base_qs, request.user)
     if payment_method_filter:
         transactions_base_qs = transactions_base_qs.filter(payment_method=payment_method_filter)
 
@@ -7308,6 +7397,9 @@ def transaction_history(request):
     from admin_panel.models import ReportScheduleConfig as _RSC
     _config = _RSC.get()
 
+    cashier_project_category_ids = get_cashier_project_category_ids(request.user)
+    transactions_cashier_scoped = cashier_project_category_ids is not None
+
     context = {
         'transactions': transactions_page,
         'page_obj': transactions_page,
@@ -7337,6 +7429,8 @@ def transaction_history(request):
         'partial_refund_net_amount': partial_refund_net_amount,
         'txn_export_date_from': _store_local_today().isoformat(),
         'txn_export_date_to': _store_local_today().isoformat(),
+        'transactions_cashier_scoped': transactions_cashier_scoped,
+        'cashier_project_category_ids': cashier_project_category_ids or [],
         **admin_role_badge_context(request),
     }
     
@@ -7356,7 +7450,7 @@ def _transaction_export_filters_from_request(request):
     return payment_method_filter, status_filter
 
 
-def _transaction_export_queryset(date_from, date_to, payment_method_filter='', status_filter=''):
+def _transaction_export_queryset(date_from, date_to, payment_method_filter='', status_filter='', user=None):
     if date_from > date_to:
         date_from, date_to = date_to, date_from
     current_tz = timezone.get_current_timezone()
@@ -7372,6 +7466,8 @@ def _transaction_export_queryset(date_from, date_to, payment_method_filter='', s
         .select_related('member', 'processed_by')
         .order_by('-created_at', '-id')
     )
+    if user is not None:
+        qs = filter_transactions_for_login_user(qs, user)
     if payment_method_filter:
         qs = qs.filter(payment_method=payment_method_filter)
     if status_filter:
@@ -7407,7 +7503,7 @@ def export_transaction_history(request):
     date_from, date_to, _, _ = _staff_sales_date_range_from_request(request)
     payment_method_filter, status_filter = _transaction_export_filters_from_request(request)
     date_from, date_to, qs = _transaction_export_queryset(
-        date_from, date_to, payment_method_filter, status_filter
+        date_from, date_to, payment_method_filter, status_filter, user=request.user
     )
 
     kiosk_config = KioskConfig.get()
@@ -9554,6 +9650,8 @@ def api_search_transactions_for_refund(request):
             status__in=['completed', 'partially_refunded'],
             created_at__gte=cutoff_time
         ).select_related('member').prefetch_related('items')
+        if has_full_access:
+            transactions = filter_transactions_for_login_user(transactions, request.user)
         
         # If user is not cashier/admin, filter to only their own transactions
         if not has_full_access:
@@ -9623,6 +9721,7 @@ def api_search_transactions(request):
         
         # Build query
         transactions_qs = Transaction.objects.select_related('member').prefetch_related('items').all()
+        transactions_qs = filter_transactions_for_login_user(transactions_qs, request.user)
         
         if transaction_number:
             transactions_qs = transactions_qs.filter(transaction_number__icontains=transaction_number)
@@ -9683,6 +9782,12 @@ def api_get_transaction(request, transaction_id):
     
     try:
         transaction = Transaction.objects.select_related('member').prefetch_related('items').get(id=transaction_id)
+        allowed = filter_transactions_for_login_user(
+            Transaction.objects.filter(pk=transaction.pk),
+            request.user,
+        ).exists()
+        if not allowed:
+            return JsonResponse({'success': False, 'error': 'Transaction not found'}, status=404)
         
         items = []
         for item in transaction.items.all():

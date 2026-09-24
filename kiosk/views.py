@@ -193,12 +193,68 @@ def _price_payload_extras(pf):
     return extras
 
 
+def _kiosk_cashier_project_category_ids(request):
+    """
+    Project category IDs for the cashier operating the kiosk.
+
+    Returns ``None`` when the operator is not a cashier (no product filter).
+    Returns an empty list when the cashier has no assigned project categories.
+    """
+    from inventory.utils import get_cashier_project_category_ids
+
+    cat_ids = get_cashier_project_category_ids(request.user)
+    if cat_ids is not None:
+        return cat_ids
+
+    member = None
+    mid = get_kiosk_session_member_id(request)
+    if mid:
+        member = (
+            Member.objects.filter(id=mid, is_active=True)
+            .prefetch_related('project_categories')
+            .first()
+        )
+    if not member:
+        member = _resolve_kiosk_shell_member(request)
+        if member:
+            member = (
+                Member.objects.filter(id=member.id, is_active=True)
+                .prefetch_related('project_categories')
+                .first()
+            ) or member
+    if not member or member.role != 'cashier':
+        return None
+    return list(member.project_categories.values_list('id', flat=True))
+
+
+def _kiosk_product_allowed_for_operator(request, product):
+    """True if *product* is in the cashier operator's assigned project categories."""
+    cat_ids = _kiosk_cashier_project_category_ids(request)
+    if cat_ids is None:
+        return True
+    if not cat_ids or product is None:
+        return False
+    if product.category_id and product.category_id in cat_ids:
+        return True
+    return product.project_categories.filter(id__in=cat_ids).exists()
+
+
 def _kiosk_products_queryset(request):
     """Active products for kiosk scan, search, and browse catalog."""
-    return (
+    from django.db.models import Q
+
+    qs = (
         Product.objects.filter(is_active=True)
         .prefetch_related('stock_batches', 'sale_units')
     )
+    cat_ids = _kiosk_cashier_project_category_ids(request)
+    if cat_ids is None:
+        return qs
+    if not cat_ids:
+        return qs.none()
+    return qs.filter(
+        Q(category_id__in=cat_ids) | Q(project_categories__id__in=cat_ids)
+    ).distinct()
 
 
 def _kiosk_shell_context(request):
@@ -316,6 +372,9 @@ def scan_product(request):
         if not product:
             return JsonResponse({'success': False, 'error': 'Product not found'})
 
+        if not _kiosk_product_allowed_for_operator(request, product):
+            return JsonResponse({'success': False, 'error': 'Product not found'})
+
         sale_unit = kiosk_payload_sale_unit(product, sale_unit)
 
         if sellable_quantity(product, sale_unit) <= 0:
@@ -368,6 +427,8 @@ def search_products(request):
         )
         if exact_unit:
             product = exact_unit.product
+            if not _kiosk_product_allowed_for_operator(request, product):
+                return JsonResponse({'results': []})
             disc_map = discounts_by_product_ids([product.id])
             payload = kiosk_scan_product_payload(
                 product,
@@ -503,10 +564,15 @@ def get_all_products(request):
                 row['discount_name'] = pf['discount_name']
             products.append(row)
 
-        # Also return distinct categories
+        # Also return distinct categories present in the (scoped) product list
         from inventory.models import Category
+        present_category_ids = {
+            row['category_id'] for row in products if row.get('category_id')
+        }
         categories = list(
-            Category.objects.filter(is_active=True).values('id', 'name').order_by('name')
+            Category.objects.filter(is_active=True, id__in=present_category_ids)
+            .values('id', 'name')
+            .order_by('name')
         )
 
         return JsonResponse({
@@ -1140,6 +1206,16 @@ def process_payment(request):
 
         # Lock product rows and validate stock availability
         product_ids = [item['product_id'] for item in items]
+        allowed_ids = set(
+            _kiosk_products_queryset(request)
+            .filter(id__in=product_ids)
+            .values_list('id', flat=True)
+        )
+        if len(allowed_ids) != len(set(product_ids)):
+            return JsonResponse({
+                'success': False,
+                'error': 'One or more products are not available for your assigned project categories.',
+            })
         products_qs = (
             Product.objects.select_for_update()
             .select_related('tax_rate', 'discount_group')

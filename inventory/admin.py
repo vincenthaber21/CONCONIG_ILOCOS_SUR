@@ -445,9 +445,9 @@ class ProductAdmin(ImportExportModelAdmin):
         'is_low_stock',
         'is_active',
     ]
-    list_filter = ['is_active', 'unit_type', 'category', 'discount_group', 'tax_rate']
+    list_filter = ['is_active', 'unit_type', 'category', 'discount_group', 'tax_rate', 'project_categories']
     search_fields = ['name', 'barcode']
-    autocomplete_fields = ['discount_group', 'tax_rate']
+    autocomplete_fields = ['discount_group', 'tax_rate', 'project_categories']
     readonly_fields = ['barcode_image', 'created_at', 'updated_at']
 
     def get_changeform_initial_data(self, request):
@@ -518,7 +518,11 @@ class ProductAdmin(ImportExportModelAdmin):
 
     fieldsets = (
         ('Basic Information', {
-            'fields': ('name', 'description', 'barcode', 'category', 'image', 'barcode_image')
+            'fields': ('name', 'description', 'barcode', 'category', 'project_categories', 'image', 'barcode_image'),
+            'description': (
+                'Assign <strong>Project categories</strong> so cashiers only see products that match '
+                'their own project categories on the inventory dashboard.'
+            ),
         }),
         ('Pricing', {
             'fields': ('price', 'cost', 'unit_type', 'tax_rate', 'discount_group'),
