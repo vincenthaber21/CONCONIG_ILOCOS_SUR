@@ -1547,6 +1547,39 @@ COOP_FORM_ADDRESS = "Conconig East, Sta. Lucia, Ilocos Sur"
 COOP_FORM_REG = "CDA Registration No. 9520-01004557 / TIN 004-964-838-000"
 
 
+def _resolve_coop_logo():
+    """Return ``(url, filesystem_path)`` for the Store Profile logo.
+
+    Prefers the logo uploaded under Admin → Store Profile. Falls back to the
+    static coop seal when no store logo is configured.
+    """
+    static_logo = Path(settings.BASE_DIR) / "static" / "images" / "coop_logo.png"
+    url = ""
+    path = ""
+    try:
+        from admin_panel.models import StoreProfile
+
+        profile = StoreProfile.get()
+    except Exception:
+        profile = None
+    if profile and profile.logo:
+        try:
+            url = profile.logo.url
+        except Exception:
+            url = ""
+        try:
+            file_path = Path(profile.logo.path)
+            if file_path.exists():
+                path = str(file_path)
+        except Exception:
+            path = ""
+    if not path and static_logo.exists():
+        path = str(static_logo)
+    if not url and static_logo.exists():
+        url = settings.STATIC_URL.rstrip("/") + "/images/coop_logo.png"
+    return url, path
+
+
 def _member_display_name(member):
     """Best-effort display name for a Django user / applicant."""
     getter = getattr(member, "get_full_name", None)
@@ -1764,6 +1797,7 @@ def build_loan_agreement_context(application):
         "coop_name": COOP_FORM_NAME,
         "coop_address": COOP_FORM_ADDRESS,
         "coop_reg": COOP_FORM_REG,
+        "coop_logo_url": _resolve_coop_logo()[0],
         "authorized_personnel_name": "",
     }
 
@@ -1790,6 +1824,9 @@ def generate_loan_agreement(
         ctx["authorized_personnel_name"] = authorized_personnel_name
     else:
         ctx.setdefault("authorized_personnel_name", "")
+    logo_url, logo_path = _resolve_coop_logo()
+    ctx["coop_logo_url"] = logo_url
+    ctx["coop_logo_path"] = logo_path
     buffer_path = (
         Path(settings.MEDIA_ROOT) / "loan_agreements" / f"{application.id}_contract.pdf"
     )
@@ -1852,15 +1889,60 @@ def generate_loan_agreement(
     def draw_header(section_title=""):
         nonlocal y
         set_ink()
-        pdf.setFont(body_bold, 11.5)
-        pdf.drawCentredString(width / 2, y, ctx["coop_name"])
-        y -= 13
+        logo_path = Path(ctx.get("coop_logo_path") or "")
+        if not logo_path.exists():
+            _, resolved = _resolve_coop_logo()
+            logo_path = Path(resolved) if resolved else Path()
+        logo_size = 22 * mm
+        brand_gap = 4 * mm
+        name_size = 11
+        pdf.setFont(body_bold, name_size)
+        name_w = pdf.stringWidth(ctx["coop_name"], body_bold, name_size)
+        pdf.setFont(body, 9)
+        addr_w = pdf.stringWidth(ctx["coop_address"], body, 9)
+        reg_w = pdf.stringWidth(ctx["coop_reg"], body, 9)
+        text_w = max(name_w, addr_w, reg_w)
+        has_logo = logo_path.exists()
+        block_w = (logo_size + brand_gap + text_w) if has_logo else text_w
+        # Keep letterhead flush to the left content margin (professional form layout).
+        block_x = left
+        header_top = y
+        text_x = block_x
+        if has_logo:
+            try:
+                pdf.drawImage(
+                    str(logo_path),
+                    block_x,
+                    header_top - logo_size,
+                    width=logo_size,
+                    height=logo_size,
+                    preserveAspectRatio=True,
+                    mask="auto",
+                    anchor="sw",
+                )
+            except Exception:
+                has_logo = False
+        if has_logo:
+            text_x = block_x + logo_size + brand_gap
+            mid = header_top - (logo_size / 2)
+            name_y = mid + 10
+            addr_y = mid - 2
+            reg_y = mid - 14
+        else:
+            # Centered text-only header when no logo is available.
+            block_x = (width - block_w) / 2
+            text_x = block_x
+            name_y = header_top - 2
+            addr_y = header_top - 15
+            reg_y = header_top - 26
+        pdf.setFont(body_bold, name_size)
+        set_ink()
+        pdf.drawString(text_x, name_y, ctx["coop_name"])
         pdf.setFont(body, 9)
         set_ink(muted)
-        pdf.drawCentredString(width / 2, y, ctx["coop_address"])
-        y -= 11
-        pdf.drawCentredString(width / 2, y, ctx["coop_reg"])
-        y -= 8
+        pdf.drawString(text_x, addr_y, ctx["coop_address"])
+        pdf.drawString(text_x, reg_y, ctx["coop_reg"])
+        y = (header_top - logo_size if has_logo else reg_y) - 8
         set_ink(rule)
         pdf.setLineWidth(1.4)
         pdf.line(left, y, right, y)
@@ -1984,6 +2066,7 @@ def generate_loan_agreement(
         y -= 8
 
     def _draw_signature_image(image_field, x, bottom_y, sig_width=170, sig_height=48):
+        """Draw signature ink bottom-aligned just above the signature line."""
         if not image_field:
             return False
         try:
@@ -1992,17 +2075,51 @@ def generate_loan_agreement(
             return False
         if not Path(image_path).exists():
             return False
-        pdf.drawImage(
-            image_path,
-            x,
-            bottom_y,
-            width=sig_width,
-            height=sig_height,
-            preserveAspectRatio=True,
-            mask="auto",
-            anchor="sw",
-        )
-        return True
+        try:
+            from io import BytesIO
+
+            from PIL import Image as PILImage
+            from reportlab.lib.utils import ImageReader
+
+            with PILImage.open(image_path) as src:
+                im = src.convert("RGBA")
+            # Trim empty/transparent padding so ink sits on the rule.
+            bbox = im.getbbox()
+            if bbox:
+                im = im.crop(bbox)
+            iw, ih = im.size
+            if iw <= 0 or ih <= 0:
+                return False
+            scale = min(sig_width / float(iw), sig_height / float(ih))
+            draw_w = max(1.0, iw * scale)
+            draw_h = max(1.0, ih * scale)
+            # Center horizontally; keep bottom flush to the signature line.
+            draw_x = x + (sig_width - draw_w) / 2.0
+            buf = BytesIO()
+            im.save(buf, format="PNG")
+            buf.seek(0)
+            pdf.drawImage(
+                ImageReader(buf),
+                draw_x,
+                bottom_y,
+                width=draw_w,
+                height=draw_h,
+                mask="auto",
+                anchor="sw",
+            )
+            return True
+        except Exception:
+            pdf.drawImage(
+                image_path,
+                x,
+                bottom_y,
+                width=sig_width,
+                height=sig_height,
+                preserveAspectRatio=True,
+                mask="auto",
+                anchor="sw",
+            )
+            return True
 
     borrower_sig = getattr(documentation, "borrower_signature", None)
     personnel_sig = getattr(documentation, "personnel_signature", None)
@@ -2040,12 +2157,20 @@ def generate_loan_agreement(
         left_stamp=None,
         right_stamp=None,
         compact=False,
+        pin_to_bottom=False,
     ):
         nonlocal y
-        ensure_space(90 if compact else 110)
         gap = 12 if compact else 14
         box_w = (content_width - gap) / 2
         box_h = 58 if compact else 78
+        needed = (box_h + 14) if compact else (box_h + 32)
+        if pin_to_bottom:
+            # Keep signatures on the current page, flush above the footer.
+            target_top = bottom_y + needed
+            if y > target_top:
+                y = target_top
+        else:
+            ensure_space(needed)
         boxes = (
             (left, left_label, left_name, left_image, left_stamp),
             (left + box_w + gap, right_label, right_name, right_image, right_stamp),
@@ -2056,33 +2181,37 @@ def generate_loan_agreement(
             set_ink(rule)
             pdf.setLineWidth(0.7)
             pdf.roundRect(x0, y - box_h, box_w, box_h, 3, stroke=1, fill=0)
-            # Signature sits above the rule; the rule is always drawn.
-            line_y = y - box_h + (22 if compact else 28)
+            # Leave room under the rule for label / name / signed stamp.
+            has_stamp = bool(stamp)
+            line_y = y - box_h + (32 if has_stamp else (24 if compact else 28))
+            sig_h = 20 if compact else 26
             if image:
                 _draw_signature_image(
                     image,
-                    x0 + 8,
-                    line_y + 3,
-                    sig_width=box_w - 16,
-                    sig_height=34 if compact else 44,
+                    x0 + 10,
+                    line_y + 1,
+                    sig_width=box_w - 20,
+                    sig_height=sig_h,
                 )
             set_ink(rule)
             pdf.setLineWidth(0.9)
             pdf.line(x0 + 10, line_y, x0 + box_w - 10, line_y)
             set_ink(muted)
             pdf.setFont(body, 7 if compact else 7.5)
-            pdf.drawCentredString(x0 + box_w / 2, y - box_h + (12 if compact else 16), label)
+            label_y = y - box_h + (18 if has_stamp else (12 if compact else 16))
+            pdf.drawCentredString(x0 + box_w / 2, label_y, label)
             set_ink()
             pdf.setFont(body_bold, 8.5 if compact else 9)
+            name_y = y - box_h + (10 if has_stamp else (4 if compact else 6))
             if name:
-                pdf.drawCentredString(x0 + box_w / 2, y - box_h + (4 if compact else 6), name)
+                pdf.drawCentredString(x0 + box_w / 2, name_y, name)
             if stamp:
                 local_at = timezone.localtime(stamp)
                 set_ink(muted)
                 pdf.setFont(body, 6.5)
                 pdf.drawCentredString(
                     x0 + box_w / 2,
-                    y - (8 if compact else 10),
+                    y - box_h + 2,
                     f"Signed {local_at:%b %d, %Y %I:%M %p}",
                 )
         y -= box_h + (10 if compact else 14)
@@ -2115,15 +2244,16 @@ def generate_loan_agreement(
         f"nga saan nak nga nakabayad, siannugutak nga agfile ti {ctx['coop_name']} ti "
         f"kaso maikontra kaniak ket amin nga gastos ti abogado ket siak ti mangbayad."
     )
-    draw_wrapped(agreement_text, size=10.5, leading=14.5, first_indent=18)
+    draw_wrapped(agreement_text, size=10.5, leading=14.5, first_indent=18, justify=False)
     y -= 8
     draw_wrapped(
         "Kas pammatalged, agpermaak ditoy baba kasta met ti asawak, anak wenno kabsat.",
         size=10.5,
         leading=14.5,
         first_indent=18,
+        justify=False,
     )
-    y -= 18
+    # Pin borrower/spouse signature boxes to the bottom of page 1 only.
     draw_dual_signatures(
         "Nagan ken Pirma ti Immutang",
         "Nagan ken pirma ti asawa (anak wenno kabsat)",
@@ -2133,6 +2263,7 @@ def generate_loan_agreement(
         right_image=spouse_sig,
         left_stamp=borrower_at,
         right_stamp=spouse_at,
+        pin_to_bottom=True,
     )
 
     # ------------------------------------------------------------------ page 2: Application
@@ -2417,6 +2548,21 @@ def generate_loan_agreement(
             f"Php {_format_php(ctx['monthly_payment'])}",
         )
     y -= 12
+    # Pin Certified Correct + Co-Maker signature block to bottom of page 4.
+    compact_box_h = 58
+    disclosure_sig_block_h = (
+        16  # "Certified Correct" + gap
+        + compact_box_h
+        + 10  # first signature row
+        + 40  # acknowledgement text
+        + 16  # date line
+        + 16  # "Signed in the Presence of:"
+        + compact_box_h
+        + 10  # co-maker signature row
+    )
+    pinned_disclosure_top = bottom_y + disclosure_sig_block_h
+    if y > pinned_disclosure_top:
+        y = pinned_disclosure_top
     pdf.setFont(body_bold, 10)
     pdf.drawString(left, y, "Certified Correct")
     y -= 6

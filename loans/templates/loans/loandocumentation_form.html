@@ -33,12 +33,8 @@
   <div id="loan-contract" class="loan-form-pack">
 
   {# ---------- 1. Loan Agreement ---------- #}
-  <section class="card loan-doc-page__card loan-form-sheet">
-    <div class="loan-form-sheet__header">
-      <div class="loan-form-sheet__coop">{{ contract.coop_name }}</div>
-      <div>{{ contract.coop_address }}</div>
-      <div>{{ contract.coop_reg }}</div>
-    </div>
+  <section class="card loan-doc-page__card loan-form-sheet loan-form-sheet--agreement">
+    {% include "loans/partials/loan_form_letterhead.html" %}
     <div class="loan-form-sheet__meta">Ref. {{ contract.application_ref }}</div>
     <div class="loan-form-sheet__fields">
       <div>Date Granted: <strong>{{ contract.date_granted|date:"F j, Y" }}</strong></div>
@@ -64,7 +60,7 @@
     <p class="loan-form-sheet__body">
       Kas pammatalged, agpermaak ditoy baba kasta met ti asawak, anak wenno kabsat.
     </p>
-    <div class="loan-contract__signatures">
+    <div class="loan-contract__signatures loan-contract__signatures--bottom">
       <div class="loan-contract__signature" data-sig-slot="borrower">
         <img class="loan-contract__sig-img" data-live-sig="borrower"
              alt="Borrower signature"
@@ -98,11 +94,7 @@
 
   {# ---------- 2. Loan Application ---------- #}
   <section class="card loan-doc-page__card loan-form-sheet">
-    <div class="loan-form-sheet__header">
-      <div class="loan-form-sheet__coop">{{ contract.coop_name }}</div>
-      <div>{{ contract.coop_address }}</div>
-      <div>{{ contract.coop_reg }}</div>
-    </div>
+    {% include "loans/partials/loan_form_letterhead.html" %}
     <p class="loan-form-sheet__body">
       Siak ni <strong>{{ contract.member_name }}</strong> agaplikar ti kantidad
       <strong>{{ contract.amount_words }}</strong> pesos
@@ -228,12 +220,7 @@
 
   {# ---------- 3. Promissory Note ---------- #}
   <section class="card loan-doc-page__card loan-form-sheet">
-    <div class="loan-form-sheet__header">
-      <div class="loan-form-sheet__coop">{{ contract.coop_name }}</div>
-      <div>{{ contract.coop_address }}</div>
-      <div>{{ contract.coop_reg }}</div>
-      <div class="loan-form-sheet__title">PROMISSORY NOTE</div>
-    </div>
+    {% include "loans/partials/loan_form_letterhead.html" with section_title="PROMISSORY NOTE" %}
     <div class="loan-form-sheet__grid2">
       <div>Numero ti P.N.: <strong>{{ contract.pn_number }}</strong></div>
       <div>Petsa ti pannakaawat ti utang: <strong>{{ contract.date_granted|date:"M j, Y" }}</strong></div>
@@ -324,13 +311,8 @@
   </section>
 
   {# ---------- 4. Disclosure Statement ---------- #}
-  <section class="card loan-doc-page__card loan-form-sheet">
-    <div class="loan-form-sheet__header">
-      <div class="loan-form-sheet__coop">{{ contract.coop_name }}</div>
-      <div>{{ contract.coop_address }}</div>
-      <div>{{ contract.coop_reg }}</div>
-      <div class="loan-form-sheet__title">DISCLOSURE STATEMENT</div>
-    </div>
+  <section class="card loan-doc-page__card loan-form-sheet loan-form-sheet--disclosure">
+    {% include "loans/partials/loan_form_letterhead.html" with section_title="DISCLOSURE STATEMENT" %}
     <p class="loan-form-sheet__body"><strong>NAME OF BORROWER</strong></p>
     <div class="loan-form-sheet__grid3">
       <div><span>Last Name</span><strong>{{ contract.last_name|default:"—" }}</strong></div>
@@ -402,6 +384,7 @@
       &mdash; Php {{ contract.monthly_payment|currency }}
     </p>
     {% endif %}
+    <div class="loan-form-sheet__disclosure-sigs">
     <div class="loan-contract__signatures">
       <div class="loan-contract__signature" data-sig-slot="personnel">
         <img class="loan-contract__sig-img" data-live-sig="personnel"
@@ -443,6 +426,7 @@
         <div class="loan-contract__signature-role">Co-Maker</div>
         <strong data-live-name="comaker2">{{ contract.comaker2_display }}</strong>
       </div>
+    </div>
     </div>
   </section>
 
@@ -722,6 +706,24 @@
     color: #1e293b;
     line-height: 1.45;
   }
+  .loan-form-sheet--agreement {
+    display: flex;
+    flex-direction: column;
+    min-height: 70vh;
+  }
+  .loan-form-sheet--agreement .loan-contract__signatures--bottom {
+    margin-top: auto;
+    padding-top: 2rem;
+  }
+  .loan-form-sheet--disclosure {
+    display: flex;
+    flex-direction: column;
+    min-height: 70vh;
+  }
+  .loan-form-sheet--disclosure .loan-form-sheet__disclosure-sigs {
+    margin-top: auto;
+    padding-top: 1.5rem;
+  }
   .loan-form-sheet__header {
     text-align: center;
     margin-bottom: 1rem;
@@ -729,6 +731,23 @@
     border-bottom: 2px solid #0f172a;
     font-size: .92rem;
     color: #334155;
+  }
+  .loan-form-sheet__letterhead {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: .85rem;
+    text-align: left;
+  }
+  .loan-form-sheet__logo {
+    width: 4.5rem;
+    height: 4.5rem;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
+  .loan-form-sheet__brand {
+    min-width: 0;
+    line-height: 1.35;
   }
   .loan-form-sheet__coop {
     font-weight: 700;
@@ -744,6 +763,17 @@
     letter-spacing: .08em;
     color: #0f172a;
   }
+  @media (max-width: 560px) {
+    .loan-form-sheet__letterhead {
+      flex-direction: column;
+      text-align: center;
+      gap: .55rem;
+    }
+    .loan-form-sheet__logo {
+      width: 3.75rem;
+      height: 3.75rem;
+    }
+  }
   .loan-form-sheet__meta {
     text-align: right;
     font-size: .82rem;
@@ -758,7 +788,7 @@
     font-size: .95rem;
   }
   .loan-form-sheet__body {
-    text-align: justify;
+    text-align: left;
     margin: 0 0 .85rem;
     font-size: .95rem;
   }
@@ -1110,6 +1140,16 @@
     .card { box-shadow: none; border: 1px solid #334155; }
     .loan-form-sheet { break-after: page; page-break-after: always; }
     .loan-form-sheet:last-child { break-after: auto; page-break-after: auto; }
+    .loan-form-sheet--agreement {
+      min-height: 257mm;
+    }
+    .loan-form-sheet--disclosure {
+      min-height: 257mm;
+    }
+    .loan-form-sheet__logo {
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
   }
 </style>
 {% endblock %}

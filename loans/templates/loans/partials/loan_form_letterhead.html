@@ -1,0 +1,31 @@
+{# Expects contract.coop_name / coop_address / coop_reg / coop_logo_url; optional section_title #}
+{% load static %}
+<div class="loan-form-sheet__header">
+  <div class="loan-form-sheet__letterhead">
+    {% if contract.coop_logo_url %}
+    <img
+      class="loan-form-sheet__logo"
+      src="{{ contract.coop_logo_url }}"
+      alt="{{ contract.coop_name }} logo"
+      width="72"
+      height="72"
+    >
+    {% else %}
+    <img
+      class="loan-form-sheet__logo"
+      src="{% static 'images/coop_logo.png' %}"
+      alt="{{ contract.coop_name }} logo"
+      width="72"
+      height="72"
+    >
+    {% endif %}
+    <div class="loan-form-sheet__brand">
+      <div class="loan-form-sheet__coop">{{ contract.coop_name }}</div>
+      <div>{{ contract.coop_address }}</div>
+      <div>{{ contract.coop_reg }}</div>
+    </div>
+  </div>
+  {% if section_title %}
+  <div class="loan-form-sheet__title">{{ section_title }}</div>
+  {% endif %}
+</div>
