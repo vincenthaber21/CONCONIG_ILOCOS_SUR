@@ -26,9 +26,12 @@
 
 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
   <h2 class="section-title mb-0">Your transactions</h2>
-  {% if ledger %}
-  <a href="{% url 'member_savings_receipts_all' account.pk %}" target="_blank" rel="noopener">Print all receipts</a>
-  {% endif %}
+  <div class="d-flex flex-wrap gap-3">
+    <a href="{% url 'member_savings_passbook_pdf' account.pk %}">Download passbook PDF</a>
+    {% if ledger %}
+    <a href="{% url 'member_savings_receipts_all' account.pk %}" target="_blank" rel="noopener">Print all receipts</a>
+    {% endif %}
+  </div>
 </div>
 
 {% for txn in ledger %}

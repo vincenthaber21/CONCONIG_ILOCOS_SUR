@@ -31,6 +31,11 @@ urlpatterns = [
         name="account-receipts-all",
     ),
     path(
+        "accounts/<uuid:pk>/passbook/",
+        views.SavingsPassbookPdfView.as_view(),
+        name="account-passbook-pdf",
+    ),
+    path(
         "accounts/<uuid:pk>/transactions/<int:txn_id>/receipt/",
         views.SavingsTransactionReceiptView.as_view(),
         name="transaction-receipt",

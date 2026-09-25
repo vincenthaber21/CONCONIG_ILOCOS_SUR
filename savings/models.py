@@ -301,7 +301,59 @@ class SavingsWalkIn(BaseModel):
     middle_name = models.CharField(max_length=100, blank=True)
     last_name = models.CharField(max_length=100)
     phone = models.CharField(max_length=20, blank=True)
-    address = models.CharField(max_length=255, blank=True)
+    street = models.CharField(
+        max_length=150,
+        blank=True,
+        help_text="House number and street.",
+    )
+    barangay = models.CharField(max_length=150, blank=True)
+    municipality = models.CharField(max_length=150, blank=True)
+    province = models.CharField(max_length=150, blank=True)
+    address = models.CharField(
+        max_length=500,
+        blank=True,
+        help_text="Formatted home address: street, barangay, municipality, province.",
+    )
+
+    @staticmethod
+    def normalize_place(value):
+        """Title-case a place name and collapse extra spaces."""
+        text = " ".join(str(value or "").replace(",", " ").split())
+        if not text:
+            return ""
+        small_words = {"of", "and", "the", "de", "del", "la", "las", "los", "ng", "sa"}
+        words = []
+        for index, word in enumerate(text.split()):
+            lower = word.lower()
+            if index and lower in small_words:
+                words.append(lower)
+            else:
+                words.append(lower[:1].upper() + lower[1:])
+        return " ".join(words)
+
+    @classmethod
+    def format_address(cls, street, barangay, municipality, province):
+        """One postal line: 12 Rizal St, Brgy. San Julian, Vigan City, Ilocos Sur."""
+        street = cls.normalize_place(street)
+        barangay = cls.normalize_place(barangay)
+        lowered = barangay.lower()
+        for prefix in ("brgy. ", "brgy ", "barangay "):
+            if lowered.startswith(prefix):
+                barangay = barangay[len(prefix):].strip()
+                lowered = barangay.lower()
+                break
+        municipality = cls.normalize_place(municipality)
+        province = cls.normalize_place(province)
+        parts = []
+        if street:
+            parts.append(street)
+        if barangay:
+            parts.append(f"Brgy. {barangay}")
+        if municipality:
+            parts.append(municipality)
+        if province:
+            parts.append(province)
+        return ", ".join(parts)
 
     class Meta:
         ordering = ["last_name", "first_name"]
@@ -497,11 +549,26 @@ class SavingsBeneficiary(BaseModel):
     first_name = models.CharField(max_length=100, blank=True)
     last_name = models.CharField(max_length=100, blank=True)
     relationship = models.CharField(max_length=20, choices=Relationship.choices)
+    street = models.CharField(max_length=150, blank=True)
+    barangay = models.CharField(max_length=150, blank=True)
+    municipality = models.CharField(max_length=150, blank=True)
+    province = models.CharField(max_length=150, blank=True)
+    address = models.CharField(max_length=500, blank=True)
 
     class Meta:
         ordering = ["created_at"]
         verbose_name = "Savings beneficiary"
         verbose_name_plural = "Savings beneficiaries"
+
+    def save(self, *args, **kwargs):
+        self.street = SavingsWalkIn.normalize_place(self.street)
+        self.barangay = SavingsWalkIn.normalize_place(self.barangay)
+        self.municipality = SavingsWalkIn.normalize_place(self.municipality)
+        self.province = SavingsWalkIn.normalize_place(self.province)
+        self.address = SavingsWalkIn.format_address(
+            self.street, self.barangay, self.municipality, self.province
+        )
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.display_name} ({self.get_relationship_display()})"

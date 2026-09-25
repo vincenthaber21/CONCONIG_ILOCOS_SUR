@@ -9,7 +9,7 @@
         <i class="bi bi-arrow-left"></i> Loans
       </a>
       <h1>Loan products</h1>
-      <p class="subtitle mb-0">Offerings members can apply for — amount range and term.</p>
+      <p class="subtitle mb-0">Offerings members can apply for — amount range, interest, and term.</p>
     </div>
     <div class="lp-header__actions">
       <a class="btn--secondary" href="{% url 'loan_settings' %}">
@@ -35,6 +35,7 @@
             <th>Product</th>
             <th>Amount range</th>
             <th>Term</th>
+            <th>Interest</th>
             <th>Usable days</th>
             <th class="lp-th-num">Apps</th>
             <th class="lp-th-actions">Actions</th>
@@ -57,6 +58,12 @@
               &#8369;{{ product.max_amount|currency }}
             </td>
             <td class="lp-nowrap">{{ product.term_months }} months</td>
+            <td class="lp-nowrap">
+              <div class="lp-interest">
+                <strong>{{ product.interest_rate|floatformat:3 }}</strong>
+                <small>{{ product.interest_percent|floatformat:1 }}%</small>
+              </div>
+            </td>
             <td class="lp-nowrap">
               {% if product.uses_usable_days %}
               <span class="lp-apps-badge" style="background:#dcfce7;color:#166534;">Yes · 360-day</span>
@@ -103,6 +110,10 @@
         <div class="lp-metric">
           <span class="lp-metric__label">Term</span>
           <span class="lp-metric__value">{{ product.term_months }} months</span>
+        </div>
+        <div class="lp-metric">
+          <span class="lp-metric__label">Interest</span>
+          <span class="lp-metric__value">{{ product.interest_rate|floatformat:3 }} <span class="lp-range-sep">({{ product.interest_percent|floatformat:1 }}%)</span></span>
         </div>
         <div class="lp-metric">
           <span class="lp-metric__label">Usable days</span>

@@ -119,6 +119,29 @@
                   {{ form.walk_in_phone }}
                 </div>
               </div>
+              <div class="open-account-form__field">
+                <label for="{{ form.walk_in_street.id_for_label }}">{{ form.walk_in_street.label }}</label>
+                {{ form.walk_in_street }}
+                {% if form.walk_in_street.errors %}<div class="open-account-form__errors">{{ form.walk_in_street.errors }}</div>{% endif %}
+              </div>
+              <div class="open-account-form__row open-account-form__row--date">
+                <div class="open-account-form__field">
+                  <label for="{{ form.walk_in_barangay.id_for_label }}">{{ form.walk_in_barangay.label }}</label>
+                  {{ form.walk_in_barangay }}
+                  {% if form.walk_in_barangay.errors %}<div class="open-account-form__errors">{{ form.walk_in_barangay.errors }}</div>{% endif %}
+                </div>
+                <div class="open-account-form__field">
+                  <label for="{{ form.walk_in_municipality.id_for_label }}">{{ form.walk_in_municipality.label }}</label>
+                  {{ form.walk_in_municipality }}
+                  {% if form.walk_in_municipality.errors %}<div class="open-account-form__errors">{{ form.walk_in_municipality.errors }}</div>{% endif %}
+                </div>
+              </div>
+              <div class="open-account-form__field">
+                <label for="{{ form.walk_in_province.id_for_label }}">{{ form.walk_in_province.label }}</label>
+                {{ form.walk_in_province }}
+                <p class="open-account-form__hint">Saved as house / street, Brgy., municipality, province.</p>
+                {% if form.walk_in_province.errors %}<div class="open-account-form__errors">{{ form.walk_in_province.errors }}</div>{% endif %}
+              </div>
             </div>
           </div>
 
@@ -186,7 +209,7 @@
               <span class="open-account-form__section-icon"><i class="bi bi-heart"></i></span>
               Beneficiaries
             </h2>
-            <p>Pick a cooperative member, or type the beneficiary’s name. A second beneficiary is optional.</p>
+            <p>Pick a cooperative member, or type the beneficiary’s name, then enter the address. A second beneficiary is optional.</p>
           </div>
           <label class="open-account-joint__toggle" for="{{ form.beneficiary_is_member.id_for_label }}">
             {{ form.beneficiary_is_member }}
@@ -213,6 +236,28 @@
             <label for="{{ form.beneficiary_relationship.id_for_label }}">{{ form.beneficiary_relationship.label }}</label>
             {{ form.beneficiary_relationship }}
             {% if form.beneficiary_relationship.errors %}<div class="open-account-form__errors">{{ form.beneficiary_relationship.errors }}</div>{% endif %}
+          </div>
+          <div class="open-account-form__field">
+            <label for="{{ form.beneficiary_street.id_for_label }}">{{ form.beneficiary_street.label }}</label>
+            {{ form.beneficiary_street }}
+            {% if form.beneficiary_street.errors %}<div class="open-account-form__errors">{{ form.beneficiary_street.errors }}</div>{% endif %}
+          </div>
+          <div class="open-account-form__row open-account-form__row--date">
+            <div class="open-account-form__field">
+              <label for="{{ form.beneficiary_barangay.id_for_label }}">{{ form.beneficiary_barangay.label }}</label>
+              {{ form.beneficiary_barangay }}
+              {% if form.beneficiary_barangay.errors %}<div class="open-account-form__errors">{{ form.beneficiary_barangay.errors }}</div>{% endif %}
+            </div>
+            <div class="open-account-form__field">
+              <label for="{{ form.beneficiary_municipality.id_for_label }}">{{ form.beneficiary_municipality.label }}</label>
+              {{ form.beneficiary_municipality }}
+              {% if form.beneficiary_municipality.errors %}<div class="open-account-form__errors">{{ form.beneficiary_municipality.errors }}</div>{% endif %}
+            </div>
+          </div>
+          <div class="open-account-form__field">
+            <label for="{{ form.beneficiary_province.id_for_label }}">{{ form.beneficiary_province.label }}</label>
+            {{ form.beneficiary_province }}
+            {% if form.beneficiary_province.errors %}<div class="open-account-form__errors">{{ form.beneficiary_province.errors }}</div>{% endif %}
           </div>
 
           <label class="open-account-joint__toggle" for="{{ form.beneficiary2_enabled.id_for_label }}">
@@ -245,6 +290,28 @@
               <label for="{{ form.beneficiary2_relationship.id_for_label }}">Relationship</label>
               {{ form.beneficiary2_relationship }}
               {% if form.beneficiary2_relationship.errors %}<div class="open-account-form__errors">{{ form.beneficiary2_relationship.errors }}</div>{% endif %}
+            </div>
+            <div class="open-account-form__field">
+              <label for="{{ form.beneficiary2_street.id_for_label }}">{{ form.beneficiary2_street.label }}</label>
+              {{ form.beneficiary2_street }}
+              {% if form.beneficiary2_street.errors %}<div class="open-account-form__errors">{{ form.beneficiary2_street.errors }}</div>{% endif %}
+            </div>
+            <div class="open-account-form__row open-account-form__row--date">
+              <div class="open-account-form__field">
+                <label for="{{ form.beneficiary2_barangay.id_for_label }}">{{ form.beneficiary2_barangay.label }}</label>
+                {{ form.beneficiary2_barangay }}
+                {% if form.beneficiary2_barangay.errors %}<div class="open-account-form__errors">{{ form.beneficiary2_barangay.errors }}</div>{% endif %}
+              </div>
+              <div class="open-account-form__field">
+                <label for="{{ form.beneficiary2_municipality.id_for_label }}">{{ form.beneficiary2_municipality.label }}</label>
+                {{ form.beneficiary2_municipality }}
+                {% if form.beneficiary2_municipality.errors %}<div class="open-account-form__errors">{{ form.beneficiary2_municipality.errors }}</div>{% endif %}
+              </div>
+            </div>
+            <div class="open-account-form__field">
+              <label for="{{ form.beneficiary2_province.id_for_label }}">{{ form.beneficiary2_province.label }}</label>
+              {{ form.beneficiary2_province }}
+              {% if form.beneficiary2_province.errors %}<div class="open-account-form__errors">{{ form.beneficiary2_province.errors }}</div>{% endif %}
             </div>
           </div>
         </div>
@@ -988,6 +1055,10 @@
     var walkInFirst = document.getElementById("{{ form.walk_in_first_name.id_for_label }}");
     var walkInMiddle = document.getElementById("{{ form.walk_in_middle_name.id_for_label }}");
     var walkInLast = document.getElementById("{{ form.walk_in_last_name.id_for_label }}");
+    var walkInStreet = document.getElementById("{{ form.walk_in_street.id_for_label }}");
+    var walkInBarangay = document.getElementById("{{ form.walk_in_barangay.id_for_label }}");
+    var walkInMunicipality = document.getElementById("{{ form.walk_in_municipality.id_for_label }}");
+    var walkInProvince = document.getElementById("{{ form.walk_in_province.id_for_label }}");
     var beneficiaryIsMember = document.getElementById("{{ form.beneficiary_is_member.id_for_label }}");
     var beneficiaryMember = document.getElementById("{{ form.beneficiary_member.id_for_label }}");
     var beneficiaryMemberField = document.getElementById("beneficiaryMemberField");
@@ -995,6 +1066,10 @@
     var beneficiaryFirst = document.getElementById("{{ form.beneficiary_first_name.id_for_label }}");
     var beneficiaryLast = document.getElementById("{{ form.beneficiary_last_name.id_for_label }}");
     var beneficiaryRelationship = document.getElementById("{{ form.beneficiary_relationship.id_for_label }}");
+    var beneficiaryStreet = document.getElementById("{{ form.beneficiary_street.id_for_label }}");
+    var beneficiaryBarangay = document.getElementById("{{ form.beneficiary_barangay.id_for_label }}");
+    var beneficiaryMunicipality = document.getElementById("{{ form.beneficiary_municipality.id_for_label }}");
+    var beneficiaryProvince = document.getElementById("{{ form.beneficiary_province.id_for_label }}");
     var beneficiary2Enabled = document.getElementById("{{ form.beneficiary2_enabled.id_for_label }}");
     var beneficiary2Fields = document.getElementById("beneficiary2Fields");
     var beneficiary2IsMember = document.getElementById("{{ form.beneficiary2_is_member.id_for_label }}");
@@ -1004,6 +1079,10 @@
     var beneficiary2First = document.getElementById("{{ form.beneficiary2_first_name.id_for_label }}");
     var beneficiary2Last = document.getElementById("{{ form.beneficiary2_last_name.id_for_label }}");
     var beneficiary2Relationship = document.getElementById("{{ form.beneficiary2_relationship.id_for_label }}");
+    var beneficiary2Street = document.getElementById("{{ form.beneficiary2_street.id_for_label }}");
+    var beneficiary2Barangay = document.getElementById("{{ form.beneficiary2_barangay.id_for_label }}");
+    var beneficiary2Municipality = document.getElementById("{{ form.beneficiary2_municipality.id_for_label }}");
+    var beneficiary2Province = document.getElementById("{{ form.beneficiary2_province.id_for_label }}");
     var ticketBeneficiary = document.getElementById("ticketBeneficiary");
     var jointField = document.getElementById("jointMemberField");
     var ticketJointRow = document.getElementById("ticketJointRow");
@@ -1227,17 +1306,25 @@
     }
 
     function beneficiaryReady() {
-      function ok(isMemberEl, memberEl, firstEl, lastEl, relEl) {
+      function placeFilled(street, barangay, municipality, province) {
+        return !!(
+          street && street.value.trim()
+          && barangay && barangay.value.trim()
+          && municipality && municipality.value.trim()
+          && province && province.value.trim()
+        );
+      }
+      function ok(isMemberEl, memberEl, firstEl, lastEl, relEl, street, barangay, municipality, province) {
         var named = isMemberEl && isMemberEl.checked
           ? selectHasValue(memberEl)
           : !!((firstEl && firstEl.value || "").trim() && (lastEl && lastEl.value || "").trim());
-        return named && !!(relEl && relEl.value);
+        return named && !!(relEl && relEl.value) && placeFilled(street, barangay, municipality, province);
       }
-      if (!ok(beneficiaryIsMember, beneficiaryMember, beneficiaryFirst, beneficiaryLast, beneficiaryRelationship)) {
+      if (!ok(beneficiaryIsMember, beneficiaryMember, beneficiaryFirst, beneficiaryLast, beneficiaryRelationship, beneficiaryStreet, beneficiaryBarangay, beneficiaryMunicipality, beneficiaryProvince)) {
         return false;
       }
       if (beneficiary2Enabled && beneficiary2Enabled.checked) {
-        return ok(beneficiary2IsMember, beneficiary2Member, beneficiary2First, beneficiary2Last, beneficiary2Relationship);
+        return ok(beneficiary2IsMember, beneficiary2Member, beneficiary2First, beneficiary2Last, beneficiary2Relationship, beneficiary2Street, beneficiary2Barangay, beneficiary2Municipality, beneficiary2Province);
       }
       return true;
     }
@@ -1367,7 +1454,7 @@
     }
 
     function clearFlash() {
-      [amountInput, dateInput, serialInput].forEach(function (el) {
+      [amountInput, dateInput, serialInput, walkInStreet, walkInBarangay, walkInMunicipality, walkInProvince].forEach(function (el) {
         if (el) el.classList.remove("is-invalid");
       });
       [memberSelect, jointSelect].forEach(function (el) {
@@ -1391,7 +1478,13 @@
       syncJointVisibility();
       excludePrimaryFromJointOptions();
 
-      var hasMember = isWalkIn() ? !!walkInName() : selectHasValue(memberSelect);
+      var hasWalkInAddress = !!(
+        walkInStreet && walkInStreet.value.trim()
+        && walkInBarangay && walkInBarangay.value.trim()
+        && walkInMunicipality && walkInMunicipality.value.trim()
+        && walkInProvince && walkInProvince.value.trim()
+      );
+      var hasMember = isWalkIn() ? (!!walkInName() && hasWalkInAddress) : selectHasValue(memberSelect);
       var joint = isJoint();
       if (selectHasValue(jointSelect) && !isDuplicateHolders()) {
         duplicateBlocked = false;
@@ -1477,6 +1570,17 @@
           window.alert("Enter the walk-in first name and surname.");
           return null;
         }
+        if (!(walkInStreet && walkInStreet.value.trim())
+            || !(walkInBarangay && walkInBarangay.value.trim())
+            || !(walkInMunicipality && walkInMunicipality.value.trim())
+            || !(walkInProvince && walkInProvince.value.trim())) {
+          flash(walkInStreet);
+          flash(walkInBarangay);
+          flash(walkInMunicipality);
+          flash(walkInProvince);
+          window.alert("Enter the house/street, barangay, municipality, and province.");
+          return null;
+        }
       } else if (!selectHasValue(memberSelect)) {
         flash(memberSelect);
         if (memberSelect && memberSelect.tomselect) {
@@ -1515,7 +1619,7 @@
         return null;
       }
       if (!beneficiaryReady()) {
-        window.alert("Add a beneficiary: pick a member or type a name, and choose the relationship.");
+        window.alert("Add a beneficiary: pick a member or type a name, choose the relationship, and enter the address.");
         return null;
       }
       var amount = parseAmount(amountInput && amountInput.value);
@@ -1660,7 +1764,7 @@
         if (!el) return;
         el.addEventListener("change", syncTicket);
       });
-      [beneficiaryFirst, beneficiaryLast, beneficiary2First, beneficiary2Last].forEach(function (el) {
+      [beneficiaryFirst, beneficiaryLast, beneficiary2First, beneficiary2Last, beneficiaryStreet, beneficiaryBarangay, beneficiaryMunicipality, beneficiaryProvince, beneficiary2Street, beneficiary2Barangay, beneficiary2Municipality, beneficiary2Province].forEach(function (el) {
         if (!el) return;
         el.addEventListener("input", syncTicket);
       });

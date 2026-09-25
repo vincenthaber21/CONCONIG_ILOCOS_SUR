@@ -1877,6 +1877,82 @@ def _amount_in_words(amount):
     return f"{result} Only"
 
 
+def _nonfinance_charges_label(share, insurance, savings, other, other_label):
+    """Name the non-finance lines that actually have an amount."""
+    parts = []
+    if share > 0:
+        parts.append("Share capital")
+    if insurance > 0:
+        parts.append("Insurance")
+    if savings > 0:
+        parts.append("Savings")
+    if other > 0:
+        parts.append((other_label or "Other deduction").strip() or "Other deduction")
+    if not parts:
+        return "Others"
+    if len(parts) == 1:
+        return parts[0]
+    return ", ".join(parts[:-1]) + " & " + parts[-1]
+
+
+def disclosure_statement_charges(application):
+    """Truth-in-Lending amounts from stored disbursement and payment rows.
+
+    Finance charges are interest plus service fee. Share capital, insurance,
+    savings, and other deductions are non-finance charges. Net proceeds is
+    the cash actually released (or the formula net when not yet disbursed).
+
+    Interest withheld at disbursement and interest recorded on payments are
+    separate amounts and are added together.
+    """
+    amount = Decimal(application.amount_requested or 0).quantize(TWO_PLACES)
+    zero = Decimal("0.00")
+    disbursement = getattr(application, "disbursement", None)
+    collected_interest = Decimal(application.recorded_period_interest() or 0).quantize(
+        TWO_PLACES
+    )
+
+    if disbursement is not None:
+        prepaid_interest = Decimal(disbursement.interest_amount or 0).quantize(TWO_PLACES)
+        service_fee = Decimal(disbursement.transaction_fee or 0).quantize(TWO_PLACES)
+        share = Decimal(disbursement.share_capital_amount or 0).quantize(TWO_PLACES)
+        insurance = Decimal(disbursement.insurance_amount or 0).quantize(TWO_PLACES)
+        savings = Decimal(disbursement.savings_amount or 0).quantize(TWO_PLACES)
+        other = Decimal(disbursement.other_deduction_amount or 0).quantize(TWO_PLACES)
+        other_label = disbursement.other_deduction_label or ""
+        net_proceeds = Decimal(disbursement.amount_released or 0).quantize(TWO_PLACES)
+    else:
+        calc = compute_disbursement_deductions(
+            amount,
+            application.effective_interest_rate(),
+            application.term_months,
+            savings=zero,
+            uses_usable_days=product_uses_usable_days(application),
+        )
+        prepaid_interest = calc["interest_amount"]
+        service_fee = calc["service_fee_amount"]
+        share = calc["share_capital_amount"]
+        insurance = calc["insurance_amount"]
+        savings = calc["savings_amount"]
+        other = zero
+        other_label = ""
+        net_proceeds = calc["amount_released"]
+
+    interest_on_loan = (prepaid_interest + collected_interest).quantize(TWO_PLACES)
+    finance_charges = (interest_on_loan + service_fee).quantize(TWO_PLACES)
+    other_charges = (share + insurance + savings + other).quantize(TWO_PLACES)
+    return {
+        "service_fee": service_fee,
+        "other_charges": other_charges,
+        "other_charges_label": _nonfinance_charges_label(
+            share, insurance, savings, other, other_label
+        ),
+        "interest_on_loan": interest_on_loan,
+        "finance_charges": finance_charges,
+        "net_proceeds": net_proceeds,
+    }
+
+
 def build_loan_agreement_context(application):
     """Collect loan details used by the Complete Loan Form (HTML + PDF)."""
     product = application.loan_product
@@ -1932,35 +2008,20 @@ def build_loan_agreement_context(application):
     disbursement = getattr(application, "disbursement", None)
     if disbursement and disbursement.disbursement_date:
         date_granted = timezone.localdate(disbursement.disbursement_date)
-        service_fee = Decimal(disbursement.transaction_fee or 0)
-        other_charges = (
-            Decimal(disbursement.interest_amount or 0)
-            + Decimal(disbursement.share_capital_amount or 0)
-            + Decimal(disbursement.insurance_amount or 0)
-            + Decimal(disbursement.savings_amount or 0)
-            + Decimal(disbursement.other_deduction_amount or 0)
-        )
-        other_charges_label = "Interest, share capital, insurance & savings"
-        if Decimal(disbursement.other_deduction_amount or 0) > 0 and (
-            disbursement.other_deduction_label or ""
-        ).strip():
-            other_charges_label = (
-                f"{other_charges_label}; {disbursement.other_deduction_label.strip()}"
-            )
-        net_proceeds = Decimal(disbursement.amount_released or 0)
     else:
         date_granted = today
-        service_fee = Decimal("0.00")
-        other_charges = Decimal("0.00")
-        other_charges_label = "Others"
-        net_proceeds = Decimal(application.amount_requested or 0)
+
+    charges = disclosure_statement_charges(application)
+    service_fee = charges["service_fee"]
+    other_charges = charges["other_charges"]
+    other_charges_label = charges["other_charges_label"]
+    interest_on_loan = charges["interest_on_loan"]
+    finance_charges = charges["finance_charges"]
+    net_proceeds = charges["net_proceeds"]
 
     date_due = _add_calendar_months(date_granted, int(application.term_months or 0))
     amount = Decimal(application.amount_requested or 0).quantize(TWO_PLACES)
     late_rate_pct = (late_rate * Decimal("100")).quantize(Decimal("0.001"))
-    finance_charges = (service_fee + other_charges).quantize(TWO_PLACES)
-    # On-time loans in this system charge principal only; show zero finance interest.
-    interest_on_loan = Decimal("0.00")
 
     payment_option = getattr(application, "payment_option", None)
     if payment_option and payment_option.option == "LUMP_SUM":

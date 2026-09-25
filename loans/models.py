@@ -183,6 +183,12 @@ class LoanProduct(BaseModel):
     def __str__(self):
         return self.name
 
+    @property
+    def interest_percent(self):
+        """Product rate as a percent (0.015 → 1.5)."""
+        rate = Decimal(self.interest_rate or 0)
+        return (rate * Decimal("100")).quantize(Decimal("0.1"))
+
 
 class LoanInquiry(TimeStampedModel):
     """A pre-application inquiry logged by staff or the member."""

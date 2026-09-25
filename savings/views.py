@@ -279,6 +279,11 @@ class OpenSavingsAccountView(SavingsStaffMixin, View):
                         "middle_name": form.cleaned_data.get("walk_in_middle_name") or "",
                         "last_name": form.cleaned_data.get("walk_in_last_name") or "",
                         "phone": form.cleaned_data.get("walk_in_phone") or "",
+                        "street": form.cleaned_data.get("walk_in_street") or "",
+                        "barangay": form.cleaned_data.get("walk_in_barangay") or "",
+                        "municipality": form.cleaned_data.get("walk_in_municipality") or "",
+                        "province": form.cleaned_data.get("walk_in_province") or "",
+                        "address": form.cleaned_data.get("walk_in_address") or "",
                     }
                 account = services.open_account(
                     member=form.cleaned_data.get("member"),
@@ -621,6 +626,20 @@ class SavingsTransactionReceiptView(SavingsStaffMixin, View):
             self.template_name,
             _receipt_context(request, account, [txn], single=True, txn=txn),
         )
+
+
+class SavingsPassbookPdfView(SavingsStaffMixin, View):
+    """Download the member passbook: the full transaction ledger as a PDF."""
+
+    def get(self, request, pk):
+        account = get_object_or_404(
+            models.MemberSavingsAccount.objects.select_related(
+                "member", "product", "walk_in"
+            ).prefetch_related("joint_owner_links__member"),
+            pk=pk,
+        )
+        user_label = request.user.get_full_name() or request.user.username
+        return exports.passbook_pdf_response(account, user_label=user_label)
 
 
 class SavingsReceiptBatchView(SavingsStaffMixin, View):

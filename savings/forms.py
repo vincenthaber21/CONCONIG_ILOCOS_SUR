@@ -472,6 +472,31 @@ class OpenSavingsAccountForm(forms.Form):
         label="Relationship",
         choices=[("", "Relationship")] + list(BENEFICIARY_RELATIONSHIPS),
     )
+    beneficiary_street = forms.CharField(
+        required=False,
+        max_length=150,
+        label="House no. / street",
+        widget=forms.TextInput(attrs={"placeholder": "12 Rizal Street", "autocomplete": "off"}),
+    )
+    beneficiary_barangay = forms.CharField(
+        required=False,
+        max_length=150,
+        label="Barangay",
+        widget=forms.TextInput(attrs={"placeholder": "San Julian", "autocomplete": "off"}),
+    )
+    beneficiary_municipality = forms.CharField(
+        required=False,
+        max_length=150,
+        label="Municipality / city",
+        widget=forms.TextInput(attrs={"placeholder": "Vigan City", "autocomplete": "off"}),
+    )
+    beneficiary_province = forms.CharField(
+        required=False,
+        max_length=150,
+        label="Province",
+        initial="Ilocos Sur",
+        widget=forms.TextInput(attrs={"placeholder": "Ilocos Sur", "autocomplete": "off"}),
+    )
     beneficiary2_enabled = forms.BooleanField(
         required=False,
         initial=False,
@@ -508,11 +533,63 @@ class OpenSavingsAccountForm(forms.Form):
         label="Relationship",
         choices=[("", "Relationship")] + list(BENEFICIARY_RELATIONSHIPS),
     )
+    beneficiary2_street = forms.CharField(
+        required=False,
+        max_length=150,
+        label="House no. / street",
+        widget=forms.TextInput(attrs={"placeholder": "12 Rizal Street", "autocomplete": "off"}),
+    )
+    beneficiary2_barangay = forms.CharField(
+        required=False,
+        max_length=150,
+        label="Barangay",
+        widget=forms.TextInput(attrs={"placeholder": "San Julian", "autocomplete": "off"}),
+    )
+    beneficiary2_municipality = forms.CharField(
+        required=False,
+        max_length=150,
+        label="Municipality / city",
+        widget=forms.TextInput(attrs={"placeholder": "Vigan City", "autocomplete": "off"}),
+    )
+    beneficiary2_province = forms.CharField(
+        required=False,
+        max_length=150,
+        label="Province",
+        initial="Ilocos Sur",
+        widget=forms.TextInput(attrs={"placeholder": "Ilocos Sur", "autocomplete": "off"}),
+    )
     walk_in_phone = forms.CharField(
         required=False,
         max_length=20,
         label="Mobile number",
         widget=forms.TextInput(attrs={"placeholder": "09xxxxxxxxx", "autocomplete": "off"}),
+    )
+    walk_in_street = forms.CharField(
+        required=False,
+        max_length=150,
+        label="House no. / street",
+        widget=forms.TextInput(
+            attrs={"placeholder": "12 Rizal Street", "autocomplete": "off"}
+        ),
+    )
+    walk_in_barangay = forms.CharField(
+        required=False,
+        max_length=150,
+        label="Barangay",
+        widget=forms.TextInput(attrs={"placeholder": "San Julian", "autocomplete": "off"}),
+    )
+    walk_in_municipality = forms.CharField(
+        required=False,
+        max_length=150,
+        label="Municipality / city",
+        widget=forms.TextInput(attrs={"placeholder": "Vigan City", "autocomplete": "off"}),
+    )
+    walk_in_province = forms.CharField(
+        required=False,
+        max_length=150,
+        label="Province",
+        initial="Ilocos Sur",
+        widget=forms.TextInput(attrs={"placeholder": "Ilocos Sur", "autocomplete": "off"}),
     )
     passbook_serial = forms.CharField(
         max_length=40,
@@ -731,6 +808,25 @@ class OpenSavingsAccountForm(forms.Form):
             cleaned["walk_in_middle_name"] = (cleaned.get("walk_in_middle_name") or "").strip()
             cleaned["walk_in_last_name"] = last_name
             cleaned["walk_in_phone"] = (cleaned.get("walk_in_phone") or "").strip()
+            street = models.SavingsWalkIn.normalize_place(cleaned.get("walk_in_street"))
+            barangay = models.SavingsWalkIn.normalize_place(cleaned.get("walk_in_barangay"))
+            municipality = models.SavingsWalkIn.normalize_place(cleaned.get("walk_in_municipality"))
+            province = models.SavingsWalkIn.normalize_place(cleaned.get("walk_in_province"))
+            if not street:
+                self.add_error("walk_in_street", "Enter the house number and street.")
+            if not barangay:
+                self.add_error("walk_in_barangay", "Enter the barangay.")
+            if not municipality:
+                self.add_error("walk_in_municipality", "Enter the municipality or city.")
+            if not province:
+                self.add_error("walk_in_province", "Enter the province.")
+            cleaned["walk_in_street"] = street
+            cleaned["walk_in_barangay"] = barangay
+            cleaned["walk_in_municipality"] = municipality
+            cleaned["walk_in_province"] = province
+            cleaned["walk_in_address"] = models.SavingsWalkIn.format_address(
+                street, barangay, municipality, province
+            )
         elif not member:
             self.add_error("member", "Select a member, or turn on Walk-in (not a member).")
 
@@ -812,9 +908,13 @@ class OpenSavingsAccountForm(forms.Form):
             member_key="beneficiary_member",
             first_key="beneficiary_first_name",
             last_key="beneficiary_last_name",
-            relationship_key="beneficiary_relationship",
-            label="Beneficiary",
-        )
+                relationship_key="beneficiary_relationship",
+                street_key="beneficiary_street",
+                barangay_key="beneficiary_barangay",
+                municipality_key="beneficiary_municipality",
+                province_key="beneficiary_province",
+                label="Beneficiary",
+            )
         if first:
             rows.append(first)
         if cleaned.get("beneficiary2_enabled"):
@@ -827,6 +927,10 @@ class OpenSavingsAccountForm(forms.Form):
                 first_key="beneficiary2_first_name",
                 last_key="beneficiary2_last_name",
                 relationship_key="beneficiary2_relationship",
+                street_key="beneficiary2_street",
+                barangay_key="beneficiary2_barangay",
+                municipality_key="beneficiary2_municipality",
+                province_key="beneficiary2_province",
                 label="Second beneficiary",
             )
             if second:
@@ -863,10 +967,23 @@ class OpenSavingsAccountForm(forms.Form):
         first_key,
         last_key,
         relationship_key,
+        street_key,
+        barangay_key,
+        municipality_key,
+        province_key,
         label,
     ):
         is_member = bool(cleaned.get(is_member_key))
         relationship = (cleaned.get(relationship_key) or "").strip()
+        address = self._beneficiary_address(
+            cleaned,
+            street_key,
+            barangay_key,
+            municipality_key,
+            province_key,
+            label,
+            person=cleaned.get(member_key) if is_member else None,
+        )
         if is_member:
             person = cleaned.get(member_key)
             if person is None:
@@ -880,7 +997,9 @@ class OpenSavingsAccountForm(forms.Form):
                 )
             if not relationship:
                 self.add_error(relationship_key, f"Choose how the {label.lower()} is related.")
-            return {"member": person, "relationship": relationship}
+            if not relationship or not address:
+                return None
+            return {"member": person, "relationship": relationship, **address}
         first_name = (cleaned.get(first_key) or "").strip()
         last_name = (cleaned.get(last_key) or "").strip()
         cleaned[first_key] = first_name
@@ -891,12 +1010,53 @@ class OpenSavingsAccountForm(forms.Form):
             self.add_error(last_key, f"Enter the {label.lower()} surname, or pick a member.")
         if not relationship:
             self.add_error(relationship_key, f"Choose how the {label.lower()} is related.")
-        if not first_name or not last_name or not relationship:
+        if not first_name or not last_name or not relationship or not address:
             return None
         return {
             "first_name": first_name,
             "last_name": last_name,
             "relationship": relationship,
+            **address,
+        }
+
+    def _beneficiary_address(
+        self, cleaned, street_key, barangay_key, municipality_key, province_key, label, person
+    ):
+        street = models.SavingsWalkIn.normalize_place(cleaned.get(street_key))
+        barangay = models.SavingsWalkIn.normalize_place(cleaned.get(barangay_key))
+        municipality = models.SavingsWalkIn.normalize_place(cleaned.get(municipality_key))
+        province = models.SavingsWalkIn.normalize_place(cleaned.get(province_key))
+        if person is not None:
+            street = street or models.SavingsWalkIn.normalize_place(getattr(person, "home_address", ""))
+            barangay = barangay or models.SavingsWalkIn.normalize_place(getattr(person, "barangay", ""))
+            municipality = municipality or models.SavingsWalkIn.normalize_place(
+                getattr(person, "municipality", "")
+            )
+            province = province or models.SavingsWalkIn.normalize_place(getattr(person, "province", ""))
+        missing = []
+        if not street:
+            self.add_error(street_key, f"Enter the {label.lower()} house number and street.")
+            missing.append("street")
+        if not barangay:
+            self.add_error(barangay_key, f"Enter the {label.lower()} barangay.")
+            missing.append("barangay")
+        if not municipality:
+            self.add_error(municipality_key, f"Enter the {label.lower()} municipality or city.")
+            missing.append("municipality")
+        if not province:
+            self.add_error(province_key, f"Enter the {label.lower()} province.")
+            missing.append("province")
+        cleaned[street_key] = street
+        cleaned[barangay_key] = barangay
+        cleaned[municipality_key] = municipality
+        cleaned[province_key] = province
+        if missing:
+            return None
+        return {
+            "street": street,
+            "barangay": barangay,
+            "municipality": municipality,
+            "province": province,
         }
 
 

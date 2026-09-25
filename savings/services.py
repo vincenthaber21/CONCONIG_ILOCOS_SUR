@@ -247,7 +247,16 @@ def open_account(
             middle_name=(walk_in.get("middle_name") or "").strip(),
             last_name=(walk_in.get("last_name") or "").strip(),
             phone=(walk_in.get("phone") or "").strip(),
-            address=(walk_in.get("address") or "").strip(),
+            street=models.SavingsWalkIn.normalize_place(walk_in.get("street")),
+            barangay=models.SavingsWalkIn.normalize_place(walk_in.get("barangay")),
+            municipality=models.SavingsWalkIn.normalize_place(walk_in.get("municipality")),
+            province=models.SavingsWalkIn.normalize_place(walk_in.get("province")),
+            address=models.SavingsWalkIn.format_address(
+                walk_in.get("street"),
+                walk_in.get("barangay"),
+                walk_in.get("municipality"),
+                walk_in.get("province"),
+            ),
         )
     account = models.MemberSavingsAccount(
         member=member,
@@ -270,6 +279,10 @@ def open_account(
             first_name=(row.get("first_name") or "").strip(),
             last_name=(row.get("last_name") or "").strip(),
             relationship=row.get("relationship") or models.SavingsBeneficiary.Relationship.OTHER,
+            street=row.get("street") or "",
+            barangay=row.get("barangay") or "",
+            municipality=row.get("municipality") or "",
+            province=row.get("province") or "",
         )
     if co_owners:
         models.SavingsJointOwner.objects.bulk_create(

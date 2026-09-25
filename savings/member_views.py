@@ -9,7 +9,7 @@ from django.urls import reverse
 from helper.login_helper import member_or_login_required
 from members.models import Member
 
-from . import models, services
+from . import exports, models, services
 from .policy import regular_savings_policy
 from .views import _receipt_context
 
@@ -115,6 +115,13 @@ def member_savings_receipt(request, pk, txn_id):
         back_url=reverse("member_savings_account", kwargs={"pk": account.pk}),
     )
     return render(request, "savings/transaction_receipt.html", ctx)
+
+
+@member_or_login_required
+def member_savings_passbook_pdf(request, pk):
+    account = _require_member_account(request, pk)
+    user_label = account.primary_holder_name or "Member"
+    return exports.passbook_pdf_response(account, user_label=user_label)
 
 
 @member_or_login_required

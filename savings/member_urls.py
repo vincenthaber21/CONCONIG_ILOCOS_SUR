@@ -15,6 +15,11 @@ urlpatterns = [
         name="member_savings_receipts_all",
     ),
     path(
+        "accounts/<uuid:pk>/passbook/",
+        member_views.member_savings_passbook_pdf,
+        name="member_savings_passbook_pdf",
+    ),
+    path(
         "accounts/<uuid:pk>/transactions/<int:txn_id>/receipt/",
         member_views.member_savings_receipt,
         name="member_savings_receipt",

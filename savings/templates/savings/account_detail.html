@@ -26,6 +26,9 @@
         {% endif %}
         {% if account.walk_in_id %}
         <span><i class="bi bi-person-walking"></i> Walk-in, not a member{% if account.walk_in.phone %} · {{ account.walk_in.phone }}{% endif %}</span>
+        {% if account.walk_in.address %}
+        <span><i class="bi bi-geo-alt"></i> {{ account.walk_in.address }}</span>
+        {% endif %}
         {% elif account.member.member_status %}
         <span><i class="bi bi-person-badge"></i> {{ account.member.member_status.name }}</span>
         {% elif account.member.membership_status %}
@@ -33,7 +36,7 @@
         {% endif %}
         <span><i class="bi bi-calendar3"></i> Opened {{ account.opened_at|date:"M j, Y" }}</span>
         {% for person in account.beneficiaries.all %}
-        <span><i class="bi bi-heart"></i> Beneficiary {{ person.display_name }} · {{ person.get_relationship_display }}</span>
+        <span><i class="bi bi-heart"></i> Beneficiary {{ person.display_name }} · {{ person.get_relationship_display }}{% if person.address %} · {{ person.address }}{% endif %}</span>
         {% endfor %}
         {% if account.closed_at %}
         <span><i class="bi bi-x-circle"></i> Closed {{ account.closed_at|date:"M j, Y" }}</span>
@@ -316,13 +319,18 @@
     <div class="acct-section-head acct-section-head--row">
       <div>
         <h2>Transaction ledger</h2>
-        <p>Latest movements on this account.</p>
+        <p>Latest movements on this account. The passbook PDF includes the full ledger.</p>
       </div>
-      {% if ledger %}
-      <a class="btn--secondary" href="{% url 'savings:account-receipts-all' account.pk %}" target="_blank" rel="noopener">
-        <i class="bi bi-printer me-1"></i>Print all receipts
-      </a>
-      {% endif %}
+      <div class="acct-ledger-actions">
+        <a class="btn--secondary" href="{% url 'savings:account-passbook-pdf' account.pk %}">
+          <i class="bi bi-file-earmark-pdf me-1"></i>Download passbook PDF
+        </a>
+        {% if ledger %}
+        <a class="btn--secondary" href="{% url 'savings:account-receipts-all' account.pk %}" target="_blank" rel="noopener">
+          <i class="bi bi-printer me-1"></i>Print all receipts
+        </a>
+        {% endif %}
+      </div>
     </div>
     <div class="acct-ledger-table-wrap">
       <table class="acct-ledger-table">
@@ -564,6 +572,7 @@
     display: flex; flex-wrap: wrap; align-items: flex-start;
     justify-content: space-between; gap: .75rem;
   }
+  .acct-ledger-actions { display: flex; flex-wrap: wrap; gap: .5rem; }
 
   .acct-move-card,
   .acct-ledger-card,

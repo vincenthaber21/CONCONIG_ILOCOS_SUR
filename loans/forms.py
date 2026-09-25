@@ -71,27 +71,41 @@ class LoanProductForm(forms.ModelForm):
         label="Use usable days",
         widget=forms.HiddenInput(attrs={"id": "product-use-usable-days"}),
     )
-
     class Meta:
         model = models.LoanProduct
         fields = [
             "name",
             "description",
             "term_months",
+            "interest_rate",
             "min_amount",
             "max_amount",
         ]
         widgets = {
             "description": forms.Textarea(attrs={"rows": 3}),
             "term_months": forms.NumberInput(attrs={"min": 1, "step": 1}),
+            "interest_rate": forms.NumberInput(
+                attrs={
+                    "step": "any",
+                    "min": "0",
+                    "inputmode": "decimal",
+                    "placeholder": "0.180",
+                    "id": "id_interest_rate",
+                }
+            ),
         }
         labels = {
             "term_months": "Term (months)",
+            "interest_rate": "Interest rate",
         }
         help_texts = {
             "term_months": (
                 "How many monthly installments this product uses. "
                 "Term only sets the number of months — it does not change interest calculation."
+            ),
+            "interest_rate": (
+                "Type the rate used in the formula, such as 0.180. "
+                "0.180 means 18%. New applications start with this rate."
             ),
         }
 
@@ -107,6 +121,16 @@ class LoanProductForm(forms.ModelForm):
             )
         elif not self.is_bound:
             self.fields["uses_usable_days"].initial = "0"
+        self.fields["interest_rate"].required = True
+
+    def clean_interest_rate(self):
+        rate = self.cleaned_data.get("interest_rate")
+        if rate is None:
+            raise forms.ValidationError("Enter the interest rate for this product.")
+        rate = Decimal(rate)
+        if rate < 0:
+            raise forms.ValidationError("Interest rate cannot be negative.")
+        return rate.quantize(Decimal("0.001"))
 
     def clean_uses_usable_days(self):
         raw = self.cleaned_data.get("uses_usable_days", "0")
@@ -124,12 +148,9 @@ class LoanProductForm(forms.ModelForm):
         return cleaned_data
 
     def save(self, commit=True):
-        from decimal import Decimal
-
         product = super().save(commit=False)
-        # Interest % is entered per application; keep a DB default on the product.
-        if getattr(product, "interest_rate", None) is None:
-            product.interest_rate = Decimal("0")
+        rate = self.cleaned_data.get("interest_rate")
+        product.interest_rate = Decimal("0") if rate is None else Decimal(rate)
         product.uses_usable_days = bool(self.cleaned_data.get("uses_usable_days"))
         # Collateral / insurance are not shown in the product UI; apply defaults.
         if not product.pk:
@@ -194,11 +215,13 @@ class LoanApplicationForm(forms.ModelForm):
             "term_months": forms.HiddenInput(attrs={"id": "id_term_months"}),
             "interest_rate": forms.NumberInput(
                 attrs={
-                    "step": "0.001",
+                    "step": "any",
                     "min": "0",
                     "inputmode": "decimal",
-                    "placeholder": "e.g. 0.015",
+                    "placeholder": "Select a loan product first",
                     "id": "id_interest_rate",
+                    "readonly": "readonly",
+                    "tabindex": "-1",
                 }
             ),
             "usable_from": forms.HiddenInput(
@@ -223,10 +246,8 @@ class LoanApplicationForm(forms.ModelForm):
                 "Taken automatically from the selected loan product."
             ),
             "interest_rate": (
-                "Monthly rate as a decimal (e.g. 0.015 = 1.5%). "
-                "Interest is computed when a payment is recorded, using the "
-                "usable From/To dates on that payment. "
-                "Daily interest = (rate ÷ 30) × remaining principal."
+                "Filled automatically from the selected loan product. "
+                "Change it on the product page if this rate should be different."
             ),
         }
 
@@ -263,8 +284,8 @@ class LoanApplicationForm(forms.ModelForm):
         amount_widget = self.fields["amount_requested"].widget
         amount_widget.attrs.setdefault("readonly", "readonly")
         amount_widget.attrs.setdefault("id", "id_amount_requested")
-        # Interest rate is editable; term is taken from the product automatically.
-        self.fields["interest_rate"].widget.attrs.pop("readonly", None)
+        # Interest rate is locked to the selected loan product.
+        self.fields["interest_rate"].widget.attrs["readonly"] = "readonly"
 
         product = self._resolve_selected_product()
         if product is not None:
@@ -306,10 +327,14 @@ class LoanApplicationForm(forms.ModelForm):
 
     def _apply_product_interest_default(self, product):
         rate_field = self.fields["interest_rate"]
-        rate_field.widget.attrs.pop("readonly", None)
-        rate_field.widget.attrs["placeholder"] = f"e.g. {product.interest_rate}"
-        if not self.is_bound and not self.initial.get("interest_rate"):
-            rate_field.initial = product.interest_rate
+        rate = product.interest_rate if product.interest_rate is not None else Decimal("0")
+        rate_field.widget.attrs["readonly"] = "readonly"
+        rate_field.widget.attrs["placeholder"] = f"{rate}"
+        rate_field.initial = rate
+        if self.is_bound:
+            mutable = self.data.copy()
+            mutable[self.add_prefix("interest_rate")] = str(rate)
+            self.data = mutable
 
     def _apply_product_term_default(self, product):
         # Term is not shown on apply — always locked to the product setting.
@@ -379,8 +404,11 @@ class LoanApplicationForm(forms.ModelForm):
             self.add_error("loan_product", "Please select a loan product.")
             return cleaned_data
 
-        # Always use the product term from Loan Products settings.
+        # Always use the product term and interest from Loan Products settings.
         cleaned_data["term_months"] = max(1, int(product.term_months or 1))
+        cleaned_data["interest_rate"] = Decimal(product.interest_rate or 0).quantize(
+            Decimal("0.001")
+        )
 
         # Usable days follows the product catalog; From/To are entered on payment only.
         use_usable_days = bool(getattr(product, "uses_usable_days", False))
@@ -407,12 +435,11 @@ class LoanApplicationForm(forms.ModelForm):
     def save(self, commit=True):
         application = super().save(commit=False)
         if application.loan_product_id:
-            # Term always comes from the product; interest falls back if blank.
+            # Term and interest always come from the product.
             application.term_months = max(
                 1, int(application.loan_product.term_months or 1)
             )
-            if application.interest_rate is None:
-                application.interest_rate = application.loan_product.interest_rate
+            application.interest_rate = application.loan_product.interest_rate
         if (
             application.usable_from
             and application.usable_to
@@ -455,9 +482,9 @@ class StaffLoanApplicationForm(LoanApplicationForm):
             else obj.full_name
         )
         self.fields["loan_product"].widget.attrs.setdefault("id", "id_loan_product")
-        # Staff must be able to type an amount / rate after choosing a product.
+        # Staff can type the amount after choosing a product. Interest stays locked.
         self.fields["amount_requested"].widget.attrs.pop("readonly", None)
-        self.fields["interest_rate"].widget.attrs.pop("readonly", None)
+        self.fields["interest_rate"].widget.attrs["readonly"] = "readonly"
         self.order_fields(
             [
                 "coop_member",

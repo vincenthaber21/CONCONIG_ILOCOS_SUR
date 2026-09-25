@@ -122,8 +122,18 @@ class SavingsProductAdmin(admin.ModelAdmin):
 
 @admin.register(models.SavingsWalkIn)
 class SavingsWalkInAdmin(admin.ModelAdmin):
-    list_display = ("last_name", "first_name", "middle_name", "phone", "created_at")
-    search_fields = ("first_name", "middle_name", "last_name", "phone")
+    list_display = ("last_name", "first_name", "middle_name", "phone", "address", "created_at")
+    search_fields = (
+        "first_name",
+        "middle_name",
+        "last_name",
+        "phone",
+        "street",
+        "barangay",
+        "municipality",
+        "province",
+        "address",
+    )
 
 
 class MemberSavingsAccountAdminForm(forms.ModelForm):
@@ -220,7 +230,18 @@ class SavingsBeneficiaryInline(admin.TabularInline):
     model = models.SavingsBeneficiary
     extra = 0
     autocomplete_fields = ("member",)
-    fields = ("member", "first_name", "last_name", "relationship")
+    fields = (
+        "member",
+        "first_name",
+        "last_name",
+        "relationship",
+        "street",
+        "barangay",
+        "municipality",
+        "province",
+        "address",
+    )
+    readonly_fields = ("address",)
 
 
 class SavingsTransactionInline(admin.TabularInline):

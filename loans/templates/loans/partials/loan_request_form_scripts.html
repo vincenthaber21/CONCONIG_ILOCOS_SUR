@@ -534,9 +534,10 @@
     amountInput.removeAttribute("max");
     amountInput.placeholder = "Select a loan product first";
     if (interestInput) {
-      interestInput.readOnly = false;
-      interestInput.removeAttribute("readonly");
-      interestInput.placeholder = "e.g. 0.015";
+      interestInput.value = "";
+      interestInput.readOnly = true;
+      interestInput.setAttribute("readonly", "readonly");
+      interestInput.placeholder = "Select a loan product first";
       interestInput.classList.remove("is-invalid");
       interestInput.setCustomValidity("");
     }
@@ -548,7 +549,7 @@
       amountHelp.textContent = "Choose a loan product first. You can only request an amount within that product's allowed range.";
     }
     if (interestHelp) {
-      interestHelp.textContent = "Monthly rate as a decimal (e.g. 0.015 = 1.5%). Interest is computed at payment time from usable dates. Daily = (rate ÷ 30) × remaining principal. Prefills from the loan product.";
+      interestHelp.textContent = "Select a loan product. The interest rate is filled from that product and cannot be changed here.";
     }
     if (typeof setUsableDaysEnabled === "function") {
       setUsableDaysEnabled(false);
@@ -584,14 +585,12 @@
       termInput.value = String(defaultTerm);
     }
     if (interestInput) {
-      interestInput.readOnly = false;
-      interestInput.removeAttribute("readonly");
+      interestInput.readOnly = true;
+      interestInput.setAttribute("readonly", "readonly");
       interestInput.min = "0";
-      interestInput.step = "0.001";
-      interestInput.placeholder = "e.g. " + defaultRate.toFixed(3);
-      if (!keepAmount || interestInput.value === "") {
-        interestInput.value = defaultRate.toFixed(3);
-      }
+      interestInput.step = "any";
+      interestInput.value = defaultRate.toFixed(3);
+      interestInput.placeholder = defaultRate.toFixed(3);
       interestInput.classList.remove("is-invalid");
       interestInput.setCustomValidity("");
     }
@@ -602,10 +601,10 @@
     if (interestHelp) {
       if (info.uses_usable_days) {
         interestHelp.textContent =
-          "Usable-days product: interest = principal × rate × (usable days ÷ 360). Amount pay = interest + partial pay.";
+          "Taken from this product (" + defaultRate.toFixed(3) + "). Usable-days interest = principal × rate × (usable days ÷ 360).";
       } else {
         interestHelp.textContent =
-          "Normal loan product. Monthly rate as a decimal (e.g. 0.015 = 1.5%). Interest is computed at payment time only if usable days are enabled.";
+          "Taken from this product (" + defaultRate.toFixed(3) + "). This rate cannot be changed on the application.";
       }
     }
     if (typeof setUsableDaysEnabled === "function") {
@@ -617,7 +616,7 @@
         "<strong>" + info.name + "</strong>" +
         "<div class=\"loan-product-summary__meta\">" +
         "<span class=\"loan-product-summary__tag\">Default " + termLabel + "</span>" +
-        "<span class=\"loan-product-summary__tag\">Set interest rate below</span>" +
+        "<span class=\"loan-product-summary__tag\">Interest " + defaultRate.toFixed(3) + "</span>" +
         (info.uses_usable_days
           ? "<span class=\"loan-product-summary__tag\">Usable days · 360</span>"
           : "<span class=\"loan-product-summary__tag\">Normal loan</span>") +

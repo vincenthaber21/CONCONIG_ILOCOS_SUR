@@ -9,9 +9,9 @@
     <h1>{% if is_edit %}Edit Loan Product{% else %}Add Loan Product{% endif %}</h1>
     <p class="subtitle">
       {% if is_edit %}
-      Update this loan offering — amount range, term, and usable-days interest.
+      Update this loan offering — amount range, interest rate, term, and usable-days interest.
       {% else %}
-      Define a loan offering members can apply for — amount range, term, and whether it uses usable-days interest.
+      Define a loan offering members can apply for — amount range, interest rate, term, and usable-days interest.
       {% endif %}
     </p>
   </header>
@@ -61,6 +61,14 @@
           {{ form.term_months }}
           {% if form.term_months.help_text %}<p class="helptext">{{ form.term_months.help_text }}</p>{% endif %}
           {% if form.term_months.errors %}<div class="loan-form__errors">{{ form.term_months.errors }}</div>{% endif %}
+        </div>
+
+        <div class="loan-form__field">
+          <label for="{{ form.interest_rate.id_for_label }}">{{ form.interest_rate.label }}</label>
+          {{ form.interest_rate }}
+          {% if form.interest_rate.help_text %}<p class="helptext">{{ form.interest_rate.help_text }}</p>{% endif %}
+          <p class="loan-interest-preview" id="product-interest-preview"></p>
+          {% if form.interest_rate.errors %}<div class="loan-form__errors">{{ form.interest_rate.errors }}</div>{% endif %}
         </div>
 
         <div class="loan-product-usable{% if form.uses_usable_days.value == '1' or form.uses_usable_days.value == True %} is-on{% endif %}" id="loan-product-usable">
@@ -115,7 +123,7 @@
         </div>
         <div>
           <dt>Interest rate</dt>
-          <dd>Set on each loan application (Apply step), not on the product — so rates can differ per borrower.</dd>
+          <dd>Type the formula rate, such as 0.180. New applications start with this rate. You can still change it on a single loan.</dd>
         </div>
         <div>
           <dt>Usable days</dt>
@@ -256,6 +264,32 @@
   }
   .loan-form__money input { padding-left: 30px !important; }
 
+  .loan-form__percent {
+    position: relative;
+    display: flex;
+    align-items: center;
+    max-width: 220px;
+  }
+  .loan-form__percent > span {
+    position: absolute;
+    right: 12px;
+    color: #64748b;
+    font-weight: 700;
+    pointer-events: none;
+  }
+  .loan-form__percent input { padding-right: 32px !important; }
+
+  .loan-interest-preview {
+    margin: .55rem 0 0;
+    padding: .7rem .85rem;
+    border-radius: 10px;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    color: #334155;
+    font-size: .82rem;
+    line-height: 1.45;
+  }
+
   .loan-product-usable {
     margin: 1.1rem 0 0;
     padding: 1rem 1.1rem;
@@ -359,6 +393,46 @@
     setOn(!isOn());
   });
   setOn(isOn());
+})();
+(function () {
+  var input = document.getElementById("id_interest_rate");
+  var preview = document.getElementById("product-interest-preview");
+  var usable = document.getElementById("product-use-usable-days");
+  var toggle = document.getElementById("product-usable-toggle");
+  if (!input || !preview) return;
+
+  function money(amount) {
+    return "₱" + amount.toLocaleString("en-PH", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  }
+
+  function render() {
+    var rate = Number(String(input.value || "").replace(/,/g, ""));
+    if (!isFinite(rate) || rate < 0) {
+      preview.textContent = "Type the formula rate. Example: 0.180.";
+      return;
+    }
+    var rateText = rate.toFixed(3);
+    var principal = 10000;
+    var usableOn = usable && String(usable.value || "0") === "1";
+    if (usableOn) {
+      var days = 16;
+      var interest = principal * rate * (days / 360);
+      preview.textContent = rateText
+        + " · " + money(principal) + " × " + rateText
+        + " × (" + days + " ÷ 360) = " + money(interest) + ".";
+    } else {
+      var monthInterest = principal * rate;
+      preview.textContent = rateText + " · " + money(principal)
+        + " for 30 days = " + money(monthInterest) + ".";
+    }
+  }
+
+  input.addEventListener("input", render);
+  if (toggle) toggle.addEventListener("click", function () { setTimeout(render, 0); });
+  render();
 })();
 </script>
 {% endblock %}
