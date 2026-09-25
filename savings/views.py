@@ -13,6 +13,7 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
+from django.utils.formats import date_format
 from django.utils.decorators import method_decorator
 from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, ListView, UpdateView, View
@@ -22,7 +23,7 @@ from helper.login_helper import is_admin_user, is_cashier_or_admin
 from helper.receipt_helper import get_receipt_store_context
 
 from . import exports, forms, models, services
-from .policy import regular_savings_policy
+from .policy import ANNUAL_INTEREST_RATE, regular_interest_help, regular_savings_policy
 
 
 def _is_savings_staff(user):
@@ -72,7 +73,7 @@ class SavingsOverviewView(SavingsStaffMixin, View):
             status_filter = "active"
 
         accounts_qs = (
-            models.MemberSavingsAccount.objects.select_related("member", "product")
+            models.MemberSavingsAccount.objects.select_related("member", "product", "walk_in")
             .prefetch_related("joint_owner_links__member")
             .order_by("-opened_at")
         )
@@ -84,10 +85,14 @@ class SavingsOverviewView(SavingsStaffMixin, View):
                 | Q(member__last_name__icontains=search_query)
                 | Q(member__username__icontains=search_query)
                 | Q(account_number__icontains=search_query)
+                | Q(passbook_serial__icontains=search_query)
                 | Q(product__name__icontains=search_query)
                 | Q(joint_owners__first_name__icontains=search_query)
                 | Q(joint_owners__last_name__icontains=search_query)
                 | Q(joint_owners__username__icontains=search_query)
+                | Q(walk_in__first_name__icontains=search_query)
+                | Q(walk_in__last_name__icontains=search_query)
+                | Q(walk_in__phone__icontains=search_query)
             ).distinct()
 
         page = Paginator(accounts_qs, 25).get_page(request.GET.get("page") or 1)
@@ -143,6 +148,29 @@ class SavingsOverviewView(SavingsStaffMixin, View):
         )
 
 
+def _regular_interest_context(form, product=None):
+    """Regular-savings formula uses the Interest rate stored on the product."""
+    if product is None and form is not None and getattr(form.instance, "pk", None):
+        product = form.instance
+    rate = getattr(product, "interest_rate", None) if product is not None else None
+    if rate is None:
+        rate = ANNUAL_INTEREST_RATE
+    months = 12
+    if form is not None:
+        raw_months = form["interest_apply_months"].value()
+        if raw_months not in (None, ""):
+            try:
+                months = int(raw_months)
+            except (TypeError, ValueError):
+                months = getattr(product, "interest_apply_months", None) or 12
+    elif product is not None and getattr(product, "interest_apply_months", None):
+        months = int(product.interest_apply_months)
+    return {
+        "regular_interest_help": regular_interest_help(rate, months),
+        "regular_interest_rate": rate,
+    }
+
+
 def _product_kind(product):
     if product.product_type == models.SavingsProduct.ProductType.TIME_DEPOSIT:
         return "Time deposit"
@@ -176,6 +204,7 @@ class SavingsProductCreateView(SavingsStaffMixin, CreateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["savings_policy"] = regular_savings_policy()
+        ctx.update(_regular_interest_context(ctx.get("form")))
         return ctx
 
     def form_valid(self, form):
@@ -203,6 +232,7 @@ class SavingsProductUpdateView(SavingsStaffMixin, UpdateView):
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx["savings_policy"] = regular_savings_policy(product=self.object)
+        ctx.update(_regular_interest_context(ctx.get("form"), product=self.object))
         return ctx
 
     def form_valid(self, form):
@@ -242,9 +272,18 @@ class OpenSavingsAccountView(SavingsStaffMixin, View):
         form = forms.OpenSavingsAccountForm(request.POST)
         if form.is_valid():
             try:
+                walk_in = None
+                if form.cleaned_data.get("is_walk_in"):
+                    walk_in = {
+                        "first_name": form.cleaned_data.get("walk_in_first_name") or "",
+                        "middle_name": form.cleaned_data.get("walk_in_middle_name") or "",
+                        "last_name": form.cleaned_data.get("walk_in_last_name") or "",
+                        "phone": form.cleaned_data.get("walk_in_phone") or "",
+                    }
                 account = services.open_account(
-                    member=form.cleaned_data["member"],
+                    member=form.cleaned_data.get("member"),
                     product=form.cleaned_data["product"],
+                    walk_in=walk_in,
                     opening_amount=form.cleaned_data["opening_amount"],
                     performed_by=request.user,
                     notes=form.cleaned_data.get("notes") or "",
@@ -256,6 +295,8 @@ class OpenSavingsAccountView(SavingsStaffMixin, View):
                         else None
                     ),
                     deposit_term_months=form.cleaned_data.get("deposit_term_months"),
+                    passbook_serial=form.cleaned_data.get("passbook_serial") or "",
+                    beneficiaries=form.cleaned_data.get("beneficiaries") or [],
                 )
             except ValidationError as exc:
                 form.add_error(None, exc)
@@ -317,7 +358,7 @@ class SavingsAccountDetailView(SavingsStaffMixin, DetailView):
                     self.request,
                     "Interest was not credited because of a withdrawal, or because the remaining balance is ₱1,000.00 or below.",
                 )
-        ctx["movement_form"] = forms.SavingsMovementForm()
+        ctx["movement_form"] = forms.SavingsMovementForm(account=self.object)
         ctx["close_form"] = forms.CloseSavingsAccountForm()
         ctx["ledger"] = self.object.transactions.select_related("performed_by")[:50]
         ctx["can_close"] = (
@@ -342,11 +383,12 @@ class SavingsAccountTermView(SavingsStaffMixin, View):
             messages.error(request, "Select 3 months, 6 months, or 1 year.")
             return redirect("savings:account-detail", pk=account.pk)
         if not services.is_time_deposit_account(account) or not services.time_deposit_uses_term(
-            account.balance
+            account.balance, account.product
         ):
+            ceiling = services.time_deposit_max_amount(account.product)
             messages.error(
                 request,
-                "That term is only for a time deposit of ₱100,001.00 or above.",
+                f"That term is only for a time deposit above ₱{ceiling:,.2f}.",
             )
             return redirect("savings:account-detail", pk=account.pk)
         account.deposit_term_months = int(raw)
@@ -465,17 +507,27 @@ class SavingsAccountDeleteView(LoginRequiredMixin, View):
         )
 
 
+def _movement_form_error(form):
+    parts = []
+    for errors in form.errors.values():
+        for err in errors:
+            parts.append(str(err))
+    return " ".join(parts) or "Enter a valid amount and date."
+
+
 class SavingsAccountMoveView(SavingsStaffMixin, View):
     def post(self, request, pk):
         account = get_object_or_404(
             models.MemberSavingsAccount.objects.select_related("product", "member"),
             pk=pk,
         )
-        form = forms.SavingsMovementForm(request.POST)
+        form = forms.SavingsMovementForm(request.POST, account=account)
         action = (request.POST.get("action") or "deposit").strip().lower()
         if not form.is_valid():
-            messages.error(request, "Enter a valid amount.")
+            messages.error(request, _movement_form_error(form))
             return redirect("savings:account-detail", pk=account.pk)
+        posted_on = form.cleaned_data["transaction_date"]
+        when_label = date_format(posted_on, "M j, Y")
         try:
             if action == "withdraw":
                 txn = services.withdraw(
@@ -483,16 +535,24 @@ class SavingsAccountMoveView(SavingsStaffMixin, View):
                     amount=form.cleaned_data["amount"],
                     performed_by=request.user,
                     notes=form.cleaned_data.get("notes") or "",
+                    posted_on=posted_on,
                 )
-                messages.success(request, "Withdrawal posted. Member receipt is ready to print.")
+                messages.success(
+                    request,
+                    f"Withdrawal posted for {when_label}. Member receipt is ready to print.",
+                )
             else:
                 txn = services.deposit(
                     account=account,
                     amount=form.cleaned_data["amount"],
                     performed_by=request.user,
                     notes=form.cleaned_data.get("notes") or "",
+                    posted_on=posted_on,
                 )
-                messages.success(request, "Deposit posted. Member receipt is ready to print.")
+                messages.success(
+                    request,
+                    f"Deposit posted for {when_label}. Member receipt is ready to print.",
+                )
         except ValidationError as exc:
             messages.error(request, " ".join(exc.messages) if hasattr(exc, "messages") else str(exc))
             return redirect("savings:account-detail", pk=account.pk)

@@ -14,7 +14,7 @@
   {% if interest.is_time_deposit %}
   &#8369;{{ interest.interest_base|currency }} × {{ interest.rate_factor_display }}
   = &#8369;{{ interest.estimated_interest|currency }} for the year.
-  {% if interest.below_minimum %}No interest unless the time deposit is at least &#8369;5,000.00.{% elif interest.high_amount %}Term interest applies from &#8369;100,001.00.{% else %}Up to &#8369;100,000: savings × interest rate.{% endif %}
+  {% if interest.below_minimum %}No interest unless the time deposit is at least &#8369;{{ account.product.min_amount|currency }}.{% elif interest.high_amount %}Term interest applies above &#8369;{{ account.product.max_amount|currency }}.{% else %}From &#8369;{{ account.product.min_amount|currency }} through &#8369;{{ account.product.max_amount|currency }}: savings × interest rate.{% endif %}
   {% else %}
   &#8369;{{ interest.interest_base|currency }} × {{ interest.rate_factor_display }} × {{ interest.step_months }} ÷ 12
   = &#8369;{{ interest.estimated_interest|currency }}

@@ -158,6 +158,24 @@ class SavingsProduct(BaseModel):
         default=Decimal("0.030"),
         help_text="Time deposit of ₱100,001 and above, 1 year: savings × this rate.",
     )
+    min_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("5000.00"),
+        help_text=(
+            "Time deposit feature: from this amount through the maximum, "
+            "interest = time deposit × interest rate."
+        ),
+    )
+    max_amount = models.DecimalField(
+        max_digits=14,
+        decimal_places=2,
+        default=Decimal("100000.00"),
+        help_text=(
+            "Time deposit feature: above this amount, the member selects "
+            "3 months, 6 months, or 1 year."
+        ),
+    )
 
     class Meta:
         ordering = ["name"]
@@ -262,8 +280,41 @@ class SavingsProduct(BaseModel):
             and self.max_balance < self.min_opening_deposit
         ):
             errors["max_balance"] = "Maximum balance must be at least the minimum opening deposit."
+        if self.min_amount is not None and self.min_amount < 0:
+            errors["min_amount"] = "Minimum amount cannot be negative."
+        if self.max_amount is not None and self.max_amount < 0:
+            errors["max_amount"] = "Maximum amount cannot be negative."
+        if (
+            self.min_amount is not None
+            and self.max_amount is not None
+            and self.max_amount < self.min_amount
+        ):
+            errors["max_amount"] = "Maximum amount must be at least the minimum amount."
         if errors:
             raise ValidationError(errors)
+
+
+class SavingsWalkIn(BaseModel):
+    """A person who is not a cooperative member and opens savings at the desk."""
+
+    first_name = models.CharField(max_length=100)
+    middle_name = models.CharField(max_length=100, blank=True)
+    last_name = models.CharField(max_length=100)
+    phone = models.CharField(max_length=20, blank=True)
+    address = models.CharField(max_length=255, blank=True)
+
+    class Meta:
+        ordering = ["last_name", "first_name"]
+        verbose_name = "Walk-in savings customer"
+        verbose_name_plural = "Walk-in savings customers"
+
+    def __str__(self):
+        return self.full_name
+
+    @property
+    def full_name(self):
+        parts = [self.first_name, self.middle_name, self.last_name]
+        return " ".join(part.strip() for part in parts if part and part.strip())
 
 
 class MemberSavingsAccount(BaseModel):
@@ -284,7 +335,17 @@ class MemberSavingsAccount(BaseModel):
         "members.Member",
         on_delete=models.CASCADE,
         related_name="savings_accounts",
-        help_text="Primary account holder.",
+        null=True,
+        blank=True,
+        help_text="Primary account holder when the saver is a cooperative member.",
+    )
+    walk_in = models.ForeignKey(
+        SavingsWalkIn,
+        on_delete=models.PROTECT,
+        related_name="accounts",
+        null=True,
+        blank=True,
+        help_text="Set when this savings account belongs to a walk-in who is not a member.",
     )
     product = models.ForeignKey(
         SavingsProduct,
@@ -304,6 +365,13 @@ class MemberSavingsAccount(BaseModel):
         help_text="Additional members on a joint savings account (not the primary).",
     )
     account_number = models.CharField(max_length=32, unique=True, editable=False)
+    passbook_serial = models.CharField(
+        max_length=40,
+        unique=True,
+        null=True,
+        blank=True,
+        help_text="Printed serial number on the member's savings passbook.",
+    )
     balance = models.DecimalField(max_digits=14, decimal_places=2, default=Decimal("0.00"))
     status = models.CharField(
         max_length=16,
@@ -337,8 +405,16 @@ class MemberSavingsAccount(BaseModel):
         verbose_name_plural = "Member savings accounts"
 
     def __str__(self):
-        kind = "Joint" if self.is_joint else "Individual"
-        return f"{self.account_number} — {self.member.full_name} ({kind})"
+        kind = "Walk-in" if self.walk_in_id else ("Joint" if self.is_joint else "Individual")
+        return f"{self.account_number} — {self.primary_holder_name} ({kind})"
+
+    @property
+    def primary_holder_name(self):
+        if self.walk_in_id:
+            return self.walk_in.full_name
+        if self.member_id:
+            return self.member.full_name
+        return ""
 
     def save(self, *args, **kwargs):
         if not self.account_number:
@@ -382,7 +458,7 @@ class MemberSavingsAccount(BaseModel):
         return list(self.joint_owners.all())
 
     def all_holder_names(self):
-        names = [self.member.full_name]
+        names = [self.primary_holder_name]
         names.extend(m.full_name for m in self.co_owner_list())
         return names
 
@@ -391,6 +467,50 @@ class MemberSavingsAccount(BaseModel):
         if len(names) <= 1:
             return names[0] if names else ""
         return " & ".join(names)
+
+
+class SavingsBeneficiary(BaseModel):
+    """Person who receives the savings if the account holder dies.
+
+    Either a cooperative ``member`` or a name typed at the desk.
+    """
+
+    class Relationship(models.TextChoices):
+        SPOUSE = "spouse", "Spouse"
+        CHILD = "child", "Child"
+        PARENT = "parent", "Parent"
+        SIBLING = "sibling", "Sibling"
+        OTHER = "other", "Other"
+
+    account = models.ForeignKey(
+        MemberSavingsAccount,
+        on_delete=models.CASCADE,
+        related_name="beneficiaries",
+    )
+    member = models.ForeignKey(
+        "members.Member",
+        on_delete=models.PROTECT,
+        related_name="savings_beneficiaries",
+        null=True,
+        blank=True,
+    )
+    first_name = models.CharField(max_length=100, blank=True)
+    last_name = models.CharField(max_length=100, blank=True)
+    relationship = models.CharField(max_length=20, choices=Relationship.choices)
+
+    class Meta:
+        ordering = ["created_at"]
+        verbose_name = "Savings beneficiary"
+        verbose_name_plural = "Savings beneficiaries"
+
+    def __str__(self):
+        return f"{self.display_name} ({self.get_relationship_display()})"
+
+    @property
+    def display_name(self):
+        if self.member_id:
+            return self.member.full_name
+        return " ".join(part for part in (self.first_name, self.last_name) if part).strip()
 
 
 class SavingsJointOwner(BaseModel):

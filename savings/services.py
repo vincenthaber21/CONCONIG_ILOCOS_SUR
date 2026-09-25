@@ -13,8 +13,9 @@ from .policy import (
     ANNUAL_INTEREST_RATE,
     MAX_INTEREST_PERIODS,
     MINIMUM_BALANCE_FOR_INTEREST,
-    TIME_DEPOSIT_MIN_BALANCE,
     TIME_DEPOSIT_YEAR_MONTHS,
+    time_deposit_min_amount,
+    time_deposit_max_amount,
     compounding_schedule,
     earns_savings_interest,
     earns_time_deposit_interest,
@@ -163,8 +164,8 @@ def _normalize_joint_owners(*, primary, joint_owners):
 @transaction.atomic
 def open_account(
     *,
-    member,
     product,
+    member=None,
     opening_amount,
     performed_by=None,
     notes="",
@@ -172,6 +173,9 @@ def open_account(
     is_joint=False,
     joint_owners=None,
     deposit_term_months=None,
+    passbook_serial=None,
+    walk_in=None,
+    beneficiaries=None,
 ):
     if not product.is_active:
         raise ValidationError("This savings product is not active.")
@@ -182,6 +186,12 @@ def open_account(
             "A joint account needs at least one co-owner member "
             "(different from the primary holder)."
         )
+    if walk_in and member is not None:
+        raise ValidationError("A walk-in account does not use a member profile.")
+    if walk_in and is_joint:
+        raise ValidationError("A walk-in savings account cannot be a joint account.")
+    if member is None and not walk_in:
+        raise ValidationError("Select a member or enter the walk-in name.")
     if not is_joint and co_owners:
         raise ValidationError("Co-owners can only be added on a joint account.")
     for co_owner in co_owners:
@@ -190,7 +200,8 @@ def open_account(
                 "Duplicate member: the co-owner must be different from the primary holder."
             )
 
-    assert_member_can_open_savings(member, product)
+    if member is not None:
+        assert_member_can_open_savings(member, product)
     for co_owner in co_owners:
         assert_member_can_open_savings(co_owner, product)
 
@@ -209,11 +220,19 @@ def open_account(
     term = int(deposit_term_months) if deposit_term_months else None
     if (
         getattr(product, "product_type", None) == models.SavingsProduct.ProductType.TIME_DEPOSIT
-        and time_deposit_uses_term(amount)
+        and time_deposit_uses_term(amount, product)
         and term not in (3, 6, 12)
     ):
+        ceiling = time_deposit_max_amount(product)
         raise ValidationError(
-            "For ₱100,001 and above, select 3 months, 6 months, or 1 year."
+            f"Above ₱{ceiling:,.2f}, select 3 months, 6 months, or 1 year."
+        )
+    serial = (passbook_serial or "").strip() or None
+    if serial and models.MemberSavingsAccount.objects.filter(
+        passbook_serial__iexact=serial
+    ).exists():
+        raise ValidationError(
+            "That passbook serial number is already assigned to another savings account."
         )
     maturity = compute_maturity_date(product, opened_at)
     if term:
@@ -221,8 +240,18 @@ def open_account(
         from .policy import _add_months
 
         maturity = _add_months(start, term)
+    walk_in_row = None
+    if walk_in:
+        walk_in_row = models.SavingsWalkIn.objects.create(
+            first_name=(walk_in.get("first_name") or "").strip(),
+            middle_name=(walk_in.get("middle_name") or "").strip(),
+            last_name=(walk_in.get("last_name") or "").strip(),
+            phone=(walk_in.get("phone") or "").strip(),
+            address=(walk_in.get("address") or "").strip(),
+        )
     account = models.MemberSavingsAccount(
         member=member,
+        walk_in=walk_in_row,
         product=product,
         is_joint=bool(is_joint),
         balance=ZERO,
@@ -230,9 +259,18 @@ def open_account(
         opened_at=opened_at,
         maturity_date=maturity,
         deposit_term_months=term,
+        passbook_serial=serial,
         notes=notes or "",
     )
     account.save()
+    for row in beneficiaries or []:
+        models.SavingsBeneficiary.objects.create(
+            account=account,
+            member=row.get("member"),
+            first_name=(row.get("first_name") or "").strip(),
+            last_name=(row.get("last_name") or "").strip(),
+            relationship=row.get("relationship") or models.SavingsBeneficiary.Relationship.OTHER,
+        )
     if co_owners:
         models.SavingsJointOwner.objects.bulk_create(
             [
@@ -258,8 +296,40 @@ def open_account(
     return account
 
 
+def _transaction_posted_at(account, posted_on):
+    """Aware datetime for a deposit or withdrawal date chosen by staff.
+
+    Past dates are allowed from the enrollment calendar date through today.
+    The enrollment time of day does not block that same date: a movement on
+    the enrollment date is posted after the account was opened, still on that day.
+    """
+    if posted_on is None:
+        return None
+    moment = resolve_opened_at(posted_on)
+    opened_at = getattr(account, "opened_at", None)
+    if not opened_at:
+        return moment
+    if timezone.is_naive(opened_at):
+        opened_at = timezone.make_aware(opened_at, timezone.get_current_timezone())
+    enrolled_on = timezone.localtime(opened_at).date()
+    posted_day = (
+        posted_on if not isinstance(posted_on, datetime) else timezone.localtime(moment).date()
+    )
+    if posted_day < enrolled_on:
+        raise ValidationError(
+            "Date cannot be before this account was enrolled "
+            f"({enrolled_on.strftime('%b %d, %Y')})."
+        )
+    if moment < opened_at:
+        shifted = opened_at + timedelta(seconds=1)
+        if timezone.localtime(shifted).date() != enrolled_on:
+            return opened_at
+        return shifted
+    return moment
+
+
 @transaction.atomic
-def deposit(*, account, amount, performed_by=None, notes=""):
+def deposit(*, account, amount, performed_by=None, notes="", posted_on=None):
     account = models.MemberSavingsAccount.objects.select_for_update().select_related(
         "product"
     ).get(pk=account.pk)
@@ -277,12 +347,15 @@ def deposit(*, account, amount, performed_by=None, notes=""):
         money,
         performed_by=performed_by,
         notes=notes,
+        posted_at=_transaction_posted_at(account, posted_on),
     )
 
 
 @transaction.atomic
-def withdraw(*, account, amount, performed_by=None, notes=""):
-    account = models.MemberSavingsAccount.objects.select_for_update().get(pk=account.pk)
+def withdraw(*, account, amount, performed_by=None, notes="", posted_on=None):
+    account = models.MemberSavingsAccount.objects.select_for_update().select_related(
+        "product"
+    ).get(pk=account.pk)
     _ensure_active(account)
     product = account.product
     if not product.allows_withdrawal:
@@ -303,6 +376,7 @@ def withdraw(*, account, amount, performed_by=None, notes=""):
         performed_by=performed_by,
         notes=notes,
         credit=False,
+        posted_at=_transaction_posted_at(account, posted_on),
     )
 
 
@@ -454,7 +528,7 @@ def interest_schedule(account):
     """
     if is_time_deposit_account(account):
         balance = getattr(account, "balance", 0)
-        if time_deposit_uses_term(balance):
+        if time_deposit_uses_term(balance, getattr(account, "product", None)):
             term = int(getattr(account, "deposit_term_months", 0) or 0)
             label = time_deposit_term_label(term)
             if label:
@@ -522,7 +596,9 @@ def interest_snapshot(account, as_of=None):
     product_rate = effective_interest_rate(account, as_of=as_of)
     rate = product_rate
     term_months = getattr(account, "deposit_term_months", None)
-    if is_time_deposit_account(account) and time_deposit_uses_term(getattr(account, "balance", 0)):
+    if is_time_deposit_account(account) and time_deposit_uses_term(
+        getattr(account, "balance", 0), getattr(account, "product", None)
+    ):
         term_rate = time_deposit_term_rate(term_months, getattr(account, "product", None))
         if term_rate is not None:
             rate = term_rate
@@ -542,7 +618,9 @@ def interest_snapshot(account, as_of=None):
     is_time_deposit = is_time_deposit_account(account)
     estimated = period_interest_amount(account, interest_base, product_rate, step_months)
     if is_time_deposit:
-        below_minimum = not earns_time_deposit_interest(interest_base)
+        below_minimum = not earns_time_deposit_interest(
+            interest_base, getattr(account, "product", None)
+        )
     else:
         below_minimum = not earns_savings_interest(interest_base) or not earns_savings_interest(
             account.balance
@@ -568,7 +646,7 @@ def interest_snapshot(account, as_of=None):
         next_balance = _money(account.balance)
     next_period_interest = period_interest_amount(account, next_balance, product_rate, step_months)
     if is_time_deposit:
-        if not earns_time_deposit_interest(next_balance):
+        if not earns_time_deposit_interest(next_balance, getattr(account, "product", None)):
             next_period_interest = ZERO
     elif not earns_savings_interest(next_balance):
         next_period_interest = ZERO
@@ -602,12 +680,15 @@ def interest_snapshot(account, as_of=None):
         "step_months": step_months,
         "periods_per_year": periods_per_year,
         "is_time_deposit": is_time_deposit,
-        "high_amount": bool(is_time_deposit and time_deposit_uses_term(interest_base)),
+        "high_amount": bool(
+            is_time_deposit
+            and time_deposit_uses_term(interest_base, getattr(account, "product", None))
+        ),
         "deposit_term_months": term_months,
         "deposit_term_label": time_deposit_term_label(term_months),
         "needs_term": bool(
             is_time_deposit
-            and time_deposit_uses_term(interest_base)
+            and time_deposit_uses_term(interest_base, getattr(account, "product", None))
             and time_deposit_term_rate(term_months, getattr(account, "product", None)) is None
         ),
     }
@@ -649,13 +730,14 @@ def credit_due_interest(*, account, performed_by=None, as_of=None):
         when = timezone.localtime(period_on).strftime("%b %d, %Y")
         rate_text = format(Decimal(rate).quantize(Decimal("0.001")), "f").rstrip("0").rstrip(".")
         time_deposit = is_time_deposit_account(account)
-        if time_deposit and not earns_time_deposit_interest(principal):
+        if time_deposit and not earns_time_deposit_interest(principal, account.product):
+            floor = time_deposit_min_amount(account.product)
             note = (
                 f"No interest for {when}. Time deposit is ₱{principal:,.2f}. "
-                f"Interest starts at ₱{TIME_DEPOSIT_MIN_BALANCE:,.2f}."
+                f"Interest starts at ₱{floor:,.2f}."
             )
             money = ZERO
-        elif time_deposit and time_deposit_uses_term(principal):
+        elif time_deposit and time_deposit_uses_term(principal, account.product):
             term = account.deposit_term_months
             term_rate = time_deposit_term_rate(term, account.product)
             label = time_deposit_term_label(term)
@@ -678,7 +760,7 @@ def credit_due_interest(*, account, performed_by=None, as_of=None):
                     f"for {label} on {when}."
                 )
         elif time_deposit:
-            money = time_deposit_interest_amount(principal, rate)
+            money = time_deposit_interest_amount(principal, rate, product=account.product)
             if money <= ZERO:
                 break
             note = (
@@ -870,6 +952,9 @@ def close_account(*, account, performed_by=None, notes="", mark_member_resign=Tr
         account.notes = f"{existing}\n{notes}".strip() if existing else notes
     account.save(update_fields=["status", "closed_at", "notes", "updated_at"])
 
+    if not account.member_id:
+        return account, payout
+
     member = Member.objects.select_for_update().get(pk=account.member_id)
     if mark_member_resign:
         # Savings-only resign: status label reflects savings exit, but the
@@ -918,4 +1003,76 @@ def _post(account, txn_type, amount, *, performed_by=None, notes="", credit=True
         )
         txn.created_at = posted_at
         txn.updated_at = posted_at
+        has_later = (
+            models.SavingsTransaction.objects.filter(account_id=account.pk)
+            .exclude(pk=txn.pk)
+            .filter(created_at__gte=txn.created_at)
+            .exists()
+        )
+        if has_later:
+            _rebuild_running_balances(account, focus=txn)
+            txn.refresh_from_db()
+            account.refresh_from_db()
     return txn
+
+
+def _rebuild_running_balances(account, focus=None):
+    """Rewrite balance columns in ledger order after a backdated movement.
+
+    A past deposit or withdrawal sits between older rows. Later rows keep
+    their amounts and shift so ``balance_after`` stays the true balance on
+    each date. Interest reads that column, so the chain has to stay honest.
+    """
+    txns = list(
+        models.SavingsTransaction.objects.filter(account_id=account.pk).order_by(
+            "created_at", "id"
+        )
+    )
+    product = account.product
+    min_bal = _money(getattr(product, "min_maintaining_balance", ZERO) or ZERO)
+    max_bal = _money(getattr(product, "max_balance", ZERO) or ZERO)
+    focus_id = getattr(focus, "pk", None)
+    focus_at = getattr(focus, "created_at", None)
+    focus_is_credit = bool(focus and focus.is_credit)
+    running = ZERO
+    for txn in txns:
+        before = running
+        signed = txn.amount if txn.is_credit else -txn.amount
+        after = _money(before + signed)
+        follows_focus = False
+        if focus_id and focus_at:
+            follows_focus = (
+                txn.pk == focus_id
+                or txn.created_at > focus_at
+                or (txn.created_at == focus_at and str(txn.pk) > str(focus_id))
+            )
+        if after < ZERO:
+            raise ValidationError(
+                "That date would make the ledger balance negative. "
+                "Choose a later date or a smaller amount."
+            )
+        if (
+            follows_focus
+            and txn.transaction_type == models.SavingsTransaction.TxnType.WITHDRAWAL
+            and after < min_bal
+        ):
+            raise ValidationError(
+                f"Balance after withdrawal would be ₱{after:,.2f} on "
+                f"{timezone.localtime(txn.created_at).date().strftime('%b %d, %Y')}, "
+                f"below the minimum of ₱{min_bal:,.2f}."
+            )
+        if follows_focus and focus_is_credit and max_bal > ZERO and after > max_bal:
+            raise ValidationError(
+                f"Balance would be ₱{after:,.2f} on "
+                f"{timezone.localtime(txn.created_at).date().strftime('%b %d, %Y')}, "
+                f"above the maximum of ₱{max_bal:,.2f}."
+            )
+        if txn.balance_before != before or txn.balance_after != after:
+            models.SavingsTransaction.objects.filter(pk=txn.pk).update(
+                balance_before=before,
+                balance_after=after,
+            )
+        running = after
+    if account.balance != running:
+        account.balance = running
+        account.save(update_fields=["balance", "updated_at"])

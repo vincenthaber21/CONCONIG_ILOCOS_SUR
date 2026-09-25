@@ -17,12 +17,21 @@ from .policy import ANNUAL_INTEREST_RATE
 REGULAR_NATURAL_DEFAULTS = {
     key: value
     for key, value in models.SavingsProduct.regular_product_defaults().items()
-    if key not in {"name", "description", "is_active", "interest_apply_months"}
+    if key not in {
+        "name",
+        "description",
+        "is_active",
+        "interest_apply_months",
+        "interest_rate",
+        "min_opening_deposit",
+    }
 }
 
 # Fields staff set only when the time-deposit switch is on.
 TIME_DEPOSIT_FIELDS = (
     "interest_rate",
+    "min_amount",
+    "max_amount",
     "min_opening_deposit",
     "max_balance",
     "allows_withdrawal",
@@ -56,22 +65,47 @@ class SavingsProductForm(forms.ModelForm):
         label="Time deposit",
         widget=forms.HiddenInput(attrs={"id": "product-is-time-deposit"}),
     )
+    min_amount = MoneyField(
+        required=False,
+        min_value=Decimal("0"),
+        max_digits=12,
+        decimal_places=2,
+        label="Minimum amount",
+        help_text=(
+            "From this amount through the maximum, interest = time deposit × interest rate. "
+            "Example: ₱5,000.00."
+        ),
+        widget=money_input(min="0", placeholder="5,000.00"),
+    )
+    max_amount = MoneyField(
+        required=False,
+        min_value=Decimal("0"),
+        max_digits=14,
+        decimal_places=2,
+        label="Maximum amount",
+        help_text=(
+            "Above this amount, the member selects 3 months, 6 months, or 1 year. "
+            "Example: ₱100,000.00."
+        ),
+        widget=money_input(min="0", placeholder="100,000.00"),
+    )
     min_opening_deposit = MoneyField(
         required=False,
         min_value=Decimal("0"),
         max_digits=12,
         decimal_places=2,
-        label="Minimum opening deposit",
-        widget=money_input(min="5000", placeholder="5,000.00"),
+        label="Min opening deposit",
+        help_text="Minimum amount required to open an account.",
+        widget=money_input(min="0", placeholder="1,000.00"),
     )
     max_balance = MoneyField(
         required=False,
         min_value=Decimal("0"),
         max_digits=14,
         decimal_places=2,
-        label="Maximum balance",
-        help_text="0 = no limit.",
-        widget=money_input(min="0", placeholder="0.00"),
+        label="Maximum amount",
+        help_text="Highest balance for this time deposit. ₱10,000,000.00 is allowed.",
+        widget=money_input(min="0", placeholder="1,000,000.00"),
     )
 
     class Meta:
@@ -144,11 +178,13 @@ class SavingsProductForm(forms.ModelForm):
             self.fields[name].required = False
         self._original_product_type = None
         self._original_time_deposit_values = {}
-        if self.instance.pk:
+        if self.instance.pk and not self.instance._state.adding:
             self._original_product_type = self.instance.product_type
             for name in TIME_DEPOSIT_FIELDS:
                 self._original_time_deposit_values[name] = getattr(self.instance, name)
-        self.fields["min_opening_deposit"].help_text = "Minimum is ₱5,000.00."
+        self.fields["min_opening_deposit"].help_text = (
+            "Minimum amount required to open an account."
+        )
         self.fields["max_balance"].help_text = (
             "Highest balance for this time deposit. ₱10,000,000.00 is allowed."
         )
@@ -156,7 +192,8 @@ class SavingsProductForm(forms.ModelForm):
         months.min_value = 1
         months.max_value = 120
         months.widget.attrs.update({"min": 1, "max": 120, "step": 1})
-        if self.instance and self.instance.pk:
+        saved = bool(self.instance and self.instance.pk and not self.instance._state.adding)
+        if saved:
             self.fields["is_time_deposit"].initial = (
                 "1"
                 if self.instance.product_type == models.SavingsProduct.ProductType.TIME_DEPOSIT
@@ -170,7 +207,10 @@ class SavingsProductForm(forms.ModelForm):
             self.fields["rate_3_months"].initial = Decimal("0.010")
             self.fields["rate_6_months"].initial = Decimal("0.010")
             self.fields["rate_1_year"].initial = Decimal("0.030")
-            self.fields["min_opening_deposit"].initial = Decimal("5000.00")
+            self.fields["min_amount"].initial = Decimal("5000.00")
+            self.fields["max_amount"].initial = Decimal("100000.00")
+            self.fields["min_opening_deposit"].initial = Decimal("1000.00")
+            self.initial["min_opening_deposit"] = Decimal("1000.00")
             self.fields["max_balance"].initial = Decimal("999999.99")
             self.fields["allows_withdrawal"].initial = True
 
@@ -205,13 +245,21 @@ class SavingsProductForm(forms.ModelForm):
         }
         if not enabled:
             for name in TIME_DEPOSIT_FIELDS:
-                self._errors.pop(name, None)
-            if cleaned.get("interest_rate") is None:
+                if name != "interest_rate":
+                    self._errors.pop(name, None)
+            rate = cleaned.get("interest_rate")
+            if rate is None:
                 cleaned["interest_rate"] = ANNUAL_INTEREST_RATE
+            elif rate < 0:
+                self.add_error("interest_rate", "Interest rate cannot be negative.")
+            if cleaned.get("min_opening_deposit") is None:
+                cleaned["min_opening_deposit"] = Decimal("1000.00")
             for name, default in (
                 ("rate_3_months", Decimal("0.010")),
                 ("rate_6_months", Decimal("0.010")),
                 ("rate_1_year", Decimal("0.030")),
+                ("min_amount", Decimal("5000.00")),
+                ("max_amount", Decimal("100000.00")),
             ):
                 if cleaned.get(name) is None:
                     cleaned[name] = default
@@ -245,17 +293,24 @@ class SavingsProductForm(forms.ModelForm):
         elif opening < Decimal("5000.00"):
             self.add_error(
                 "min_opening_deposit",
-                "Time deposit minimum is ₱5,000.00.",
+                "Minimum is ₱5,000.00.",
             )
         ceiling = cleaned.get("max_balance")
         if not ceiling:
-            cleaned["max_balance"] = Decimal("999999.99")
+            cleaned["max_balance"] = Decimal("1000000.00")
             ceiling = cleaned["max_balance"]
+        elif ceiling > Decimal("10000000.00"):
+            self.add_error(
+                "max_balance",
+                "Maximum amount cannot be more than ₱10,000,000.00.",
+            )
         if ceiling and opening is not None and ceiling < opening:
             self.add_error(
                 "max_balance",
-                "Maximum balance must be at least the minimum opening deposit.",
+                "Maximum amount must be at least the minimum amount.",
             )
+        cleaned["min_amount"] = opening
+        cleaned["max_amount"] = ceiling
         return cleaned
 
     def save(self, commit=True):
@@ -271,7 +326,9 @@ class SavingsProductForm(forms.ModelForm):
             if instance.min_opening_deposit is None or instance.min_opening_deposit < Decimal("5000.00"):
                 instance.min_opening_deposit = Decimal("5000.00")
             if not instance.max_balance:
-                instance.max_balance = Decimal("999999.99")
+                instance.max_balance = Decimal("1000000.00")
+            instance.min_amount = instance.min_opening_deposit
+            instance.max_amount = instance.max_balance
             if original_type is None:
                 for field_name, value in TIME_DEPOSIT_CREATE_DEFAULTS.items():
                     setattr(instance, field_name, value)
@@ -280,8 +337,12 @@ class SavingsProductForm(forms.ModelForm):
             models.SavingsProduct.ProductType.REGULAR,
             models.SavingsProduct.ProductType.TIME_DEPOSIT,
         ):
+            submitted_rate = instance.interest_rate
             for field_name, value in REGULAR_NATURAL_DEFAULTS.items():
                 setattr(instance, field_name, value)
+            instance.interest_rate = (
+                submitted_rate if submitted_rate is not None else ANNUAL_INTEREST_RATE
+            )
         else:
             instance.product_type = original_type
             for field_name, value in self._original_time_deposit_values.items():
@@ -298,6 +359,7 @@ class OpenSavingsAccountForm(forms.Form):
             is_active=True,
             member_role__slug="member",
         ).order_by("last_name", "first_name"),
+        required=False,
         label="Primary member",
         empty_label="Search member...",
         widget=forms.Select(attrs={"autocomplete": "off"}),
@@ -347,6 +409,122 @@ class OpenSavingsAccountForm(forms.Form):
         decimal_places=2,
         label="Opening deposit",
         widget=money_input(min="0.01", placeholder="1,000.00"),
+    )
+    is_walk_in = forms.BooleanField(
+        required=False,
+        initial=False,
+        label="Walk-in (not a member)",
+        help_text="Open savings for a person who is not a cooperative member.",
+        widget=forms.CheckboxInput(attrs={"id": "id_is_walk_in"}),
+    )
+    walk_in_first_name = forms.CharField(
+        required=False,
+        max_length=100,
+        label="First name",
+        widget=forms.TextInput(attrs={"placeholder": "First name", "autocomplete": "off"}),
+    )
+    walk_in_middle_name = forms.CharField(
+        required=False,
+        max_length=100,
+        label="Middle name",
+        widget=forms.TextInput(attrs={"placeholder": "Optional", "autocomplete": "off"}),
+    )
+    walk_in_last_name = forms.CharField(
+        required=False,
+        max_length=100,
+        label="Surname",
+        widget=forms.TextInput(attrs={"placeholder": "Surname", "autocomplete": "off"}),
+    )
+    BENEFICIARY_RELATIONSHIPS = (
+        ("spouse", "Spouse"),
+        ("child", "Child"),
+        ("parent", "Parent"),
+        ("sibling", "Sibling"),
+        ("other", "Other"),
+    )
+    beneficiary_is_member = forms.BooleanField(
+        required=False,
+        initial=False,
+        label="Beneficiary is a member",
+        widget=forms.CheckboxInput(attrs={"id": "id_beneficiary_is_member"}),
+    )
+    beneficiary_member = forms.ModelChoiceField(
+        queryset=Member.objects.filter(is_active=True, member_role__slug="member"),
+        required=False,
+        label="Beneficiary member",
+        empty_label="Search member...",
+        widget=forms.Select(attrs={"autocomplete": "off"}),
+    )
+    beneficiary_first_name = forms.CharField(
+        required=False,
+        max_length=100,
+        label="Beneficiary first name",
+        widget=forms.TextInput(attrs={"placeholder": "First name", "autocomplete": "off"}),
+    )
+    beneficiary_last_name = forms.CharField(
+        required=False,
+        max_length=100,
+        label="Beneficiary surname",
+        widget=forms.TextInput(attrs={"placeholder": "Surname", "autocomplete": "off"}),
+    )
+    beneficiary_relationship = forms.ChoiceField(
+        required=False,
+        label="Relationship",
+        choices=[("", "Relationship")] + list(BENEFICIARY_RELATIONSHIPS),
+    )
+    beneficiary2_enabled = forms.BooleanField(
+        required=False,
+        initial=False,
+        label="Add another beneficiary",
+        widget=forms.CheckboxInput(attrs={"id": "id_beneficiary2_enabled"}),
+    )
+    beneficiary2_is_member = forms.BooleanField(
+        required=False,
+        initial=False,
+        label="Second beneficiary is a member",
+        widget=forms.CheckboxInput(attrs={"id": "id_beneficiary2_is_member"}),
+    )
+    beneficiary2_member = forms.ModelChoiceField(
+        queryset=Member.objects.filter(is_active=True, member_role__slug="member"),
+        required=False,
+        label="Second beneficiary member",
+        empty_label="Search member...",
+        widget=forms.Select(attrs={"autocomplete": "off"}),
+    )
+    beneficiary2_first_name = forms.CharField(
+        required=False,
+        max_length=100,
+        label="Second beneficiary first name",
+        widget=forms.TextInput(attrs={"placeholder": "First name", "autocomplete": "off"}),
+    )
+    beneficiary2_last_name = forms.CharField(
+        required=False,
+        max_length=100,
+        label="Second beneficiary surname",
+        widget=forms.TextInput(attrs={"placeholder": "Surname", "autocomplete": "off"}),
+    )
+    beneficiary2_relationship = forms.ChoiceField(
+        required=False,
+        label="Relationship",
+        choices=[("", "Relationship")] + list(BENEFICIARY_RELATIONSHIPS),
+    )
+    walk_in_phone = forms.CharField(
+        required=False,
+        max_length=20,
+        label="Mobile number",
+        widget=forms.TextInput(attrs={"placeholder": "09xxxxxxxxx", "autocomplete": "off"}),
+    )
+    passbook_serial = forms.CharField(
+        max_length=40,
+        label="Passbook serial number",
+        help_text="The serial number printed on this member's savings passbook.",
+        widget=forms.TextInput(
+            attrs={
+                "placeholder": "e.g. PB-001234",
+                "autocomplete": "off",
+                "id": "id_passbook_serial",
+            }
+        ),
     )
     opening_date = forms.DateField(
         label="Opening date",
@@ -406,6 +584,13 @@ class OpenSavingsAccountForm(forms.Form):
         self.fields["member"].label_from_instance = label_fn
         self.fields["joint_member"].queryset = eligible_qs
         self.fields["joint_member"].label_from_instance = label_fn
+        beneficiary_qs = Member.objects.filter(
+            is_active=True,
+            member_role__slug="member",
+        ).order_by("last_name", "first_name")
+        for name in ("beneficiary_member", "beneficiary2_member"):
+            self.fields[name].queryset = beneficiary_qs
+            self.fields[name].label_from_instance = label_fn
         self.regular_product = (
             self.fields["product"].queryset.filter(pk=regular_product.pk).first()
             or self.fields["product"].queryset.first()
@@ -440,6 +625,8 @@ class OpenSavingsAccountForm(forms.Form):
                     "type": product.product_type,
                     "min": str(product.min_opening_deposit or 0),
                     "max": str(product.max_balance or 0),
+                    "feature_min": str(getattr(product, "min_amount", None) or "5000.00"),
+                    "feature_max": str(getattr(product, "max_amount", None) or "100000.00"),
                     "rate": str(product.interest_rate or 0),
                     "rate3": str(getattr(product, "rate_3_months", "0.010")),
                     "rate6": str(getattr(product, "rate_6_months", "0.010")),
@@ -448,8 +635,22 @@ class OpenSavingsAccountForm(forms.Form):
             )
         return rows
 
+    def clean_passbook_serial(self):
+        raw = (self.cleaned_data.get("passbook_serial") or "").strip()
+        if not raw:
+            raise forms.ValidationError("Enter the passbook serial number.")
+        taken = models.MemberSavingsAccount.objects.filter(passbook_serial__iexact=raw)
+        if taken.exists():
+            raise forms.ValidationError(
+                "That passbook serial number is already assigned to another savings account."
+            )
+        return raw
+
     def clean_member(self):
-        member = self.cleaned_data["member"]
+        member = self.cleaned_data.get("member")
+        walk_in_on = str(self.data.get("is_walk_in") or "").strip().lower() in {"1", "true", "on", "yes"}
+        if member is None or walk_in_on:
+            return None
         from . import services
 
         try:
@@ -507,9 +708,31 @@ class OpenSavingsAccountForm(forms.Form):
             cleaned["product"] = self.regular_product or models.SavingsProduct.ensure_regular_product()
         member = cleaned.get("member")
         product = cleaned.get("product")
+        is_walk_in = bool(cleaned.get("is_walk_in"))
         is_joint = bool(cleaned.get("is_joint"))
         joint_member = cleaned.get("joint_member")
+        cleaned["is_walk_in"] = is_walk_in
         cleaned["is_joint"] = is_joint
+
+        if is_walk_in:
+            cleaned["member"] = None
+            cleaned["joint_member"] = None
+            cleaned["is_joint"] = False
+            member = None
+            joint_member = None
+            is_joint = False
+            first_name = (cleaned.get("walk_in_first_name") or "").strip()
+            last_name = (cleaned.get("walk_in_last_name") or "").strip()
+            if not first_name:
+                self.add_error("walk_in_first_name", "Enter the walk-in first name.")
+            if not last_name:
+                self.add_error("walk_in_last_name", "Enter the walk-in surname.")
+            cleaned["walk_in_first_name"] = first_name
+            cleaned["walk_in_middle_name"] = (cleaned.get("walk_in_middle_name") or "").strip()
+            cleaned["walk_in_last_name"] = last_name
+            cleaned["walk_in_phone"] = (cleaned.get("walk_in_phone") or "").strip()
+        elif not member:
+            self.add_error("member", "Select a member, or turn on Walk-in (not a member).")
 
         if is_joint:
             if not joint_member:
@@ -563,19 +786,128 @@ class OpenSavingsAccountForm(forms.Form):
             and product.product_type == models.SavingsProduct.ProductType.TIME_DEPOSIT
         )
         term = (cleaned.get("deposit_term_months") or "").strip()
-        from .policy import time_deposit_uses_term
+        from .policy import time_deposit_max_amount, time_deposit_uses_term
 
-        if is_time_deposit and amount is not None and time_deposit_uses_term(amount):
+        if is_time_deposit and amount is not None and time_deposit_uses_term(amount, product):
+            ceiling = time_deposit_max_amount(product)
             if term not in {"3", "6", "12"}:
                 self.add_error(
                     "deposit_term_months",
-                    "For ₱100,001 and above, select 3 months, 6 months, or 1 year.",
+                    f"Above ₱{ceiling:,.2f}, select 3 months, 6 months, or 1 year.",
                 )
             else:
                 cleaned["deposit_term_months"] = int(term)
         else:
             cleaned["deposit_term_months"] = None
+        cleaned["beneficiaries"] = self._clean_beneficiaries(cleaned, member)
         return cleaned
+
+    def _clean_beneficiaries(self, cleaned, holder):
+        rows = []
+        first = self._one_beneficiary(
+            cleaned,
+            holder,
+            required=True,
+            is_member_key="beneficiary_is_member",
+            member_key="beneficiary_member",
+            first_key="beneficiary_first_name",
+            last_key="beneficiary_last_name",
+            relationship_key="beneficiary_relationship",
+            label="Beneficiary",
+        )
+        if first:
+            rows.append(first)
+        if cleaned.get("beneficiary2_enabled"):
+            second = self._one_beneficiary(
+                cleaned,
+                holder,
+                required=True,
+                is_member_key="beneficiary2_is_member",
+                member_key="beneficiary2_member",
+                first_key="beneficiary2_first_name",
+                last_key="beneficiary2_last_name",
+                relationship_key="beneficiary2_relationship",
+                label="Second beneficiary",
+            )
+            if second:
+                rows.append(second)
+        seen_members = set()
+        seen_names = set()
+        for row in rows:
+            person = row.get("member")
+            if person is not None:
+                if person.pk in seen_members:
+                    self.add_error("beneficiary2_member", "That member is already a beneficiary.")
+                seen_members.add(person.pk)
+            else:
+                key = (
+                    (row.get("first_name") or "").lower(),
+                    (row.get("last_name") or "").lower(),
+                )
+                if key in seen_names:
+                    self.add_error(
+                        "beneficiary2_last_name",
+                        "That name is already listed as a beneficiary.",
+                    )
+                seen_names.add(key)
+        return rows
+
+    def _one_beneficiary(
+        self,
+        cleaned,
+        holder,
+        *,
+        required,
+        is_member_key,
+        member_key,
+        first_key,
+        last_key,
+        relationship_key,
+        label,
+    ):
+        is_member = bool(cleaned.get(is_member_key))
+        relationship = (cleaned.get(relationship_key) or "").strip()
+        if is_member:
+            person = cleaned.get(member_key)
+            if person is None:
+                if required:
+                    self.add_error(member_key, f"Select the {label.lower()} member, or type a name.")
+                return None
+            if holder is not None and person.pk == holder.pk:
+                self.add_error(
+                    member_key,
+                    f"The {label.lower()} must be a different person from the account holder.",
+                )
+            if not relationship:
+                self.add_error(relationship_key, f"Choose how the {label.lower()} is related.")
+            return {"member": person, "relationship": relationship}
+        first_name = (cleaned.get(first_key) or "").strip()
+        last_name = (cleaned.get(last_key) or "").strip()
+        cleaned[first_key] = first_name
+        cleaned[last_key] = last_name
+        if not first_name:
+            self.add_error(first_key, f"Enter the {label.lower()} first name, or pick a member.")
+        if not last_name:
+            self.add_error(last_key, f"Enter the {label.lower()} surname, or pick a member.")
+        if not relationship:
+            self.add_error(relationship_key, f"Choose how the {label.lower()} is related.")
+        if not first_name or not last_name or not relationship:
+            return None
+        return {
+            "first_name": first_name,
+            "last_name": last_name,
+            "relationship": relationship,
+        }
+
+
+def _account_enrolled_on(account):
+    """Calendar date the savings account was opened. The clock time is ignored."""
+    opened_at = getattr(account, "opened_at", None)
+    if not opened_at:
+        return None
+    if timezone.is_aware(opened_at):
+        return timezone.localtime(opened_at).date()
+    return opened_at.date()
 
 
 class SavingsMovementForm(forms.Form):
@@ -586,10 +918,45 @@ class SavingsMovementForm(forms.Form):
         label="Amount",
         widget=money_input(min="0.01", placeholder="0.00"),
     )
+    transaction_date = forms.DateField(
+        label="Date",
+        input_formats=["%Y-%m-%d"],
+        widget=forms.DateInput(
+            attrs={"type": "date", "id": "savingsMoveDate", "class": "form-control"},
+            format="%Y-%m-%d",
+        ),
+        help_text="From the enrollment date through today. Dates before enrollment are not allowed.",
+    )
     notes = forms.CharField(
         required=False,
         widget=forms.TextInput(attrs={"placeholder": "Optional note"}),
     )
+
+    def __init__(self, *args, account=None, **kwargs):
+        self.account = account
+        super().__init__(*args, **kwargs)
+        today = timezone.localdate()
+        date_field = self.fields["transaction_date"]
+        date_field.initial = today
+        date_field.widget.attrs["max"] = today.isoformat()
+        self.enrolled_on = _account_enrolled_on(account)
+        if self.enrolled_on:
+            date_field.widget.attrs["min"] = self.enrolled_on.isoformat()
+        else:
+            date_field.widget.attrs.pop("min", None)
+
+    def clean_transaction_date(self):
+        value = self.cleaned_data.get("transaction_date")
+        if not value:
+            return value
+        if value > timezone.localdate():
+            raise forms.ValidationError("Transaction date cannot be in the future.")
+        if self.enrolled_on and value < self.enrolled_on:
+            raise forms.ValidationError(
+                "Date cannot be before this account was enrolled "
+                f"({self.enrolled_on.strftime('%b %d, %Y')})."
+            )
+        return value
 
 
 class CloseSavingsAccountForm(forms.Form):

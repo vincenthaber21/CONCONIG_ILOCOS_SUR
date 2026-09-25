@@ -8,7 +8,7 @@
       <i class="bi bi-arrow-left"></i> Savings products
     </a>
     <h1 id="product-form-title">{% if form.is_time_deposit.value == "1" or form.is_time_deposit.value == True %}{% if object %}Edit Time Deposit{% else %}Add Time Deposit{% endif %}{% else %}{% if object %}Edit Regular Savings{% else %}Add Regular Savings{% endif %}{% endif %}</h1>
-    <p class="subtitle" id="product-form-subtitle">{% if form.is_time_deposit.value == "1" or form.is_time_deposit.value == True %}From ₱5,000 to ₱100,000, interest = time deposit × rate. From ₱100,001, the member selects 3 months, 6 months, or 1 year.{% else %}Set how many months between interest credits. Each credit uses this product’s annual rate.{% endif %}</p>
+    <p class="subtitle" id="product-form-subtitle">{% if form.is_time_deposit.value == "1" or form.is_time_deposit.value == True %}Set the minimum and maximum amount. Through the maximum, interest = time deposit × rate. Above the maximum, the member selects 3 months, 6 months, or 1 year.{% else %}Set how many months between interest credits. Each credit uses this product’s annual rate.{% endif %}</p>
   </header>
 
   <section class="card loan-form-page__card">
@@ -77,31 +77,48 @@
         {{ form.description }}
       </div>
 
+      <div class="loan-form__field" id="interest-rate-field">
+        <label for="{{ form.interest_rate.id_for_label }}">{{ form.interest_rate.label }}</label>
+        {{ form.interest_rate }}
+        <p class="helptext">Change this anytime. Regular savings uses savings × this rate × months ÷ 12.</p>
+        {% if form.interest_rate.errors %}<div class="loan-form__errors">{{ form.interest_rate.errors }}</div>{% endif %}
+      </div>
+
+      <div class="loan-form__field" id="min-opening-deposit-field">
+        <label for="{{ form.min_opening_deposit.id_for_label }}">{{ form.min_opening_deposit.label }}</label>
+        <div class="loan-form__money"><span>₱</span>{{ form.min_opening_deposit }}</div>
+        {% if form.min_opening_deposit.help_text %}<p class="helptext">{{ form.min_opening_deposit.help_text }}</p>{% endif %}
+        <p class="helptext" id="min-opening-time-deposit-note"{% if form.is_time_deposit.value != '1' and form.is_time_deposit.value != True %} hidden{% endif %}>Minimum is ₱5,000.00 for a time deposit.</p>
+        {% if form.min_opening_deposit.errors %}<div class="loan-form__errors">{{ form.min_opening_deposit.errors }}</div>{% endif %}
+      </div>
+
       <div class="loan-form__field" id="regular-interest-months"{% if form.is_time_deposit.value == '1' or form.is_time_deposit.value == True %} hidden{% endif %}>
         <label for="{{ form.interest_apply_months.id_for_label }}">{{ form.interest_apply_months.label }}</label>
         {{ form.interest_apply_months }}
-        <p class="helptext">Interest = savings × rate × these months ÷ 12, and only if the member made no withdrawal during that period. Example: ₱2,000 × 0.07 × 3 ÷ 12 = ₱35.00.</p>
+        <p class="helptext" id="regular-interest-example" data-rate="{{ regular_interest_rate }}">{{ regular_interest_help }}</p>
         {% if form.interest_apply_months.errors %}<div class="loan-form__errors">{{ form.interest_apply_months.errors }}</div>{% endif %}
       </div>
 
       <div id="time-deposit-features"{% if form.is_time_deposit.value != '1' and form.is_time_deposit.value != True %} hidden{% endif %}>
         <h3 class="savings-td__features-title">Time deposit features</h3>
-        <p class="helptext" style="margin:0 0 1rem;">
-          From &#8369;5,000 up to &#8369;100,000, interest = time deposit × interest rate.
+        <p class="helptext" style="margin:0 0 1rem;" id="time-deposit-features-copy">
+          From the minimum amount through the maximum amount, interest = time deposit × interest rate.
           Example: &#8369;50,000 × 0.02 = &#8369;1,000.00.
-          From &#8369;100,001, the member selects a term:
+          Above the maximum amount, the member selects a term:
           3 months = savings × 0.01 × (3/12),
           6 months = savings × 0.01 × (6/12),
           1 year = savings × 0.03.
         </p>
-        <div class="loan-form__field">
-          <label for="{{ form.interest_rate.id_for_label }}">{{ form.interest_rate.label }}</label>
-          {{ form.interest_rate }}
-          {% if form.interest_rate.help_text %}<p class="helptext">{{ form.interest_rate.help_text }}</p>{% endif %}
-          {% if form.interest_rate.errors %}<div class="loan-form__errors">{{ form.interest_rate.errors }}</div>{% endif %}
+        <div class="loan-form__row">
+          <div class="loan-form__field">
+            <label for="{{ form.max_balance.id_for_label }}">{{ form.max_balance.label }}</label>
+            <div class="loan-form__money"><span>₱</span>{{ form.max_balance }}</div>
+            {% if form.max_balance.help_text %}<p class="helptext">{{ form.max_balance.help_text }}</p>{% endif %}
+            {% if form.max_balance.errors %}<div class="loan-form__errors">{{ form.max_balance.errors }}</div>{% endif %}
+          </div>
         </div>
         <div class="td-term-model">
-          <h4>&#8369;100,001 and above</h4>
+          <h4 id="td-term-heading">Above the maximum amount</h4>
           <p class="helptext">The member selects one term.</p>
           <div class="loan-form__field">
             <label for="{{ form.rate_3_months.id_for_label }}">{{ form.rate_3_months.label }}</label>
@@ -120,20 +137,6 @@
             {{ form.rate_1_year }}
             <p class="helptext">1 year = savings × 0.03. Example: &#8369;100,000 × 0.03 = &#8369;3,000.00.</p>
             {% if form.rate_1_year.errors %}<div class="loan-form__errors">{{ form.rate_1_year.errors }}</div>{% endif %}
-          </div>
-        </div>
-        <div class="loan-form__row">
-          <div class="loan-form__field">
-            <label for="{{ form.min_opening_deposit.id_for_label }}">{{ form.min_opening_deposit.label }}</label>
-            <div class="loan-form__money"><span>₱</span>{{ form.min_opening_deposit }}</div>
-            {% if form.min_opening_deposit.help_text %}<p class="helptext">{{ form.min_opening_deposit.help_text }}</p>{% endif %}
-            {% if form.min_opening_deposit.errors %}<div class="loan-form__errors">{{ form.min_opening_deposit.errors }}</div>{% endif %}
-          </div>
-          <div class="loan-form__field">
-            <label for="{{ form.max_balance.id_for_label }}">{{ form.max_balance.label }}</label>
-            <div class="loan-form__money"><span>₱</span>{{ form.max_balance }}</div>
-            {% if form.max_balance.help_text %}<p class="helptext">{{ form.max_balance.help_text }}</p>{% endif %}
-            {% if form.max_balance.errors %}<div class="loan-form__errors">{{ form.max_balance.errors }}</div>{% endif %}
           </div>
         </div>
         <div class="loan-form__checks">
@@ -246,6 +249,10 @@
   var title = document.getElementById("product-form-title");
   var subtitle = document.getElementById("product-form-subtitle");
   var nameInput = document.getElementById("id_name");
+  var example = document.getElementById("regular-interest-example");
+  var openingNote = document.getElementById("min-opening-time-deposit-note");
+  var monthsInput = document.getElementById("{{ form.interest_apply_months.id_for_label }}");
+  var rateInput = document.getElementById("{{ form.interest_rate.id_for_label }}");
   var editing = {% if object %}true{% else %}false{% endif %};
   if (!input || !btn) return;
 
@@ -261,6 +268,7 @@
     if (regularMonths) regularMonths.hidden = enabled;
     if (hintOn) hintOn.hidden = !enabled;
     if (hintOff) hintOff.hidden = enabled;
+    if (openingNote) openingNote.hidden = !enabled;
     btn.setAttribute("aria-pressed", enabled ? "true" : "false");
     btn.innerHTML = enabled
       ? '<i class="bi bi-toggle-on" aria-hidden="true"></i> Disable time deposit'
@@ -272,7 +280,7 @@
     }
     if (subtitle) {
       subtitle.textContent = enabled
-        ? "From ₱5,000 to ₱100,000, interest = time deposit × rate. From ₱100,001, the member selects 3 months, 6 months, or 1 year."
+        ? "Set the minimum and maximum amount. Through the maximum, interest = time deposit × rate. Above the maximum, the member selects 3 months, 6 months, or 1 year."
         : "Set how many months between interest credits. Each credit uses this product’s annual rate.";
     }
     if (swapName && nameInput) {
@@ -285,10 +293,33 @@
     }
   }
 
+  function refreshExample() {
+    if (!example) return;
+    var rate = rateInput && rateInput.value !== ""
+      ? Number(rateInput.value)
+      : Number(example.getAttribute("data-rate"));
+    var months = monthsInput ? Number(monthsInput.value) : 12;
+    if (!isFinite(rate)) rate = 0;
+    if (!isFinite(months) || months < 1) months = 12;
+    var interest = 2000 * rate * months / 12;
+    var rateText = String(Math.round(rate * 1000) / 1000);
+    example.textContent =
+      "Interest = savings × rate × these months ÷ 12, and only if the member made no withdrawal during that period. Example: ₱2,000.00 × "
+      + rateText
+      + " × "
+      + months
+      + " ÷ 12 = ₱"
+      + interest.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+      + ".";
+  }
+
   btn.addEventListener("click", function () {
     setOn(!isOn(), true);
   });
+  if (monthsInput) monthsInput.addEventListener("input", refreshExample);
+  if (rateInput) rateInput.addEventListener("input", refreshExample);
   setOn(isOn(), false);
+  refreshExample();
 })();
 </script>
 {% endblock %}

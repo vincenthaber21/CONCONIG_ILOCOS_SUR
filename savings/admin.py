@@ -120,6 +120,12 @@ class SavingsProductAdmin(admin.ModelAdmin):
         )
 
 
+@admin.register(models.SavingsWalkIn)
+class SavingsWalkInAdmin(admin.ModelAdmin):
+    list_display = ("last_name", "first_name", "middle_name", "phone", "created_at")
+    search_fields = ("first_name", "middle_name", "last_name", "phone")
+
+
 class MemberSavingsAccountAdminForm(forms.ModelForm):
     opening_amount = forms.DecimalField(
         min_value=Decimal("0.01"),
@@ -137,7 +143,7 @@ class MemberSavingsAccountAdminForm(forms.ModelForm):
 
     class Meta:
         model = models.MemberSavingsAccount
-        fields = ("member", "product", "status", "notes", "closed_at")
+        fields = ("member", "product", "status", "notes", "passbook_serial", "closed_at")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -210,6 +216,13 @@ class MemberSavingsAccountAdminForm(forms.ModelForm):
         return cleaned
 
 
+class SavingsBeneficiaryInline(admin.TabularInline):
+    model = models.SavingsBeneficiary
+    extra = 0
+    autocomplete_fields = ("member",)
+    fields = ("member", "first_name", "last_name", "relationship")
+
+
 class SavingsTransactionInline(admin.TabularInline):
     model = models.SavingsTransaction
     extra = 0
@@ -235,6 +248,7 @@ class MemberSavingsAccountAdmin(admin.ModelAdmin):
     form = MemberSavingsAccountAdminForm
     list_display = (
         "account_number",
+        "passbook_serial",
         "member",
         "is_joint",
         "product",
@@ -246,6 +260,7 @@ class MemberSavingsAccountAdmin(admin.ModelAdmin):
     list_filter = ("status", "is_joint", "product")
     search_fields = (
         "account_number",
+        "passbook_serial",
         "member__first_name",
         "member__last_name",
         "member__username",
@@ -256,12 +271,21 @@ class MemberSavingsAccountAdmin(admin.ModelAdmin):
     )
     autocomplete_fields = ("member", "product")
     readonly_fields = ("account_number", "balance", "opened_at", "maturity_date")
-    inlines = [SavingsTransactionInline]
+    inlines = [SavingsBeneficiaryInline, SavingsTransactionInline]
     fieldsets = (
         (
             None,
             {
-                "fields": ("member", "product", "is_joint", "opening_amount", "opening_date", "status", "notes"),
+                "fields": (
+                    "member",
+                    "product",
+                    "is_joint",
+                    "passbook_serial",
+                    "opening_amount",
+                    "opening_date",
+                    "status",
+                    "notes",
+                ),
                 "description": (
                     "Saving a new account writes it to the database, assigns an "
                     "account number, and posts the opening deposit to the ledger. "
@@ -280,7 +304,19 @@ class MemberSavingsAccountAdmin(admin.ModelAdmin):
     def get_fieldsets(self, request, obj=None):
         if obj:
             return (
-                (None, {"fields": ("member", "product", "is_joint", "status", "notes")}),
+                (
+                    None,
+                    {
+                        "fields": (
+                            "member",
+                            "product",
+                            "is_joint",
+                            "passbook_serial",
+                            "status",
+                            "notes",
+                        )
+                    },
+                ),
                 (
                     "Record",
                     {

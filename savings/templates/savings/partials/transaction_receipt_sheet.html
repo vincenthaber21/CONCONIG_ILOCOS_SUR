@@ -42,7 +42,7 @@
     {% endif %}
     <div>
       <dt>Username</dt>
-      <dd>{{ account.member.username|default:"—" }}</dd>
+      <dd>{% if account.walk_in_id %}Walk-in{% else %}{{ account.member.username|default:"—" }}{% endif %}</dd>
     </div>
     <div>
       <dt>Savings product</dt>

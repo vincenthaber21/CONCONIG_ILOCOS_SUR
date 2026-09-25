@@ -136,14 +136,34 @@ TIME_DEPOSIT_RATE_1_YEAR = Decimal("0.030")
 TIME_DEPOSIT_TERM_MONTHS = (3, 6, 12)
 
 
-def earns_time_deposit_interest(balance):
-    """True when the time deposit is at least ₱5,000.00."""
-    return Decimal(balance or 0) >= TIME_DEPOSIT_MIN_BALANCE
+def time_deposit_min_amount(product=None):
+    """Lowest amount that earns time-deposit interest."""
+    stored = getattr(product, "min_amount", None) if product is not None else None
+    if stored is None:
+        return TIME_DEPOSIT_MIN_BALANCE
+    return Decimal(stored)
 
 
-def time_deposit_uses_term(balance):
-    """True from ₱100,001.00 upward."""
-    return Decimal(balance or 0) >= TIME_DEPOSIT_HIGH_BALANCE
+def time_deposit_max_amount(product=None):
+    """Highest amount that uses savings × interest rate.
+
+    Above this amount the member selects a term. When the product has no
+    maximum saved, the split stays at ₱100,000 so ₱100,001 still uses a term.
+    """
+    stored = getattr(product, "max_amount", None) if product is not None else None
+    if stored is None:
+        return TIME_DEPOSIT_HIGH_BALANCE - Decimal("0.01")
+    return Decimal(stored)
+
+
+def earns_time_deposit_interest(balance, product=None):
+    """True when the time deposit is at least the product minimum amount."""
+    return Decimal(balance or 0) >= time_deposit_min_amount(product)
+
+
+def time_deposit_uses_term(balance, product=None):
+    """True above the product maximum amount (default: ₱100,001.00 and up)."""
+    return Decimal(balance or 0) > time_deposit_max_amount(product)
 
 
 def time_deposit_term_rate(term_months, product=None):
@@ -181,7 +201,7 @@ def time_deposit_interest_amount(balance, rate, term_months=None, product=None):
     1 year = savings × 0.03
     """
     amount = Decimal(balance or 0)
-    if time_deposit_uses_term(amount):
+    if time_deposit_uses_term(amount, product):
         term_rate = time_deposit_term_rate(term_months, product)
         if term_rate is None:
             return Decimal("0.00")
@@ -193,7 +213,7 @@ def time_deposit_interest_amount(balance, rate, term_months=None, product=None):
             interest = amount * term_rate * Decimal(term) / MONTHS_PER_YEAR
         else:
             interest = amount * term_rate
-    elif TIME_DEPOSIT_MIN_BALANCE <= amount < TIME_DEPOSIT_HIGH_BALANCE:
+    elif time_deposit_min_amount(product) <= amount <= time_deposit_max_amount(product):
         interest = amount * Decimal(rate)
     else:
         return Decimal("0.00")
@@ -213,6 +233,21 @@ def interest_amount(balance, rate, periods_per_year=12, months=None):
         months = MONTHS_PER_YEAR / periods
     amount = Decimal(balance) * Decimal(rate) * Decimal(months) / MONTHS_PER_YEAR
     return amount.quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
+
+
+def regular_interest_help(rate, months, savings=Decimal("2000.00")):
+    """Example line for the regular-savings form, using the product's admin rate."""
+    months = int(months or 12)
+    if months < 1:
+        months = 1
+    rate = Decimal(rate if rate is not None else ANNUAL_INTEREST_RATE)
+    amount = interest_amount(savings, rate, months=months)
+    rate_text = format(rate.quantize(Decimal("0.001")), "f").rstrip("0").rstrip(".") or "0"
+    return (
+        "Interest = savings × rate × these months ÷ 12, and only if the member "
+        "made no withdrawal during that period. "
+        f"Example: ₱{savings:,.2f} × {rate_text} × {months} ÷ 12 = ₱{amount:,.2f}."
+    )
 
 
 def _active_regular_product():

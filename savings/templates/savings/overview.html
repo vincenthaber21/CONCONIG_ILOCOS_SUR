@@ -201,7 +201,7 @@
             <a href="{% url 'savings:account-detail' account.pk %}" class="text-decoration-none text-dark">
               <div class="member-cell">
                 <strong>{{ account.holders_display }}</strong>
-                <small>{{ account.member.username|default:account.member.email|default:"—" }}</small>
+                <small>{% if account.walk_in_id %}Walk-in{% if account.walk_in.phone %} · {{ account.walk_in.phone }}{% endif %}{% else %}{{ account.member.username|default:account.member.email|default:"—" }}{% endif %}</small>
                 {% if account.is_joint %}
                 <span class="joint-badge"><i class="bi bi-people-fill"></i> Joint</span>
                 {% endif %}
@@ -222,7 +222,7 @@
                     class="btn--danger delete-savings-account-btn"
                     data-delete-url="{% url 'savings:account-delete' account.pk %}"
                     data-account-number="{{ account.account_number|escapejs }}"
-                    data-member-name="{{ account.member.full_name|escapejs }}"
+                    data-member-name="{{ account.primary_holder_name|escapejs }}"
                     title="Delete this savings account permanently">
               <i class="bi bi-trash"></i> Delete
             </button>

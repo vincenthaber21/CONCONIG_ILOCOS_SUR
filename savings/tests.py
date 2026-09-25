@@ -250,6 +250,31 @@ class SavingsInterestPolicyTests(SimpleTestCase):
             Decimal("0.00"),
         )
 
+    def test_product_min_and_max_amount_set_the_interest_band(self):
+        product = SimpleNamespace(
+            min_amount=Decimal("8000.00"),
+            max_amount=Decimal("50000.00"),
+        )
+        rate = Decimal("0.02")
+        self.assertEqual(
+            time_deposit_interest_amount(Decimal("7999.99"), rate, product=product),
+            Decimal("0.00"),
+        )
+        self.assertEqual(
+            time_deposit_interest_amount(Decimal("8000.00"), rate, product=product),
+            Decimal("160.00"),
+        )
+        self.assertEqual(
+            time_deposit_interest_amount(Decimal("50000.00"), rate, product=product),
+            Decimal("1000.00"),
+        )
+        self.assertEqual(
+            time_deposit_interest_amount(
+                Decimal("50000.01"), rate, term_months=12, product=product
+            ),
+            Decimal("1500.00"),
+        )
+
 
 class ResolveOpenedAtTests(SimpleTestCase):
     def test_defaults_to_now(self):
@@ -303,13 +328,42 @@ class SavingsProductTimeDepositFormTests(TestCase):
         return data
 
     def test_disabled_time_deposit_saves_regular_policy(self):
-        form = forms.SavingsProductForm(data=self._base(name="Walk-in Savings", code="walk-in"))
+        form = forms.SavingsProductForm(
+            data=self._base(
+                name="Walk-in Savings",
+                code="walk-in",
+                min_opening_deposit="1500.00",
+            )
+        )
         self.assertTrue(form.is_valid(), form.errors)
         product = form.save()
         self.assertEqual(product.product_type, models.SavingsProduct.ProductType.REGULAR)
         self.assertEqual(product.term_months, 0)
-        self.assertEqual(product.min_opening_deposit, Decimal("1000.00"))
+        self.assertEqual(product.min_opening_deposit, Decimal("1500.00"))
         self.assertEqual(product.interest_apply_months, 12)
+
+    def test_regular_save_uses_the_entered_interest_rate(self):
+        product = models.SavingsProduct.objects.create(
+            name="Regular Savings",
+            code="regular-keep-rate",
+            product_type=models.SavingsProduct.ProductType.REGULAR,
+            interest_rate=Decimal("0.070"),
+            interest_apply_months=3,
+        )
+        form = forms.SavingsProductForm(
+            data=self._base(
+                name="Regular Savings",
+                code="regular-keep-rate",
+                is_time_deposit="0",
+                interest_rate="0.020",
+                interest_apply_months="3",
+            ),
+            instance=product,
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        saved = form.save()
+        self.assertEqual(saved.interest_rate, Decimal("0.020"))
+        self.assertEqual(saved.interest_apply_months, 3)
 
     def test_enabled_time_deposit_saves_rate_and_minimum(self):
         form = forms.SavingsProductForm(
@@ -331,11 +385,43 @@ class SavingsProductTimeDepositFormTests(TestCase):
         self.assertEqual(product.rate_6_months, Decimal("0.010"))
         self.assertEqual(product.rate_1_year, Decimal("0.030"))
         self.assertEqual(product.min_opening_deposit, Decimal("10000.00"))
-        self.assertEqual(product.max_balance, Decimal("999999.99"))
+        self.assertEqual(product.max_balance, Decimal("1000000.00"))
+        self.assertEqual(product.min_amount, Decimal("10000.00"))
+        self.assertEqual(product.max_amount, Decimal("1000000.00"))
         self.assertEqual(product.interest_apply_months, 12)
         self.assertEqual(product.early_withdrawal_penalty_percent, Decimal("0.000"))
         self.assertEqual(product.compounding, models.SavingsProduct.Compounding.ANNUALLY)
         self.assertFalse(product.allows_withdrawal)
+
+    def test_time_deposit_saves_min_and_max_amount(self):
+        form = forms.SavingsProductForm(
+            data=self._base(
+                name="Time Deposit",
+                code="td-range",
+                is_time_deposit="1",
+                min_opening_deposit="8000.00",
+                max_balance="250000.00",
+            )
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        product = form.save()
+        self.assertEqual(product.min_opening_deposit, Decimal("8000.00"))
+        self.assertEqual(product.max_balance, Decimal("250000.00"))
+        self.assertEqual(product.min_amount, Decimal("8000.00"))
+        self.assertEqual(product.max_amount, Decimal("250000.00"))
+
+    def test_time_deposit_max_amount_must_reach_the_minimum(self):
+        form = forms.SavingsProductForm(
+            data=self._base(
+                name="Time Deposit",
+                code="td-range-bad",
+                is_time_deposit="1",
+                min_opening_deposit="20000.00",
+                max_balance="8000.00",
+            )
+        )
+        self.assertFalse(form.is_valid())
+        self.assertIn("max_balance", form.errors)
 
     def test_time_deposit_minimum_is_5000(self):
         form = forms.SavingsProductForm(
@@ -369,4 +455,152 @@ class SavingsProductTimeDepositFormTests(TestCase):
         product = updated.save()
         self.assertEqual(product.product_type, models.SavingsProduct.ProductType.REGULAR)
         self.assertEqual(product.term_months, 0)
-        self.assertEqual(product.min_opening_deposit, Decimal("1000.00"))
+        self.assertEqual(product.min_opening_deposit, Decimal("5000.00"))
+
+
+class DatedMovementTests(TestCase):
+    def setUp(self):
+        self.product = models.SavingsProduct.objects.create(
+            name="Dated Passbook",
+            code="dated-move",
+            min_opening_deposit=Decimal("100.00"),
+            min_maintaining_balance=Decimal("50.00"),
+            max_balance=Decimal("10000.00"),
+            allows_withdrawal=True,
+        )
+        self.opened = timezone.localdate() - timedelta(days=60)
+        self.account = services.open_account(
+            product=self.product,
+            opening_amount=Decimal("1000.00"),
+            opening_date=self.opened,
+            walk_in={"first_name": "Ana", "last_name": "Cruz"},
+        )
+
+    def test_backdated_deposit_updates_later_balances(self):
+        services.deposit(account=self.account, amount=Decimal("500.00"))
+        past = timezone.localdate() - timedelta(days=30)
+        services.deposit(
+            account=self.account,
+            amount=Decimal("200.00"),
+            posted_on=past,
+        )
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal("1700.00"))
+        rows = list(
+            self.account.transactions.order_by("created_at", "id").values_list(
+                "balance_after", flat=True
+            )
+        )
+        self.assertEqual(
+            rows,
+            [Decimal("1000.00"), Decimal("1200.00"), Decimal("1700.00")],
+        )
+        end_of_past = timezone.make_aware(
+            datetime.combine(past, datetime.max.time().replace(microsecond=0))
+        )
+        self.assertEqual(services.balance_at(self.account, end_of_past), Decimal("1200.00"))
+
+    def test_backdated_withdrawal_that_overdraws_history_is_rejected(self):
+        services.deposit(account=self.account, amount=Decimal("800.00"))
+        past = timezone.localdate() - timedelta(days=20)
+        with self.assertRaises(ValidationError):
+            services.withdraw(
+                account=self.account,
+                amount=Decimal("1200.00"),
+                posted_on=past,
+            )
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal("1800.00"))
+        self.assertEqual(self.account.transactions.count(), 2)
+
+    def test_valid_backdated_withdrawal_shifts_later_rows(self):
+        services.deposit(account=self.account, amount=Decimal("500.00"))
+        past = timezone.localdate() - timedelta(days=15)
+        services.withdraw(
+            account=self.account,
+            amount=Decimal("100.00"),
+            posted_on=past,
+        )
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal("1400.00"))
+        rows = list(
+            self.account.transactions.order_by("created_at", "id").values_list(
+                "transaction_type", "balance_after"
+            )
+        )
+        self.assertEqual(
+            rows,
+            [
+                ("opening", Decimal("1000.00")),
+                ("withdrawal", Decimal("900.00")),
+                ("deposit", Decimal("1400.00")),
+            ],
+        )
+
+    def test_form_allows_past_dates_and_rejects_the_future(self):
+        future = forms.SavingsMovementForm(
+            data={
+                "amount": "100.00",
+                "transaction_date": (timezone.localdate() + timedelta(days=1)).isoformat(),
+            },
+            account=self.account,
+        )
+        self.assertFalse(future.is_valid())
+        self.assertIn("transaction_date", future.errors)
+
+        early = forms.SavingsMovementForm(
+            data={
+                "amount": "100.00",
+                "transaction_date": (self.opened - timedelta(days=30)).isoformat(),
+            },
+            account=self.account,
+        )
+        self.assertFalse(early.is_valid())
+        self.assertIn("transaction_date", early.errors)
+        html = str(forms.SavingsMovementForm(account=self.account)["transaction_date"])
+        self.assertIn('min="%s"' % self.opened.isoformat(), html)
+        self.assertIn('max="%s"' % timezone.localdate().isoformat(), html)
+
+        enrolled = forms.SavingsMovementForm(
+            data={
+                "amount": "100.00",
+                "transaction_date": self.opened.isoformat(),
+            },
+            account=self.account,
+        )
+        self.assertTrue(enrolled.is_valid(), enrolled.errors)
+
+        today = forms.SavingsMovementForm(
+            data={
+                "amount": "100.00",
+                "transaction_date": timezone.localdate().isoformat(),
+            },
+            account=self.account,
+        )
+        self.assertTrue(today.is_valid(), today.errors)
+
+    def test_deposit_before_enrollment_is_rejected(self):
+        past = self.opened - timedelta(days=20)
+        with self.assertRaises(ValidationError):
+            services.deposit(
+                account=self.account,
+                amount=Decimal("250.00"),
+                posted_on=past,
+            )
+        self.account.refresh_from_db()
+        self.assertEqual(self.account.balance, Decimal("1000.00"))
+
+    def test_deposit_on_enrollment_date_stays_on_that_date(self):
+        late = timezone.make_aware(datetime.combine(self.opened, datetime.min.time().replace(hour=18)))
+        self.account.opened_at = late
+        self.account.save(update_fields=["opened_at"])
+        opening = self.account.transactions.get(transaction_type="opening")
+        opening.created_at = late
+        opening.save(update_fields=["created_at"])
+        txn = services.deposit(
+            account=self.account,
+            amount=Decimal("250.00"),
+            posted_on=self.opened,
+        )
+        self.assertEqual(timezone.localtime(txn.created_at).date(), self.opened)
+        self.assertGreater(txn.created_at, late)

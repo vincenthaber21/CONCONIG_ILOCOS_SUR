@@ -17,16 +17,24 @@
       </div>
       <p class="acct-detail__meta">
         <span><i class="bi bi-upc"></i> {{ account.account_number }}</span>
+        {% if account.passbook_serial %}
+        <span><i class="bi bi-journal-text"></i> Passbook {{ account.passbook_serial }}</span>
+        {% endif %}
         <span><i class="bi bi-piggy-bank"></i> Regular Savings</span>
         {% if account.is_joint %}
         <span><i class="bi bi-people"></i> Joint · primary {{ account.member.full_name }}{% for co in account.co_owner_list %} · co-owner {{ co.full_name }}{% endfor %}</span>
         {% endif %}
-        {% if account.member.member_status %}
+        {% if account.walk_in_id %}
+        <span><i class="bi bi-person-walking"></i> Walk-in, not a member{% if account.walk_in.phone %} · {{ account.walk_in.phone }}{% endif %}</span>
+        {% elif account.member.member_status %}
         <span><i class="bi bi-person-badge"></i> {{ account.member.member_status.name }}</span>
         {% elif account.member.membership_status %}
         <span><i class="bi bi-person-badge"></i> {{ account.member.membership_status }}</span>
         {% endif %}
         <span><i class="bi bi-calendar3"></i> Opened {{ account.opened_at|date:"M j, Y" }}</span>
+        {% for person in account.beneficiaries.all %}
+        <span><i class="bi bi-heart"></i> Beneficiary {{ person.display_name }} · {{ person.get_relationship_display }}</span>
+        {% endfor %}
         {% if account.closed_at %}
         <span><i class="bi bi-x-circle"></i> Closed {{ account.closed_at|date:"M j, Y" }}</span>
         {% endif %}
@@ -53,7 +61,7 @@
             &#8369;{{ interest.interest_base|currency }} × {{ interest.rate_factor_display }}
             = &#8369;{{ interest.estimated_interest|currency }}
             {% if interest.needs_term %}
-            <small class="acct-rate-note">This amount is &#8369;100,001.00 or above. Select 3 months, 6 months, or 1 year for the member.</small>
+            <small class="acct-rate-note">This amount is above &#8369;{{ account.product.max_amount|currency }}. Select 3 months, 6 months, or 1 year for the member.</small>
             {% elif interest.high_amount %}
             <small class="acct-rate-note">
               {% if interest.deposit_term_months == 12 %}
@@ -63,9 +71,9 @@
               {% endif %}
             </small>
             {% elif interest.below_minimum %}
-            <small class="acct-rate-note">No interest unless the time deposit is at least &#8369;5,000.00.</small>
+            <small class="acct-rate-note">No interest unless the time deposit is at least &#8369;{{ account.product.min_amount|currency }}.</small>
             {% else %}
-            <small class="acct-rate-note">Up to &#8369;100,000: savings × interest rate.</small>
+            <small class="acct-rate-note">From &#8369;{{ account.product.min_amount|currency }} through &#8369;{{ account.product.max_amount|currency }}: savings × interest rate.</small>
             {% endif %}
             {% else %}
             &#8369;{{ interest.interest_base|currency }} × {{ interest.rate_factor_display }} × {{ interest.step_months }} ÷ 12
@@ -127,7 +135,7 @@
       {% if interest.high_amount and account.can_transact %}
       <form method="post" action="{% url 'savings:account-term' account.pk %}" class="td-term-pick">
         {% csrf_token %}
-        <p>Select the member's term for &#8369;100,001 and above.</p>
+        <p>Select the member's term above &#8369;{{ account.product.max_amount|currency }}.</p>
         <button type="submit" name="deposit_term_months" value="3"{% if account.deposit_term_months == 3 %} class="is-selected"{% endif %}>3 months · {{ account.product.rate_3_months }}</button>
         <button type="submit" name="deposit_term_months" value="6"{% if account.deposit_term_months == 6 %} class="is-selected"{% endif %}>6 months · {{ account.product.rate_6_months }}</button>
         <button type="submit" name="deposit_term_months" value="12"{% if account.deposit_term_months == 12 %} class="is-selected"{% endif %}>1 year · {{ account.product.rate_1_year }}</button>
@@ -137,8 +145,8 @@
       <p class="acct-auto-interest">
         <i class="bi bi-percent"></i>
         {% if interest.is_time_deposit %}
-        From &#8369;5,000 up to &#8369;100,000, interest = time deposit × rate.
-        From &#8369;100,001, the member selects a term:
+        From &#8369;{{ account.product.min_amount|currency }} through &#8369;{{ account.product.max_amount|currency }}, interest = time deposit × rate.
+        Above &#8369;{{ account.product.max_amount|currency }}, the member selects a term:
         3 months = savings × 0.01 × (3/12),
         6 months = savings × 0.01 × (6/12),
         1 year = savings × 0.03.
@@ -166,9 +174,9 @@
   <section class="card acct-move-card">
     <div class="acct-section-head">
       <h2>Deposit or withdraw</h2>
-      <p>Choose the type first, enter the amount, then review before posting.</p>
+      <p>Choose deposit or withdrawal, select a date from enrollment through today, enter the amount, then review before posting.</p>
     </div>
-    <form method="post" action="{% url 'savings:account-move' account.pk %}" class="acct-move-form" id="savingsMoveForm" autocomplete="off" novalidate>
+    <form method="post" action="{% url 'savings:account-move' account.pk %}" class="acct-move-form" id="savingsMoveForm" autocomplete="off" novalidate data-today="{% now 'Y-m-d' %}" data-enrolled="{% if movement_form.enrolled_on %}{{ movement_form.enrolled_on|date:'Y-m-d' }}{% endif %}">
       {% csrf_token %}
       <input type="hidden" name="action" id="savingsMoveAction" value="deposit">
 
@@ -205,6 +213,15 @@
             <button type="button" class="acct-move-chip" data-amount="10000">₱10,000</button>
           </div>
           <small class="acct-move-error" id="savingsMoveAmountError" hidden>Enter a valid amount greater than zero.</small>
+        </div>
+        <div class="acct-move-form__field">
+          <label for="savingsMoveDate">Date</label>
+          <div class="acct-move-date">
+            {{ movement_form.transaction_date }}
+            <button type="button" class="acct-move-date__today" id="savingsMoveDateToday">Today</button>
+          </div>
+          <small class="acct-move-hint">{% if movement_form.enrolled_on %}From enrollment on {{ movement_form.enrolled_on|date:"M j, Y" }} through today.{% else %}From the enrollment date through today.{% endif %} Earlier dates are not allowed.</small>
+          <small class="acct-move-error" id="savingsMoveDateError" hidden>Choose a date from enrollment through today.</small>
         </div>
         <div class="acct-move-form__field acct-move-form__field--grow">
           <label for="{{ movement_form.notes.id_for_label }}">Notes <span class="acct-optional">(optional)</span></label>
@@ -244,7 +261,7 @@
         <div class="modal-body">
           <p class="mb-3">
             Please review this transaction for
-            <strong>{{ account.member.full_name }}</strong>
+            <strong>{{ account.primary_holder_name }}</strong>
             (<span class="text-muted">({{ account.account_number }})</span>
             before posting.
           </p>
@@ -256,6 +273,10 @@
             <div>
               <dt>Amount</dt>
               <dd id="confirmMoveAmountLabel">—</dd>
+            </div>
+            <div>
+              <dt>Date</dt>
+              <dd id="confirmMoveDateLabel">—</dd>
             </div>
             <div>
               <dt>Current balance</dt>
@@ -273,7 +294,7 @@
           <div class="form-check mt-3">
             <input class="form-check-input" type="checkbox" id="confirmMoveAck" value="1">
             <label class="form-check-label" for="confirmMoveAck">
-              I verified the amount and authorize posting this transaction.
+              I verified the amount and date, and I authorize posting this transaction.
             </label>
           </div>
           <small class="text-danger d-block mt-2" id="confirmMoveAckError" hidden>
@@ -381,7 +402,7 @@
             <p class="mb-3">
               You are about to close
               <strong>{{ account.account_number }}</strong>
-              for <strong>{{ account.member.full_name }}</strong>.
+              for <strong>{{ account.primary_holder_name }}</strong>.
             </p>
             <ul class="acct-modal__list">
               <li>Withdraw remaining balance of <strong>&#8369;{{ account.balance|currency }}</strong></li>
@@ -603,11 +624,27 @@
   }
   .acct-move-form__row {
     display: grid;
-    grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+    grid-template-columns: minmax(220px, 300px) minmax(260px, 320px) minmax(0, 1fr);
     gap: 1rem 1.35rem;
     align-items: start;
     margin-bottom: 1.15rem;
   }
+  .acct-move-date {
+    display: flex; gap: .5rem; align-items: center;
+  }
+  .acct-move-date input[type="date"] {
+    flex: 1 1 180px; width: 100%; min-width: 180px; box-sizing: border-box;
+    min-height: 52px; color-scheme: light; font-size: 1rem;
+  }
+  .acct-move-date input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer; opacity: 1;
+  }
+  .acct-move-date__today {
+    border: 1px solid #e2e8f0; background: #fff; color: #334155;
+    border-radius: 999px; padding: 10px 14px; font-weight: 600; font-size: .84rem;
+    cursor: pointer; white-space: nowrap; min-height: 52px;
+  }
+  .acct-move-date__today:hover { background: #f8fafc; border-color: #cbd5e1; }
   .acct-move-form__field label {
     display: block; font-weight: 600; font-size: .9rem; color: #334155; margin-bottom: .4rem;
   }
@@ -702,7 +739,8 @@
   @media (max-width: 900px) {
     .acct-detail__stats { grid-template-columns: 1fr; }
     .acct-balance-card { min-height: auto; }
-    .acct-move-form__row { grid-template-columns: minmax(220px, 1fr) minmax(0, 1.2fr); }
+    .acct-move-form__row { grid-template-columns: 1fr 1fr; }
+    .acct-move-form__field--grow { grid-column: 1 / -1; }
   }
 
   @media (max-width: 700px) {
@@ -833,12 +871,18 @@
   if (moveForm) {
     var amountInput = moveForm.querySelector('[name="amount"]');
     var notesInput = moveForm.querySelector('[name="notes"]');
+    var dateInput = document.getElementById('savingsMoveDate');
+    var dateError = document.getElementById('savingsMoveDateError');
+    var dateTodayBtn = document.getElementById('savingsMoveDateToday');
+    var todayIso = moveForm.getAttribute('data-today') || '';
+    var enrolledIso = moveForm.getAttribute('data-enrolled') || '';
     var actionInput = document.getElementById('savingsMoveAction');
     var amountError = document.getElementById('savingsMoveAmountError');
     var header = document.getElementById('confirmSavingsMoveHeader');
     var title = document.getElementById('confirmSavingsMoveModalLabel');
     var actionLabel = document.getElementById('confirmMoveActionLabel');
     var amountLabel = document.getElementById('confirmMoveAmountLabel');
+    var dateLabel = document.getElementById('confirmMoveDateLabel');
     var balanceRow = document.getElementById('confirmMoveBalanceRow');
     var balanceAfter = document.getElementById('confirmMoveBalanceAfter');
     var notesRow = document.getElementById('confirmMoveNotesRow');
@@ -859,6 +903,44 @@
 
     function currentAmount() {
       return parseAmount(amountInput && amountInput.value);
+    }
+
+    function formatDateLabel(iso) {
+      var parts = String(iso || '').split('-');
+      if (parts.length !== 3) return iso || '—';
+      var parsed = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+      if (isNaN(parsed.getTime())) return iso;
+      return parsed.toLocaleDateString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
+      });
+    }
+
+    function validateDate() {
+      var value = dateInput ? String(dateInput.value || '').trim() : '';
+      var message = '';
+      if (!value) {
+        message = 'Choose the date of this deposit or withdrawal.';
+      } else if (todayIso && value > todayIso) {
+        message = 'Transaction date cannot be in the future.';
+      } else if (enrolledIso && value < enrolledIso) {
+        message = 'Date cannot be before this account was enrolled (' + formatDateLabel(enrolledIso) + ').';
+      }
+      if (message) {
+        if (dateError) {
+          dateError.textContent = message;
+          dateError.hidden = false;
+        }
+        if (dateInput) {
+          dateInput.focus();
+          dateInput.classList.add('is-invalid');
+        }
+        return '';
+      }
+      if (dateError) dateError.hidden = true;
+      if (dateInput) dateInput.classList.remove('is-invalid');
+      return value;
     }
 
     function validateAmount() {
@@ -943,16 +1025,20 @@
     function openMoveConfirm(action) {
       var amount = validateAmount();
       if (!isFinite(amount)) return;
+      var txnDate = validateDate();
+      if (!txnDate) return;
 
       pendingAction = action;
       var isWithdraw = action === 'withdraw';
       var after = isWithdraw ? (currentBalance - amount) : (currentBalance + amount);
       var notes = notesInput ? String(notesInput.value || '').trim() : '';
+      var dateText = formatDateLabel(txnDate);
 
       if (!bsMoveModal || !moveModalEl) {
         var msg =
           (isWithdraw ? 'Withdraw ' : 'Deposit ') +
           formatPeso(amount) +
+          ' on ' + dateText +
           ' for this savings account?\n\nBalance after: ' +
           formatPeso(after);
         if (window.confirm(msg)) submitMove(action);
@@ -973,6 +1059,7 @@
         amountLabel.textContent = (isWithdraw ? '−' : '+') + formatPeso(amount);
         amountLabel.style.color = isWithdraw ? '#b91c1c' : '#166534';
       }
+      if (dateLabel) dateLabel.textContent = dateText;
       if (balanceRow && balanceAfter) {
         balanceRow.hidden = false;
         balanceAfter.textContent = formatPeso(after);
@@ -1029,6 +1116,21 @@
         if (amountError) amountError.hidden = true;
         amountInput.classList.remove('is-invalid');
         updatePreview();
+      });
+    }
+
+    if (dateInput) {
+      dateInput.addEventListener('input', function () {
+        if (dateError) dateError.hidden = true;
+        dateInput.classList.remove('is-invalid');
+      });
+    }
+
+    if (dateTodayBtn && dateInput) {
+      dateTodayBtn.addEventListener('click', function () {
+        if (todayIso) dateInput.value = todayIso;
+        if (dateError) dateError.hidden = true;
+        dateInput.classList.remove('is-invalid');
       });
     }
 
