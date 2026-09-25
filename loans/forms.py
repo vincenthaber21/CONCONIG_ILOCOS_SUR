@@ -799,7 +799,7 @@ class DisbursementForm(forms.ModelForm):
     months_pay = forms.IntegerField(
         min_value=1,
         label="Months to pay",
-        help_text="Used to prorate interest: principal × rate × (months pay ÷ 12).",
+        help_text="Interest = principal × product rate × (months to pay ÷ 12).",
         widget=forms.NumberInput(attrs={"min": 1, "step": 1}),
     )
     savings_amount = MoneyField(
@@ -927,7 +927,7 @@ class DisbursementForm(forms.ModelForm):
 
         if amount_requested is not None:
             principal = Decimal(amount_requested)
-            months_pay = self.term_months
+            months_pay = services.DEFAULT_DISBURSEMENT_MONTHS_PAY
             if self.instance and self.instance.pk and self.instance.months_pay:
                 months_pay = int(self.instance.months_pay)
             self.fields["months_pay"].initial = months_pay
@@ -1055,7 +1055,7 @@ class PaymentForm(forms.ModelForm):
         min_value=1,
         required=False,
         label="Months to pay",
-        help_text="Interest = remaining principal × rate × (months pay ÷ 12).",
+        help_text="Interest = remaining principal × product rate × (months to pay ÷ 12).",
         widget=forms.NumberInput(
             attrs={"id": "pay-renewal-months", "min": 1, "step": 1}
         ),
@@ -1150,15 +1150,16 @@ class PaymentForm(forms.ModelForm):
         self.remaining_principal = remaining_principal
         # Interest uses balance left to pay; stop only when nothing is owed.
         self.principal_fully_paid = remaining <= 0
-        self.interest_rate = (
-            Decimal(application.effective_interest_rate() or 0)
-            if application is not None
-            else Decimal("0")
-        )
-
         from loans.services import (
             compute_expired_loan_renewal_charges,
             is_loan_term_expired,
+            product_interest_rate,
+        )
+
+        self.interest_rate = (
+            Decimal(product_interest_rate(application) or 0)
+            if application is not None
+            else Decimal("0")
         )
 
         self.loan_expired = bool(

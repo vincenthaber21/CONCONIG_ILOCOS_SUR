@@ -27,7 +27,7 @@
       <span class="loan-disburse-stat__value">&#8369;{{ principal_amount|currency }}</span>
     </div>
     <div class="loan-disburse-stat">
-      <span class="loan-disburse-stat__label">Interest rate</span>
+      <span class="loan-disburse-stat__label">Product interest rate</span>
       <span class="loan-disburse-stat__value">{{ interest_rate|floatformat:4 }}</span>
     </div>
     <div class="loan-disburse-stat">
@@ -51,8 +51,10 @@
     </p>
     {% else %}
     <p class="subtitle loan-disburse-section__sub">
-      Deductions are computed from the loan formula. Enter months to pay and savings;
-      interest, share capital, service fee, and insurance update automatically.
+      Deductions use the product interest rate:
+      interest = principal × {{ interest_rate }} × (months to pay ÷ 12).
+      Enter months to pay and savings; interest, share capital, service fee,
+      and insurance update automatically.
       The member still repays the full loan principal.
     </p>
     {% endif %}
@@ -105,7 +107,7 @@
           <strong id="breakdown-principal">&#8369;{{ principal_amount|currency }}</strong>
         </div>
         <div class="loan-disburse-breakdown__row loan-disburse-breakdown__row--fee">
-          <span>Less: interest <small id="breakdown-interest-formula"></small></span>
+          <span>Less: interest <small id="breakdown-interest-formula">(× {{ interest_rate }} × {{ deduction_calc.months_pay }}/12)</small></span>
           <strong id="breakdown-interest">&#8369;{{ deduction_calc.interest_amount|currency }}</strong>
         </div>
         <div class="loan-disburse-breakdown__row loan-disburse-breakdown__row--fee">
@@ -260,8 +262,8 @@
       <div class="loan-disburse-form__notice">
         <i class="bi bi-info-circle"></i>
         <span>
-          Example: principal &#8369;10,000, rate 0.18, months pay 5 → interest
-          &#8369;750.00 (= 10,000 × 0.18 × 5/12). Share capital 2%, service fee 2%,
+          Example: principal &#8369;10,000, rate 0.15, months pay 5 → interest
+          &#8369;625.00 (= 10,000 × 0.15 × 5/12). Share capital 2%, service fee 2%,
           insurance 0.66%, plus savings entered below.
         </span>
       </div>

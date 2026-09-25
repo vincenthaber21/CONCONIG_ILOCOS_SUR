@@ -1422,7 +1422,7 @@ class DisbursementView(LoanStaffMixin, PipelineStepLockMixin, View):
     def _form_kwargs(self, application):
         return {
             "amount_requested": application.amount_requested,
-            "interest_rate": application.effective_interest_rate(),
+            "interest_rate": services.product_interest_rate(application),
             "term_months": application.term_months,
             "uses_usable_days": services.product_uses_usable_days(application),
         }
@@ -1497,14 +1497,14 @@ class DisbursementView(LoanStaffMixin, PipelineStepLockMixin, View):
         return self._render(request, application, form)
 
     def _render(self, request, application, form):
-        interest_rate = application.effective_interest_rate()
+        interest_rate = services.product_interest_rate(application)
         uses_usable_days = services.product_uses_usable_days(application)
         calc = getattr(form, "deduction_preview", None)
         if calc is None:
             calc = services.compute_disbursement_deductions(
                 application.amount_requested,
                 interest_rate,
-                application.term_months,
+                services.DEFAULT_DISBURSEMENT_MONTHS_PAY,
                 savings=Decimal("0.00"),
                 uses_usable_days=uses_usable_days,
             )
@@ -1672,7 +1672,7 @@ class PaymentCollectionView(LoanCommitteeAccessMixin, PipelineStepLockMixin, Vie
                 "outstanding_balance": application.total_outstanding_balance(),
                 "remaining_principal": application.remaining_principal_balance(),
                 "principal_fully_paid": application.is_principal_fully_paid(),
-                "interest_rate": application.effective_interest_rate(),
+                "interest_rate": services.product_interest_rate(application),
                 "next_usable_from": application.next_usable_from_date(),
                 "uses_usable_days_formula": bool(
                     getattr(

@@ -797,13 +797,13 @@ class Disbursement(TimeStampedModel):
     months_pay = models.PositiveIntegerField(
         null=True,
         blank=True,
-        help_text="Months used to prorate interest: principal × rate × (months_pay / 12).",
+        help_text="Months used in interest: principal × product rate × (months_pay / 12).",
     )
     interest_amount = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         default=Decimal("0.00"),
-        help_text="Interest withheld at disbursement (principal × rate × months_pay / 12).",
+        help_text="Interest withheld at disbursement (principal × product rate × months_pay / 12).",
     )
     share_capital_amount = models.DecimalField(
         max_digits=12,

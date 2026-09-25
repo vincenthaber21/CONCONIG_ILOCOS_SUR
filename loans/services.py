@@ -30,6 +30,20 @@ DISBURSEMENT_SHARE_CAPITAL_RATE = Decimal("0.02")
 DISBURSEMENT_SERVICE_FEE_RATE = Decimal("0.02")
 DISBURSEMENT_INSURANCE_RATE = Decimal("0.0066")
 DISBURSEMENT_RATE_BASE_MONTHS = 12  # interest = principal × rate × (months_pay / 12)
+DEFAULT_DISBURSEMENT_MONTHS_PAY = 5  # example: 10,000 × rate × (5 / 12)
+
+
+def product_interest_rate(application):
+    """Interest rate from the loan product (the number on the product edit page).
+
+    Falls back to the rate stored on the application when the product has none.
+    """
+    product = getattr(application, "loan_product", None)
+    if product is not None and product.interest_rate is not None:
+        return Decimal(product.interest_rate)
+    if application is not None and hasattr(application, "effective_interest_rate"):
+        return Decimal(application.effective_interest_rate() or 0)
+    return Decimal("0")
 
 
 def compute_disbursement_deductions(
@@ -43,13 +57,16 @@ def compute_disbursement_deductions(
 ):
     """Compute disbursement withholdings.
 
-    Normal loan (cooperative formula)::
-        interest = principal × interest_rate × (months_pay / base_months)
+    Normal loan. ``interest_rate`` is the rate on the loan product::
+
+        interest = principal × interest_rate × (months_pay / 12)
         share_capital = principal × 0.02
         service_fee = principal × 0.02
         insurance = principal × 0.0066
         savings = staff-entered amount (default 0)
         Net released = principal − all deductions.
+
+    Example: 10,000 × 0.15 × (5 / 12) = 625.
 
     Usable-days product (``uses_usable_days=True``)::
         No withholdings at disbursement. Full principal is released.
@@ -181,7 +198,7 @@ def compute_expired_loan_renewal_charges(
 ):
     """Renewal charges on remaining principal when a loan term has expired.
 
-    Same cooperative rates as disbursement, applied to the unpaid principal::
+    Same rates as disbursement, applied to the unpaid principal::
 
         interest = remaining × rate × (months_pay / 12)
         share_capital = remaining × 0.02
@@ -1272,7 +1289,7 @@ def period_interest_on_remaining_principal(application, usable_days):
         return Decimal("0.00")
     return compute_interest_balance(
         balance_left,
-        application.effective_interest_rate(),
+        product_interest_rate(application),
         usable_days,
         uses_usable_days=product_uses_usable_days(application),
     )["interest"]
@@ -1924,7 +1941,7 @@ def disclosure_statement_charges(application):
     else:
         calc = compute_disbursement_deductions(
             amount,
-            application.effective_interest_rate(),
+            product_interest_rate(application),
             application.term_months,
             savings=zero,
             uses_usable_days=product_uses_usable_days(application),
