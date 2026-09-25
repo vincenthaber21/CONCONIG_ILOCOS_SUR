@@ -788,6 +788,14 @@ class LoanDocumentationForm(forms.ModelForm):
         return cleaned
 
 
+class MemberSavingsAccountField(forms.ModelChoiceField):
+    def label_from_instance(self, obj):
+        product = getattr(obj, "product", None)
+        product_name = product.name if product else "Savings"
+        balance = Decimal(obj.balance or 0)
+        return f"{obj.account_number} — {product_name} (balance ₱{balance:,.2f})"
+
+
 class DisbursementForm(forms.ModelForm):
     amount_released = MoneyField(
         min_value=0,
@@ -808,7 +816,7 @@ class DisbursementForm(forms.ModelForm):
         decimal_places=2,
         required=False,
         label="Savings (₱)",
-        help_text="Optional savings withheld from the loan proceeds.",
+        help_text="Withheld from the loan and deposited to the member's savings account.",
         widget=money_input(min="0", placeholder="0.00"),
     )
     interest_amount = MoneyField(
@@ -853,6 +861,7 @@ class DisbursementForm(forms.ModelForm):
             "transaction_fee",
             "insurance_amount",
             "savings_amount",
+            "savings_account",
             "amount_released",
             "disbursement_method",
             "reference_number",
@@ -865,6 +874,7 @@ class DisbursementForm(forms.ModelForm):
             "transaction_fee": "Service fee (₱)",
             "insurance_amount": "Insurance (₱)",
             "savings_amount": "Savings (₱)",
+            "savings_account": "Credit to member savings",
             "disbursement_method": "Disbursement method",
             "reference_number": "Reference number",
         }
@@ -882,7 +892,7 @@ class DisbursementForm(forms.ModelForm):
             ),
         }
 
-    def __init__(self, *args, amount_requested=None, interest_rate=None, term_months=None, uses_usable_days=False, **kwargs):
+    def __init__(self, *args, amount_requested=None, interest_rate=None, term_months=None, uses_usable_days=False, savings_accounts=None, **kwargs):
         from . import services
 
         super().__init__(*args, **kwargs)
@@ -898,7 +908,32 @@ class DisbursementForm(forms.ModelForm):
         self.fields["disbursement_method"].required = True
         self.fields["disbursement_method"].choices = models.Disbursement.Method.choices
         self.fields["reference_number"].required = False
+        from savings.models import MemberSavingsAccount
+
         self.fields["savings_amount"].initial = Decimal("0.00")
+        account_qs = (
+            savings_accounts
+            if savings_accounts is not None
+            else MemberSavingsAccount.objects.none()
+        )
+        current_account_id = getattr(self.instance, "savings_account_id", None)
+        if current_account_id:
+            account_qs = (
+                account_qs | MemberSavingsAccount.objects.filter(pk=current_account_id)
+            ).distinct().select_related("product")
+        self.fields["savings_account"] = MemberSavingsAccountField(
+            queryset=account_qs,
+            required=False,
+            label="Credit to member savings",
+            empty_label="Select the member's savings account",
+            help_text="The savings amount is deposited into this account when the loan is released.",
+        )
+        if current_account_id:
+            self.initial.setdefault("savings_account", current_account_id)
+        elif not self.is_bound:
+            only = list(account_qs[:2])
+            if len(only) == 1:
+                self.initial["savings_account"] = only[0].pk
 
         # Computed fee fields are display-only; server recalculates on save.
         for name in (
@@ -916,6 +951,7 @@ class DisbursementForm(forms.ModelForm):
             self.fields["months_pay"].required = False
             self.fields["months_pay"].widget = forms.HiddenInput()
             self.fields["savings_amount"].widget = forms.HiddenInput()
+            self.fields["savings_account"].widget = forms.HiddenInput()
             self.fields["interest_amount"].widget = forms.HiddenInput()
             self.fields["share_capital_amount"].widget = forms.HiddenInput()
             self.fields["transaction_fee"].widget = forms.HiddenInput()
@@ -1016,6 +1052,17 @@ class DisbursementForm(forms.ModelForm):
         cleaned["transaction_fee"] = calc["service_fee_amount"]
         cleaned["insurance_amount"] = calc["insurance_amount"]
         cleaned["savings_amount"] = calc["savings_amount"]
+        if self.uses_usable_days or calc["savings_amount"] <= 0:
+            cleaned["savings_account"] = None
+        elif (
+            cleaned.get("savings_account") is None
+            and "savings_account" not in self.errors
+        ):
+            self.add_error(
+                "savings_account",
+                "Select the member's savings account. "
+                "The savings amount is deposited there when the loan is released.",
+            )
         cleaned["amount_released"] = calc["amount_released"]
         cleaned["other_deduction_amount"] = Decimal("0.00")
         cleaned["other_deduction_label"] = ""

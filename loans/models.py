@@ -821,7 +821,23 @@ class Disbursement(TimeStampedModel):
         max_digits=12,
         decimal_places=2,
         default=Decimal("0.00"),
-        help_text="Savings withheld at disbursement (staff-entered amount).",
+        help_text="Savings withheld at disbursement and deposited to the member's savings account.",
+    )
+    savings_account = models.ForeignKey(
+        "savings.MemberSavingsAccount",
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="loan_disbursements",
+        help_text="Member savings account that receives the withheld savings.",
+    )
+    savings_credit = models.OneToOneField(
+        "savings.SavingsTransaction",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="loan_disbursement",
+        help_text="Deposit posted to the member's savings for the withheld amount.",
     )
     transaction_fee = models.DecimalField(
         max_digits=12,

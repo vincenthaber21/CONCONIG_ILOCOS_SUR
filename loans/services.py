@@ -141,6 +141,55 @@ def compute_disbursement_deductions(
     }
 
 
+def borrower_savings_accounts(application):
+    """Active savings accounts that can receive a loan's withheld savings."""
+    from helper.login_helper import get_linked_member
+    from savings.models import MemberSavingsAccount
+
+    member = get_linked_member(getattr(application, "member", None))
+    if member is None:
+        return MemberSavingsAccount.objects.none()
+    return (
+        MemberSavingsAccount.objects.filter(
+            status=MemberSavingsAccount.Status.ACTIVE,
+        )
+        .filter(Q(member=member) | Q(joint_owners=member))
+        .select_related("product")
+        .distinct()
+        .order_by("product__name", "account_number")
+    )
+
+
+def credit_disbursement_savings(disbursement, performed_by=None):
+    """Deposit withheld savings into the member account chosen at disbursement.
+
+    Safe to call again: a loan already credited is left unchanged.
+    """
+    from django.core.exceptions import ValidationError
+    from savings.services import deposit
+
+    amount = Decimal(disbursement.savings_amount or 0).quantize(TWO_PLACES)
+    if amount <= 0 or disbursement.savings_credit_id:
+        return None
+    account = disbursement.savings_account
+    if account is None:
+        raise ValidationError(
+            "Select the member's savings account to receive the withheld savings."
+        )
+    txn = deposit(
+        account=account,
+        amount=amount,
+        performed_by=performed_by,
+        notes=(
+            "Savings withheld from loan disbursement "
+            f"({disbursement.voucher_number})."
+        ),
+    )
+    disbursement.savings_credit = txn
+    disbursement.save(update_fields=["savings_credit"])
+    return txn
+
+
 def get_loan_maturity_date(application):
     """Calendar maturity date for a released loan (disbursement + term months).
 

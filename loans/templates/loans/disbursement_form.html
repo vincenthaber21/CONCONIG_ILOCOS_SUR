@@ -54,7 +54,8 @@
       Deductions use the product interest rate:
       interest = principal × {{ interest_rate }} × (months to pay ÷ 12).
       Enter months to pay and savings; interest, share capital, service fee,
-      and insurance update automatically.
+      and insurance update automatically. Savings is deposited to the member's
+      savings account chosen below.
       The member still repays the full loan principal.
     </p>
     {% endif %}
@@ -87,6 +88,7 @@
       </div>
       {{ form.months_pay }}
       {{ form.savings_amount }}
+      {{ form.savings_account }}
       {{ form.interest_amount }}
       {{ form.share_capital_amount }}
       {{ form.transaction_fee }}
@@ -158,6 +160,24 @@
             {% endif %}
             {% if form.savings_amount.errors %}
             <div class="loan-disburse-form__errors">{{ form.savings_amount.errors }}</div>
+            {% endif %}
+          </div>
+
+          <div class="loan-disburse-form__field">
+            <label for="{{ form.savings_account.id_for_label }}">{{ form.savings_account.label }}</label>
+            {{ form.savings_account }}
+            {% if form.savings_account.help_text %}
+            <p class="helptext">{{ form.savings_account.help_text }}</p>
+            {% endif %}
+            {% if not form.fields.savings_account.queryset.exists %}
+            <p class="helptext">
+              This member has no active savings account.
+              <a href="{% url 'savings:account-open' %}">Open a savings account</a>
+              before withholding savings.
+            </p>
+            {% endif %}
+            {% if form.savings_account.errors %}
+            <div class="loan-disburse-form__errors">{{ form.savings_account.errors }}</div>
             {% endif %}
           </div>
 
@@ -264,7 +284,7 @@
         <span>
           Example: principal &#8369;10,000, rate 0.15, months pay 5 → interest
           &#8369;625.00 (= 10,000 × 0.15 × 5/12). Share capital 2%, service fee 2%,
-          insurance 0.66%, plus savings entered below.
+          insurance 0.66%, plus savings deposited to the member's savings account.
         </span>
       </div>
       {% endif %}

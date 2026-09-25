@@ -89,7 +89,7 @@
       {% endif %}
       {% if disbursement.savings_amount and disbursement.savings_amount > 0 %}
       <tr class="breakdown__deduction">
-        <td>Less: Savings</td>
+        <td>Less: Savings{% if disbursement.savings_account %} (credited to {{ disbursement.savings_account.account_number }}){% endif %}</td>
         <td class="breakdown__amount">&#8722;&#8369;{{ disbursement.savings_amount|currency }}</td>
       </tr>
       {% endif %}

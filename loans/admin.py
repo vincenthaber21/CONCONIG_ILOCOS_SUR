@@ -309,6 +309,7 @@ class DisbursementAdmin(admin.ModelAdmin):
         "transaction_fee",
         "insurance_amount",
         "savings_amount",
+        "savings_account",
         "disbursement_method",
         "disbursement_date",
         "disbursed_by",

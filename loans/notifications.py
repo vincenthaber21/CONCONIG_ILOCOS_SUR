@@ -277,7 +277,12 @@ def _status_content(application, target, extra=None):
             if disbursement.insurance_amount and disbursement.insurance_amount > 0:
                 base_rows.append(("Insurance", _peso(disbursement.insurance_amount)))
             if disbursement.savings_amount and disbursement.savings_amount > 0:
-                base_rows.append(("Savings", _peso(disbursement.savings_amount)))
+                savings_label = "Savings"
+                if disbursement.savings_account_id:
+                    savings_label = (
+                        f"Savings ({disbursement.savings_account.account_number})"
+                    )
+                base_rows.append((savings_label, _peso(disbursement.savings_amount)))
             if (
                 disbursement.other_deduction_amount
                 and disbursement.other_deduction_amount > 0

@@ -11,7 +11,7 @@ from decimal import Decimal
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.core.exceptions import PermissionDenied
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.files.base import ContentFile
 from django.db.models import Count, Q
 from django.http import JsonResponse
@@ -1425,6 +1425,7 @@ class DisbursementView(LoanStaffMixin, PipelineStepLockMixin, View):
             "interest_rate": services.product_interest_rate(application),
             "term_months": application.term_months,
             "uses_usable_days": services.product_uses_usable_days(application),
+            "savings_accounts": services.borrower_savings_accounts(application),
         }
 
     def get(self, request, pk):
@@ -1469,6 +1470,11 @@ class DisbursementView(LoanStaffMixin, PipelineStepLockMixin, View):
                     "service_fee": str(disbursement.transaction_fee),
                     "insurance_amount": str(disbursement.insurance_amount),
                     "savings_amount": str(disbursement.savings_amount),
+                    "savings_account": (
+                        disbursement.savings_account.account_number
+                        if disbursement.savings_account_id
+                        else ""
+                    ),
                     "total_deductions": str(disbursement.total_deductions),
                     "disbursement_method": disbursement.disbursement_method,
                     "reference_number": disbursement.reference_number,
@@ -1477,22 +1483,38 @@ class DisbursementView(LoanStaffMixin, PipelineStepLockMixin, View):
             )
 
             try:
-                application.disburse()
-                application.save(update_fields=["status"])
-                services.ensure_monthly_repayment_schedule(
-                    application, actor=request.user, request=request
-                )
+                with db_transaction.atomic():
+                    application.disburse()
+                    application.save(update_fields=["status"])
+                    services.ensure_monthly_repayment_schedule(
+                        application, actor=request.user, request=request
+                    )
+                    services.credit_disbursement_savings(
+                        disbursement, performed_by=request.user
+                    )
+                savings_note = ""
+                if disbursement.savings_amount and disbursement.savings_account_id:
+                    savings_note = (
+                        f" Savings ₱{disbursement.savings_amount:,.2f} was deposited to "
+                        f"{disbursement.savings_account.account_number}."
+                    )
                 messages.success(
                     request,
                     (
                         f"Loan disbursed. Principal ₱{application.amount_requested:,.2f}; "
-                        f"net released ₱{disbursement.amount_released:,.2f}. "
+                        f"net released ₱{disbursement.amount_released:,.2f}."
+                        f"{savings_note} "
                         "Print the disbursement voucher for the member."
                     ),
                 )
             except TransitionNotAllowed:
                 messages.warning(request, "Disbursement saved, but the application documentation is not signed.")
                 return redirect("loans:application-detail", pk=application.pk)
+            except ValidationError as exc:
+                application.refresh_from_db(fields=["status"])
+                detail = "; ".join(str(item) for item in exc.messages) if exc.messages else str(exc)
+                form.add_error("savings_account", detail)
+                return self._render(request, application, form)
             return redirect("loans:disbursement-receipt", pk=application.pk)
         return self._render(request, application, form)
 
@@ -1534,6 +1556,7 @@ class DisbursementReceiptView(LoanCommitteeAccessMixin, View):
                 "loan_product",
                 "member",
                 "disbursement__disbursed_by",
+                "disbursement__savings_account",
             ),
             pk=pk,
         )

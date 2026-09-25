@@ -383,8 +383,13 @@ def _member_process_stages(application, pipeline_steps):
                 ("Insurance", f"₱{disbursement.insurance_amount:,.2f}")
             )
         if disbursement.savings_amount and disbursement.savings_amount > 0:
+            savings_label = "Savings"
+            if disbursement.savings_account_id:
+                savings_label = (
+                    f"Savings ({disbursement.savings_account.account_number})"
+                )
             facts_by_key["DISBURSED"].append(
-                ("Savings", f"₱{disbursement.savings_amount:,.2f}")
+                (savings_label, f"₱{disbursement.savings_amount:,.2f}")
             )
         if (
             disbursement.other_deduction_amount
