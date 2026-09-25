@@ -1194,9 +1194,13 @@
                   </td>
                   <td><code>{% if member.rfid_card_number %}{% if is_admin_user %}{{ member.rfid_card_number }}{% else %}{{ member.rfid_card_number|mask_rfid }}{% endif %}{% else %}N/A{% endif %}</code></td>
                   <td>
-                    <span class="badge-role role-{{ member.role }}">
-                      {{ member.member_role.name }}
-                    </span>
+                    <div class="d-flex flex-wrap gap-1">
+                      {% for assigned in member.roles.all %}
+                      <span class="badge-role role-{{ assigned.slug }}">{{ assigned.name }}</span>
+                      {% empty %}
+                      <span class="badge-role role-{{ member.stored_role_slug }}">{{ member.member_role.name }}</span>
+                      {% endfor %}
+                    </div>
                   </td>
                   <td>
                     {% if member.active_concession_kind == 'senior' %}
@@ -1208,7 +1212,7 @@
                     {% endif %}
                   </td>
                   <td>
-                    {% if member.role == 'committee' %}
+                    {% if not member.shows_account_balance %}
                     <span class="text-muted">—</span>
                     {% else %}
                     <span class="balance-positive">₱{{ member.balance|floatformat:2 }}</span>
@@ -1260,7 +1264,8 @@
                         data-email="{{ member.email|default_if_none:''|escapejs }}"
                         data-phone="{{ member.phone|escapejs }}"
                         data-rfid="{% if member.rfid_card_number and member.rfid_card_number|lower != 'none' and member.rfid_card_number|lower != 'null' %}{{ member.rfid_card_number|escapejs }}{% endif %}"
-                        data-role="{{ member.role }}"
+                        data-role="{{ member.stored_role_slug }}"
+                        data-roles="{% for assigned in member.roles.all %}{{ assigned.slug }}{% if not forloop.last %},{% endif %}{% empty %}{{ member.stored_role_slug }}{% endfor %}"
                         data-member-type-id="{{ member.member_type_id|default_if_none:'' }}"
                         data-active="{{ member.is_active }}"
                         data-inactive-remark="{{ member.inactive_remark|default:''|escapejs }}"
@@ -1473,23 +1478,8 @@
             <div class="member-form-section">
               <div class="member-form-section-title">Role &amp; account</div>
               <div class="row g-3">
-                <div class="col-md-4">
-                  <label class="form-label" for="adminAddRole">Role</label>
-                  <select class="form-select" id="adminAddRole">
-                    {% for role in assignable_roles %}
-                    {% if restrict_member_role and role.slug != 'member' %}
-                    {% else %}
-                    <option value="{{ role.slug }}">{{ role.name }}</option>
-                    {% endif %}
-                    {% empty %}
-                    <option value="member">Member</option>
-                    {% if not restrict_member_role %}
-                    <option value="staff">Staff</option>
-                    <option value="cashier">Cashier</option>
-                    <option value="admin">Admin</option>
-                    {% endif %}
-                    {% endfor %}
-                  </select>
+                <div class="col-md-6">
+                  {% include 'admin_panel/partials/member_role_checks.html' with id_prefix='adminAdd' %}
                 </div>
                 <div class="col-md-4" id="adminAddBalanceWrap">
                   <label class="form-label" for="adminAddBalance">Starting balance</label>
@@ -1634,23 +1624,8 @@
             <div class="member-form-section">
               <div class="member-form-section-title">Role &amp; account</div>
               <div class="row g-3">
-              <div class="col-md-4">
-                <label class="form-label">Role</label>
-                <select class="form-select" id="memberRole">
-                  {% for role in assignable_roles %}
-                  {% if restrict_member_role and role.slug != 'member' %}
-                  {% else %}
-                  <option value="{{ role.slug }}">{{ role.name }}</option>
-                  {% endif %}
-                  {% empty %}
-                  <option value="member">Member</option>
-                  {% if not restrict_member_role %}
-                  <option value="staff">Staff</option>
-                  <option value="cashier">Cashier</option>
-                  <option value="admin">Admin</option>
-                  {% endif %}
-                  {% endfor %}
-                </select>
+              <div class="col-md-6">
+                {% include 'admin_panel/partials/member_role_checks.html' with id_prefix='member' %}
               </div>
               <div class="col-md-4" id="memberBalanceWrap">
                 <label class="form-label">Balance</label>
@@ -2095,42 +2070,54 @@
       global.syncMemberDiscountSectionVisibility = function (suffix, role) {
         global.syncMemberBalanceVisibility(role);
       };
-      global.syncMemberBalanceVisibility = function (role) {
+      global.syncMemberBalanceVisibility = function (role, prefix) {
         const isCommittee = (role || '') === 'committee';
-        const addWrap = document.getElementById('adminAddBalanceWrap');
-        const editWrap = document.getElementById('memberBalanceWrap');
-        if (addWrap) addWrap.style.display = isCommittee ? 'none' : '';
-        if (editWrap) editWrap.style.display = isCommittee ? 'none' : '';
+        const ids = [];
+        if (!prefix || prefix === 'adminAdd') ids.push('adminAddBalanceWrap');
+        if (!prefix || prefix === 'member') ids.push('memberBalanceWrap');
+        ids.forEach(function (id) {
+          const wrap = document.getElementById(id);
+          if (wrap) wrap.style.display = isCommittee ? 'none' : '';
+        });
         const addInput = document.getElementById('adminAddBalance');
-        if (isCommittee && addInput) addInput.value = '0.00';
+        if (isCommittee && (!prefix || prefix === 'adminAdd') && addInput) addInput.value = '0.00';
+      };
+      global.selectedRoleSlugs = function (prefix) {
+        const box = document.getElementById(prefix + 'RoleBox');
+        if (!box) return ['member'];
+        const slugs = Array.from(box.querySelectorAll('input[type=checkbox]:checked')).map(function (el) {
+          return el.value;
+        });
+        return slugs;
+      };
+      global.setRoleChecks = function (prefix, slugs, locked) {
+        const wanted = new Set((slugs && slugs.length ? slugs : ['member']).map(String));
+        const box = document.getElementById(prefix + 'RoleBox');
+        if (!box) return;
+        box.querySelectorAll('input[type=checkbox]').forEach(function (el) {
+          el.checked = wanted.has(el.value);
+          el.disabled = !!locked;
+        });
+        global.syncRoleDependentFields(prefix);
+      };
+      global.syncRoleDependentFields = function (prefix) {
+        const slugs = global.selectedRoleSlugs(prefix);
+        const onlyCommittee = slugs.length === 1 && slugs[0] === 'committee';
+        const hasCashier = slugs.indexOf('cashier') !== -1;
+        if (typeof global.syncMemberBalanceVisibility === 'function') {
+          global.syncMemberBalanceVisibility(onlyCommittee ? 'committee' : 'member', prefix);
+        }
+        if (typeof global.syncMemberProjectCategoryVisibility === 'function') {
+          global.syncMemberProjectCategoryVisibility(prefix, hasCashier ? 'cashier' : 'member');
+        }
       };
     })(window);
 
-    (function () {
-      const adminAddRoleEl = document.getElementById('adminAddRole');
-      if (adminAddRoleEl) {
-        adminAddRoleEl.addEventListener('change', function () {
-          window.syncMemberBalanceVisibility(adminAddRoleEl.value);
-          if (typeof window.syncMemberProjectCategoryVisibility === 'function') {
-            window.syncMemberProjectCategoryVisibility('adminAdd', adminAddRoleEl.value);
-          }
-        });
-        window.syncMemberBalanceVisibility(adminAddRoleEl.value);
-        if (typeof window.syncMemberProjectCategoryVisibility === 'function') {
-          window.syncMemberProjectCategoryVisibility('adminAdd', adminAddRoleEl.value);
-        }
-      }
-
-      const memberRoleEl = document.getElementById('memberRole');
-      if (memberRoleEl) {
-        memberRoleEl.addEventListener('change', function () {
-          window.syncMemberBalanceVisibility(memberRoleEl.value);
-          if (typeof window.syncMemberProjectCategoryVisibility === 'function') {
-            window.syncMemberProjectCategoryVisibility('member', memberRoleEl.value);
-          }
-        });
-      }
-    })();
+    document.addEventListener('change', function (event) {
+      const box = event.target && event.target.closest ? event.target.closest('#adminAddRoleBox, #memberRoleBox') : null;
+      if (!box || typeof window.syncRoleDependentFields !== 'function') return;
+      window.syncRoleDependentFields(box.id.indexOf('adminAdd') === 0 ? 'adminAdd' : 'member');
+    });
 
     window.sanitizeRfidValue = function (val) {
       if (val == null || val === undefined) return '';
@@ -2719,13 +2706,9 @@
     });
 
     (function syncProjectCategoryOnLoad() {
-      const addRole = document.getElementById('adminAddRole');
-      if (addRole && typeof window.syncMemberProjectCategoryVisibility === 'function') {
-        window.syncMemberProjectCategoryVisibility('adminAdd', addRole.value);
-      }
-      const editRole = document.getElementById('memberRole');
-      if (editRole && typeof window.syncMemberProjectCategoryVisibility === 'function') {
-        window.syncMemberProjectCategoryVisibility('member', editRole.value);
+      if (typeof window.syncRoleDependentFields === 'function') {
+        window.syncRoleDependentFields('adminAdd');
+        window.syncRoleDependentFields('member');
       }
     })();
 
@@ -2788,7 +2771,6 @@
       const adminAddLastName        = document.getElementById('adminAddLastName');
       const adminAddEmail         = document.getElementById('adminAddEmail');
       const adminAddPhone         = document.getElementById('adminAddPhone');
-      const adminAddRole          = document.getElementById('adminAddRole');
       const adminAddBalance       = document.getElementById('adminAddBalance');
       const adminAddShareCapital  = document.getElementById('adminAddShareCapital');
       const adminAddIsActive      = document.getElementById('adminAddIsActive');
@@ -2901,11 +2883,8 @@
           if (typeof window.syncMemberSignaturePrintedName === 'function') {
             window.syncMemberSignaturePrintedName('adminAdd');
           }
-          if (adminAddRole && typeof window.syncMemberBalanceVisibility === 'function') {
-            window.syncMemberBalanceVisibility(adminAddRole.value);
-          }
-          if (adminAddRole && typeof window.syncMemberProjectCategoryVisibility === 'function') {
-            window.syncMemberProjectCategoryVisibility('adminAdd', adminAddRole.value);
+          if (typeof window.setRoleChecks === 'function') {
+            window.setRoleChecks('adminAdd', ['member'], false);
           }
           if (adminAddSaveBtn) {
             adminAddSaveBtn.disabled = false;
@@ -2965,6 +2944,11 @@
           if (adminAddInactiveRemark) adminAddInactiveRemark.focus();
           return;
         }
+        const addRoles = window.selectedRoleSlugs ? window.selectedRoleSlugs('adminAdd') : [];
+        if (!addRoles.length) {
+          showAddAlert('Select at least one role.', 'warning');
+          return;
+        }
 
         adminAddSaveBtn.disabled = true;
         adminAddSaveBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...';
@@ -2978,8 +2962,9 @@
             rfid: adminAddRfid ? window.sanitizeRfidValue(adminAddRfid.value) : '',
             email: adminAddEmail ? adminAddEmail.value.trim() : '',
             phone: adminAddPhone ? adminAddPhone.value.trim() : '',
-            role: adminAddRole ? adminAddRole.value : 'member',
-            balance: (adminAddRole && adminAddRole.value === 'committee')
+            roles: (window.selectedRoleSlugs ? window.selectedRoleSlugs('adminAdd') : ['member']),
+            role: (window.selectedRoleSlugs ? (window.selectedRoleSlugs('adminAdd')[0] || 'member') : 'member'),
+            balance: (window.selectedRoleSlugs && window.selectedRoleSlugs('adminAdd').length === 1 && window.selectedRoleSlugs('adminAdd')[0] === 'committee')
               ? '0.00'
               : (adminAddBalance ? (adminAddBalance.value || '0.00') : '0.00'),
             share_capital: adminAddShareCapital ? (adminAddShareCapital.value || '0.00') : '0.00',
@@ -3225,7 +3210,6 @@
       const memberLastName = document.getElementById('memberLastName');
       const memberEmail = document.getElementById('memberEmail');
       const memberPhone = document.getElementById('memberPhone');
-      const memberRole = document.getElementById('memberRole');
       const memberBalance = document.getElementById('memberBalance');
       const memberShareCapital = document.getElementById('memberShareCapital');
       const memberIsActive = document.getElementById('memberIsActive');
@@ -3340,18 +3324,12 @@
         window.fillMemberCompleteDetails('member', data);
 
         // Role & account
-        {% if restrict_member_role %}
-        memberRole.value = (data.role && data.role !== 'member') ? data.role : 'member';
-        memberRole.disabled = true;
-        {% else %}
-        memberRole.value = data.role || 'member';
-        memberRole.disabled = false;
-        {% endif %}
-        if (typeof window.syncMemberProjectCategoryVisibility === 'function') {
-          window.syncMemberProjectCategoryVisibility('member', memberRole ? memberRole.value : 'member');
+        const editRoles = (data.roles && data.roles.length) ? data.roles : [data.role || 'member'];
+        if (typeof window.setRoleChecks === 'function') {
+          window.setRoleChecks('member', editRoles, {% if restrict_member_role %}true{% else %}false{% endif %});
         }
-        // Re-apply categories after visibility sync (cashier only keeps them).
-        if ((memberRole ? memberRole.value : '') === 'cashier') {
+        const editHasCashier = editRoles.indexOf('cashier') !== -1;
+        if (editHasCashier) {
           window.fillMemberProjectCategoryIds('member', data.project_category_ids || []);
         }
 
@@ -3416,8 +3394,8 @@
             : toDatetimeLocalValue(new Date());
         }
 
-        if (typeof window.syncMemberBalanceVisibility === 'function') {
-          window.syncMemberBalanceVisibility(memberRole ? memberRole.value : 'member');
+        if (typeof window.syncRoleDependentFields === 'function') {
+          window.syncRoleDependentFields('member');
         }
 
         const modal = new bootstrap.Modal(memberFormModal);
@@ -3540,6 +3518,11 @@
           if (memberInactiveRemark) memberInactiveRemark.focus();
           return;
         }
+        const editRoles = window.selectedRoleSlugs ? window.selectedRoleSlugs('member') : [];
+        if (!editRoles.length) {
+          showInlineAlert(memberFormAlert, 'Select at least one role.', 'warning');
+          return;
+        }
 
         const payload = {
           first_name:    firstName,
@@ -3548,7 +3531,8 @@
           rfid:          memberRfid          ? window.sanitizeRfidValue(memberRfid.value) : '',
           email:         memberEmail         ? memberEmail.value.trim()      : '',
           phone:         memberPhone         ? memberPhone.value.trim()      : '',
-          role:          memberRole          ? memberRole.value              : 'member',
+          roles:         window.selectedRoleSlugs ? window.selectedRoleSlugs('member') : ['member'],
+          role:          (window.selectedRoleSlugs && window.selectedRoleSlugs('member')[0]) || 'member',
           share_capital: memberShareCapital  ? (memberShareCapital.value || '0.00') : '0.00',
           is_active:     isActive,
           inactive_remark: isActive ? '' : inactiveRemark,
@@ -3657,6 +3641,7 @@
             email:          btn.dataset.email          || '',
             phone:          btn.dataset.phone          || '',
             role:           btn.dataset.role           || 'member',
+            roles:          (btn.dataset.roles || btn.dataset.role || 'member').split(',').map(function (part) { return part.trim(); }).filter(Boolean),
             balance:        btn.dataset.balance        || '0.00',
             share_capital:  btn.dataset.shareCapital   || '0.00',
             credit_outstanding: btn.dataset.creditOutstanding || '0',

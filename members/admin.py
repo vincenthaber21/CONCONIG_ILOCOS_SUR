@@ -439,7 +439,7 @@ class MemberAdmin(ImportExportModelAdmin):
         'username',
         'email',
         'rfid_card_number',
-        'member_role',
+        'assigned_roles_display',
         'project_categories_display',
         'balance',
         'share_capital',
@@ -460,6 +460,7 @@ class MemberAdmin(ImportExportModelAdmin):
         'project_categories',
     ]
     autocomplete_fields = ['nationality', 'project_categories']
+    filter_horizontal = ('roles',)
     search_fields = [
         'first_name',
         'middle_name',
@@ -515,12 +516,14 @@ class MemberAdmin(ImportExportModelAdmin):
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
-        return qs.prefetch_related('project_categories')
+        return qs.prefetch_related('project_categories', 'roles')
 
     def formfield_for_manytomany(self, db_field, request, **kwargs):
         if db_field.name == 'project_categories':
             from inventory.models import Category
             kwargs['queryset'] = Category.objects.filter(is_active=True).order_by('name')
+        if db_field.name == 'roles':
+            kwargs['queryset'] = Role.objects.filter(is_active=True)
         return super().formfield_for_manytomany(db_field, request, **kwargs)
 
     def project_categories_display(self, obj):
@@ -529,6 +532,24 @@ class MemberAdmin(ImportExportModelAdmin):
         names = list(obj.project_categories.order_by('name').values_list('name', flat=True))
         return ', '.join(names) if names else '—'
     project_categories_display.short_description = 'Project categories'
+
+    def assigned_roles_display(self, obj):
+        if not obj or not obj.pk:
+            return '—'
+        names = list(obj.roles.order_by('sort_order', 'name').values_list('name', flat=True))
+        if not names and obj.member_role_id:
+            return obj.member_role.name
+        return ', '.join(names) if names else '—'
+    assigned_roles_display.short_description = 'Roles'
+
+    def save_related(self, request, form, formsets, change):
+        super().save_related(request, form, formsets, change)
+        member = form.instance
+        chosen = list(member.roles.all())
+        if chosen:
+            member.set_assigned_roles(chosen)
+        elif member.member_role_id:
+            member.roles.add(member.member_role_id)
 
     def get_fieldsets(self, request, obj=None):
         security_fields = (
@@ -620,12 +641,17 @@ class MemberAdmin(ImportExportModelAdmin):
                 {
                     'fields': (
                         'member_role',
+                        'roles',
                         'balance',
                         'share_capital',
                         'is_active',
                         'inactive_remark',
                     ),
-                    'description': share_capital_description,
+                    'description': (
+                        share_capital_description
+                        + ' Check every role this person may open after login. '
+                        'If Member is one of them, it stays the default on member lists.'
+                    ),
                 },
             ),
             (
@@ -932,7 +958,7 @@ class MemberAdmin(ImportExportModelAdmin):
             email=member.email,
             phone=member.phone,
             member_type_name=member.member_type.name if member.member_type else None,
-            role=member.role,
+            role=member.stored_role_slug,
             balance=member.balance,
             share_capital=member.share_capital,
             username=member.user.username if member.user else None,

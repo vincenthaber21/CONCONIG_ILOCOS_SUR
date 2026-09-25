@@ -67,6 +67,7 @@ from inventory.utils import (
     filter_products_for_login_user,
     filter_transactions_for_login_user,
     get_cashier_project_category_ids,
+    resolve_product_category_for_user,
     get_giveaway_summary_for_period,
     giveaway_stock_note,
     giveaway_stock_transactions_qs,
@@ -1703,7 +1704,12 @@ def inventory_management(request):
         if promote_new_stock_to_old_if_needed(product):
             product.refresh_from_db()
     
+    cashier_project_category_ids = get_cashier_project_category_ids(request.user)
+    inventory_cashier_scoped = cashier_project_category_ids is not None
+
     all_categories = Category.objects.all().order_by('name')
+    if inventory_cashier_scoped:
+        all_categories = all_categories.filter(pk__in=cashier_project_category_ids or [])
     category_paginator = Paginator(all_categories, 10)
     category_page_number = request.GET.get('category_page', 1)
     categories_page = category_paginator.get_page(category_page_number)
@@ -1728,8 +1734,8 @@ def inventory_management(request):
         )
         giveaway_products = products_with_giveaways.filter(giveaway_units_given__gt=0).count()
 
-    cashier_project_category_ids = get_cashier_project_category_ids(request.user)
-    inventory_cashier_scoped = cashier_project_category_ids is not None
+    product_form_categories = list(all_categories)
+    cashier_can_add_products = (not inventory_cashier_scoped) or bool(product_form_categories)
 
     context = {
         'products': products_page,
@@ -1748,6 +1754,8 @@ def inventory_management(request):
         'inventory_price_summary': inventory_price_summary,
         'inventory_cashier_scoped': inventory_cashier_scoped,
         'cashier_project_category_ids': cashier_project_category_ids or [],
+        'product_form_categories': product_form_categories,
+        'cashier_can_add_products': cashier_can_add_products,
         **admin_role_badge_context(request),
     }
     
@@ -1934,16 +1942,14 @@ def _product_inventory_value_row(product):
     """
     units = Decimal('0')
     buy_value = Decimal('0.00')
-    old_batch = product.old_stock_batch
-    new_batch = product.new_stock_batch
-    if old_batch and old_batch.quantity > 0:
-        qty = Decimal(str(old_batch.quantity))
+    for batch in product.stock_batches.all():
+        if batch.quantity <= 0:
+            continue
+        if batch.tier not in (ProductStockBatch.TIER_OLD, ProductStockBatch.TIER_NEW):
+            continue
+        qty = Decimal(str(batch.quantity))
         units += qty
-        buy_value += qty * Decimal(old_batch.cost or 0)
-    if new_batch and new_batch.quantity > 0:
-        qty = Decimal(str(new_batch.quantity))
-        units += qty
-        buy_value += qty * Decimal(new_batch.cost or 0)
+        buy_value += qty * Decimal(batch.cost or 0)
 
     buying_price = Decimal(product.cost or 0).quantize(Decimal('0.01'))
     selling_price = Decimal(product.price or 0).quantize(Decimal('0.01'))
@@ -4090,9 +4096,54 @@ def _parse_stock_batch_decimal(value):
     return Decimal(str(value))
 
 
+def _parse_extra_new_stocks(raw, unit_type):
+    """Parse extra new-stock rows from the product form plus button."""
+    if raw in (None, ''):
+        return []
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except json.JSONDecodeError as exc:
+            raise ValueError('Invalid extra new stock data') from exc
+    if not isinstance(raw, list):
+        raise ValueError('Invalid extra new stock data')
+
+    rows = []
+    for item in raw:
+        if not isinstance(item, dict):
+            raise ValueError('Invalid extra new stock data')
+        try:
+            qty = _parse_stock_batch_qty(
+                item.get('quantity', item.get('qty', 0)),
+                unit_type,
+                0,
+            )
+            selling = _parse_stock_batch_decimal(
+                item.get('selling_price', item.get('price'))
+            )
+            buying = _parse_stock_batch_decimal(
+                item.get('buying_price', item.get('cost'))
+            )
+        except (InvalidOperation, TypeError, ValueError) as exc:
+            raise ValueError('Invalid new stock quantity or price') from exc
+        if qty <= 0:
+            continue
+        if selling is not None and selling < 0:
+            raise ValueError('New stock selling price cannot be negative.')
+        if buying is not None and buying < 0:
+            raise ValueError('New stock buying price cannot be negative.')
+        rows.append({
+            'quantity': qty,
+            'selling': selling,
+            'buying': buying,
+        })
+    return rows
+
+
 def _stock_batch_payload(product):
     old_batch = product.old_stock_batch
-    new_batch = product.new_stock_batch
+    new_batches = product.new_stock_batches()
+    new_batch = new_batches[0] if new_batches else None
     return {
         'old_stock_quantity': qty_json(old_batch.quantity) if old_batch else 0,
         'old_stock_price': str(old_batch.unit_price) if old_batch else '',
@@ -4100,6 +4151,7 @@ def _stock_batch_payload(product):
         'new_stock_quantity': qty_json(new_batch.quantity) if new_batch else 0,
         'new_stock_price': str(new_batch.unit_price) if new_batch else '',
         'new_stock_cost': str(new_batch.cost) if new_batch else '',
+        'extra_new_stocks': product.extra_new_stocks_payload(),
     }
 
 
@@ -4124,6 +4176,7 @@ def _apply_product_stock_batches(product, get, *, default_price=None, default_co
             'new_stock_quantity',
             'new_stock_price',
             'new_stock_cost',
+            'extra_new_stocks',
         )
     )
     if not has_batch_input:
@@ -4180,36 +4233,63 @@ def _apply_product_stock_batches(product, get, *, default_price=None, default_co
         product.save(update_fields=product_update_fields)
 
     if old_qty > 0:
-        ProductStockBatch.objects.update_or_create(
-            product=product,
-            tier=ProductStockBatch.TIER_OLD,
-            defaults={
-                'quantity': old_qty,
-                'unit_price': old_selling if old_selling is not None else fallback_selling,
-                'cost': old_buying if old_buying is not None else fallback_buying,
-            },
+        existing_old = (
+            ProductStockBatch.objects.filter(product=product, tier=ProductStockBatch.TIER_OLD)
+            .order_by('sequence', 'id')
+            .first()
         )
+        old_values = {
+            'quantity': old_qty,
+            'unit_price': old_selling if old_selling is not None else fallback_selling,
+            'cost': old_buying if old_buying is not None else fallback_buying,
+            'sequence': 0,
+        }
+        if existing_old:
+            ProductStockBatch.objects.filter(
+                product=product,
+                tier=ProductStockBatch.TIER_OLD,
+            ).exclude(pk=existing_old.pk).delete()
+            for field, value in old_values.items():
+                setattr(existing_old, field, value)
+            existing_old.save(update_fields=['quantity', 'unit_price', 'cost', 'sequence', 'updated_at'])
+        else:
+            ProductStockBatch.objects.create(
+                product=product,
+                tier=ProductStockBatch.TIER_OLD,
+                **old_values,
+            )
     else:
         ProductStockBatch.objects.filter(product=product, tier=ProductStockBatch.TIER_OLD).delete()
 
+    new_rows = []
     if new_qty > 0:
-        ProductStockBatch.objects.update_or_create(
+        new_rows.append({
+            'quantity': new_qty,
+            'selling': new_selling,
+            'buying': new_buying,
+        })
+    new_rows.extend(_parse_extra_new_stocks(get('extra_new_stocks'), product.unit_type))
+
+    ProductStockBatch.objects.filter(product=product, tier=ProductStockBatch.TIER_NEW).delete()
+    for index, row in enumerate(new_rows):
+        ProductStockBatch.objects.create(
             product=product,
             tier=ProductStockBatch.TIER_NEW,
-            defaults={
-                'quantity': new_qty,
-                'unit_price': new_selling if new_selling is not None else fallback_selling,
-                'cost': new_buying if new_buying is not None else fallback_buying,
-            },
+            sequence=index,
+            quantity=row['quantity'],
+            unit_price=row['selling'] if row['selling'] is not None else fallback_selling,
+            cost=row['buying'] if row['buying'] is not None else fallback_buying,
         )
-    else:
-        ProductStockBatch.objects.filter(product=product, tier=ProductStockBatch.TIER_NEW).delete()
 
     promote_new_stock_to_old_if_needed(product)
     product.refresh_from_db()
+    if hasattr(product, '_prefetched_objects_cache'):
+        product._prefetched_objects_cache.pop('stock_batches', None)
     old_batch = product.old_stock_batch
-    new_batch = product.new_stock_batch
-    return (old_batch.quantity if old_batch else 0) + (new_batch.quantity if new_batch else 0)
+    total = old_batch.quantity if old_batch else 0
+    for batch in product.new_stock_batches():
+        total += batch.quantity
+    return total
 
 
 @login_required
@@ -4278,12 +4358,11 @@ def api_create_product(request):
     if discount_group_code:
         discount_group_obj = ProductDiscountGroup.objects.get(code=discount_group_code)
 
-    category = None
-    if category_id:
-        try:
-            category = Category.objects.get(id=category_id)
-        except Category.DoesNotExist:
-            return JsonResponse({'success': False, 'error': 'Selected category does not exist'}, status=400)
+    category, pc_ids, category_error = resolve_product_category_for_user(
+        request.user, category_id,
+    )
+    if category_error:
+        return JsonResponse({'success': False, 'error': category_error}, status=400)
 
     product = Product(
         name=name,
@@ -4302,11 +4381,6 @@ def api_create_product(request):
         product.image = image_file
     product.save()
     set_product_giveaway(product)
-
-    # Keep cashier visibility in sync with the single Category field
-    pc_ids = [category.pk] if category else []
-    if not pc_ids and is_cashier_user(request.user):
-        pc_ids = get_cashier_project_category_ids(request.user) or []
     apply_product_project_categories(product, pc_ids)
 
     try:
@@ -4366,6 +4440,11 @@ def api_create_category(request):
     """Create a category without using the Django admin UI"""
     if not is_cashier_or_admin(request.user):
         return JsonResponse({'success': False, 'error': 'Permission denied'}, status=403)
+    if is_cashier_user(request.user):
+        return JsonResponse({
+            'success': False,
+            'error': 'Cashiers can only use their assigned project categories.',
+        }, status=403)
 
     try:
         data = json.loads(request.body.decode('utf-8'))
@@ -4428,6 +4507,15 @@ def api_update_product(request):
     except Product.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Product not found'}, status=404)
 
+    if get_cashier_project_category_ids(request.user) is not None:
+        if not filter_products_for_login_user(
+            Product.objects.filter(pk=product.pk), request.user,
+        ).exists():
+            return JsonResponse({
+                'success': False,
+                'error': 'This product is outside your assigned project categories.',
+            }, status=403)
+
     name = (get('name') or '').strip()
     barcode = (get('barcode') or '').strip()
     description = (get('description') or '').strip()
@@ -4479,12 +4567,11 @@ def api_update_product(request):
         if discount_group_code:
             discount_group_obj = ProductDiscountGroup.objects.get(code=discount_group_code)
 
-    category = None
-    if category_id:
-        try:
-            category = Category.objects.get(id=category_id)
-        except Category.DoesNotExist:
-            return JsonResponse({'success': False, 'error': 'Selected category does not exist'}, status=400)
+    category, pc_ids, category_error = resolve_product_category_for_user(
+        request.user, category_id,
+    )
+    if category_error:
+        return JsonResponse({'success': False, 'error': category_error}, status=400)
 
     before_stock_snapshot = capture_stock_snapshot(product)
 
@@ -4505,11 +4592,7 @@ def api_update_product(request):
                 product.image = image_file
             product.save()
             set_product_giveaway(product)
-
-            # Keep cashier visibility in sync with the single Category field
-            apply_product_project_categories(
-                product, [category.pk] if category else []
-            )
+            apply_product_project_categories(product, pc_ids)
 
             batch_total = _apply_product_stock_batches(
                 product, get, default_price=price, default_cost=cost,
@@ -5080,6 +5163,13 @@ def api_update_category(request):
     except Category.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Category not found'}, status=404)
 
+    assigned_ids = get_cashier_project_category_ids(request.user)
+    if assigned_ids is not None and category.pk not in assigned_ids:
+        return JsonResponse({
+            'success': False,
+            'error': 'You can only manage your assigned project categories.',
+        }, status=403)
+
     name = (data.get('name') or '').strip()
     description = (data.get('description') or '').strip()
     is_active = bool(data.get('is_active', True))
@@ -5205,6 +5295,22 @@ def api_generate_username(request):
         return JsonResponse({'success': False, 'username': ''})
 
     return JsonResponse({'success': True, 'username': username})
+
+
+def _restore_member_roles_from_snapshot(member, role_value):
+    """Re-apply one role or a comma-separated role list from edit history."""
+    from members.active_role import resolve_active_roles
+
+    raw = (role_value or "").strip()
+    if not raw:
+        return
+    slugs = [part.strip().lower() for part in raw.split(",") if part.strip()]
+    role_objs, error = resolve_active_roles(slugs)
+    if error or not role_objs:
+        member.member_role = Role.resolve_slug(slugs[0] if slugs else "member")
+        member.save(update_fields=["member_role", "updated_at"])
+        return
+    member.set_assigned_roles(role_objs)
 
 
 def _format_model_validation_error(exc):
@@ -5336,20 +5442,27 @@ def api_create_member(request):
     email = (data.get('email') or '').strip() or None
     phone = (data.get('phone') or '').strip()
     member_type_id = data.get('member_type_id')
-    role = (data.get('role') or 'member').strip() or 'member'
+    from members.active_role import normalize_role_slugs, resolve_active_roles
+
+    role_slugs = normalize_role_slugs(data, ['member'])
     is_active = bool(data.get('is_active', True))
     balance_raw = data.get('balance', '0.00')
     pin = (data.get('pin') or '').strip()
     pin_attempts_raw = data.get('pin_attempts', 0)
     is_pin_locked = bool(data.get('is_pin_locked', False))
 
-    # Staff and cashier (Member role) may only create plain 'member' accounts
+    # Staff and cashier may only create plain member accounts
     if restricts_member_role_to_member_only(request.user):
-        if role not in ['member']:
+        if role_slugs != ['member']:
             return JsonResponse({'success': False, 'error': 'You can only create members with the "member" role'}, status=403)
-        role = 'member'  # Force to member role
+        role_slugs = ['member']
 
-    if (role or '').strip().lower() == 'committee':
+    role_objs, role_error = resolve_active_roles(role_slugs)
+    if role_error:
+        return JsonResponse({'success': False, 'error': role_error}, status=400)
+    primary_role = Member.pick_primary_role(role_objs)
+
+    if role_slugs == ['committee']:
         balance_raw = '0.00'
 
     if not first_name or not last_name:
@@ -5423,7 +5536,7 @@ def api_create_member(request):
         email=email,
         phone=phone,
         member_type=member_type,
-        member_role=Role.resolve_slug(role),
+        member_role=primary_role,
         balance=balance,
         share_capital=share_capital,
         pin_attempts=pin_attempts,
@@ -5435,6 +5548,7 @@ def api_create_member(request):
     apply_member_complete_details(member, detail_fields or {})
     apply_member_uploads(member, files, data)
     member.save()
+    member.set_assigned_roles(role_objs)
     apply_member_project_categories(member, project_category_ids if project_category_ids is not None else [])
     if pin:
         member.set_pin(pin)
@@ -5635,19 +5749,20 @@ def api_update_member(request):
     email = (data.get('email') or '').strip() or None
     phone = (data.get('phone') or member.phone).strip()
     member_type_id = data.get('member_type_id')
-    role = (data.get('role') or member.role).strip()
+    from members.active_role import normalize_role_slugs, resolve_active_roles
+
+    role_slugs = normalize_role_slugs(data, member.assigned_role_slugs())
+    keep_existing_roles = False
     is_active = bool(data.get('is_active', member.is_active))
 
-    # Staff and cashier (Member role) have the same role edit rules
+    elevated = {'admin', 'cashier', 'staff', 'loan_officer', 'committee'}
     if restricts_member_role_to_member_only(request.user):
-        # Can only set role to 'member' for non-privileged records
-        # If member already has admin/cashier/staff role, keep it (cannot promote or change elevated roles)
-        if member.role in ['admin', 'cashier', 'staff']:
-            role = member.role  # Keep existing role, don't allow change
-        elif role not in ['member']:
+        if member.assigned_role_slugs() & elevated:
+            keep_existing_roles = True
+        elif role_slugs != ['member']:
             return JsonResponse({'success': False, 'error': 'You can only set role to "member"'}, status=403)
         else:
-            role = 'member'  # Force to member role
+            role_slugs = ['member']
 
     if not first_name or not last_name:
         return JsonResponse({'success': False, 'error': 'First and last name are required'}, status=400)
@@ -5691,7 +5806,7 @@ def api_update_member(request):
         'last_name': member.last_name or '',
         'email': member.email or '',
         'phone': member.phone or '',
-        'role': member.role or '',
+        'role': member.assigned_roles_csv(),
         'is_active': bool(member.is_active),
         'inactive_remark': member.inactive_remark or '',
     }
@@ -5705,7 +5820,7 @@ def api_update_member(request):
         email=member.email,
         phone=member.phone or '',
         rfid_card_number=member.rfid_card_number,
-        role=member.role or '',
+        role=member.assigned_roles_csv(),
         edited_by=request.user.username,
     )
 
@@ -5718,12 +5833,12 @@ def api_update_member(request):
     apply_member_uploads(member, files, data)
     if update_member_type:
         member.member_type = member_type_new
-    requested = (role or "").strip().lower()
-    if requested and Role.objects.filter(slug__iexact=requested, is_active=True).exists():
-        slug_to_apply = requested
-    else:
-        slug_to_apply = (member.role or "member")
-    member.member_role = Role.resolve_slug(slug_to_apply)
+    role_objs = None
+    if not keep_existing_roles:
+        role_objs, role_error = resolve_active_roles(role_slugs)
+        if role_error:
+            return JsonResponse({'success': False, 'error': role_error}, status=400)
+        member.member_role = Member.pick_primary_role(role_objs)
     member.is_active = is_active
     member.inactive_remark = inactive_remark
 
@@ -5795,7 +5910,13 @@ def api_update_member(request):
         changed_labels.append('Email Address')
     if old_values['phone'] != (member.phone or ''):
         changed_labels.append('Phone Number')
-    if old_values['role'] != (member.role or ''):
+    if role_objs is not None:
+        new_role_csv = ",".join(
+            role.slug for role in sorted(role_objs, key=lambda role: (role.sort_order, role.name))
+        )
+    else:
+        new_role_csv = old_values['role']
+    if old_values['role'] != new_role_csv:
         changed_labels.append('Role')
     if old_values['is_active'] != bool(member.is_active):
         changed_labels.append('Account Status')
@@ -5808,6 +5929,8 @@ def api_update_member(request):
 
     # Save all member changes (except PIN, already persisted via member.set_pin)
     member.save()
+    if role_objs is not None:
+        member.set_assigned_roles(role_objs)
     apply_member_project_categories(member, project_category_ids)
     sync_member_beneficiaries(member, beneficiaries)
 
@@ -5920,8 +6043,14 @@ def api_get_member_last_edit(request):
         s = (slug or "").strip()
         if not s:
             return ""
-        r = Role.objects.filter(slug__iexact=s).first()
-        return r.name if r else s
+        names = []
+        for part in s.split(","):
+            part = part.strip()
+            if not part:
+                continue
+            r = Role.objects.filter(slug__iexact=part).first()
+            names.append(r.name if r else part)
+        return ", ".join(names)
 
     return JsonResponse({
         'success': True,
@@ -6001,7 +6130,7 @@ def api_restore_member_last_edit(request):
         email=member.email,
         phone=member.phone or '',
         rfid_card_number=member.rfid_card_number,
-        role=member.role or '',
+        role=member.assigned_roles_csv(),
         edited_by=request.user.username,
     )
 
@@ -6014,9 +6143,8 @@ def api_restore_member_last_edit(request):
     from helper.members_helper import normalize_rfid
 
     member.rfid_card_number = normalize_rfid(snapshot.rfid_card_number)
-    if (snapshot.role or "").strip():
-        member.member_role = Role.resolve_slug(snapshot.role)
     member.save()
+    _restore_member_roles_from_snapshot(member, snapshot.role)
 
     # Delete the consumed snapshot so the next "restore" uses the one before it
     snapshot.delete()
@@ -6084,7 +6212,7 @@ def api_restore_all_last_edit(request):
             email=member.email,
             phone=member.phone or '',
             rfid_card_number=member.rfid_card_number,
-            role=member.role or '',
+            role=member.assigned_roles_csv(),
             edited_by=request.user.username,
         )
 
@@ -6094,9 +6222,8 @@ def api_restore_all_last_edit(request):
         member.email = snapshot.email or None
         member.phone = snapshot.phone or ''
         member.rfid_card_number = normalize_rfid(snapshot.rfid_card_number)
-        if (snapshot.role or "").strip():
-            member.member_role = Role.resolve_slug(snapshot.role)
         member.save()
+        _restore_member_roles_from_snapshot(member, snapshot.role)
 
         snapshot.delete()
         restored.append(member.full_name)
@@ -6179,7 +6306,7 @@ def member_management(request):
     # List members like Django admin: default shows everyone; optional active/inactive filters.
     members = Member.objects.select_related(
         'member_role', 'member_type', 'user', 'senior_profile', 'pwd_profile', 'nationality',
-    ).prefetch_related('beneficiaries_dependents', 'project_categories')
+    ).prefetch_related('beneficiaries_dependents', 'project_categories', 'roles')
     if restrict_member_role:
         members = members.filter(member_role__slug='member')
 
@@ -6228,7 +6355,9 @@ def member_management(request):
             Q(tin__icontains=search_query) |
             Q(member_type__name__icontains=search_query) |
             Q(member_role__slug__icontains=search_query) |
-            Q(member_role__name__icontains=search_query)
+            Q(member_role__name__icontains=search_query) |
+            Q(roles__slug__icontains=search_query) |
+            Q(roles__name__icontains=search_query)
         )
         
         # Handle name search - check if query contains spaces (full name search)
@@ -6266,7 +6395,7 @@ def member_management(request):
             # We'll search for members where first_name starts with query or last_name starts with query
             # This is already covered by the icontains above, but we can be more specific
         
-        members = members.filter(search_filters)
+        members = members.filter(search_filters).distinct()
     
     if sort_filter == 'za':
         members = members.order_by('-last_name', '-first_name', '-id')

@@ -19,10 +19,10 @@
   var amountRange = document.getElementById("loan-amount-range");
   var amountHelp = document.getElementById("loan-amount-help");
   var interestHelp = document.getElementById("loan-interest-help");
-  var termHelp = document.getElementById("loan-term-help");
   var usableFromInput = document.getElementById("loan-usable-from");
   var usableToInput = document.getElementById("loan-usable-to");
   var usableDaysInput = document.getElementById("loan-usable-days");
+  var useDaysInput = document.getElementById("loan-use-usable-days");
   var amountPresets = document.getElementById("loan-amount-presets");
   var productSummary = document.getElementById("loan-product-summary");
   var amountError = document.getElementById("loan-amount-error");
@@ -541,22 +541,17 @@
       interestInput.setCustomValidity("");
     }
     if (termInput) {
-      termInput.readOnly = false;
-      termInput.removeAttribute("readonly");
-      termInput.placeholder = "e.g. 12";
       termInput.value = "";
-      termInput.classList.remove("is-invalid");
-      termInput.setCustomValidity("");
     }
     if (amountRange) amountRange.textContent = "Select a product first";
     if (amountHelp) {
       amountHelp.textContent = "Choose a loan product first. You can only request an amount within that product's allowed range.";
     }
-    if (termHelp) {
-      termHelp.textContent = "How many months to repay. This only sets the installment count — it does not change interest calculation.";
-    }
     if (interestHelp) {
       interestHelp.textContent = "Monthly rate as a decimal (e.g. 0.015 = 1.5%). Interest is computed at payment time from usable dates. Daily = (rate ÷ 30) × remaining principal. Prefills from the loan product.";
+    }
+    if (typeof setUsableDaysEnabled === "function") {
+      setUsableDaysEnabled(false);
     }
     if (amountPresets) {
       amountPresets.hidden = true;
@@ -586,16 +581,7 @@
     amountInput.step = "0.01";
     amountInput.placeholder = "Enter amount from " + peso(minAmount) + " to " + peso(maxAmount);
     if (termInput) {
-      termInput.readOnly = false;
-      termInput.removeAttribute("readonly");
-      termInput.min = "1";
-      termInput.step = "1";
-      termInput.placeholder = "e.g. " + defaultTerm;
-      if (!keepAmount || termInput.value === "") {
-        termInput.value = String(defaultTerm);
-      }
-      termInput.classList.remove("is-invalid");
-      termInput.setCustomValidity("");
+      termInput.value = String(defaultTerm);
     }
     if (interestInput) {
       interestInput.readOnly = false;
@@ -613,13 +599,17 @@
     if (amountHelp) {
       amountHelp.textContent = "Tap a suggested amount below or type your own.";
     }
-    if (termHelp) {
-      termHelp.textContent =
-        "How many months to repay (product default " + defaultTerm + " mo.). Sets installment count only — does not change interest calculation.";
-    }
     if (interestHelp) {
-      interestHelp.textContent =
-        "Monthly rate as a decimal (e.g. 0.015 = 1.5%). Interest is computed at payment time from usable dates. Daily interest = (rate ÷ 30) × remaining principal.";
+      if (info.uses_usable_days) {
+        interestHelp.textContent =
+          "Usable-days product: interest = principal × rate × (usable days ÷ 360). Amount pay = interest + partial pay.";
+      } else {
+        interestHelp.textContent =
+          "Normal loan product. Monthly rate as a decimal (e.g. 0.015 = 1.5%). Interest is computed at payment time only if usable days are enabled.";
+      }
+    }
+    if (typeof setUsableDaysEnabled === "function") {
+      setUsableDaysEnabled(!!info.uses_usable_days);
     }
     if (productSummary) {
       var termLabel = defaultTerm + " mo. term";
@@ -627,8 +617,10 @@
         "<strong>" + info.name + "</strong>" +
         "<div class=\"loan-product-summary__meta\">" +
         "<span class=\"loan-product-summary__tag\">Default " + termLabel + "</span>" +
-        "<span class=\"loan-product-summary__tag\">From month " + info.interest_start_month + "</span>" +
         "<span class=\"loan-product-summary__tag\">Set interest rate below</span>" +
+        (info.uses_usable_days
+          ? "<span class=\"loan-product-summary__tag\">Usable days · 360</span>"
+          : "<span class=\"loan-product-summary__tag\">Normal loan</span>") +
         "</div>";
       productSummary.classList.add("is-visible");
     }
@@ -658,71 +650,15 @@
     updateSteps();
   }
 
-  function formatDateInput(date) {
-    var y = date.getFullYear();
-    var m = String(date.getMonth() + 1).padStart(2, "0");
-    var d = String(date.getDate()).padStart(2, "0");
-    return y + "-" + m + "-" + d;
+  /** Product catalog drives usable-days flag; From/To are set on payment only. */
+  function setUsableDaysEnabled(enabled) {
+    if (useDaysInput) useDaysInput.value = enabled ? "1" : "0";
+    if (usableFromInput) usableFromInput.value = "";
+    if (usableToInput) usableToInput.value = "";
+    if (usableDaysInput) usableDaysInput.value = "";
   }
 
-  function parseDateInput(value) {
-    if (!value) return null;
-    var parts = String(value).split("-");
-    if (parts.length !== 3) return null;
-    var y = Number(parts[0]);
-    var m = Number(parts[1]);
-    var d = Number(parts[2]);
-    if (!isFinite(y) || !isFinite(m) || !isFinite(d)) return null;
-    var date = new Date(y, m - 1, d);
-    if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) {
-      return null;
-    }
-    return date;
-  }
-
-  /** usable_days = one calendar month from application date (hidden; shown on payments). */
-  function addOneMonth(date) {
-    var year = date.getFullYear();
-    var month = date.getMonth() + 1;
-    var day = date.getDate();
-    var next = new Date(year, month, 1);
-    var lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
-    return new Date(next.getFullYear(), next.getMonth(), Math.min(day, lastDay));
-  }
-
-  function daysBetween(fromValue, toValue) {
-    var from = parseDateInput(fromValue);
-    var to = parseDateInput(toValue);
-    if (!from || !to) return NaN;
-    return Math.round((to - from) / 86400000);
-  }
-
-  function syncEndDateFromApplicationDate() {
-    if (!usableFromInput) return;
-    var from = parseDateInput(usableFromInput.value);
-    if (!from) {
-      if (usableToInput) usableToInput.value = "";
-      if (usableDaysInput) usableDaysInput.value = "";
-      return;
-    }
-    var to = addOneMonth(from);
-    var toValue = formatDateInput(to);
-    if (usableToInput) usableToInput.value = toValue;
-    var days = daysBetween(usableFromInput.value, toValue);
-    if (usableDaysInput) {
-      usableDaysInput.value = isFinite(days) && days >= 0 ? String(days) : "";
-    }
-  }
-
-  function defaultApplicationDate() {
-    var now = new Date();
-    return formatDateInput(new Date(now.getFullYear(), now.getMonth(), 1));
-  }
-
-  if (usableFromInput && !usableFromInput.value) {
-    usableFromInput.value = defaultApplicationDate();
-  }
-  syncEndDateFromApplicationDate();
+  setUsableDaysEnabled(false);
 
   function validatePurpose() {
     if (!purpose) return true;
@@ -749,20 +685,6 @@
     return true;
   }
 
-  function validateTermMonths() {
-    if (!termInput) return true;
-    var term = parseInt(termInput.value, 10);
-    if (termInput.value.trim() === "" || !isFinite(term) || term < 1) {
-      termInput.classList.add("is-invalid");
-      termInput.setCustomValidity("Enter a term of at least 1 month.");
-      termInput.reportValidity();
-      return false;
-    }
-    termInput.classList.remove("is-invalid");
-    termInput.setCustomValidity("");
-    return true;
-  }
-
   function validateAmount() {
     if (isStaffDesk && memberSelect && !memberSelect.value) {
       memberSelect.setCustomValidity("Please select a member.");
@@ -779,9 +701,6 @@
     productSelect.setCustomValidity("");
     if (!checkAmountLive(true)) {
       amountInput.reportValidity();
-      return false;
-    }
-    if (!validateTermMonths()) {
       return false;
     }
     if (!validateInterestRate()) {
@@ -814,25 +733,12 @@
   });
   amountInput.addEventListener("blur", function () { checkAmountLive(true); });
 
-  if (termInput) {
-    termInput.addEventListener("input", function () {
-      termInput.classList.remove("is-invalid");
-      termInput.setCustomValidity("");
-      updateSteps();
-    });
-  }
-
   if (interestInput) {
     interestInput.addEventListener("input", function () {
       interestInput.classList.remove("is-invalid");
       interestInput.setCustomValidity("");
       updateSteps();
     });
-  }
-
-  if (usableFromInput) {
-    usableFromInput.addEventListener("change", syncEndDateFromApplicationDate);
-    usableFromInput.addEventListener("input", syncEndDateFromApplicationDate);
   }
 
   if (purpose) {

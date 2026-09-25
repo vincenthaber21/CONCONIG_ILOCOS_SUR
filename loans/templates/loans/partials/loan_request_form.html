@@ -548,9 +548,28 @@
     margin-top: .85rem;
     padding-top: .85rem;
     border-top: 1px dashed var(--border);
-    max-width: 280px;
+    max-width: none;
   }
-  .loan-application-date label {
+  .loan-application-date__hint {
+    margin: 0 0 .65rem;
+    font-size: .78rem;
+    color: #64748b;
+    line-height: 1.4;
+  }
+  .loan-application-date.is-disabled {
+    opacity: .95;
+  }
+  .loan-application-date__row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: .65rem;
+  }
+  @media (max-width: 640px) {
+    .loan-application-date__row {
+      grid-template-columns: 1fr;
+    }
+  }
+  .loan-application-date__cell label {
     display: block;
     font-size: .72rem;
     font-weight: 700;
@@ -559,16 +578,37 @@
     color: var(--muted);
     margin: 0 0 .25rem;
   }
-  .loan-application-date input[type="date"] {
+  .loan-application-date__cell input[type="date"] {
     width: 100%;
     border: 1px solid #cbd5e1;
     border-radius: 8px;
     padding: .4rem .55rem;
     font-weight: 600;
     font-size: .88rem;
+    background: #fff;
   }
   .loan-application-date input[type="hidden"] {
     display: none;
+  }
+  .loan-application-date__cell--locked input {
+    background: #f8fafc;
+    color: #475569;
+    cursor: default;
+  }
+  .loan-application-date__lock-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .2rem;
+    margin-left: .35rem;
+    padding: .1rem .35rem;
+    border-radius: 999px;
+    background: #e2e8f0;
+    color: #475569;
+    font-size: .65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .02em;
+    vertical-align: middle;
   }
   .staff-member-field { margin-bottom: 1.25rem; }
   .staff-member-field.request-panel { overflow: visible; }
@@ -816,21 +856,8 @@
             </div>
 
             <div class="loan-interest-panel">
-              <label class="loan-amount-custom-label" for="{{ form.term_months.id_for_label }}">
-                Term (months) <span class="required">*</span>
-              </label>
-              <div class="loan-term-input-wrap">
-                {{ form.term_months }}
-                <span class="unit">mo.</span>
-              </div>
-              {{ form.term_months.errors }}
-              {% if form.term_months.help_text %}
-              <span class="helptext" id="loan-term-help">{{ form.term_months.help_text }}</span>
-              {% else %}
-              <span class="helptext" id="loan-term-help">Number of monthly installments. Does not change interest calculation.</span>
-              {% endif %}
-
-              <label class="loan-amount-custom-label" for="{{ form.interest_rate.id_for_label }}" style="margin-top:.9rem;">
+              {{ form.term_months }}
+              <label class="loan-amount-custom-label" for="{{ form.interest_rate.id_for_label }}">
                 Interest rate <span class="required">*</span>
               </label>
               <div class="loan-interest-input-wrap">
@@ -842,13 +869,11 @@
               {% else %}
               <span class="helptext" id="loan-interest-help">Monthly rate as decimal (e.g. 0.015 = 1.5%). Interest is computed at payment time from usable dates. Daily = (rate ÷ 30) × remaining principal.</span>
               {% endif %}
-              <div class="loan-application-date" id="loan-application-date">
-                <label for="{{ form.usable_from.id_for_label }}">Application date</label>
-                {{ form.usable_from }}
-                {{ form.usable_from.errors }}
-                {{ form.usable_to }}
-                {{ form.usable_days }}
-              </div>
+              {# Usable From/To is set on payment only — not shown when applying. #}
+              {{ form.use_usable_days }}
+              {{ form.usable_from }}
+              {{ form.usable_to }}
+              {{ form.usable_days }}
             </div>
           </div>
         </div>

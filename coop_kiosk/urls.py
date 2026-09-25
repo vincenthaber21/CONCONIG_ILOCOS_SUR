@@ -192,6 +192,8 @@ urlpatterns = [
     ),
     path('api/rfid-login/', admin_panel_views.api_rfid_login, name='api_rfid_login'),
     path('user-choice/', admin_panel_views.user_choice, name='user_choice'),
+    path('choose-role/', members_views.choose_role, name='choose_role'),
+    path('switch-role/', members_views.switch_role, name='switch_role'),
     path('user-transactions/', admin_panel_views.user_transactions, name='user_transactions'),
     path('member/loans/', include('loans.member_urls')),
     path('member/savings/', include('savings.member_urls')),

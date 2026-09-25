@@ -10,7 +10,18 @@
 
 <p class="mt-3 mb-3"><strong>Balance:</strong> &#8369;{{ account.balance|currency }}</p>
 <p class="mb-3">
-  <strong>Interest:</strong> {{ interest.annual_rate_display }} / year
+  <strong>Interest:</strong>
+  {% if interest.is_time_deposit %}
+  &#8369;{{ interest.interest_base|currency }} × {{ interest.rate_factor_display }}
+  = &#8369;{{ interest.estimated_interest|currency }} for the year.
+  {% if interest.below_minimum %}No interest unless the time deposit is at least &#8369;5,000.00.{% elif interest.high_amount %}Term interest applies from &#8369;100,001.00.{% else %}Up to &#8369;100,000: savings × interest rate.{% endif %}
+  {% else %}
+  &#8369;{{ interest.interest_base|currency }} × {{ interest.rate_factor_display }} × {{ interest.step_months }} ÷ 12
+  = &#8369;{{ interest.estimated_interest|currency }}
+  {% if interest.period_deposits %}(deposits of &#8369;{{ interest.period_deposits|currency }} in this period are in the balance only){% endif %}
+  {% if interest.no_withdrawal %}Next period, if this one succeeds: &#8369;{{ interest.next_balance|currency }} × {{ interest.rate_factor_display }} × {{ interest.step_months }} ÷ 12 = &#8369;{{ interest.next_period_interest|currency }}.{% endif %}
+  {% if interest.below_minimum %}No interest while the remaining balance is &#8369;1,000.00 or below.{% elif interest.period_reset %}A withdrawal reset this {{ interest.step_months }}-month period. Next interest: {{ interest.next_credit_on|date:"M j, Y" }}.{% elif interest.no_withdrawal %}(no withdrawal in this period){% else %}(withdrawn in this period — the month count starts again){% endif %}
+  {% endif %}
 </p>
 
 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">

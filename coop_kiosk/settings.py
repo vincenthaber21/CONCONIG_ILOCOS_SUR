@@ -118,6 +118,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'members.active_role.ActiveRoleMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',  # Must be before SecureAdminMiddleware
     'admin_panel.middleware.CommitteeLoanOnlyMiddleware',  # Committee + loan officer: loans only
     'admin_panel.middleware.SecureAdminMiddleware',  # Secure admin panel access (after MessageMiddleware)

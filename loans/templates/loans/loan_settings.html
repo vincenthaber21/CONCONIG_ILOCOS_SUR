@@ -7,7 +7,7 @@
       <i class="bi bi-arrow-left"></i> Loans
     </a>
     <h1>Loan Settings</h1>
-    <p class="subtitle">Configure grace period, membership eligibility, and committee approval rules.</p>
+    <p class="subtitle">Configure grace period, membership eligibility, committee approval, and usable days.</p>
   </header>
 
   <div class="loan-form-page__layout">
@@ -51,6 +51,16 @@
           </label>
           {% if form.committee_single_approver.help_text %}<p class="helptext">{{ form.committee_single_approver.help_text }}</p>{% endif %}
           {% if form.committee_single_approver.errors %}<div class="loan-form__errors">{{ form.committee_single_approver.errors }}</div>{% endif %}
+        </div>
+
+        <h2 class="loan-form__section">Interest period</h2>
+        <div class="loan-form__field loan-form__field--checkbox">
+          <label class="loan-form__check">
+            {{ form.usable_days_editable }}
+            <span>{{ form.usable_days_editable.label }}</span>
+          </label>
+          {% if form.usable_days_editable.help_text %}<p class="helptext">{{ form.usable_days_editable.help_text }}</p>{% endif %}
+          {% if form.usable_days_editable.errors %}<div class="loan-form__errors">{{ form.usable_days_editable.errors }}</div>{% endif %}
         </div>
 
         <div class="loan-form__actions">
@@ -101,6 +111,14 @@
             When enabled, any one admin, loan officer, staff, or credit committee
             member can approve or reject at the committee step. Turn off to require
             a majority of listed approvers again.
+          </dd>
+        </div>
+        <div>
+          <dt>Usable days</dt>
+          <dd>
+            When enabled, staff can type Days on the payment Interest period section;
+            the To date follows From + Days. When disabled, Days stays locked and is
+            calculated as To − From.
           </dd>
         </div>
       </dl>

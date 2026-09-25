@@ -42,6 +42,16 @@ class LoanSettingsAdmin(admin.ModelAdmin):
             },
         ),
         (
+            "Payment interest period",
+            {
+                "description": (
+                    "Controls whether staff can type usable Days on the payment form. "
+                    "When disabled, Days stays locked and is computed as To − From."
+                ),
+                "fields": ("usable_days_editable",),
+            },
+        ),
+        (
             "Metadata",
             {
                 "fields": ("updated_at",),
@@ -118,26 +128,24 @@ class LoanProductAdmin(admin.ModelAdmin):
     list_display = (
         "name",
         "interest_rate",
-        "interest_start_month",
         "min_amount",
         "max_amount",
         "term_months",
+        "uses_usable_days",
         "requires_collateral",
         "requires_insurance",
     )
-    list_filter = ("requires_collateral", "requires_insurance")
+    list_filter = ("uses_usable_days", "requires_collateral", "requires_insurance")
     search_fields = ("name",)
     fieldsets = (
         (None, {"fields": ("name", "description")}),
         (
             "Interest",
             {
-                "fields": ("interest_rate", "interest_start_month"),
+                "fields": ("interest_rate", "uses_usable_days"),
                 "description": (
-                    "Interest is charged only when a member does not pay on or before "
-                    "the installment due date, after the Loan Settings grace period. "
-                    "On-time payments have ₱0 interest. Use Interest start month to keep "
-                    "early installments interest-free even if they are paid late."
+                    "Usable-days products use interest = principal × rate × (days ÷ 360). "
+                    "Normal loans do not use that formula."
                 ),
             },
         ),
@@ -296,8 +304,11 @@ class DisbursementAdmin(admin.ModelAdmin):
     list_display = (
         "application",
         "amount_released",
+        "interest_amount",
+        "share_capital_amount",
         "transaction_fee",
-        "other_deduction_amount",
+        "insurance_amount",
+        "savings_amount",
         "disbursement_method",
         "disbursement_date",
         "disbursed_by",

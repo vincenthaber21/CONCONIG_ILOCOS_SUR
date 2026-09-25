@@ -143,6 +143,14 @@ class SavingsOverviewView(SavingsStaffMixin, View):
         )
 
 
+def _product_kind(product):
+    if product.product_type == models.SavingsProduct.ProductType.TIME_DEPOSIT:
+        return "Time deposit"
+    if product.product_type == models.SavingsProduct.ProductType.REGULAR:
+        return "Regular Savings"
+    return product.get_product_type_display()
+
+
 class SavingsProductListView(SavingsStaffMixin, ListView):
     model = models.SavingsProduct
     template_name = "savings/savingsproduct_list.html"
@@ -172,7 +180,10 @@ class SavingsProductCreateView(SavingsStaffMixin, CreateView):
 
     def form_valid(self, form):
         self.object = form.save()
-        messages.success(self.request, f'Regular Savings "{self.object.name}" created.')
+        messages.success(
+            self.request,
+            f'{_product_kind(self.object)} "{self.object.name}" created.',
+        )
         return redirect(self.get_success_url())
 
     def form_invalid(self, form):
@@ -191,12 +202,15 @@ class SavingsProductUpdateView(SavingsStaffMixin, UpdateView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx["savings_policy"] = regular_savings_policy()
+        ctx["savings_policy"] = regular_savings_policy(product=self.object)
         return ctx
 
     def form_valid(self, form):
         self.object = form.save()
-        messages.success(self.request, f'Regular Savings "{self.object.name}" updated.')
+        messages.success(
+            self.request,
+            f'{_product_kind(self.object)} "{self.object.name}" updated.',
+        )
         return redirect(self.get_success_url())
 
     def form_invalid(self, form):
@@ -207,6 +221,14 @@ class SavingsProductUpdateView(SavingsStaffMixin, UpdateView):
         return super().form_invalid(form)
 
 
+def _open_account_context(form):
+    return {
+        "form": form,
+        "savings_policy": regular_savings_policy(),
+        "opening_products": form.opening_product_catalog(),
+    }
+
+
 class OpenSavingsAccountView(SavingsStaffMixin, View):
     template_name = "savings/account_form.html"
 
@@ -214,14 +236,7 @@ class OpenSavingsAccountView(SavingsStaffMixin, View):
         initial = {}
         if (request.GET.get("joint") or "").strip() in ("1", "true", "yes"):
             initial["is_joint"] = True
-        return render(
-            request,
-            self.template_name,
-            {
-                "form": forms.OpenSavingsAccountForm(initial=initial),
-                "savings_policy": regular_savings_policy(),
-            },
-        )
+        return render(request, self.template_name, _open_account_context(forms.OpenSavingsAccountForm(initial=initial)))
 
     def post(self, request):
         form = forms.OpenSavingsAccountForm(request.POST)
@@ -240,6 +255,7 @@ class OpenSavingsAccountView(SavingsStaffMixin, View):
                         if form.cleaned_data.get("joint_member")
                         else None
                     ),
+                    deposit_term_months=form.cleaned_data.get("deposit_term_months"),
                 )
             except ValidationError as exc:
                 form.add_error(None, exc)
@@ -259,11 +275,7 @@ class OpenSavingsAccountView(SavingsStaffMixin, View):
                         txn_id=opening.pk,
                     )
                 return redirect("savings:account-detail", pk=account.pk)
-        return render(
-            request,
-            self.template_name,
-            {"form": form, "savings_policy": regular_savings_policy()},
-        )
+        return render(request, self.template_name, _open_account_context(form))
 
 
 class SavingsAccountDetailView(SavingsStaffMixin, DetailView):
@@ -286,17 +298,24 @@ class SavingsAccountDetailView(SavingsStaffMixin, DetailView):
         )
         if posted:
             self.object.refresh_from_db()
-            last = posted[-1]
-            if len(posted) == 1:
-                messages.success(
+            credited = [txn for txn in posted if txn.amount > 0]
+            waived = len(posted) - len(credited)
+            if credited:
+                total = sum((txn.amount for txn in credited), Decimal("0.00"))
+                if len(credited) == 1:
+                    messages.success(
+                        self.request,
+                        f"Automatic interest of ₱{credited[-1].amount:,.2f} credited.",
+                    )
+                else:
+                    messages.success(
+                        self.request,
+                        f"Automatic interest: {len(credited)} credits totaling ₱{total:,.2f}.",
+                    )
+            if waived:
+                messages.warning(
                     self.request,
-                    f"Automatic interest of ₱{last.amount:,.2f} credited.",
-                )
-            else:
-                total = sum((txn.amount for txn in posted), Decimal("0.00"))
-                messages.success(
-                    self.request,
-                    f"Automatic interest: {len(posted)} credits totaling ₱{total:,.2f}.",
+                    "Interest was not credited because of a withdrawal, or because the remaining balance is ₱1,000.00 or below.",
                 )
         ctx["movement_form"] = forms.SavingsMovementForm()
         ctx["close_form"] = forms.CloseSavingsAccountForm()
@@ -307,6 +326,36 @@ class SavingsAccountDetailView(SavingsStaffMixin, DetailView):
         ctx["savings_policy"] = regular_savings_policy()
         ctx["interest"] = services.interest_snapshot(self.object)
         return ctx
+
+
+@method_decorator(require_POST, name="dispatch")
+class SavingsAccountTermView(SavingsStaffMixin, View):
+    """Save the member's term when a time deposit is ₱100,001 or above."""
+
+    def post(self, request, pk):
+        account = get_object_or_404(
+            models.MemberSavingsAccount.objects.select_related("product"),
+            pk=pk,
+        )
+        raw = (request.POST.get("deposit_term_months") or "").strip()
+        if raw not in {"3", "6", "12"}:
+            messages.error(request, "Select 3 months, 6 months, or 1 year.")
+            return redirect("savings:account-detail", pk=account.pk)
+        if not services.is_time_deposit_account(account) or not services.time_deposit_uses_term(
+            account.balance
+        ):
+            messages.error(
+                request,
+                "That term is only for a time deposit of ₱100,001.00 or above.",
+            )
+            return redirect("savings:account-detail", pk=account.pk)
+        account.deposit_term_months = int(raw)
+        account.save(update_fields=["deposit_term_months", "updated_at"])
+        messages.success(
+            request,
+            f"Term set to {services.time_deposit_term_label(account.deposit_term_months)}.",
+        )
+        return redirect("savings:account-detail", pk=account.pk)
 
 
 class SavingsAccountCloseView(SavingsStaffMixin, View):
@@ -470,16 +519,24 @@ class SavingsAccountCreditInterestView(SavingsStaffMixin, View):
             )
             return redirect("savings:account-detail", pk=account.pk)
         last = posted[-1]
-        if len(posted) == 1:
+        credited = [txn for txn in posted if txn.amount > 0]
+        if not credited:
+            messages.warning(
+                request,
+                "Interest was not credited because of a withdrawal, or because the remaining balance is ₱1,000.00 or below.",
+            )
+            return redirect("savings:account-detail", pk=account.pk)
+        last = credited[-1]
+        if len(credited) == 1:
             messages.success(
                 request,
                 f"Interest of ₱{last.amount:,.2f} credited. Member receipt is ready to print.",
             )
         else:
-            total = sum((txn.amount for txn in posted), Decimal("0.00"))
+            total = sum((txn.amount for txn in credited), Decimal("0.00"))
             messages.success(
                 request,
-                f"{len(posted)} interest credits totaling ₱{total:,.2f} posted. Member receipt is ready to print.",
+                f"{len(credited)} interest credits totaling ₱{total:,.2f} posted. Member receipt is ready to print.",
             )
         return redirect("savings:transaction-receipt", pk=account.pk, txn_id=last.pk)
 

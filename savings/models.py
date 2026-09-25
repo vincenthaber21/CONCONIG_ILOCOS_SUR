@@ -68,12 +68,22 @@ class SavingsProduct(BaseModel):
         max_digits=6,
         decimal_places=3,
         default=Decimal("0.000"),
-        help_text="Annual interest rate in percent (e.g. 3.500 = 3.5%).",
+        help_text=(
+            "Yearly multiplier. Interest = savings × this rate × months ÷ 12. "
+            "Example: 0.070 on ₱2,000 every 3 months = 2,000 × 0.070 × 3 ÷ 12 = ₱35.00."
+        ),
     )
     compounding = models.CharField(
         max_length=16,
         choices=Compounding.choices,
         default=Compounding.ANNUALLY,
+    )
+    interest_apply_months = models.PositiveIntegerField(
+        default=12,
+        help_text=(
+            "Credit interest this many months after opening, then on each "
+            "anniversary. 1 = every month, 12 = once a year."
+        ),
     )
     min_opening_deposit = models.DecimalField(
         max_digits=12,
@@ -130,6 +140,24 @@ class SavingsProduct(BaseModel):
         help_text="Members are expected to hold this product (e.g. share capital).",
     )
     is_active = models.BooleanField(default=True)
+    rate_3_months = models.DecimalField(
+        max_digits=6,
+        decimal_places=3,
+        default=Decimal("0.010"),
+        help_text="Time deposit of ₱100,001 and above, 3 months: savings × this rate × (3/12).",
+    )
+    rate_6_months = models.DecimalField(
+        max_digits=6,
+        decimal_places=3,
+        default=Decimal("0.010"),
+        help_text="Time deposit of ₱100,001 and above, 6 months: savings × this rate × (6/12).",
+    )
+    rate_1_year = models.DecimalField(
+        max_digits=6,
+        decimal_places=3,
+        default=Decimal("0.030"),
+        help_text="Time deposit of ₱100,001 and above, 1 year: savings × this rate.",
+    )
 
     class Meta:
         ordering = ["name"]
@@ -138,6 +166,12 @@ class SavingsProduct(BaseModel):
 
     def __str__(self):
         return self.name
+
+    @property
+    def interest_rate_display(self):
+        from .policy import format_rate
+
+        return format_rate(self.interest_rate or 0)
 
     @classmethod
     def regular_product_defaults(cls):
@@ -150,6 +184,7 @@ class SavingsProduct(BaseModel):
             "description": "Passbook regular savings for cooperative members.",
             "interest_rate": ANNUAL_INTEREST_RATE,
             "compounding": cls.Compounding.ANNUALLY,
+            "interest_apply_months": 12,
             "min_opening_deposit": Decimal("1000.00"),
             "max_balance": Decimal("1000000.00"),
             "term_months": 0,
@@ -211,13 +246,14 @@ class SavingsProduct(BaseModel):
         errors = {}
         if self.interest_rate is not None and self.interest_rate < 0:
             errors["interest_rate"] = "Interest rate cannot be negative."
+        months = self.interest_apply_months
+        if months is not None and (months < 1 or months > 120):
+            errors["interest_apply_months"] = "Enter a number of months from 1 to 120."
         if (
             self.early_withdrawal_penalty_percent is not None
             and self.early_withdrawal_penalty_percent < 0
         ):
             errors["early_withdrawal_penalty_percent"] = "Penalty cannot be negative."
-        if self.product_type == self.ProductType.TIME_DEPOSIT and not self.term_months:
-            errors["term_months"] = "Time deposits need a term of at least 1 month."
         if self.max_balance is not None and self.max_balance < 0:
             errors["max_balance"] = "Maximum balance cannot be negative."
         if (
@@ -286,6 +322,11 @@ class MemberSavingsAccount(BaseModel):
     )
     closed_at = models.DateTimeField(null=True, blank=True)
     notes = models.TextField(blank=True)
+    deposit_term_months = models.PositiveSmallIntegerField(
+        null=True,
+        blank=True,
+        help_text="Member's term when the time deposit is ₱100,001 or above: 3, 6, or 12.",
+    )
 
     class Meta:
         ordering = ["-opened_at"]

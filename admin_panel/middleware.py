@@ -13,6 +13,8 @@ _LOANS_ONLY_ALLOWED_EXACT = {
     "/dashboard/loans/settings/",
     "/admin/logout/",
     "/kiosk/logout/",
+    "/choose-role/",
+    "/switch-role/",
 }
 _LOANS_ONLY_ALLOWED_PREFIXES = ("/static/", "/media/")
 _LOANS_ONLY_SKIP_PREFIXES = (

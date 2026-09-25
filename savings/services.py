@@ -5,16 +5,27 @@ from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.utils import timezone
 
 from . import models
 from .policy import (
     ANNUAL_INTEREST_RATE,
     MAX_INTEREST_PERIODS,
+    MINIMUM_BALANCE_FOR_INTEREST,
+    TIME_DEPOSIT_MIN_BALANCE,
+    TIME_DEPOSIT_YEAR_MONTHS,
+    compounding_schedule,
+    earns_savings_interest,
+    earns_time_deposit_interest,
     format_rate,
     interest_amount,
     next_interest_credit_on,
+    schedule_for_months,
+    time_deposit_interest_amount,
+    time_deposit_term_label,
+    time_deposit_term_rate,
+    time_deposit_uses_term,
 )
 
 ZERO = Decimal("0.00")
@@ -160,6 +171,7 @@ def open_account(
     opening_date=None,
     is_joint=False,
     joint_owners=None,
+    deposit_term_months=None,
 ):
     if not product.is_active:
         raise ValidationError("This savings product is not active.")
@@ -194,6 +206,21 @@ def open_account(
         )
 
     opened_at = resolve_opened_at(opening_date)
+    term = int(deposit_term_months) if deposit_term_months else None
+    if (
+        getattr(product, "product_type", None) == models.SavingsProduct.ProductType.TIME_DEPOSIT
+        and time_deposit_uses_term(amount)
+        and term not in (3, 6, 12)
+    ):
+        raise ValidationError(
+            "For ₱100,001 and above, select 3 months, 6 months, or 1 year."
+        )
+    maturity = compute_maturity_date(product, opened_at)
+    if term:
+        start = timezone.localtime(opened_at).date() if timezone.is_aware(opened_at) else opened_at.date()
+        from .policy import _add_months
+
+        maturity = _add_months(start, term)
     account = models.MemberSavingsAccount(
         member=member,
         product=product,
@@ -201,7 +228,8 @@ def open_account(
         balance=ZERO,
         status=models.MemberSavingsAccount.Status.ACTIVE,
         opened_at=opened_at,
-        maturity_date=compute_maturity_date(product, opened_at),
+        maturity_date=maturity,
+        deposit_term_months=term,
         notes=notes or "",
     )
     account.save()
@@ -311,6 +339,58 @@ def _ensure_active(account):
         raise ValidationError("This savings account is not active.")
 
 
+def balance_at(account, moment):
+    """Ledger balance at ``moment``, including that moment's transactions.
+
+    Deposits posted after ``moment`` are not included. That is the savings
+    amount used for the period's interest.
+    """
+    account_id = getattr(account, "pk", None)
+    if not account_id or moment is None:
+        return _money(getattr(account, "balance", ZERO))
+    balance = (
+        models.SavingsTransaction.objects.filter(
+            account_id=account_id,
+            created_at__lte=moment,
+        )
+        .order_by("-created_at", "-id")
+        .values_list("balance_after", flat=True)
+        .first()
+    )
+    if balance is None:
+        return ZERO
+    return _money(balance)
+
+
+def deposits_between(account, start, end):
+    """Deposits posted after ``start`` and on or before ``end``."""
+    account_id = getattr(account, "pk", None)
+    if not account_id or start is None:
+        return ZERO
+    qs = models.SavingsTransaction.objects.filter(
+        account_id=account_id,
+        transaction_type=models.SavingsTransaction.TxnType.DEPOSIT,
+        created_at__gt=start,
+    )
+    if end is not None:
+        qs = qs.filter(created_at__lte=end)
+    total = qs.aggregate(total=Sum("amount"))["total"]
+    return _money(total or ZERO)
+
+
+def has_withdrawal_between(account, start, end):
+    """True when a withdrawal was posted after ``start`` and on or before ``end``."""
+    account_id = getattr(account, "pk", None)
+    if not account_id or start is None or end is None:
+        return False
+    return models.SavingsTransaction.objects.filter(
+        account_id=account_id,
+        transaction_type=models.SavingsTransaction.TxnType.WITHDRAWAL,
+        created_at__gt=start,
+        created_at__lte=end,
+    ).exists()
+
+
 def last_withdrawal_at(account):
     return (
         models.SavingsTransaction.objects.filter(
@@ -324,6 +404,7 @@ def last_withdrawal_at(account):
 
 
 def last_interest_at(account):
+    """Latest interest row, including a ₱0 skip, so the next period can start."""
     return (
         models.SavingsTransaction.objects.filter(
             account_id=account.pk,
@@ -335,22 +416,89 @@ def last_interest_at(account):
     )
 
 
+def interest_period_started_at(account):
+    """Start of the current interest period.
+
+    On regular savings, a withdrawal inside the open period resets the count.
+    Time deposits keep the yearly date and do not restart after a withdrawal.
+    """
+    started = getattr(account, "opened_at", None)
+    moments = [last_interest_at(account)]
+    if not is_time_deposit_account(account):
+        moments.append(last_withdrawal_at(account))
+    for moment in moments:
+        if moment and (started is None or moment > started):
+            started = moment
+    return started
+
+
 def effective_interest_rate(account, as_of=None):
-    """Flat 5% annual rate, applied monthly as (balance * 5%) / 12."""
-    return ANNUAL_INTEREST_RATE
+    """Annual percent from the account's savings product (admin Interest field)."""
+    product = getattr(account, "product", None)
+    rate = getattr(product, "interest_rate", None)
+    if rate is None:
+        return ANNUAL_INTEREST_RATE
+    return Decimal(rate)
+
+
+def is_time_deposit_account(account):
+    product = getattr(account, "product", None)
+    return getattr(product, "product_type", None) == models.SavingsProduct.ProductType.TIME_DEPOSIT
+
+
+def interest_schedule(account):
+    """How often this account's product credits interest.
+
+    Time deposits always credit once a year (12 months). Regular savings uses
+    ``interest_apply_months``, or the compounding choice when that is missing.
+    """
+    if is_time_deposit_account(account):
+        balance = getattr(account, "balance", 0)
+        if time_deposit_uses_term(balance):
+            term = int(getattr(account, "deposit_term_months", 0) or 0)
+            label = time_deposit_term_label(term)
+            if label:
+                step, periods, _phrase = schedule_for_months(term)
+                return step, periods, f"every {label} (savings × term interest)"
+            return (
+                TIME_DEPOSIT_YEAR_MONTHS,
+                Decimal("1"),
+                "select 3 months, 6 months, or 1 year",
+            )
+        step, periods, _phrase = schedule_for_months(TIME_DEPOSIT_YEAR_MONTHS)
+        return step, periods, "once a year (time deposit × interest rate)"
+    product = getattr(account, "product", None)
+    months = getattr(product, "interest_apply_months", None)
+    if months:
+        return schedule_for_months(months)
+    compounding = getattr(product, "compounding", None) or "monthly"
+    return compounding_schedule(compounding)
+
+
+def period_interest_amount(account, principal, rate, step_months):
+    """Interest for one credit. Time deposits do not use months ÷ 12."""
+    if is_time_deposit_account(account):
+        return time_deposit_interest_amount(
+            principal,
+            rate,
+            term_months=getattr(account, "deposit_term_months", None),
+            product=getattr(account, "product", None),
+        )
+    return interest_amount(principal, rate, months=step_months)
 
 
 def months_of_interest_due(account, as_of=None):
-    """How many monthly anniversary interest dates have passed since opening / last credit."""
+    """How many compounding-period anniversaries have passed since opening / last credit."""
     as_of = as_of or timezone.now()
-    cursor = last_interest_at(account) or account.opened_at
+    cursor = interest_period_started_at(account)
     if not cursor:
         return 0
+    step_months, _, _ = interest_schedule(account)
     due = 0
-    nxt = next_interest_credit_on(cursor)
+    nxt = next_interest_credit_on(cursor, months=step_months)
     while due < MAX_INTEREST_PERIODS and nxt is not None and as_of >= nxt:
         due += 1
-        nxt = next_interest_credit_on(nxt)
+        nxt = next_interest_credit_on(nxt, months=step_months)
     return due
 
 
@@ -359,16 +507,26 @@ years_of_interest_due = months_of_interest_due
 
 
 def next_unpaid_interest_on(account, as_of=None):
-    """First monthly anniversary interest date that has not been credited yet."""
-    cursor = last_interest_at(account) or account.opened_at
-    return next_interest_credit_on(cursor) if cursor else None
+    """First compounding anniversary that has not been credited yet."""
+    cursor = interest_period_started_at(account)
+    if not cursor:
+        return None
+    step_months, _, _ = interest_schedule(account)
+    return next_interest_credit_on(cursor, months=step_months)
 
 
 def interest_snapshot(account, as_of=None):
     """Template-ready interest status for one savings account."""
     as_of = as_of or timezone.now()
     last_wd = last_withdrawal_at(account)
-    rate = effective_interest_rate(account, as_of=as_of)
+    product_rate = effective_interest_rate(account, as_of=as_of)
+    rate = product_rate
+    term_months = getattr(account, "deposit_term_months", None)
+    if is_time_deposit_account(account) and time_deposit_uses_term(getattr(account, "balance", 0)):
+        term_rate = time_deposit_term_rate(term_months, getattr(account, "product", None))
+        if term_rate is not None:
+            rate = term_rate
+    step_months, periods_per_year, schedule_phrase = interest_schedule(account)
     rate_display = format_rate(rate)
     last_credit = last_interest_at(account)
     next_credit_on = next_unpaid_interest_on(account, as_of=as_of)
@@ -378,7 +536,42 @@ def interest_snapshot(account, as_of=None):
         and _money(account.balance) > ZERO
         and months_due > 0
     )
-    estimated = interest_amount(account.balance, rate)
+    period_start = interest_period_started_at(account)
+    interest_base = balance_at(account, period_start) if period_start else _money(account.balance)
+    period_deposits = deposits_between(account, period_start, next_credit_on)
+    is_time_deposit = is_time_deposit_account(account)
+    estimated = period_interest_amount(account, interest_base, product_rate, step_months)
+    if is_time_deposit:
+        below_minimum = not earns_time_deposit_interest(interest_base)
+    else:
+        below_minimum = not earns_savings_interest(interest_base) or not earns_savings_interest(
+            account.balance
+        )
+    if below_minimum:
+        estimated = ZERO
+    no_withdrawal = (
+        True
+        if is_time_deposit
+        else not has_withdrawal_between(account, period_start, next_credit_on)
+    )
+    period_reset = (
+        False
+        if is_time_deposit
+        else bool(last_wd and period_start == last_wd)
+    )
+    rate_factor_display = format(Decimal(rate).quantize(Decimal("0.001")), "f").rstrip("0").rstrip(".")
+    # A successful period's new balance (savings + deposits in the period + interest)
+    # is the savings amount for the next period's formula.
+    if no_withdrawal and not below_minimum:
+        next_balance = _money(account.balance) + estimated
+    else:
+        next_balance = _money(account.balance)
+    next_period_interest = period_interest_amount(account, next_balance, product_rate, step_months)
+    if is_time_deposit:
+        if not earns_time_deposit_interest(next_balance):
+            next_period_interest = ZERO
+    elif not earns_savings_interest(next_balance):
+        next_period_interest = ZERO
     return {
         "annual_rate": rate,
         "annual_rate_display": rate_display,
@@ -388,7 +581,11 @@ def interest_snapshot(account, as_of=None):
         "loyalty_rate_display": rate_display,
         "effective_rate": rate,
         "effective_rate_display": rate_display,
-        "qualifies_loyalty": True,
+        "qualifies_loyalty": no_withdrawal,
+        "no_withdrawal": no_withdrawal,
+        "period_reset": period_reset,
+        "below_minimum": below_minimum,
+        "rate_factor_display": rate_factor_display,
         "last_withdrawal_at": last_wd,
         "loyalty_eligible_on": None,
         "last_interest_at": last_credit,
@@ -397,6 +594,22 @@ def interest_snapshot(account, as_of=None):
         "months_due": months_due,
         "interest_due": due,
         "estimated_interest": estimated,
+        "interest_base": interest_base,
+        "period_deposits": period_deposits,
+        "next_balance": next_balance,
+        "next_period_interest": next_period_interest,
+        "schedule_phrase": schedule_phrase,
+        "step_months": step_months,
+        "periods_per_year": periods_per_year,
+        "is_time_deposit": is_time_deposit,
+        "high_amount": bool(is_time_deposit and time_deposit_uses_term(interest_base)),
+        "deposit_term_months": term_months,
+        "deposit_term_label": time_deposit_term_label(term_months),
+        "needs_term": bool(
+            is_time_deposit
+            and time_deposit_uses_term(interest_base)
+            and time_deposit_term_rate(term_months, getattr(account, "product", None)) is None
+        ),
     }
 
 
@@ -412,30 +625,95 @@ def credit_due_interest(*, account, performed_by=None, as_of=None):
     as_of = as_of or timezone.now()
     months_due = months_of_interest_due(account, as_of=as_of)
     rate = effective_interest_rate(account, as_of=as_of)
+    step_months, _periods_per_year, _schedule_phrase = interest_schedule(account)
     posted = []
-    cursor = last_interest_at(account) or account.opened_at
+    cursor = interest_period_started_at(account)
     if months_due < 1 or _money(account.balance) <= ZERO:
-        next_on = next_interest_credit_on(cursor) if cursor else None
+        next_on = (
+            next_interest_credit_on(cursor, months=step_months) if cursor else None
+        )
         when = (
             timezone.localtime(next_on).strftime("%b %d, %Y")
             if next_on
-            else "one month after opening"
+            else "the next anniversary after opening"
         )
         raise ValidationError(
-            f"No interest is due yet. Monthly interest can be credited on {when}."
+            f"No interest is due yet. Interest at {format_rate(rate)} can be credited on {when}."
         )
     for month_n in range(1, months_due + 1):
-        period_on = next_interest_credit_on(cursor)
-        money = interest_amount(account.balance, rate)
-        if money <= ZERO or period_on is None:
+        period_on = next_interest_credit_on(cursor, months=step_months)
+        principal = balance_at(account, cursor)
+        withdrew = has_withdrawal_between(account, cursor, period_on)
+        if period_on is None:
             break
         when = timezone.localtime(period_on).strftime("%b %d, %Y")
-        note = (
-            f"Monthly interest at {format_rate(rate)} / 12 "
-            f"({format_rate(rate)} annual) for {when}."
-        )
+        rate_text = format(Decimal(rate).quantize(Decimal("0.001")), "f").rstrip("0").rstrip(".")
+        time_deposit = is_time_deposit_account(account)
+        if time_deposit and not earns_time_deposit_interest(principal):
+            note = (
+                f"No interest for {when}. Time deposit is ₱{principal:,.2f}. "
+                f"Interest starts at ₱{TIME_DEPOSIT_MIN_BALANCE:,.2f}."
+            )
+            money = ZERO
+        elif time_deposit and time_deposit_uses_term(principal):
+            term = account.deposit_term_months
+            term_rate = time_deposit_term_rate(term, account.product)
+            label = time_deposit_term_label(term)
+            if term_rate is None:
+                break
+            money = time_deposit_interest_amount(
+                principal, rate, term_months=term, product=account.product
+            )
+            if money <= ZERO:
+                break
+            term_text = format(Decimal(term_rate).quantize(Decimal("0.001")), "f").rstrip("0").rstrip(".")
+            if int(term or 0) in (3, 6):
+                note = (
+                    f"Interest ₱{money:,.2f} = ₱{principal:,.2f} × {term_text} "
+                    f"× ({int(term)}/12) for {label} on {when}."
+                )
+            else:
+                note = (
+                    f"Interest ₱{money:,.2f} = ₱{principal:,.2f} × {term_text} "
+                    f"for {label} on {when}."
+                )
+        elif time_deposit:
+            money = time_deposit_interest_amount(principal, rate)
+            if money <= ZERO:
+                break
+            note = (
+                f"Interest ₱{money:,.2f} = ₱{principal:,.2f} × {rate_text} "
+                f"for the year ({TIME_DEPOSIT_YEAR_MONTHS} months) on {when}."
+            )
+        elif not earns_savings_interest(principal):
+            note = (
+                f"No interest for {when}. Remaining balance is ₱{principal:,.2f}. "
+                f"Interest is not applied at ₱{MINIMUM_BALANCE_FOR_INTEREST:,.2f} or below."
+            )
+            money = ZERO
+        elif withdrew:
+            note = (
+                f"No interest for {when}. A withdrawal fell within these "
+                f"{step_months} months, so the {step_months}-month count starts again "
+                f"from the withdrawal."
+            )
+            money = ZERO
+        else:
+            money = interest_amount(principal, rate, months=step_months)
+            if money <= ZERO:
+                break
+            deposits_now = deposits_between(account, cursor, period_on)
+            next_base = _money(principal) + deposits_now + money
+            note = (
+                f"Interest ₱{money:,.2f} = ₱{principal:,.2f} × {rate_text} × "
+                f"{step_months} ÷ 12 for {when}. "
+                f"Deposits in this period stay in the balance and are not included. "
+                f"This period succeeded, so the next period uses the new balance "
+                f"₱{next_base:,.2f}."
+            )
         if months_due > 1:
-            note = f"{note} Month {month_n} of {months_due}."
+            label = "Month" if step_months == 1 else "Period"
+            note = f"{note} {label} {month_n} of {months_due}."
         posted.append(
             _post(
                 account,

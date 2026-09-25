@@ -36,10 +36,17 @@
       <span class="loan-pay-stat__label">Remaining principal</span>
       <span class="loan-pay-stat__value">&#8369;{{ remaining_principal|currency }}</span>
     </div>
+    {% if loan_expired %}
+    <div class="loan-pay-stat loan-pay-stat--warn">
+      <span class="loan-pay-stat__label">Loan status</span>
+      <span class="loan-pay-stat__value loan-pay-stat__value--sm">Expired{% if maturity_date %} · {{ maturity_date|date:"M j, Y" }}{% endif %}</span>
+    </div>
+    {% else %}
     <div class="loan-pay-stat">
       <span class="loan-pay-stat__label">Loan amount</span>
       <span class="loan-pay-stat__value">&#8369;{{ application.amount_requested|currency }}</span>
     </div>
+    {% endif %}
     <div class="loan-pay-stat">
       <span class="loan-pay-stat__label">Payments recorded</span>
       <span class="loan-pay-stat__value">{{ payments|length }}</span>
@@ -66,22 +73,131 @@
         </div>
         {% else %}
 
-        <div class="loan-pay-period">
+        {% if loan_expired and renewal_calc %}
+        <div class="loan-pay-renewal" id="loan-pay-renewal"
+             data-principal="{{ remaining_principal }}"
+             data-interest-rate="{{ interest_rate }}"
+             data-base-months="12"
+             data-share-rate="0.02"
+             data-service-rate="0.02"
+             data-insurance-rate="0.0066">
+          <div class="loan-pay-renewal__head">
+            <h3 class="loan-pay-renewal__title">
+              <i class="bi bi-exclamation-triangle-fill" aria-hidden="true"></i>
+              Expired loan — renewal charges
+            </h3>
+            <span class="loan-pay-renewal__badge">Term ended{% if maturity_date %} {{ maturity_date|date:"M j, Y" }}{% endif %}</span>
+          </div>
+          <p class="loan-pay-renewal__hint">
+            Remaining principal is treated as the <strong>new principal</strong>.
+            Charges use the same formula as disbursement:
+            interest = remaining × rate × (months pay ÷ 12), plus share capital 2%,
+            service fee 2%, insurance 0.66%, and savings (input).
+          </p>
+
+          <div class="loan-pay-renewal__breakdown">
+            <div class="loan-pay-renewal__row">
+              <span>Remaining / new principal</span>
+              <strong id="renewal-principal">&#8369;{{ renewal_calc.remaining_principal|currency }}</strong>
+            </div>
+            <div class="loan-pay-renewal__row loan-pay-renewal__row--fee">
+              <span>Interest <small id="renewal-interest-formula"></small></span>
+              <strong id="renewal-interest">&#8369;{{ renewal_calc.interest_amount|currency }}</strong>
+            </div>
+            <div class="loan-pay-renewal__row loan-pay-renewal__row--fee">
+              <span>Share capital (2%)</span>
+              <strong id="renewal-share">&#8369;{{ renewal_calc.share_capital_amount|currency }}</strong>
+            </div>
+            <div class="loan-pay-renewal__row loan-pay-renewal__row--fee">
+              <span>Service fee (2%)</span>
+              <strong id="renewal-service">&#8369;{{ renewal_calc.service_fee_amount|currency }}</strong>
+            </div>
+            <div class="loan-pay-renewal__row loan-pay-renewal__row--fee">
+              <span>Insurance (0.66%)</span>
+              <strong id="renewal-insurance">&#8369;{{ renewal_calc.insurance_amount|currency }}</strong>
+            </div>
+            <div class="loan-pay-renewal__row loan-pay-renewal__row--fee">
+              <span>Savings</span>
+              <strong id="renewal-savings-amt">&#8369;{{ renewal_calc.savings_amount|currency }}</strong>
+            </div>
+            <div class="loan-pay-renewal__row loan-pay-renewal__row--total">
+              <span>Total renewal charges</span>
+              <strong id="renewal-total">&#8369;{{ renewal_calc.total_charges|currency }}</strong>
+            </div>
+          </div>
+
+          <div class="loan-pay-renewal__inputs">
+            <div class="loan-pay-form__field">
+              <label for="{{ form.renewal_months_pay.id_for_label }}">{{ form.renewal_months_pay.label }}</label>
+              {{ form.renewal_months_pay }}
+              {% if form.renewal_months_pay.help_text %}
+              <p class="helptext">{{ form.renewal_months_pay.help_text }}</p>
+              {% endif %}
+              {% if form.renewal_months_pay.errors %}
+              <div class="loan-pay-form__errors">{{ form.renewal_months_pay.errors }}</div>
+              {% endif %}
+            </div>
+            <div class="loan-pay-form__field">
+              <label for="{{ form.renewal_savings.id_for_label }}">{{ form.renewal_savings.label }}</label>
+              <div class="loan-pay-form__money loan-pay-form__money--sm">
+                <span>&#8369;</span>
+                {{ form.renewal_savings }}
+              </div>
+              {% if form.renewal_savings.help_text %}
+              <p class="helptext">{{ form.renewal_savings.help_text }}</p>
+              {% endif %}
+              {% if form.renewal_savings.errors %}
+              <div class="loan-pay-form__errors">{{ form.renewal_savings.errors }}</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% else %}
+        {{ form.renewal_months_pay }}
+        {{ form.renewal_savings }}
+        {% endif %}
+
+        <div class="loan-pay-period{% if not form.use_usable_days %} is-disabled{% endif %}" id="loan-pay-period">
           <div class="loan-pay-period__head">
-            <h3 class="loan-pay-period__title">Interest period</h3>
+            <div class="loan-pay-period__title-row">
+              <h3 class="loan-pay-period__title">Interest period</h3>
+              <button
+                type="button"
+                class="loan-pay-period__toggle"
+                id="loan-pay-usable-toggle"
+                aria-pressed="{{ form.use_usable_days|yesno:'true,false' }}"
+              >
+                {% if form.use_usable_days %}
+                <i class="bi bi-toggle-on" aria-hidden="true"></i> Disable usable days
+                {% else %}
+                <i class="bi bi-toggle-off" aria-hidden="true"></i> Enable usable days
+                {% endif %}
+              </button>
+            </div>
+            {{ form.use_usable_days }}
             {% if outstanding_balance <= 0 %}
             <p class="loan-pay-period__hint loan-pay-period__hint--free">
               This loan has no remaining balance — no further interest will be applied.
             </p>
             {% else %}
-            <p class="loan-pay-period__hint">
-              Interest is based on <strong>Balance left to pay</strong> (not the original
-              loan amount). The <strong>From</strong> date is set automatically; enter the
-              <strong>To</strong> date — interest is added when you record this payment.
+            <p class="loan-pay-period__hint" id="loan-pay-period-hint-on"{% if not form.use_usable_days %} hidden{% endif %}>
+              {% if uses_usable_days_formula %}
+              Usable-days product:
+              <strong>interest = principal × rate × (usable days ÷ 360)</strong>.
+              Amount to pay = interest + partial pay. Usable days are counted from <strong>From</strong> to <strong>To</strong>.
+              {% else %}
+              Interest is based on <strong>Balance left to pay</strong>.
+              Show only the <strong>From</strong> / <strong>To</strong> month period.
+              {% endif %}
+            </p>
+            <p class="loan-pay-period__hint loan-pay-period__hint--off" id="loan-pay-period-hint-off"{% if form.use_usable_days %} hidden{% endif %}>
+              Usable days are <strong>off</strong> by default. Click <strong>Enable usable days</strong>
+              only when this payment uses a From/To interest period; otherwise no period interest is added.
             </p>
             {% endif %}
           </div>
 
+          <div class="loan-pay-period__fields" id="loan-pay-period-fields"{% if not form.use_usable_days %} hidden{% endif %}>
           <div class="loan-pay-period__row">
             <div class="loan-pay-period__cell loan-pay-period__cell--locked">
               <label for="{{ form.usable_from.id_for_label }}">
@@ -103,12 +219,12 @@
               {% endif %}
             </div>
             <div class="loan-pay-period__cell loan-pay-period__cell--days">
-              <label for="{{ form.usable_days.id_for_label }}">Days</label>
-              {{ form.usable_days }}
-              {% if form.usable_days.errors %}
-              <div class="loan-pay-form__errors">{{ form.usable_days.errors }}</div>
-              {% endif %}
+              <label for="pay-usable-days-display">Usable days</label>
+              <output class="loan-pay-period__days" id="pay-usable-days-display" for="pay-usable-from pay-usable-to">—</output>
             </div>
+          </div>
+          {{ form.usable_days }}
+          <p class="loan-pay-period__days-note" id="pay-usable-days-note"></p>
           </div>
         </div>
 
@@ -119,11 +235,24 @@
             {{ form.amount_paid }}
           </div>
           {% if form.amount_paid.help_text %}
-          <p class="helptext">{{ form.amount_paid.help_text }}</p>
+          <p class="helptext" id="pay-amount-help">{{ form.amount_paid.help_text }}</p>
           {% endif %}
           {% if form.amount_paid.errors %}
           <div class="loan-pay-form__errors">{{ form.amount_paid.errors }}</div>
           {% endif %}
+        </div>
+
+        <div class="loan-pay-totals" id="loan-pay-totals">
+          <div class="loan-pay-totals__item">
+            <span class="loan-pay-totals__label">Total to pay</span>
+            <strong class="loan-pay-totals__value" id="pay-total-to-pay">—</strong>
+            <small class="loan-pay-totals__note" id="pay-total-to-pay-note">interest + partial pay</small>
+          </div>
+          <div class="loan-pay-totals__item loan-pay-totals__item--after">
+            <span class="loan-pay-totals__label">Balance after this payment</span>
+            <strong class="loan-pay-totals__value" id="pay-balance-after">—</strong>
+            <small class="loan-pay-totals__note">balance left minus partial pay</small>
+          </div>
         </div>
 
         <div class="loan-pay-form__pair">
@@ -197,7 +326,9 @@
               <td>
                 {% if payment.usable_from and payment.usable_to %}
                 {{ payment.usable_from|date:"M j" }} – {{ payment.usable_to|date:"M j, Y" }}
-                <div class="loan-pay-table__muted">{{ payment.usable_days }} days</div>
+                {% if payment.usable_days %}
+                <div class="loan-pay-table__muted">{{ payment.usable_days }} usable day{{ payment.usable_days|pluralize }}</div>
+                {% endif %}
                 {% else %}
                 <span class="loan-pay-table__muted">—</span>
                 {% endif %}
@@ -245,8 +376,12 @@
 
         <dl class="loan-pay-confirm__summary" id="loan-pay-confirm-summary">
           <div>
-            <dt>Amount paid</dt>
+            <dt>Partial pay</dt>
             <dd id="confirm-amount">—</dd>
+          </div>
+          <div>
+            <dt>Total to pay</dt>
+            <dd id="confirm-total-to-pay">—</dd>
           </div>
           <div>
             <dt>Interest period</dt>
@@ -378,6 +513,103 @@
     font-variant-numeric: tabular-nums;
   }
   .loan-pay-stat--accent .loan-pay-stat__value { color: #166534; }
+  .loan-pay-stat__value--sm { font-size: .95rem; font-weight: 700; }
+  .loan-pay-stat--warn {
+    background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+    border-color: #fdba74;
+  }
+  .loan-pay-stat--warn .loan-pay-stat__label { color: #c2410c; }
+  .loan-pay-stat--warn .loan-pay-stat__value { color: #9a3412; }
+
+  .loan-pay-renewal {
+    margin-bottom: 1.15rem;
+    border: 1px solid #fdba74;
+    border-radius: 12px;
+    background: #fff7ed;
+    overflow: hidden;
+  }
+  .loan-pay-renewal__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    flex-wrap: wrap;
+    padding: .75rem 1rem;
+    border-bottom: 1px solid #fed7aa;
+    background: #ffedd5;
+  }
+  .loan-pay-renewal__title {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+    font-size: .95rem;
+    font-weight: 800;
+    color: #9a3412;
+  }
+  .loan-pay-renewal__badge {
+    display: inline-flex;
+    align-items: center;
+    padding: .2rem .55rem;
+    border-radius: 999px;
+    background: #fff;
+    border: 1px solid #fdba74;
+    color: #c2410c;
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+  }
+  .loan-pay-renewal__hint {
+    margin: 0;
+    padding: .65rem 1rem 0;
+    color: #9a3412;
+    font-size: .82rem;
+    line-height: 1.45;
+  }
+  .loan-pay-renewal__breakdown {
+    margin: .75rem 1rem;
+    padding: .75rem .9rem;
+    border-radius: 10px;
+    background: #fff;
+    border: 1px solid #fed7aa;
+  }
+  .loan-pay-renewal__row {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .28rem 0;
+    font-size: .9rem;
+    color: #7c2d12;
+  }
+  .loan-pay-renewal__row strong { font-variant-numeric: tabular-nums; color: #9a3412; }
+  .loan-pay-renewal__row--fee strong { color: #b45309; }
+  .loan-pay-renewal__row--fee small { color: #a8a29e; font-weight: 500; }
+  .loan-pay-renewal__row--total {
+    border-top: 2px solid #9a3412;
+    margin-top: .4rem;
+    padding-top: .65rem;
+    font-weight: 800;
+  }
+  .loan-pay-renewal__row--total strong { font-size: 1.05rem; color: #9a3412; }
+  .loan-pay-renewal__inputs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .85rem;
+    padding: 0 1rem 1rem;
+  }
+  @media (max-width: 640px) {
+    .loan-pay-renewal__inputs { grid-template-columns: 1fr; }
+  }
+  .loan-pay-form__money--sm {
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+  }
+  .loan-pay-form__money--sm > span {
+    font-weight: 700;
+    color: #9a3412;
+  }
 
   .loan-pay-page__grid {
     display: grid;
@@ -591,12 +823,53 @@
     border-bottom: 1px solid #e2e8f0;
     background: #f8fafc;
   }
+  .loan-pay-period__title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: .75rem;
+    flex-wrap: wrap;
+  }
   .loan-pay-period__title {
     margin: 0;
     font-size: .88rem;
     font-weight: 700;
     color: #0f172a;
     letter-spacing: 0;
+  }
+  .loan-pay-period__toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #334155;
+    border-radius: 999px;
+    padding: .35rem .75rem;
+    font-size: .75rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: border-color .15s, background .15s, color .15s;
+  }
+  .loan-pay-period__toggle:hover {
+    border-color: #94a3b8;
+    background: #f8fafc;
+  }
+  .loan-pay-period__toggle[aria-pressed="true"] {
+    border-color: #86efac;
+    background: #f0fdf4;
+    color: #166534;
+  }
+  .loan-pay-period__toggle[aria-pressed="false"] {
+    border-color: #fecaca;
+    background: #fef2f2;
+    color: #b91c1c;
+  }
+  .loan-pay-period.is-disabled {
+    border-style: dashed;
+  }
+  .loan-pay-period.is-disabled .loan-pay-period__head {
+    background: #fff7ed;
   }
   .loan-pay-period__hint {
     margin: .25rem 0 0;
@@ -608,9 +881,13 @@
     color: #166534;
     font-weight: 600;
   }
+  .loan-pay-period__hint--off {
+    color: #b45309;
+    font-weight: 600;
+  }
   .loan-pay-period__row {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 110px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(110px, 150px);
     gap: .75rem;
     align-items: end;
     padding: 1rem;
@@ -674,6 +951,68 @@
   .loan-pay-period__cell--days input::-webkit-inner-spin-button {
     -webkit-appearance: none;
     margin: 0;
+  }
+  .loan-pay-period__days {
+    display: flex;
+    align-items: center;
+    min-height: 2.75rem;
+    padding: .45rem .75rem;
+    border: 1px solid #bfdbfe;
+    border-radius: 10px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 1.15rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+  .loan-pay-period__days-note {
+    margin: .55rem 0 0;
+    font-size: .82rem;
+    color: #1e40af;
+    font-weight: 600;
+  }
+  .loan-pay-period__days-note:empty { display: none; }
+  .loan-pay-totals {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .75rem;
+    margin: 0 0 1rem;
+  }
+  .loan-pay-totals__item {
+    padding: .85rem 1rem;
+    border: 1px solid #bfdbfe;
+    border-radius: 12px;
+    background: #eff6ff;
+  }
+  .loan-pay-totals__item--after {
+    border-color: #86efac;
+    background: #f0fdf4;
+  }
+  .loan-pay-totals__label {
+    display: block;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: #64748b;
+  }
+  .loan-pay-totals__value {
+    display: block;
+    margin-top: .2rem;
+    font-size: 1.45rem;
+    font-weight: 800;
+    color: #1d4ed8;
+    font-variant-numeric: tabular-nums;
+  }
+  .loan-pay-totals__item--after .loan-pay-totals__value { color: #166534; }
+  .loan-pay-totals__note {
+    display: block;
+    margin-top: .15rem;
+    color: #64748b;
+    font-size: .78rem;
+  }
+  @media (max-width: 640px) {
+    .loan-pay-totals { grid-template-columns: 1fr; }
   }
   .loan-pay-period__cell--locked input[type="date"] {
     background: #f1f5f9;
@@ -751,7 +1090,8 @@
       grid-template-columns: 1fr;
     }
     .loan-pay-period__cell--days {
-      max-width: 110px;
+      max-width: none;
+    }
     }
   }
 
@@ -855,9 +1195,24 @@
 (function () {
   var outstanding = Number("{{ outstanding_balance|stringformat:'.2f' }}");
   var rate = Number("{{ interest_rate|default_if_none:'0'|stringformat:'.6f' }}");
+  var usesUsableDaysFormula = {{ uses_usable_days_formula|yesno:"true,false" }};
+  var daysEditable = false;
+  var loanExpired = {{ loan_expired|yesno:"true,false" }};
   var fromInput = document.getElementById("pay-usable-from");
   var toInput = document.getElementById("pay-usable-to");
   var daysInput = document.getElementById("pay-usable-days");
+  var daysDisplay = document.getElementById("pay-usable-days-display");
+  var daysNote = document.getElementById("pay-usable-days-note");
+  var useDaysInput = document.getElementById("pay-use-usable-days");
+  var periodBox = document.getElementById("loan-pay-period");
+  var periodFields = document.getElementById("loan-pay-period-fields");
+  var hintOn = document.getElementById("loan-pay-period-hint-on");
+  var hintOff = document.getElementById("loan-pay-period-hint-off");
+  var toggleBtn = document.getElementById("loan-pay-usable-toggle");
+  var renewalBox = document.getElementById("loan-pay-renewal");
+  var renewalMonthsInput = document.getElementById("pay-renewal-months");
+  var renewalSavingsInput = document.getElementById("pay-renewal-savings");
+  var renewalCharges = 0;
   var perDayEl = document.getElementById("pay-interest-per-day");
   var interestEl = document.getElementById("pay-interest-total");
   var balanceEl = document.getElementById("pay-current-balance");
@@ -874,7 +1229,113 @@
   var previewInterest = 0;
   var previewBalance = outstanding;
   var allowSubmit = false;
-  if (!fromInput || !toInput || !daysInput) return;
+  if (!fromInput || !toInput || !daysInput || !useDaysInput) return;
+
+  function parseMoneyLocal(value) {
+    if (value == null || value === "") return 0;
+    var cleaned = String(value).replace(/[₱PhpPHP,\s]/gi, "");
+    var num = parseFloat(cleaned);
+    return isNaN(num) ? 0 : num;
+  }
+
+  function round2(num) {
+    return Math.round((num + Number.EPSILON) * 100) / 100;
+  }
+
+  function recalcRenewalCharges() {
+    if (!loanExpired || !renewalBox) {
+      renewalCharges = 0;
+      return 0;
+    }
+    var principal = parseFloat(renewalBox.getAttribute("data-principal") || "0") || 0;
+    var interestRate = parseFloat(renewalBox.getAttribute("data-interest-rate") || "0") || 0;
+    var baseMonths = parseFloat(renewalBox.getAttribute("data-base-months") || "12") || 12;
+    var shareRate = parseFloat(renewalBox.getAttribute("data-share-rate") || "0.02") || 0.02;
+    var serviceRate = parseFloat(renewalBox.getAttribute("data-service-rate") || "0.02") || 0.02;
+    var insuranceRate = parseFloat(renewalBox.getAttribute("data-insurance-rate") || "0.0066") || 0.0066;
+    var monthsPay = parseInt(renewalMonthsInput && renewalMonthsInput.value, 10);
+    if (isNaN(monthsPay) || monthsPay < 1) monthsPay = 1;
+    var savings = Math.max(0, parseMoneyLocal(renewalSavingsInput && renewalSavingsInput.value));
+
+    var interest = round2(principal * interestRate * (monthsPay / baseMonths));
+    var share = round2(principal * shareRate);
+    var service = round2(principal * serviceRate);
+    var insurance = round2(principal * insuranceRate);
+    renewalCharges = round2(interest + share + service + insurance + savings);
+
+    var elInterest = document.getElementById("renewal-interest");
+    var elFormula = document.getElementById("renewal-interest-formula");
+    var elShare = document.getElementById("renewal-share");
+    var elService = document.getElementById("renewal-service");
+    var elInsurance = document.getElementById("renewal-insurance");
+    var elSavings = document.getElementById("renewal-savings-amt");
+    var elTotal = document.getElementById("renewal-total");
+    if (elInterest) elInterest.textContent = peso(interest);
+    if (elFormula) {
+      elFormula.textContent = "(× " + interestRate + " × " + monthsPay + "/" + baseMonths + ")";
+    }
+    if (elShare) elShare.textContent = peso(share);
+    if (elService) elService.textContent = peso(service);
+    if (elInsurance) elInsurance.textContent = peso(insurance);
+    if (elSavings) elSavings.textContent = peso(savings);
+    if (elTotal) elTotal.textContent = peso(renewalCharges);
+    return renewalCharges;
+  }
+
+  function renderUsableDays(days) {
+    var count = isFinite(days) && days >= 0 ? Math.round(days) : null;
+    if (daysDisplay) {
+      daysDisplay.textContent = count == null ? "—" : String(count);
+    }
+    if (daysNote) {
+      if (count == null || !isUsableDaysOn()) {
+        daysNote.textContent = "";
+      } else if (usesUsableDaysFormula) {
+        daysNote.textContent =
+          count + " usable day" + (count === 1 ? "" : "s") +
+          " · interest = principal × rate × (" + count + " ÷ 360)";
+      } else {
+        daysNote.textContent =
+          count + " usable day" + (count === 1 ? "" : "s");
+      }
+    }
+  }
+  function isUsableDaysOn() {
+    return String(useDaysInput.value || "0") === "1";
+  }
+
+  function setUsableDaysEnabled(enabled) {
+    useDaysInput.value = enabled ? "1" : "0";
+    if (periodBox) periodBox.classList.toggle("is-disabled", !enabled);
+    if (periodFields) periodFields.hidden = !enabled;
+    if (hintOn) hintOn.hidden = !enabled;
+    if (hintOff) hintOff.hidden = enabled;
+    if (toggleBtn) {
+      toggleBtn.setAttribute("aria-pressed", enabled ? "true" : "false");
+      toggleBtn.innerHTML = enabled
+        ? '<i class="bi bi-toggle-on" aria-hidden="true"></i> Disable usable days'
+        : '<i class="bi bi-toggle-off" aria-hidden="true"></i> Enable usable days';
+    }
+    if (fromInput) {
+      if (enabled) fromInput.setAttribute("required", "required");
+      else {
+        fromInput.removeAttribute("required");
+        fromInput.setCustomValidity("");
+      }
+    }
+    if (toInput) {
+      if (enabled) toInput.setAttribute("required", "required");
+      else {
+        toInput.removeAttribute("required");
+        toInput.setCustomValidity("");
+      }
+    }
+    if (enabled) {
+      // Refresh To/Days from the apply-page usable date calculation (1 calendar month).
+      applyUsableDateCalculation();
+    }
+    updatePreview(enabled ? "to" : "off");
+  }
 
   function peso(n) {
     var rounded = Math.round((Number(n) + Number.EPSILON) * 100) / 100;
@@ -933,16 +1394,63 @@
     return Math.round((to - from) / 86400000);
   }
 
+  function formatDateInput(date) {
+    var y = date.getFullYear();
+    var m = String(date.getMonth() + 1).padStart(2, "0");
+    var d = String(date.getDate()).padStart(2, "0");
+    return y + "-" + m + "-" + d;
+  }
+
+  function addDays(fromValue, days) {
+    var from = parseDateInput(fromValue);
+    if (!from || !isFinite(days)) return "";
+    var next = new Date(from.getFullYear(), from.getMonth(), from.getDate());
+    next.setDate(next.getDate() + Number(days));
+    return formatDateInput(next);
+  }
+
+  /** Same rule as apply: To = one calendar month after From. */
+  function addOneMonth(date) {
+    var year = date.getFullYear();
+    var month = date.getMonth() + 1;
+    var day = date.getDate();
+    var next = new Date(year, month, 1);
+    var lastDay = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate();
+    return new Date(next.getFullYear(), next.getMonth(), Math.min(day, lastDay));
+  }
+
+  function applyUsableDateCalculation() {
+    if (!fromInput || !fromInput.value) return;
+    var from = parseDateInput(fromInput.value);
+    if (!from) return;
+    var to = addOneMonth(from);
+    var toValue = formatDateInput(to);
+    if (toInput) toInput.value = toValue;
+    var days = daysBetween(fromInput.value, toValue);
+    if (daysInput && isFinite(days) && days >= 0) {
+      daysInput.value = String(days);
+    }
+  }
+
   function computeInterest(days) {
     var interestBase = outstanding > 0 ? outstanding : 0;
-    var perDay = (rate / 30) * interestBase;
     var interest = 0;
+    var perDay = 0;
     if (interestBase > 0 && days > 0 && rate > 0) {
-      var basePlusInterest = Math.round(interestBase + perDay * days);
-      interest = Math.round((basePlusInterest - interestBase) * 100) / 100;
+      if (usesUsableDaysFormula) {
+        // usable days: interest = principal × rate × (days / 360)
+        interest = Math.round(interestBase * rate * (days / 360) * 100) / 100;
+        perDay = Math.round((interest / days) * 10000) / 10000;
+      } else {
+        // normal loan daily accrual
+        perDay = (rate / 30) * interestBase;
+        var basePlusInterest = Math.round(interestBase + perDay * days);
+        interest = Math.round((basePlusInterest - interestBase) * 100) / 100;
+        perDay = Math.round(perDay * 100) / 100;
+      }
     }
     return {
-      perDay: Math.round(perDay * 100) / 100,
+      perDay: perDay,
       interest: interest,
       balance: Math.round((outstanding + interest) * 100) / 100
     };
@@ -962,21 +1470,26 @@
       var amount = parseMoney(amountInput.value);
       if (!isFinite(amount) || amount <= 0) {
         amountInput.setCustomValidity("Enter a valid amount greater than zero.");
-      } else if (amount > previewBalance + 0.001) {
+      } else if (amount > ((usesUsableDaysFormula && isUsableDaysOn()) ? outstanding : previewBalance) + 0.001) {
         amountInput.setCustomValidity(
-          "Amount cannot exceed " + peso(previewBalance) + " (balance + period interest)."
+          (usesUsableDaysFormula && isUsableDaysOn())
+            ? ("Partial pay cannot exceed " + peso(outstanding) + " (balance left). Interest is added on top.")
+            : ("Amount cannot exceed " + peso(previewBalance) +
+              (isUsableDaysOn() ? " (balance + period interest)." : " (balance left to pay)."))
         );
       }
     }
 
-    var days = daysBetween(fromInput.value, toInput.value);
-    if (!fromInput.value) {
-      fromInput.setCustomValidity("Select the interest period start date.");
-    }
-    if (!toInput.value) {
-      toInput.setCustomValidity("Select the interest period end date.");
-    } else if (!isFinite(days) || days < 0) {
-      toInput.setCustomValidity("To date must be on or after From date.");
+    if (isUsableDaysOn()) {
+      var days = daysBetween(fromInput.value, toInput.value);
+      if (!fromInput.value) {
+        fromInput.setCustomValidity("Select the interest period start date.");
+      }
+      if (!toInput.value) {
+        toInput.setCustomValidity("Select the interest period end date.");
+      } else if (!isFinite(days) || days < 0) {
+        toInput.setCustomValidity("To date must be on or after From date.");
+      }
     }
 
     if (methodInput && !methodInput.value) {
@@ -990,19 +1503,65 @@
     return true;
   }
 
+  function currentPayFigures() {
+    var partial = parseMoney(amountInput && amountInput.value);
+    if (!isFinite(partial) || partial < 0) partial = 0;
+    var interest = 0;
+    if (isUsableDaysOn()) {
+      var days = daysBetween(fromInput.value, toInput.value);
+      if (isFinite(days) && days > 0) interest = computeInterest(days).interest;
+    }
+    return {
+      partial: partial,
+      interest: interest,
+      totalToPay: round2(partial + interest + renewalCharges),
+      balanceAfter: Math.max(0, round2(outstanding - partial))
+    };
+  }
+
+  function renderPayTotals() {
+    var figures = currentPayFigures();
+    var totalEl = document.getElementById("pay-total-to-pay");
+    var afterEl = document.getElementById("pay-balance-after");
+    var noteEl = document.getElementById("pay-total-to-pay-note");
+    var helpEl = document.getElementById("pay-amount-help");
+    if (totalEl) totalEl.textContent = peso(figures.totalToPay);
+    if (afterEl) afterEl.textContent = peso(figures.balanceAfter);
+    if (noteEl) {
+      if (figures.interest > 0) {
+        noteEl.textContent =
+          peso(figures.interest) + " interest + " + peso(figures.partial) + " partial pay";
+      } else {
+        noteEl.textContent = "interest + partial pay";
+      }
+    }
+    if (helpEl && usesUsableDaysFormula && isUsableDaysOn()) {
+      helpEl.textContent =
+        "Partial pay toward the balance. Total to pay = interest + this amount. Maximum partial: " +
+        peso(outstanding) + ".";
+    }
+    if (amountInput && !amountInput.disabled && usesUsableDaysFormula && isUsableDaysOn()) {
+      amountInput.max = String(outstanding);
+    }
+    return figures;
+  }
+
   function fillConfirmSummary() {
+    recalcRenewalCharges();
     var amount = parseMoney(amountInput && amountInput.value);
-    var days = daysBetween(fromInput.value, toInput.value);
+    var days = isUsableDaysOn() ? daysBetween(fromInput.value, toInput.value) : 0;
     var computed = computeInterest(days);
+    var totalDue = round2(computed.balance + renewalCharges);
     var methodLabel = "—";
     if (methodInput && methodInput.selectedIndex >= 0) {
       methodLabel = methodInput.options[methodInput.selectedIndex].text || methodInput.value;
     }
     var orValue = (orInput && orInput.value || "").trim();
     var remarks = (remarksInput && remarksInput.value || "").trim();
-    var balanceAfter = Math.max(0, Math.round((computed.balance - amount) * 100) / 100);
+    var figures = currentPayFigures();
 
     var amountEl = document.getElementById("confirm-amount");
+    var totalToPayEl = document.getElementById("confirm-total-to-pay");
     var periodEl = document.getElementById("confirm-period");
     var interestConfirmEl = document.getElementById("confirm-interest");
     var balanceAfterEl = document.getElementById("confirm-balance-after");
@@ -1011,16 +1570,31 @@
     var remarksEl = document.getElementById("confirm-remarks");
     var remarksRow = document.getElementById("confirm-remarks-row");
 
-    if (amountEl) amountEl.textContent = peso(amount);
+    if (amountEl) amountEl.textContent = peso(figures.partial);
+    if (totalToPayEl) totalToPayEl.textContent = peso(figures.totalToPay);
     if (periodEl) {
-      periodEl.textContent =
-        formatDateLabel(fromInput.value) +
-        " – " +
-        formatDateLabel(toInput.value) +
-        " (" + days + " days)";
+      if (loanExpired && renewalCharges > 0 && !isUsableDaysOn()) {
+        periodEl.textContent = "Expired-loan renewal charges " + peso(renewalCharges);
+      } else if (!isUsableDaysOn()) {
+        periodEl.textContent = "Usable days off (no period interest)";
+      } else {
+        var periodText =
+          formatDateLabel(fromInput.value) +
+          " – " +
+          formatDateLabel(toInput.value);
+        if (isFinite(days) && days >= 0) {
+          periodText += " (" + days + " usable day" + (days === 1 ? "" : "s") + ")";
+        }
+        if (loanExpired && renewalCharges > 0) {
+          periodText += " + renewal " + peso(renewalCharges);
+        }
+        periodEl.textContent = periodText;
+      }
     }
-    if (interestConfirmEl) interestConfirmEl.textContent = peso(computed.interest);
-    if (balanceAfterEl) balanceAfterEl.textContent = peso(balanceAfter);
+    if (interestConfirmEl) {
+      interestConfirmEl.textContent = peso(round2(computed.interest + renewalCharges));
+    }
+    if (balanceAfterEl) balanceAfterEl.textContent = peso(figures.balanceAfter);
     if (methodEl) methodEl.textContent = methodLabel;
     if (orEl) orEl.textContent = orValue || "Auto-generate on save";
     if (remarksRow && remarksEl) {
@@ -1077,44 +1651,102 @@
     }
   }
 
-  function updatePreview() {
-    var days = daysBetween(fromInput.value, toInput.value);
-    if (!isFinite(days) || days < 0) {
-      daysInput.value = "";
+  function updatePreview(source) {
+    recalcRenewalCharges();
+
+      if (!isUsableDaysOn()) {
       previewInterest = 0;
-      previewBalance = outstanding;
+      previewBalance = round2(outstanding + renewalCharges);
+      renderUsableDays(NaN);
       if (perDayEl) perDayEl.textContent = "—";
-      if (interestEl) interestEl.textContent = "—";
-      if (balanceEl) balanceEl.textContent = peso(outstanding);
+      if (interestEl) interestEl.textContent = peso(renewalCharges);
+      if (balanceEl) balanceEl.textContent = peso(previewBalance);
+      if (amountInput && !amountInput.disabled) {
+        amountInput.max = String(previewBalance);
+      }
+      renderPayTotals();
       return;
     }
-    daysInput.value = String(days);
+
+    var days;
+    if (daysEditable && source === "days") {
+      days = Number(daysInput.value);
+      if (!isFinite(days) || days < 0) {
+        previewInterest = 0;
+        previewBalance = round2(outstanding + renewalCharges);
+        renderUsableDays(NaN);
+        if (perDayEl) perDayEl.textContent = "—";
+        if (interestEl) interestEl.textContent = "—";
+        if (balanceEl) balanceEl.textContent = peso(previewBalance);
+        renderPayTotals();
+        return;
+      }
+      if (fromInput.value) {
+        toInput.value = addDays(fromInput.value, days);
+      }
+    } else {
+      days = daysBetween(fromInput.value, toInput.value);
+      if (!isFinite(days) || days < 0) {
+        if (!daysEditable) daysInput.value = "";
+        renderUsableDays(NaN);
+        previewInterest = 0;
+        previewBalance = round2(outstanding + renewalCharges);
+        if (perDayEl) perDayEl.textContent = "—";
+        if (interestEl) interestEl.textContent = "—";
+        if (balanceEl) balanceEl.textContent = peso(previewBalance);
+        renderPayTotals();
+        return;
+      }
+      daysInput.value = String(days);
+    }
+
+    renderUsableDays(days);
 
     // Interest on balance left to pay (outstanding), not original loan amount.
     var computed = computeInterest(days);
     previewInterest = computed.interest;
-    previewBalance = computed.balance;
+    previewBalance = round2(computed.balance + renewalCharges);
     if (perDayEl) perDayEl.textContent = peso(computed.perDay);
-    if (interestEl) interestEl.textContent = peso(computed.interest);
-    if (balanceEl) balanceEl.textContent = peso(computed.balance);
+    if (interestEl) interestEl.textContent = peso(round2(computed.interest + renewalCharges));
+    if (balanceEl) balanceEl.textContent = peso(previewBalance);
     if (amountInput && !amountInput.disabled) {
-      var maxPay = computed.balance;
+      var maxPay = previewBalance;
       amountInput.max = String(maxPay);
       // Keep amount at what staff typed (default 0.00); only refresh the max cap.
       if (!amountInput.dataset.userEdited && (amountInput.value === "" || amountInput.value == null)) {
         amountInput.value = formatMoneyInput(0);
       }
     }
+    renderPayTotals();
   }
 
-  fromInput.addEventListener("change", updatePreview);
-  fromInput.addEventListener("input", updatePreview);
-  toInput.addEventListener("change", updatePreview);
-  toInput.addEventListener("input", updatePreview);
+  if (toggleBtn) {
+    toggleBtn.addEventListener("click", function () {
+      setUsableDaysEnabled(!isUsableDaysOn());
+    });
+  }
+  if (renewalMonthsInput) {
+    renewalMonthsInput.addEventListener("input", function () { updatePreview("renewal"); });
+    renewalMonthsInput.addEventListener("change", function () { updatePreview("renewal"); });
+  }
+  if (renewalSavingsInput) {
+    renewalSavingsInput.addEventListener("input", function () { updatePreview("renewal"); });
+    renewalSavingsInput.addEventListener("change", function () { updatePreview("renewal"); });
+  }
+
+  fromInput.addEventListener("change", function () { updatePreview("from"); });
+  fromInput.addEventListener("input", function () { updatePreview("from"); });
+  toInput.addEventListener("change", function () { updatePreview("to"); });
+  toInput.addEventListener("input", function () { updatePreview("to"); });
+  if (daysEditable) {
+    daysInput.addEventListener("change", function () { updatePreview("days"); });
+    daysInput.addEventListener("input", function () { updatePreview("days"); });
+  }
   if (amountInput) {
     amountInput.addEventListener("input", function () {
       amountInput.dataset.userEdited = "1";
       amountInput.setCustomValidity("");
+      renderPayTotals();
     });
   }
   if (fromInput) {
@@ -1144,7 +1776,7 @@
       if (confirmAck.checked && confirmError) confirmError.hidden = true;
     });
   }
-  updatePreview();
+  setUsableDaysEnabled(isUsableDaysOn());
 })();
 </script>
 {% endblock %}

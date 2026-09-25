@@ -74,6 +74,7 @@ def committee_access(request):
             # Needed by Manage menu (Audit Trail) on every admin page.
             "is_admin_user": authenticated and is_admin_user(user),
             "is_admin": authenticated and is_cashier_or_admin(user),
+            "can_switch_role": _can_switch_role(request),
         }
     except Exception:
         return {
@@ -82,4 +83,14 @@ def committee_access(request):
             "is_loans_only": False,
             "is_admin_user": False,
             "is_admin": False,
+            "can_switch_role": False,
         }
+
+
+def _can_switch_role(request):
+    from members.active_role import member_for_request
+
+    member = member_for_request(request)
+    if member is None or not member.is_active:
+        return False
+    return len(member.assigned_role_slugs()) > 1

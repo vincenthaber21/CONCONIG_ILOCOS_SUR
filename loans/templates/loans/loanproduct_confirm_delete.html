@@ -1,0 +1,160 @@
+{% extends "loans/base_loans.html" %}
+{% load currency_filters %}
+{% block title %}Delete Loan Product{% endblock %}
+{% block content %}
+<div class="loan-form-page">
+  <header class="loan-form-page__header">
+    <a class="loan-form-page__back" href="{% url 'loans:product-list' %}">
+      <i class="bi bi-arrow-left"></i> Loan products
+    </a>
+    <h1>Delete loan product</h1>
+    <p class="subtitle">Confirm removal of this offering from the catalog.</p>
+  </header>
+
+  <section class="card loan-form-page__card">
+    <div class="lp-delete-summary">
+      <h2>{{ product.name }}</h2>
+      {% if product.description %}
+      <p>{{ product.description }}</p>
+      {% endif %}
+      <dl>
+        <div>
+          <dt>Amount range</dt>
+          <dd>&#8369;{{ product.min_amount|currency }} – &#8369;{{ product.max_amount|currency }}</dd>
+        </div>
+        <div>
+          <dt>Term</dt>
+          <dd>{{ product.term_months }} months</dd>
+        </div>
+        <div>
+          <dt>Usable days</dt>
+          <dd>{% if product.uses_usable_days %}Yes · 360-day{% else %}Normal{% endif %}</dd>
+        </div>
+        <div>
+          <dt>Applications</dt>
+          <dd>{{ application_count }}</dd>
+        </div>
+      </dl>
+    </div>
+
+    {% if can_delete %}
+    <p class="lp-delete-warn">
+      This cannot be undone. Applications linked to this product would also be removed
+      by the database — delete is only allowed when there are <strong>0 applications</strong>.
+    </p>
+    <form method="post" class="loan-form__actions">
+      {% csrf_token %}
+      <button type="submit" class="btn-loan lp-delete-submit">
+        <i class="bi bi-trash"></i> Delete product
+      </button>
+      <a class="btn--secondary" href="{% url 'loans:product-list' %}">Cancel</a>
+    </form>
+    {% else %}
+    <p class="lp-delete-blocked">
+      Cannot delete — this product has <strong>{{ application_count }}</strong>
+      loan application{{ application_count|pluralize }}.
+      Remove or reassign those applications first.
+    </p>
+    <div class="loan-form__actions">
+      <a class="btn--secondary" href="{% url 'loans:product-list' %}">Back to products</a>
+      <a class="btn-loan" href="{% url 'loans:product-edit' product.pk %}">
+        <i class="bi bi-pencil"></i> Edit instead
+      </a>
+    </div>
+    {% endif %}
+  </section>
+</div>
+
+<style>
+  .loan-form-page {
+    width: 100%;
+    max-width: 640px;
+    margin-inline: auto;
+  }
+  .loan-form-page__header { margin-bottom: 1.25rem; }
+  .loan-form-page__header h1 { margin: 0 0 .35rem; }
+  .loan-form-page__header .subtitle { margin-bottom: 0; }
+  .loan-form-page__back {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    color: #64748b;
+    text-decoration: none;
+    font-size: .88rem;
+    font-weight: 500;
+    margin-bottom: .65rem;
+  }
+  .loan-form-page__back:hover { color: #0f172a; }
+  .loan-form-page__card {
+    padding: 1.5rem 1.6rem;
+    border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, .04);
+  }
+  .lp-delete-summary h2 {
+    margin: 0 0 .35rem;
+    font-size: 1.15rem;
+  }
+  .lp-delete-summary > p {
+    margin: 0 0 1rem;
+    color: #64748b;
+    font-size: .9rem;
+  }
+  .lp-delete-summary dl {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .75rem;
+    margin: 0;
+  }
+  @media (max-width: 520px) {
+    .lp-delete-summary dl { grid-template-columns: 1fr; }
+  }
+  .lp-delete-summary dt {
+    margin: 0 0 .15rem;
+    font-size: .72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #64748b;
+  }
+  .lp-delete-summary dd {
+    margin: 0;
+    font-weight: 600;
+    color: #0f172a;
+  }
+  .lp-delete-warn,
+  .lp-delete-blocked {
+    margin: 1.25rem 0 0;
+    padding: .85rem 1rem;
+    border-radius: 10px;
+    font-size: .88rem;
+    line-height: 1.45;
+  }
+  .lp-delete-warn {
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    color: #9a3412;
+  }
+  .lp-delete-blocked {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #991b1b;
+  }
+  .loan-form__actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .5rem;
+    margin-top: 1.25rem;
+    padding-top: 1.1rem;
+    border-top: 1px solid #f1f5f9;
+  }
+  .lp-delete-submit {
+    background: #dc2626 !important;
+    border-color: #dc2626 !important;
+  }
+  .lp-delete-submit:hover {
+    background: #b91c1c !important;
+    border-color: #b91c1c !important;
+  }
+</style>
+{% endblock %}

@@ -1,14 +1,15 @@
 {% extends "savings/base_savings.html" %}
-{% block title %}Regular Savings{% endblock %}
+{% load currency_filters %}
+{% block title %}Savings products{% endblock %}
 {% block content %}
 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
     <div>
-        <h1>Regular Savings</h1>
-        <p class="subtitle">Natural member savings — {{ savings_policy.annual_rate_display }} / yr (₱1,000 min · ₱1M max · open-ended).</p>
+        <h1>Savings products</h1>
+        <p class="subtitle">Regular savings and time deposits. Regular savings stays at {{ savings_policy.annual_rate_display }} / yr (₱1,000 min · ₱1M max · open-ended).</p>
     </div>
     <div class="d-flex gap-2">
         <a class="btn--secondary" href="{% url 'savings:overview' %}"><i class="bi bi-arrow-left me-1"></i>Savings desk</a>
-        <a class="btn-loan" href="{% url 'savings:product-create' %}"><i class="bi bi-plus-lg me-1"></i>Add Regular Savings</a>
+        <a class="btn-loan" href="{% url 'savings:product-create' %}"><i class="bi bi-plus-lg me-1"></i>Add savings product</a>
     </div>
 </div>
 
@@ -19,7 +20,7 @@
                 <th>Name</th>
                 <th>Interest</th>
                 <th>Opening min</th>
-                <th>Maximum</th>
+                <th>Term</th>
                 <th>Accounts</th>
                 <th>Status</th>
                 <th></th>
@@ -30,12 +31,12 @@
             <tr>
                 <td>
                     <strong>{{ product.name }}</strong>
-                    <br><small style="color:#64748b;">Regular Savings{% if product.code %} · {{ product.code }}{% endif %}</small>
+                    <br><small style="color:#64748b;">{{ product.get_product_type_display }}{% if product.code %} · {{ product.code }}{% endif %}</small>
                     {% if product.description %}<br><small style="color:#64748b;">{{ product.description|truncatechars:80 }}</small>{% endif %}
                 </td>
-                <td>{{ savings_policy.annual_rate_display }} / yr</td>
-                <td>&#8369;1,000.00</td>
-                <td>&#8369;1,000,000.00</td>
+                <td>{{ product.interest_rate_display }} / yr</td>
+                <td>&#8369;{{ product.min_opening_deposit|currency }}</td>
+                <td>{% if product.term_months %}{{ product.term_months }} month{{ product.term_months|pluralize }}{% else %}Open-ended{% endif %}</td>
                 <td>{{ product.account_count }}</td>
                 <td>
                     {% if product.is_active %}
@@ -49,8 +50,8 @@
             {% empty %}
             <tr>
                 <td colspan="7" style="text-align:center;padding:32px;color:#64748b;">
-                    No Regular Savings product yet.
-                    <a href="{% url 'savings:product-create' %}">Add Regular Savings</a> to start opening member accounts.
+                    No savings products yet.
+                    <a href="{% url 'savings:product-create' %}">Add a savings product</a> to start opening member accounts.
                 </td>
             </tr>
             {% endfor %}

@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Choose role | {{ kiosk_system_name }}</title>
+    {% include "partials/inter_font.html" %}
+    {% include "partials/bootstrap_head.html" %}
+    <style>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            font-family: 'Inter', system-ui, sans-serif;
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 50%, #f8fafc 100%);
+        }
+        .chooser {
+            width: 100%;
+            max-width: 640px;
+        }
+        .chooser h1 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 0.35rem;
+        }
+        .chooser p.lead {
+            color: #64748b;
+            margin-bottom: 1.25rem;
+        }
+        .role-card {
+            width: 100%;
+            text-align: left;
+            border: 1px solid #e2e8f0;
+            background: #fff;
+            border-radius: 16px;
+            padding: 1rem 1.1rem;
+            display: flex;
+            gap: 0.9rem;
+            align-items: center;
+            margin-bottom: 0.75rem;
+            cursor: pointer;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .role-card:hover {
+            border-color: #0038A8;
+            box-shadow: 0 8px 20px rgba(0, 56, 168, 0.12);
+        }
+        .role-icon {
+            width: 46px;
+            height: 46px;
+            border-radius: 12px;
+            background: #e8eef8;
+            color: #0038A8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.25rem;
+            flex: 0 0 auto;
+        }
+        .role-name {
+            font-weight: 650;
+            color: #0f172a;
+        }
+        .role-blurb {
+            color: #64748b;
+            font-size: 0.92rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="chooser">
+        <h1>Which role do you want to open?</h1>
+        <p class="lead">
+            {{ member.full_name }}, this account has more than one role.
+            Choose the one to use for this login. You can switch later.
+        </p>
+        {% if error %}
+        <div class="alert alert-warning">{{ error }}</div>
+        {% endif %}
+        <form method="post">
+            {% csrf_token %}
+            {% for card in role_cards %}
+            <button class="role-card" type="submit" name="role" value="{{ card.slug }}">
+                <span class="role-icon"><i class="bi {{ card.icon }}"></i></span>
+                <span>
+                    <span class="role-name d-block">{{ card.name }}</span>
+                    <span class="role-blurb">{{ card.blurb }}</span>
+                </span>
+            </button>
+            {% endfor %}
+        </form>
+    </div>
+</body>
+</html>

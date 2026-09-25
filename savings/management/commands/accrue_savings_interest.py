@@ -12,7 +12,7 @@ from savings.services import accrue_due_savings_interest
 class Command(BaseCommand):
     help = (
         "Credit annual interest on active savings accounts. "
-        "Uses a flat 5% annual rate credited monthly: (balance × 5%) ÷ 12."
+        "Uses each savings product's annual rate and compounding."
     )
 
     def handle(self, *args, **options):

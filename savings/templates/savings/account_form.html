@@ -15,9 +15,9 @@
         <h1>Open savings account</h1>
         <p class="subtitle">Search the primary member, optionally add a joint co-owner, confirm the opening date, collect the deposit, then review before opening.</p>
       </div>
-      <div class="open-account-badge">
+        <div class="open-account-badge" id="open-account-kind">
         <i class="bi bi-piggy-bank"></i>
-        <span>Regular Savings</span>
+        <span>Savings</span>
       </div>
     </div>
   </header>
@@ -57,9 +57,7 @@
     <section class="card open-account-page__card">
       <form method="post" id="open-savings-account-form" class="open-account-form" autocomplete="off" novalidate data-server-today="{% now 'Y-m-d' %}">
         {% csrf_token %}
-        {% if form.regular_product %}
-        <input type="hidden" name="product" value="{{ form.regular_product.pk }}" id="id_product">
-        {% endif %}
+        {{ opening_products|json_script:"opening-products-json" }}
 
         {% if form.errors %}
         <div class="open-account-form__alert" role="alert">
@@ -88,7 +86,7 @@
               <span class="open-account-form__section-icon"><i class="bi bi-person"></i></span>
               Member
             </h2>
-            <p>Only eligible members without an open Regular Savings account (individual or joint) are listed.</p>
+            <p>Members who already closed a savings account cannot open again. Each member can hold one open account per product.</p>
           </div>
           <div class="open-account-form__field">
             <label for="{{ form.member.id_for_label }}">{{ form.member.label }}</label>
@@ -154,19 +152,27 @@
             {% endif %}</p>
           </div>
 
-          {# product is posted via the explicit hidden input above #}
-          {% if form.regular_product %}
-          <div class="open-account-product-chip" aria-hidden="true">
-            <i class="bi bi-check-circle-fill"></i>
-            <span>{{ form.regular_product.name }} · {{ savings_policy.annual_rate_display }}/year</span>
+          <div class="open-account-form__field">
+            <label for="{{ form.product.id_for_label }}">{{ form.product.label }}</label>
+            {{ form.product }}
+            {% if form.product.errors %}<div class="open-account-form__errors">{{ form.product.errors }}</div>{% endif %}
           </div>
-          {% else %}
-          <div class="open-account-form__alert" role="alert">
-            <i class="bi bi-exclamation-circle"></i>
-            <div>No active Regular Savings product yet. Add one under Regular Savings first.</div>
+
+          <div class="td-open-rules" id="time-deposit-open-rules" hidden>
+            <p><strong>₱5,000 to ₱100,000:</strong> interest = savings × interest rate.</p>
+            <p><strong>₱100,001 and above:</strong> the member selects a term.</p>
+            <ul>
+              <li>3 months = savings × 0.01 × (3/12)</li>
+              <li>6 months = savings × 0.01 × (6/12)</li>
+              <li>1 year = savings × 0.03</li>
+            </ul>
+            <div class="td-open-terms" id="time-deposit-open-terms">
+              <span>{{ form.deposit_term_months.label }}</span>
+              {{ form.deposit_term_months }}
+              <p class="open-account-form__hint">This deposit is ₱100,001 or above, so choose the member's term.</p>
+              {% if form.deposit_term_months.errors %}<div class="open-account-form__errors">{{ form.deposit_term_months.errors }}</div>{% endif %}
+            </div>
           </div>
-          {% endif %}
-          {% if form.product.errors %}<div class="open-account-form__errors">{{ form.product.errors }}</div>{% endif %}
 
           <div class="open-account-form__row open-account-form__row--deposit">
             <div class="open-account-form__field">
@@ -222,7 +228,7 @@
           </div>
           <div>
             <dt>Product</dt>
-            <dd>Regular Savings</dd>
+            <dd id="ticketProduct">Regular Savings</dd>
           </div>
           <div>
             <dt>Opening date</dt>
@@ -234,7 +240,7 @@
           </div>
           <div>
             <dt>Interest</dt>
-            <dd id="preview-rate">{{ savings_policy.annual_rate_display }} / year · monthly</dd>
+            <dd id="preview-rate">{{ savings_policy.annual_rate_display }} / year · {{ savings_policy.schedule_phrase }}</dd>
           </div>
           <div>
             <dt>Min. opening</dt>
@@ -282,7 +288,7 @@
     <div class="modal-content open-sav-modal">
       <div class="modal-header open-sav-modal__header">
         <h5 class="modal-title" id="confirmOpenSavingsModalLabel">
-          <i class="bi bi-piggy-bank me-2"></i>Open Regular Savings?
+          <i class="bi bi-piggy-bank me-2"></i><span id="confirmOpenTitle">Open savings account?</span>
         </h5>
         <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cancel"></button>
       </div>
@@ -305,7 +311,7 @@
           </div>
           <div>
             <dt>Product</dt>
-            <dd>Regular Savings</dd>
+            <dd id="confirmOpenProduct">Regular Savings</dd>
           </div>
           <div>
             <dt>Opening date</dt>
@@ -699,6 +705,20 @@
     box-shadow: 0 0 0 3px rgba(22, 163, 74, .12);
   }
 
+  .td-open-rules {
+    margin: 0 0 1rem;
+    padding: .9rem 1rem;
+    border: 1px solid #bfdbfe;
+    border-radius: 12px;
+    background: #f8fbff;
+    font-size: .88rem;
+  }
+  .td-open-rules ul { margin: .35rem 0 .75rem; padding-left: 1.1rem; }
+  .td-open-rules li { margin: .2rem 0; }
+  .td-open-terms ul { list-style: none; margin: .4rem 0 0; padding: 0; }
+  .td-open-terms li { margin: .35rem 0; }
+  .td-open-terms label { display: flex; align-items: center; gap: .45rem; font-weight: 600; cursor: pointer; }
+
   @media (max-width: 980px) {
     .open-account-page__layout { grid-template-columns: 1fr; }
     .open-account-page__aside { position: static; }
@@ -816,6 +836,81 @@
     var submitting = false;
     var minOpening = {% if form.regular_product %}{{ form.regular_product.min_opening_deposit }}{% else %}0{% endif %};
     var maxBalance = {% if form.regular_product and form.regular_product.max_balance %}{{ form.regular_product.max_balance }}{% else %}0{% endif %};
+    var productSelect = document.getElementById("{{ form.product.id_for_label }}");
+    var termRules = document.getElementById("time-deposit-open-rules");
+    var ticketProduct = document.getElementById("ticketProduct");
+    var confirmProduct = document.getElementById("confirmOpenProduct");
+    var confirmTitle = document.getElementById("confirmOpenTitle");
+    var previewRate = document.getElementById("preview-rate");
+    var previewMin = document.getElementById("preview-min");
+    var previewMax = document.getElementById("preview-max");
+    var previewTerm = document.getElementById("preview-term");
+    var kindBadge = document.querySelector("#open-account-kind span");
+    var productCatalog = {};
+    var catalogNode = document.getElementById("opening-products-json");
+    if (catalogNode) {
+      try {
+        JSON.parse(catalogNode.textContent).forEach(function (row) {
+          productCatalog[row.id] = row;
+        });
+      } catch (e) {}
+    }
+
+    function currentProduct() {
+      if (!productSelect) return null;
+      return productCatalog[String(productSelect.value || "")] || null;
+    }
+
+    function selectedTerm() {
+      var picked = form.querySelector("input[name='deposit_term_months']:checked");
+      return picked ? picked.value : "";
+    }
+
+    function moneyLabel(value) {
+      var number = Number(value || 0);
+      if (!isFinite(number) || number <= 0) return "No limit";
+      return "₱" + formatAmount(number);
+    }
+
+    function applyProductRules() {
+      var product = currentProduct();
+      var isTimeDeposit = !!(product && product.type === "time_deposit");
+      minOpening = product ? Number(product.min) : minOpening;
+      maxBalance = product ? Number(product.max) : maxBalance;
+      var amount = parseAmount(amountInput && amountInput.value);
+      var term = selectedTerm();
+      var termQualified = isTimeDeposit && isFinite(amount) && amount >= 100001;
+      if (termRules) termRules.hidden = !termQualified;
+      var label = product ? product.name : "Savings";
+      if (ticketProduct) ticketProduct.textContent = label;
+      if (confirmProduct) confirmProduct.textContent = label;
+      if (confirmTitle) confirmTitle.textContent = "Open " + label + "?";
+      if (kindBadge) kindBadge.textContent = isTimeDeposit ? "Time deposit" : "Regular Savings";
+      if (previewMin) previewMin.textContent = product ? moneyLabel(product.min) : "—";
+      if (previewMax) previewMax.textContent = product ? moneyLabel(product.max) : "No limit";
+      if (!isTimeDeposit) {
+        if (previewRate) previewRate.textContent = product ? ("savings × " + product.rate) : "";
+        if (previewTerm) previewTerm.textContent = "Open-ended";
+        return;
+      }
+      if (amount >= 100001) {
+        if (previewTerm) {
+          previewTerm.textContent = term === "3" ? "3 months" : term === "6" ? "6 months" : term === "12" ? "1 year" : "Select a term";
+        }
+        if (previewRate) {
+          previewRate.textContent = term === "3"
+            ? "savings × 0.01 × (3/12)"
+            : term === "6"
+              ? "savings × 0.01 × (6/12)"
+              : term === "12"
+                ? "savings × 0.03"
+                : "Select 3 months, 6 months, or 1 year";
+        }
+      } else {
+        if (previewTerm) previewTerm.textContent = "Up to ₱100,000";
+        if (previewRate) previewRate.textContent = "savings × " + (product.rate || "0");
+      }
+    }
     var jointOptionCache = [];
     var duplicateBlocked = false;
 
@@ -993,6 +1088,7 @@
     }
 
     function syncTicket() {
+      applyProductRules();
       syncJointVisibility();
       excludePrimaryFromJointOptions();
 
@@ -1007,9 +1103,12 @@
       var openingDate = (dateInput && dateInput.value) || "";
       var amount = parseAmount(amountInput && amountInput.value);
       var hasAmount = isFinite(amount) && amount > 0;
+      var product = currentProduct();
+      var needsTerm = !!(product && product.type === "time_deposit" && hasAmount && amount >= 100001);
+      var hasTerm = !needsTerm || !!selectedTerm();
       var meetsMin = minOpening <= 0 || (hasAmount && amount >= minOpening);
       var withinMax = maxBalance <= 0 || (hasAmount && amount <= maxBalance);
-      var ready = hasMember && hasJoint && !!openingDate && hasAmount && meetsMin && withinMax && !duplicate;
+      var ready = hasMember && hasJoint && !!openingDate && hasAmount && meetsMin && withinMax && !duplicate && hasTerm;
 
       if (ticketMember) {
         ticketMember.textContent = hasMember ? (selectLabel(memberSelect) || "Selected member") : "Select a member";
@@ -1107,6 +1206,11 @@
         window.alert("Opening deposit cannot exceed the maximum balance of ₱" + formatAmount(maxBalance) + ".");
         return null;
       }
+      var product = currentProduct();
+      if (product && product.type === "time_deposit" && amount >= 100001 && !selectedTerm()) {
+        window.alert("For ₱100,001 and above, select 3 months, 6 months, or 1 year.");
+        return null;
+      }
       return {
         member: selectLabel(memberSelect) || "the selected member",
         joint: isJoint() ? (selectLabel(jointSelect) || "selected co-owner") : "",
@@ -1168,7 +1272,7 @@
       try {
         bsModal.show();
       } catch (err) {
-        if (window.confirm("Open Regular Savings for " + data.member + "?")) submitOpen();
+        if (window.confirm("Open " + ((currentProduct() && currentProduct().name) || "this savings account") + " for " + data.member + "?")) submitOpen();
       }
     }
 
@@ -1228,6 +1332,12 @@
       amountInput.addEventListener("input", syncTicket);
       amountInput.addEventListener("change", syncTicket);
     }
+    if (productSelect) {
+      productSelect.addEventListener("change", syncTicket);
+    }
+    form.querySelectorAll("input[name='deposit_term_months']").forEach(function (radio) {
+      radio.addEventListener("change", syncTicket);
+    });
     if (dateInput) {
       dateInput.addEventListener("input", syncTicket);
       dateInput.addEventListener("change", syncTicket);

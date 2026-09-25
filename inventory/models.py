@@ -8,7 +8,7 @@ from django.core.validators import MinValueValidator
 from django.db import models
 from PIL import Image
 
-from .units import UNIT_CHOICES, UNIT_KILO, UNIT_PIECE, format_qty_display
+from .units import UNIT_CHOICES, UNIT_KILO, UNIT_PIECE, format_qty_display, qty_json
 
 class Category(models.Model):
     name = models.CharField(max_length=100)
@@ -239,17 +239,25 @@ class Product(models.Model):
             return True
         return False
 
-    def get_stock_batch(self, tier):
-        """Return the old or new stock batch for this product, if configured."""
+    def stock_batches_for_tier(self, tier):
+        """Old or new batches for this product, lowest sequence first."""
         if (
             hasattr(self, '_prefetched_objects_cache')
             and 'stock_batches' in getattr(self, '_prefetched_objects_cache', {})
         ):
-            for batch in self.stock_batches.all():
-                if batch.tier == tier:
-                    return batch
-            return None
-        return self.stock_batches.filter(tier=tier).first()
+            rows = [batch for batch in self.stock_batches.all() if batch.tier == tier]
+            rows.sort(key=lambda batch: (batch.sequence, batch.pk or 0))
+            return rows
+        return list(self.stock_batches.filter(tier=tier).order_by('sequence', 'id'))
+
+    def get_stock_batch(self, tier):
+        """Return the first old or new stock batch for this product, if configured."""
+        rows = self.stock_batches_for_tier(tier)
+        return rows[0] if rows else None
+
+    def new_stock_batches(self):
+        """All new-stock rows, sold in sequence after old stock."""
+        return self.stock_batches_for_tier(ProductStockBatch.TIER_NEW)
 
     @property
     def old_stock_batch(self):
@@ -257,7 +265,24 @@ class Product(models.Model):
 
     @property
     def new_stock_batch(self):
+        """The next new-stock row (sequence 0). Extra purchases follow it."""
         return self.get_stock_batch(ProductStockBatch.TIER_NEW)
+
+    def extra_new_stocks_payload(self):
+        """New-stock rows after the first, for the product form plus button."""
+        return [
+            {
+                'quantity': qty_json(batch.quantity),
+                'selling_price': str(batch.unit_price),
+                'buying_price': str(batch.cost),
+            }
+            for batch in self.new_stock_batches()[1:]
+            if batch.quantity > 0
+        ]
+
+    @property
+    def extra_new_stocks_json(self):
+        return json.dumps(self.extra_new_stocks_payload())
 
     @property
     def is_sold_by_kilo(self):
@@ -503,8 +528,9 @@ class ProductDiscount(models.Model):
 class ProductStockBatch(models.Model):
     """
     Tracks old vs new inventory for a product.
-    Each tier stores quantity plus selling price (unit_price) and buying price (cost).
-    Each product may have at most one old-stock row and one new-stock row.
+    Each row stores quantity plus selling price (unit_price) and buying price (cost).
+    A product has one old-stock row and any number of new-stock rows.
+    New rows sell in sequence order after old stock is gone.
     """
 
     TIER_OLD = 'old'
@@ -523,6 +549,10 @@ class ProductStockBatch(models.Model):
         max_length=10,
         choices=TIER_CHOICES,
         help_text='Old stock = remaining units. New stock = newly received units. Quantities are pieces or kg.',
+    )
+    sequence = models.PositiveIntegerField(
+        default=0,
+        help_text='Order within this tier. Lower numbers sell first. Extra new-stock rows use 1, 2, 3…',
     )
     quantity = models.DecimalField(
         max_digits=14,
@@ -554,16 +584,36 @@ class ProductStockBatch(models.Model):
     class Meta:
         verbose_name = 'Product stock batch'
         verbose_name_plural = 'Product stock batches'
-        ordering = ['tier', '-updated_at']
+        ordering = ['tier', 'sequence', 'id']
         constraints = [
             models.UniqueConstraint(
-                fields=['product', 'tier'],
-                name='unique_product_stock_tier',
+                fields=['product', 'tier', 'sequence'],
+                name='unique_product_stock_tier_sequence',
             ),
         ]
 
     def __str__(self):
         return f'{self.product.name} — {self.get_tier_display()} ({self.quantity} @ ₱{self.unit_price})'
+
+    def save(self, *args, **kwargs):
+        if self._state.adding and self.product_id and self.tier == self.TIER_NEW:
+            taken = ProductStockBatch.objects.filter(
+                product_id=self.product_id,
+                tier=self.tier,
+                sequence=self.sequence,
+            ).exists()
+            if taken:
+                latest = (
+                    ProductStockBatch.objects.filter(
+                        product_id=self.product_id,
+                        tier=self.TIER_NEW,
+                    )
+                    .order_by('-sequence')
+                    .values_list('sequence', flat=True)
+                    .first()
+                )
+                self.sequence = (latest or 0) + 1
+        super().save(*args, **kwargs)
 
     def clean(self):
         from django.core.exceptions import ValidationError
@@ -575,6 +625,15 @@ class ProductStockBatch(models.Model):
             raise ValidationError({'unit_price': 'Unit price cannot be negative.'})
         if self.cost < 0:
             raise ValidationError({'cost': 'Cost cannot be negative.'})
+        if self.tier == self.TIER_OLD and self.product_id:
+            others = ProductStockBatch.objects.filter(
+                product_id=self.product_id,
+                tier=self.TIER_OLD,
+            )
+            if self.pk:
+                others = others.exclude(pk=self.pk)
+            if others.exists():
+                raise ValidationError('This product already has an old-stock row.')
 
 
 class StockTransaction(models.Model):

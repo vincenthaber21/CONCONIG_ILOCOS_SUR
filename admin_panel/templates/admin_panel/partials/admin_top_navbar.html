@@ -5,12 +5,19 @@
     <a class="navbar-brand fw-bold text-white" href="{% if is_loans_only %}{% url 'loans_overview' %}{% else %}{% url 'dashboard' %}{% endif %}">
       <i class="bi bi-shield-lock-fill me-2"></i>{{ kiosk_system_name }}
     </a>
-    <form id="logoutForm" method="post" action="{% url 'admin_logout' %}" style="display: inline;">
-      {% csrf_token %}
-      <button type="submit" id="logoutBtn" class="btn btn-danger rounded-pill px-4">
-        <i class="bi bi-box-arrow-right me-1"></i>Logout
-      </button>
-    </form>
+    <div class="d-flex align-items-center gap-2">
+      {% if can_switch_role %}
+      <a class="btn btn-outline-light rounded-pill px-4" href="{% url 'switch_role' %}">
+        <i class="bi bi-arrow-left-right me-1"></i>Switch role
+      </a>
+      {% endif %}
+      <form id="logoutForm" method="post" action="{% url 'admin_logout' %}" style="display: inline;">
+        {% csrf_token %}
+        <button type="submit" id="logoutBtn" class="btn btn-danger rounded-pill px-4">
+          <i class="bi bi-box-arrow-right me-1"></i>Logout
+        </button>
+      </form>
+    </div>
   </div>
 </nav>
 {% include 'admin_panel/partials/admin_logout_confirm_modal.html' %}

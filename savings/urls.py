@@ -16,6 +16,7 @@ urlpatterns = [
     path("products/<uuid:pk>/edit/", views.SavingsProductUpdateView.as_view(), name="product-edit"),
     path("accounts/open/", views.OpenSavingsAccountView.as_view(), name="account-open"),
     path("accounts/<uuid:pk>/", views.SavingsAccountDetailView.as_view(), name="account-detail"),
+    path("accounts/<uuid:pk>/term/", views.SavingsAccountTermView.as_view(), name="account-term"),
     path("accounts/<uuid:pk>/delete/", views.SavingsAccountDeleteView.as_view(), name="account-delete"),
     path("accounts/<uuid:pk>/move/", views.SavingsAccountMoveView.as_view(), name="account-move"),
     path(

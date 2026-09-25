@@ -20,7 +20,6 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from . import models, services
-from .policy import ANNUAL_INTEREST_RATE, format_rate, interest_amount
 
 
 ZERO = Decimal("0.00")
@@ -95,13 +94,13 @@ def build_interest_report_rows(*, date_from, date_to, range_start, range_end):
         .order_by("member__last_name", "member__first_name", "account_number")
     )
 
-    rate = ANNUAL_INTEREST_RATE
-    rate_display = format_rate(rate)
     rows = []
     for account in accounts:
         snap = services.interest_snapshot(account)
+        rate = snap["annual_rate"]
+        rate_display = snap["annual_rate_display"]
         period_total = account.period_interest_total or ZERO
-        estimated = interest_amount(account.balance, rate) if account.can_transact else ZERO
+        estimated = snap["estimated_interest"] if account.can_transact else ZERO
         last_in_period = None
         if getattr(account, "period_interest", None):
             last_in_period = account.period_interest[-1].created_at
@@ -157,7 +156,7 @@ def render_interest_excel(*, rows, date_from, date_to, user_label):
     ws["A1"].font = Font(size=14, bold=True, color="166534")
     ws["A2"] = f"Period: {date_from.isoformat()} to {date_to.isoformat()}"
     ws["A3"] = f"Generated: {gen_at} — {user_label}"
-    ws["A4"] = f"Annual rate: {format_rate(ANNUAL_INTEREST_RATE)} (monthly = balance × rate ÷ 12)"
+    ws["A4"] = "Annual rate comes from each account's savings product (balance × rate ÷ periods per year)."
     ws["A5"] = (
         f"Accounts: {len(rows)} · "
         f"Total balances (PHP): {float(total_balance):,.2f} · "
@@ -308,7 +307,7 @@ def render_interest_pdf(*, rows, date_from, date_to, user_label):
         Paragraph(f"Savings Interest Report — {store}", title_style),
         Paragraph(
             f"Period: {date_from.isoformat()} to {date_to.isoformat()} · "
-            f"Rate: {format_rate(ANNUAL_INTEREST_RATE)} / year · "
+            "Rate: each account's savings product · "
             f"Generated: {gen_at} — {user_label}",
             meta_style,
         ),

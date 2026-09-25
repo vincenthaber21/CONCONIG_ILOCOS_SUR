@@ -27,6 +27,10 @@
       <span class="loan-disburse-stat__value">&#8369;{{ principal_amount|currency }}</span>
     </div>
     <div class="loan-disburse-stat">
+      <span class="loan-disburse-stat__label">Interest rate</span>
+      <span class="loan-disburse-stat__value">{{ interest_rate|floatformat:4 }}</span>
+    </div>
+    <div class="loan-disburse-stat">
       <span class="loan-disburse-stat__label">Term</span>
       <span class="loan-disburse-stat__value">{{ application.term_months }} mo</span>
     </div>
@@ -34,20 +38,24 @@
       <span class="loan-disburse-stat__label">Product</span>
       <span class="loan-disburse-stat__value loan-disburse-stat__value--sm">{{ application.loan_product.name }}</span>
     </div>
-    <div class="loan-disburse-stat">
-      <span class="loan-disburse-stat__label">Purpose</span>
-      <span class="loan-disburse-stat__value loan-disburse-stat__value--sm">
-        {{ application.purpose|truncatewords:8|default:"—" }}
-      </span>
-    </div>
   </div>
 
   <section class="card loan-disburse-page__card">
     <h2><i class="bi bi-cash-stack"></i> Release loan funds</h2>
+    {% if uses_usable_days %}
     <p class="subtitle loan-disburse-section__sub">
-      Record fees withheld at disbursement (transaction fee, etc.). The member repays the full loan principal;
-      only the net amount is released to them. A disbursement voucher is printed after saving.
+      This product uses usable-days interest. No interest, share capital, service fee,
+      or insurance is withheld at disbursement — the full principal is released.
+      Interest is charged at payment:
+      <strong>principal × rate × (usable days ÷ 360)</strong>.
     </p>
+    {% else %}
+    <p class="subtitle loan-disburse-section__sub">
+      Deductions are computed from the loan formula. Enter months to pay and savings;
+      interest, share capital, service fee, and insurance update automatically.
+      The member still repays the full loan principal.
+    </p>
+    {% endif %}
 
     <form method="post" class="loan-disburse-form" id="loan-disburse-form">
       {% csrf_token %}
@@ -56,68 +64,136 @@
       <div class="loan-disburse-form__errors">{{ form.non_field_errors }}</div>
       {% endif %}
 
-      <div class="loan-disburse-breakdown" id="loan-disburse-breakdown" data-principal="{{ principal_amount }}">
+      {% if uses_usable_days %}
+      <div class="loan-disburse-breakdown loan-disburse-breakdown--usable" id="loan-disburse-breakdown">
+        <div class="loan-disburse-breakdown__row">
+          <span>Loan principal</span>
+          <strong>&#8369;{{ principal_amount|currency }}</strong>
+        </div>
+        <div class="loan-disburse-breakdown__row loan-disburse-breakdown__row--fee">
+          <span>Interest formula (at payment)</span>
+          <strong>principal × {{ interest_rate|floatformat:4 }} × (days ÷ 360)</strong>
+        </div>
+        <div class="loan-disburse-breakdown__row loan-disburse-breakdown__row--fee">
+          <span>Withheld at disbursement</span>
+          <strong>&#8369;0.00</strong>
+        </div>
+        <div class="loan-disburse-breakdown__row loan-disburse-breakdown__row--net">
+          <span>Amount to release</span>
+          <strong>&#8369;{{ principal_amount|currency }}</strong>
+        </div>
+      </div>
+      {{ form.months_pay }}
+      {{ form.savings_amount }}
+      {{ form.interest_amount }}
+      {{ form.share_capital_amount }}
+      {{ form.transaction_fee }}
+      {{ form.insurance_amount }}
+      {% else %}
+      <div
+        class="loan-disburse-breakdown"
+        id="loan-disburse-breakdown"
+        data-principal="{{ principal_amount }}"
+        data-interest-rate="{{ interest_rate }}"
+        data-base-months="12"
+        data-share-rate="0.02"
+        data-service-rate="0.02"
+        data-insurance-rate="0.0066"
+      >
         <div class="loan-disburse-breakdown__row">
           <span>Loan principal (repayment basis)</span>
           <strong id="breakdown-principal">&#8369;{{ principal_amount|currency }}</strong>
         </div>
         <div class="loan-disburse-breakdown__row loan-disburse-breakdown__row--fee">
-          <span>Less: transaction fee</span>
-          <strong id="breakdown-transaction-fee">&#8369;0.00</strong>
+          <span>Less: interest <small id="breakdown-interest-formula"></small></span>
+          <strong id="breakdown-interest">&#8369;{{ deduction_calc.interest_amount|currency }}</strong>
         </div>
         <div class="loan-disburse-breakdown__row loan-disburse-breakdown__row--fee">
-          <span>Less: other deduction</span>
-          <strong id="breakdown-other-fee">&#8369;0.00</strong>
+          <span>Less: share capital (2%)</span>
+          <strong id="breakdown-share">&#8369;{{ deduction_calc.share_capital_amount|currency }}</strong>
+        </div>
+        <div class="loan-disburse-breakdown__row loan-disburse-breakdown__row--fee">
+          <span>Less: service fee (2%)</span>
+          <strong id="breakdown-service">&#8369;{{ deduction_calc.service_fee_amount|currency }}</strong>
+        </div>
+        <div class="loan-disburse-breakdown__row loan-disburse-breakdown__row--fee">
+          <span>Less: insurance (0.66%)</span>
+          <strong id="breakdown-insurance">&#8369;{{ deduction_calc.insurance_amount|currency }}</strong>
+        </div>
+        <div class="loan-disburse-breakdown__row loan-disburse-breakdown__row--fee">
+          <span>Less: savings</span>
+          <strong id="breakdown-savings">&#8369;{{ deduction_calc.savings_amount|currency }}</strong>
         </div>
         <div class="loan-disburse-breakdown__row loan-disburse-breakdown__row--net">
           <span>Net amount to release</span>
-          <strong id="breakdown-net">&#8369;{{ principal_amount|currency }}</strong>
+          <strong id="breakdown-net">&#8369;{{ deduction_calc.amount_released|currency }}</strong>
         </div>
       </div>
+      {% endif %}
 
       <div class="loan-disburse-form__grid">
         <div class="loan-disburse-form__col">
+          {% if not uses_usable_days %}
+          <div class="loan-disburse-form__field">
+            <label for="{{ form.months_pay.id_for_label }}">{{ form.months_pay.label }}</label>
+            {{ form.months_pay }}
+            {% if form.months_pay.help_text %}
+            <p class="helptext">{{ form.months_pay.help_text }}</p>
+            {% endif %}
+            {% if form.months_pay.errors %}
+            <div class="loan-disburse-form__errors">{{ form.months_pay.errors }}</div>
+            {% endif %}
+          </div>
+
+          <div class="loan-disburse-form__field">
+            <label for="{{ form.savings_amount.id_for_label }}">{{ form.savings_amount.label }}</label>
+            <div class="loan-disburse-form__money loan-disburse-form__money--sm">
+              <span>&#8369;</span>
+              {{ form.savings_amount }}
+            </div>
+            {% if form.savings_amount.help_text %}
+            <p class="helptext">{{ form.savings_amount.help_text }}</p>
+            {% endif %}
+            {% if form.savings_amount.errors %}
+            <div class="loan-disburse-form__errors">{{ form.savings_amount.errors }}</div>
+            {% endif %}
+          </div>
+
+          <div class="loan-disburse-form__field">
+            <label for="{{ form.interest_amount.id_for_label }}">{{ form.interest_amount.label }}</label>
+            <div class="loan-disburse-form__money loan-disburse-form__money--sm">
+              <span>&#8369;</span>
+              {{ form.interest_amount }}
+            </div>
+          </div>
+
+          <div class="loan-disburse-form__field">
+            <label for="{{ form.share_capital_amount.id_for_label }}">{{ form.share_capital_amount.label }}</label>
+            <div class="loan-disburse-form__money loan-disburse-form__money--sm">
+              <span>&#8369;</span>
+              {{ form.share_capital_amount }}
+            </div>
+          </div>
+
           <div class="loan-disburse-form__field">
             <label for="{{ form.transaction_fee.id_for_label }}">{{ form.transaction_fee.label }}</label>
             <div class="loan-disburse-form__money loan-disburse-form__money--sm">
               <span>&#8369;</span>
               {{ form.transaction_fee }}
             </div>
-            {% if form.transaction_fee.help_text %}
-            <p class="helptext">{{ form.transaction_fee.help_text }}</p>
-            {% endif %}
-            {% if form.transaction_fee.errors %}
-            <div class="loan-disburse-form__errors">{{ form.transaction_fee.errors }}</div>
-            {% endif %}
           </div>
 
           <div class="loan-disburse-form__field">
-            <label for="{{ form.other_deduction_amount.id_for_label }}">{{ form.other_deduction_amount.label }}</label>
+            <label for="{{ form.insurance_amount.id_for_label }}">{{ form.insurance_amount.label }}</label>
             <div class="loan-disburse-form__money loan-disburse-form__money--sm">
               <span>&#8369;</span>
-              {{ form.other_deduction_amount }}
+              {{ form.insurance_amount }}
             </div>
-            {% if form.other_deduction_amount.help_text %}
-            <p class="helptext">{{ form.other_deduction_amount.help_text }}</p>
-            {% endif %}
-            {% if form.other_deduction_amount.errors %}
-            <div class="loan-disburse-form__errors">{{ form.other_deduction_amount.errors }}</div>
-            {% endif %}
           </div>
-
-          <div class="loan-disburse-form__field">
-            <label for="{{ form.other_deduction_label.id_for_label }}">{{ form.other_deduction_label.label }}</label>
-            {{ form.other_deduction_label }}
-            {% if form.other_deduction_label.help_text %}
-            <p class="helptext">{{ form.other_deduction_label.help_text }}</p>
-            {% endif %}
-            {% if form.other_deduction_label.errors %}
-            <div class="loan-disburse-form__errors">{{ form.other_deduction_label.errors }}</div>
-            {% endif %}
-          </div>
+          {% endif %}
 
           <div class="loan-disburse-form__field loan-disburse-form__field--amount">
-            <label for="{{ form.amount_released.id_for_label }}">{{ form.amount_released.label }}</label>
+            <label for="{{ form.amount_released.id_for_label }}">{% if uses_usable_days %}Amount to release (₱){% else %}{{ form.amount_released.label }}{% endif %}</label>
             <div class="loan-disburse-form__money">
               <span>&#8369;</span>
               {{ form.amount_released }}
@@ -171,13 +247,25 @@
         </fieldset>
       </div>
 
+      {% if uses_usable_days %}
       <div class="loan-disburse-form__notice">
         <i class="bi bi-info-circle"></i>
         <span>
-          Example: principal &#8369;50.00, transaction fee &#8369;10.00 → net release &#8369;40.00.
-          Repayment schedule uses the full &#8369;50.00 principal.
+          Example at payment: principal &#8369;10,000, rate 0.18, 16 usable days →
+          interest &#8369;80.00 (= 10,000 × 0.18 × 16/360). Amount due =
+          interest + partial pay.
         </span>
       </div>
+      {% else %}
+      <div class="loan-disburse-form__notice">
+        <i class="bi bi-info-circle"></i>
+        <span>
+          Example: principal &#8369;10,000, rate 0.18, months pay 5 → interest
+          &#8369;750.00 (= 10,000 × 0.18 × 5/12). Share capital 2%, service fee 2%,
+          insurance 0.66%, plus savings entered below.
+        </span>
+      </div>
+      {% endif %}
 
       <div class="loan-disburse-form__actions">
         <button type="submit" class="btn-loan">
@@ -292,6 +380,10 @@
     color: #0f172a;
   }
   .loan-disburse-breakdown__row--fee strong { color: #b45309; }
+  .loan-disburse-breakdown__row--fee small {
+    color: #94a3b8;
+    font-weight: 500;
+  }
   .loan-disburse-breakdown__row--net {
     border-top: 2px solid #0f172a;
     margin-top: .45rem;
@@ -339,6 +431,11 @@
     outline: none;
     border-color: #228B22;
     box-shadow: 0 0 0 3px rgba(34, 139, 34, .15);
+  }
+  .loan-disburse-form__field input[readonly] {
+    background: #f1f5f9;
+    color: #334155;
+    cursor: default;
   }
 
   .loan-disburse-form__money {
@@ -458,12 +555,29 @@
   if (!form) return;
 
   var breakdown = document.getElementById("loan-disburse-breakdown");
+  if (!breakdown || !breakdown.getAttribute("data-principal")) return;
+
   var principal = parseFloat(breakdown.getAttribute("data-principal") || "0") || 0;
-  var feeInput = document.getElementById("id_transaction_fee");
-  var otherInput = document.getElementById("id_other_deduction_amount");
+  var interestRate = parseFloat(breakdown.getAttribute("data-interest-rate") || "0") || 0;
+  var baseMonths = parseFloat(breakdown.getAttribute("data-base-months") || "12") || 12;
+  var shareRate = parseFloat(breakdown.getAttribute("data-share-rate") || "0.02") || 0.02;
+  var serviceRate = parseFloat(breakdown.getAttribute("data-service-rate") || "0.02") || 0.02;
+  var insuranceRate = parseFloat(breakdown.getAttribute("data-insurance-rate") || "0.0066") || 0.0066;
+
+  var monthsInput = document.getElementById("id_months_pay");
+  var savingsInput = document.getElementById("id_savings_amount");
+  var interestInput = document.getElementById("id_interest_amount");
+  var shareInput = document.getElementById("id_share_capital_amount");
+  var serviceInput = document.getElementById("id_transaction_fee");
+  var insuranceInput = document.getElementById("id_insurance_amount");
   var netInput = document.getElementById("id_amount_released");
-  var elTransaction = document.getElementById("breakdown-transaction-fee");
-  var elOther = document.getElementById("breakdown-other-fee");
+
+  var elInterest = document.getElementById("breakdown-interest");
+  var elInterestFormula = document.getElementById("breakdown-interest-formula");
+  var elShare = document.getElementById("breakdown-share");
+  var elService = document.getElementById("breakdown-service");
+  var elInsurance = document.getElementById("breakdown-insurance");
+  var elSavings = document.getElementById("breakdown-savings");
   var elNet = document.getElementById("breakdown-net");
 
   function parseMoney(value) {
@@ -473,43 +587,53 @@
     return isNaN(num) ? 0 : num;
   }
 
+  function round2(num) {
+    return Math.round((num + Number.EPSILON) * 100) / 100;
+  }
+
   function formatMoney(num) {
-    return "₱" + num.toLocaleString("en-PH", {
+    return "₱" + round2(num).toLocaleString("en-PH", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
     });
   }
 
-  function updateFromFees() {
-    var transactionFee = parseMoney(feeInput && feeInput.value);
-    var otherFee = parseMoney(otherInput && otherInput.value);
-    var net = Math.max(0, principal - transactionFee - otherFee);
+  function recalc() {
+    var monthsPay = parseInt(monthsInput && monthsInput.value, 10);
+    if (isNaN(monthsPay) || monthsPay < 1) monthsPay = 1;
+    var savings = Math.max(0, parseMoney(savingsInput && savingsInput.value));
+
+    var interest = round2(principal * interestRate * (monthsPay / baseMonths));
+    var share = round2(principal * shareRate);
+    var service = round2(principal * serviceRate);
+    var insurance = round2(principal * insuranceRate);
+    var net = round2(Math.max(0, principal - interest - share - service - insurance - savings));
+
+    if (interestInput) interestInput.value = interest.toFixed(2);
+    if (shareInput) shareInput.value = share.toFixed(2);
+    if (serviceInput) serviceInput.value = service.toFixed(2);
+    if (insuranceInput) insuranceInput.value = insurance.toFixed(2);
     if (netInput) netInput.value = net.toFixed(2);
-    if (elTransaction) elTransaction.textContent = formatMoney(transactionFee);
-    if (elOther) elOther.textContent = formatMoney(otherFee);
+
+    if (elInterest) elInterest.textContent = formatMoney(interest);
+    if (elInterestFormula) {
+      elInterestFormula.textContent =
+        "(× " + interestRate + " × " + monthsPay + "/" + baseMonths + ")";
+    }
+    if (elShare) elShare.textContent = formatMoney(share);
+    if (elService) elService.textContent = formatMoney(service);
+    if (elInsurance) elInsurance.textContent = formatMoney(insurance);
+    if (elSavings) elSavings.textContent = formatMoney(savings);
     if (elNet) elNet.textContent = formatMoney(net);
   }
 
-  function updateFromNet() {
-    var net = parseMoney(netInput && netInput.value);
-    var transactionFee = parseMoney(feeInput && feeInput.value);
-    var otherFee = parseMoney(otherInput && otherInput.value);
-    if (elTransaction) elTransaction.textContent = formatMoney(transactionFee);
-    if (elOther) elOther.textContent = formatMoney(otherFee);
-    if (elNet) elNet.textContent = formatMoney(net);
-  }
-
-  [feeInput, otherInput].forEach(function (el) {
+  [monthsInput, savingsInput].forEach(function (el) {
     if (!el) return;
-    el.addEventListener("input", updateFromFees);
-    el.addEventListener("change", updateFromFees);
+    el.addEventListener("input", recalc);
+    el.addEventListener("change", recalc);
   });
-  if (netInput) {
-    netInput.addEventListener("input", updateFromNet);
-    netInput.addEventListener("change", updateFromNet);
-  }
 
-  updateFromFees();
+  recalc();
 })();
 </script>
 {% endblock %}

@@ -285,8 +285,7 @@ class ProductDiscountInline(admin.TabularInline):
 class ProductStockBatchInline(admin.TabularInline):
     model = ProductStockBatch
     extra = 0
-    max_num = 2
-    fields = ('tier', 'quantity', 'unit_price', 'cost', 'notes', 'updated_at')
+    fields = ('tier', 'sequence', 'quantity', 'unit_price', 'cost', 'notes', 'updated_at')
     readonly_fields = ('updated_at',)
     verbose_name = 'Stock tier'
     verbose_name_plural = 'Old / new stock (price per tier)'
@@ -294,8 +293,7 @@ class ProductStockBatchInline(admin.TabularInline):
     def get_extra(self, request, obj=None, **kwargs):
         if obj is None:
             return 0
-        existing = obj.stock_batches.count()
-        return max(0, 2 - existing)
+        return 1
 
 
 class ProductSaleUnitInline(admin.TabularInline):
@@ -337,6 +335,7 @@ class ProductStockBatchAdmin(ImportExportModelAdmin):
     list_display = (
         'product',
         'tier',
+        'sequence',
         'quantity',
         'unit_price',
         'cost',
@@ -346,7 +345,7 @@ class ProductStockBatchAdmin(ImportExportModelAdmin):
     search_fields = ('product__name', 'product__barcode', 'notes')
     autocomplete_fields = ('product',)
     readonly_fields = ('created_at', 'updated_at')
-    ordering = ('product__name', 'tier')
+    ordering = ('product__name', 'tier', 'sequence')
 
 
 @admin.register(ProductDiscount)
@@ -506,14 +505,24 @@ class ProductAdmin(ImportExportModelAdmin):
 
     @admin.display(description='New stock')
     def new_stock_display(self, obj):
-        batch = obj.new_stock_batch
-        if not batch or batch.quantity == 0:
+        batches = [batch for batch in obj.new_stock_batches() if batch.quantity > 0]
+        if not batches:
             return format_html('<span style="color:#999;">—</span>')
+        first = batches[0]
+        extra = len(batches) - 1
+        if extra:
+            return format_html(
+                '<span title="New stock sell/buy">{} · sell ₱{} · buy ₱{} + {} more</span>',
+                first.quantity,
+                first.unit_price,
+                first.cost,
+                extra,
+            )
         return format_html(
             '<span title="New stock sell/buy">{} · sell ₱{} · buy ₱{}</span>',
-            batch.quantity,
-            batch.unit_price,
-            batch.cost,
+            first.quantity,
+            first.unit_price,
+            first.cost,
         )
 
     fieldsets = (

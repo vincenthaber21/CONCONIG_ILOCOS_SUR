@@ -35,8 +35,9 @@
             <th>Product</th>
             <th>Amount range</th>
             <th>Term</th>
-            <th>Late interest from</th>
+            <th>Usable days</th>
             <th class="lp-th-num">Apps</th>
+            <th class="lp-th-actions">Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -56,14 +57,23 @@
               &#8369;{{ product.max_amount|currency }}
             </td>
             <td class="lp-nowrap">{{ product.term_months }} months</td>
-            <td>
-              <div class="lp-interest">
-                <strong>Month {{ product.interest_start_month }}</strong>
-                <small>Rate set per application</small>
-              </div>
+            <td class="lp-nowrap">
+              {% if product.uses_usable_days %}
+              <span class="lp-apps-badge" style="background:#dcfce7;color:#166534;">Yes · 360-day</span>
+              {% else %}
+              <span class="lp-apps-badge" style="background:#f1f5f9;color:#64748b;">Normal</span>
+              {% endif %}
             </td>
             <td class="lp-th-num">
               <span class="lp-apps-badge">{{ product.application_count }}</span>
+            </td>
+            <td class="lp-actions">
+              <a class="lp-action lp-action--edit" href="{% url 'loans:product-edit' product.pk %}" title="Edit">
+                <i class="bi bi-pencil" aria-hidden="true"></i> Edit
+              </a>
+              <a class="lp-action lp-action--delete" href="{% url 'loans:product-delete' product.pk %}" title="Delete">
+                <i class="bi bi-trash" aria-hidden="true"></i> Delete
+              </a>
             </td>
           </tr>
           {% endfor %}
@@ -95,10 +105,18 @@
           <span class="lp-metric__value">{{ product.term_months }} months</span>
         </div>
         <div class="lp-metric">
-          <span class="lp-metric__label">Late interest from</span>
-          <span class="lp-metric__value">Month {{ product.interest_start_month }}</span>
-          <span class="lp-metric__sub">Rate set per application</span>
+          <span class="lp-metric__label">Usable days</span>
+          <span class="lp-metric__value">{% if product.uses_usable_days %}Yes · 360-day{% else %}Normal{% endif %}</span>
         </div>
+      </div>
+
+      <div class="lp-card__actions">
+        <a class="lp-action lp-action--edit" href="{% url 'loans:product-edit' product.pk %}">
+          <i class="bi bi-pencil" aria-hidden="true"></i> Edit
+        </a>
+        <a class="lp-action lp-action--delete" href="{% url 'loans:product-delete' product.pk %}">
+          <i class="bi bi-trash" aria-hidden="true"></i> Delete
+        </a>
       </div>
     </article>
     {% endfor %}
@@ -223,8 +241,49 @@
   .lp-table tbody tr:last-child td { border-bottom: none; }
   .lp-table tbody tr:hover { background: #f8fafc; }
   .lp-th-num { text-align: center !important; width: 72px; }
+  .lp-th-actions { text-align: right !important; width: 160px; }
   .lp-nowrap { white-space: nowrap; }
   .lp-range-sep { color: #94a3b8; margin: 0 .15rem; }
+
+  .lp-actions {
+    text-align: right;
+    white-space: nowrap;
+  }
+  .lp-card__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .45rem;
+    margin-top: .9rem;
+    padding-top: .85rem;
+    border-top: 1px solid #f1f5f9;
+  }
+  .lp-action {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    padding: .35rem .65rem;
+    border-radius: 8px;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #334155;
+    font-size: .78rem;
+    font-weight: 700;
+    text-decoration: none;
+    line-height: 1.2;
+  }
+  .lp-action:hover { background: #f8fafc; color: #0f172a; }
+  .lp-action--edit {
+    border-color: #bfdbfe;
+    color: #1d4ed8;
+    background: #eff6ff;
+  }
+  .lp-action--edit:hover { background: #dbeafe; color: #1e40af; }
+  .lp-action--delete {
+    border-color: #fecaca;
+    color: #b91c1c;
+    background: #fef2f2;
+  }
+  .lp-action--delete:hover { background: #fee2e2; color: #991b1b; }
 
   .lp-product-cell {
     display: flex;

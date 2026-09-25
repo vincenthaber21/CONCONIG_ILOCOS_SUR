@@ -34,19 +34,22 @@ def capture_stock_snapshot(product):
     """
     from .models import ProductStockBatch, Product
 
-    old_qty = 0
-    new_qty = 0
+    old_qty = Decimal('0')
+    new_qty = Decimal('0')
     old_price = None
     new_price = None
+    first_new = True
     for batch in ProductStockBatch.objects.filter(product=product).only(
-        'tier', 'quantity', 'unit_price',
-    ):
+        'tier', 'quantity', 'unit_price', 'sequence',
+    ).order_by('tier', 'sequence', 'id'):
         if batch.tier == ProductStockBatch.TIER_OLD:
             old_qty = batch.quantity
             old_price = _money(batch.unit_price)
         elif batch.tier == ProductStockBatch.TIER_NEW:
-            new_qty = batch.quantity
-            new_price = _money(batch.unit_price)
+            new_qty += Decimal(str(batch.quantity or 0))
+            if first_new:
+                new_price = _money(batch.unit_price)
+                first_new = False
 
     row = (
         Product.objects.filter(pk=product.pk)

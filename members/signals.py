@@ -14,5 +14,16 @@ def stamp_member_registration_date(sender, instance, **kwargs):
 
 
 @receiver(post_save, sender=Member)
+def ensure_primary_role_is_assigned(sender, instance, **kwargs):
+    """Keep the primary role inside the list of roles the person can open."""
+    if not instance.member_role_id:
+        return
+    if instance.roles.filter(pk=instance.member_role_id).exists():
+        return
+    instance.roles.add(instance.member_role_id)
+    instance.clear_assigned_role_cache()
+
+
+@receiver(post_save, sender=Member)
 def sync_loan_permissions_on_member_save(sender, instance, **kwargs):
     sync_member_loan_permissions(instance)

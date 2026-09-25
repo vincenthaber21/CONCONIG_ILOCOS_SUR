@@ -14,25 +14,53 @@ def _money(value):
 
 
 def _stock_batches_for_product(product):
-    """Return (old_batch|None, new_batch|None), using prefetch cache when available."""
+    """Return (old_batch|None, [new batches in sell order]), using prefetch when available."""
     from .models import ProductStockBatch
 
     old_batch = None
-    new_batch = None
+    new_batches = []
     if (
         hasattr(product, '_prefetched_objects_cache')
         and 'stock_batches' in getattr(product, '_prefetched_objects_cache', {})
     ):
         for batch in product.stock_batches.all():
             if batch.tier == ProductStockBatch.TIER_OLD:
-                old_batch = batch
+                if old_batch is None or (batch.sequence, batch.pk or 0) < (
+                    old_batch.sequence,
+                    old_batch.pk or 0,
+                ):
+                    old_batch = batch
             elif batch.tier == ProductStockBatch.TIER_NEW:
-                new_batch = batch
-        return old_batch, new_batch
+                new_batches.append(batch)
+        new_batches.sort(key=lambda batch: (batch.sequence, batch.pk or 0))
+        return old_batch, new_batches
 
-    old_batch = product.stock_batches.filter(tier=ProductStockBatch.TIER_OLD).first()
-    new_batch = product.stock_batches.filter(tier=ProductStockBatch.TIER_NEW).first()
-    return old_batch, new_batch
+    old_batch = (
+        product.stock_batches.filter(tier=ProductStockBatch.TIER_OLD)
+        .order_by('sequence', 'id')
+        .first()
+    )
+    new_batches = list(
+        product.stock_batches.filter(tier=ProductStockBatch.TIER_NEW).order_by('sequence', 'id')
+    )
+    return old_batch, new_batches
+
+
+def _positive_new_batches(new_batches):
+    return [batch for batch in new_batches if batch.quantity > 0]
+
+
+def _resequence_new_batches(batches):
+    """Pack new-stock rows to sequence 0, 1, 2… without unique-constraint clashes."""
+    for index, batch in enumerate(batches):
+        parked = 10000 + index
+        if batch.sequence != parked:
+            batch.sequence = parked
+            batch.save(update_fields=['sequence', 'updated_at'])
+    for index, batch in enumerate(batches):
+        if batch.sequence != index:
+            batch.sequence = index
+            batch.save(update_fields=['sequence', 'updated_at'])
 
 
 def current_shelf_unit_price(product):
@@ -40,10 +68,10 @@ def current_shelf_unit_price(product):
     Unit price shown on shelf / product lists.
     Old stock is sold first; when it is gone, show the new-stock price.
     """
-    old_batch, new_batch = _stock_batches_for_product(product)
+    old_batch, new_batches = _stock_batches_for_product(product)
     if old_batch and old_batch.quantity > 0:
         return _money(old_batch.unit_price)
-    if new_batch and new_batch.quantity > 0:
+    for new_batch in _positive_new_batches(new_batches):
         return _money(new_batch.unit_price)
     return _money(product.price)
 
@@ -59,14 +87,16 @@ def fifo_line_gross(product, quantity):
 
     remaining = qty
     total = Decimal('0')
-    old_batch, new_batch = _stock_batches_for_product(product)
+    old_batch, new_batches = _stock_batches_for_product(product)
 
     if old_batch and old_batch.quantity > 0 and remaining > 0:
         take = min(remaining, Decimal(str(old_batch.quantity)))
         total += old_batch.unit_price * take
         remaining -= take
 
-    if remaining > 0 and new_batch and new_batch.quantity > 0:
+    for new_batch in _positive_new_batches(new_batches):
+        if remaining <= 0:
+            break
         take = min(remaining, Decimal(str(new_batch.quantity)))
         total += new_batch.unit_price * take
         remaining -= take
@@ -100,7 +130,7 @@ def deduct_stock_batches(product, quantity):
         return Decimal('0')
 
     deducted = Decimal('0')
-    old_batch, new_batch = _stock_batches_for_product(product)
+    old_batch, new_batches = _stock_batches_for_product(product)
 
     if old_batch and old_batch.quantity > 0 and remaining > 0:
         take = min(remaining, Decimal(str(old_batch.quantity)))
@@ -112,7 +142,9 @@ def deduct_stock_batches(product, quantity):
         else:
             old_batch.save(update_fields=['quantity', 'updated_at'])
 
-    if new_batch and new_batch.quantity > 0 and remaining > 0:
+    for new_batch in _positive_new_batches(new_batches):
+        if remaining <= 0:
+            break
         take = min(remaining, Decimal(str(new_batch.quantity)))
         new_batch.quantity = Decimal(str(new_batch.quantity)) - take
         remaining -= take
@@ -128,18 +160,23 @@ def deduct_stock_batches(product, quantity):
 
 def promote_new_stock_to_old_if_needed(product):
     """
-    When old stock is gone, move the new-stock batch into the old-stock tier.
+    When old stock is gone, move the next new-stock batch into the old-stock tier.
+    Later new-stock rows stay queued and sell in order.
     Syncs Product.price and Product.cost from the promoted batch selling/buying prices.
     Returns True when a promotion occurred.
     """
     from .models import ProductStockBatch
 
-    old_batch, new_batch = _stock_batches_for_product(product)
+    if hasattr(product, '_prefetched_objects_cache'):
+        product._prefetched_objects_cache.pop('stock_batches', None)
+
+    old_batch, new_batches = _stock_batches_for_product(product)
+    positive_new = _positive_new_batches(new_batches)
 
     if old_batch and old_batch.quantity > 0:
         return False
 
-    if not new_batch or new_batch.quantity <= 0:
+    if not positive_new:
         if old_batch:
             ProductStockBatch.objects.filter(pk=old_batch.pk).delete()
         return False
@@ -147,10 +184,18 @@ def promote_new_stock_to_old_if_needed(product):
     if old_batch:
         ProductStockBatch.objects.filter(pk=old_batch.pk).delete()
 
-    promoted_price = new_batch.unit_price
-    promoted_cost = new_batch.cost
-    new_batch.tier = ProductStockBatch.TIER_OLD
-    new_batch.save(update_fields=['tier', 'updated_at'])
+    promoted = positive_new[0]
+    promoted_price = promoted.unit_price
+    promoted_cost = promoted.cost
+    promoted.tier = ProductStockBatch.TIER_OLD
+    promoted.sequence = 0
+    promoted.save(update_fields=['tier', 'sequence', 'updated_at'])
+    ProductStockBatch.objects.filter(
+        product=product,
+        tier=ProductStockBatch.TIER_NEW,
+        quantity__lte=0,
+    ).delete()
+    _resequence_new_batches(positive_new[1:])
 
     update_fields = ['updated_at']
     if product.price != promoted_price:
@@ -324,16 +369,17 @@ def price_payload_for_product(product, discount_list=None, member=None, segment_
         'price': str(eff),
         'regular_price': str(reg),
     }
-    old_batch, new_batch = _stock_batches_for_product(product)
+    old_batch, new_batches = _stock_batches_for_product(product)
+    next_new = next(iter(_positive_new_batches(new_batches)), None)
     if old_batch and old_batch.quantity > 0:
         out['old_stock_qty'] = qty_json(old_batch.quantity)
         out['old_stock_price'] = str(old_batch.unit_price)
-    if new_batch and new_batch.quantity > 0:
-        out['new_stock_qty'] = qty_json(new_batch.quantity)
-        out['new_stock_price'] = str(new_batch.unit_price)
+    if next_new:
+        out['new_stock_qty'] = qty_json(next_new.quantity)
+        out['new_stock_price'] = str(next_new.unit_price)
     if old_batch and old_batch.quantity > 0:
         out['stock_tier'] = 'old'
-    elif new_batch and new_batch.quantity > 0:
+    elif next_new:
         out['stock_tier'] = 'new'
     if meta.get('discount_name'):
         out['discount_name'] = meta['discount_name']

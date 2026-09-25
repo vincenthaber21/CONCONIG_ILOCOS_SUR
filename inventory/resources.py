@@ -170,6 +170,7 @@ class ProductStockBatchResource(resources.ModelResource):
             'id',
             'product',
             'tier',
+            'sequence',
             'quantity',
             'unit_price',
             'cost',

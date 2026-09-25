@@ -1,4 +1,4 @@
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 
 from django import forms
 from django.core.exceptions import ValidationError
@@ -19,18 +19,21 @@ class LoanSettingsForm(forms.ModelForm):
             "min_membership_enabled",
             "min_membership_months",
             "committee_single_approver",
+            "usable_days_editable",
         ]
         widgets = {
             "grace_period_days": forms.NumberInput(attrs={"min": 0, "step": 1}),
             "min_membership_enabled": forms.CheckboxInput(),
             "min_membership_months": forms.NumberInput(attrs={"min": 0, "step": 1}),
             "committee_single_approver": forms.CheckboxInput(),
+            "usable_days_editable": forms.CheckboxInput(),
         }
         labels = {
             "grace_period_days": "Late-payment grace period (days)",
             "min_membership_enabled": "Require minimum membership before loan",
             "min_membership_months": "Minimum membership (months)",
             "committee_single_approver": "Allow one-person committee approval",
+            "usable_days_editable": "Allow editing usable days on payment",
         }
         help_texts = {
             "grace_period_days": (
@@ -51,12 +54,23 @@ class LoanSettingsForm(forms.ModelForm):
                 "When checked, any one authorized approver can approve or reject a loan. "
                 "When unchecked, a majority of listed approvers is required."
             ),
+            "usable_days_editable": (
+                "When checked, staff can type Days on the Interest period section "
+                "(To date follows From + Days). When unchecked, Days stays locked and "
+                "is calculated as To − From."
+            ),
         }
 
 
 class LoanProductForm(forms.ModelForm):
     min_amount = MoneyField(min_value=0, max_digits=12, decimal_places=2, label="Minimum amount")
     max_amount = MoneyField(min_value=0, max_digits=12, decimal_places=2, label="Maximum amount")
+    uses_usable_days = forms.CharField(
+        required=False,
+        initial="0",
+        label="Use usable days",
+        widget=forms.HiddenInput(attrs={"id": "product-use-usable-days"}),
+    )
 
     class Meta:
         model = models.LoanProduct
@@ -64,30 +78,39 @@ class LoanProductForm(forms.ModelForm):
             "name",
             "description",
             "term_months",
-            "interest_start_month",
             "min_amount",
             "max_amount",
         ]
         widgets = {
             "description": forms.Textarea(attrs={"rows": 3}),
             "term_months": forms.NumberInput(attrs={"min": 1, "step": 1}),
-            "interest_start_month": forms.NumberInput(attrs={"min": 1, "step": 1}),
         }
         labels = {
             "term_months": "Term (months)",
-            "interest_start_month": "Late interest from month",
         }
         help_texts = {
             "term_months": (
                 "How many monthly installments this product uses. "
                 "Term only sets the number of months — it does not change interest calculation."
             ),
-            "interest_start_month": (
-                "Month number from which late interest can be charged "
-                "(1 = first installment). Earlier months stay interest-free even if late. "
-                "The interest % itself is set per application when applying."
-            ),
         }
+
+    @staticmethod
+    def _truthy_flag(raw):
+        return str(raw or "").strip().lower() in {"1", "true", "on", "yes"}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            self.fields["uses_usable_days"].initial = (
+                "1" if self.instance.uses_usable_days else "0"
+            )
+        elif not self.is_bound:
+            self.fields["uses_usable_days"].initial = "0"
+
+    def clean_uses_usable_days(self):
+        raw = self.cleaned_data.get("uses_usable_days", "0")
+        return self._truthy_flag(raw)
 
     def clean(self):
         cleaned_data = super().clean()
@@ -98,9 +121,6 @@ class LoanProductForm(forms.ModelForm):
         term_months = cleaned_data.get("term_months")
         if term_months is not None and term_months < 1:
             self.add_error("term_months", "Term must be at least 1 month.")
-        start_month = cleaned_data.get("interest_start_month")
-        if start_month is not None and start_month < 1:
-            self.add_error("interest_start_month", "Interest start month must be at least 1.")
         return cleaned_data
 
     def save(self, commit=True):
@@ -110,6 +130,7 @@ class LoanProductForm(forms.ModelForm):
         # Interest % is entered per application; keep a DB default on the product.
         if getattr(product, "interest_rate", None) is None:
             product.interest_rate = Decimal("0")
+        product.uses_usable_days = bool(self.cleaned_data.get("uses_usable_days"))
         # Collateral / insurance are not shown in the product UI; apply defaults.
         if not product.pk:
             product.requires_collateral = False
@@ -150,6 +171,12 @@ class LoanApplicationForm(forms.ModelForm):
             inputmode="decimal",
         ),
     )
+    use_usable_days = forms.CharField(
+        required=False,
+        initial="0",
+        label="Use usable days",
+        widget=forms.HiddenInput(attrs={"id": "loan-use-usable-days"}),
+    )
 
     class Meta:
         model = models.LoanApplication
@@ -164,15 +191,7 @@ class LoanApplicationForm(forms.ModelForm):
             "purpose",
         ]
         widgets = {
-            "term_months": forms.NumberInput(
-                attrs={
-                    "min": "1",
-                    "step": "1",
-                    "inputmode": "numeric",
-                    "placeholder": "e.g. 12",
-                    "id": "id_term_months",
-                }
-            ),
+            "term_months": forms.HiddenInput(attrs={"id": "id_term_months"}),
             "interest_rate": forms.NumberInput(
                 attrs={
                     "step": "0.001",
@@ -182,11 +201,15 @@ class LoanApplicationForm(forms.ModelForm):
                     "id": "id_interest_rate",
                 }
             ),
-            "usable_from": forms.DateInput(
-                attrs={"type": "date", "id": "loan-usable-from"}
+            "usable_from": forms.HiddenInput(
+                attrs={"id": "loan-usable-from"}
             ),
-            "usable_to": forms.HiddenInput(attrs={"id": "loan-usable-to"}),
-            "usable_days": forms.HiddenInput(attrs={"id": "loan-usable-days"}),
+            "usable_to": forms.HiddenInput(
+                attrs={"id": "loan-usable-to"}
+            ),
+            "usable_days": forms.HiddenInput(
+                attrs={"id": "loan-usable-days"}
+            ),
         }
         labels = {
             "term_months": "Term (months)",
@@ -197,8 +220,7 @@ class LoanApplicationForm(forms.ModelForm):
         }
         help_texts = {
             "term_months": (
-                "How many months to repay. This only sets the installment count — "
-                "it does not change interest calculation."
+                "Taken automatically from the selected loan product."
             ),
             "interest_rate": (
                 "Monthly rate as a decimal (e.g. 0.015 = 1.5%). "
@@ -208,6 +230,17 @@ class LoanApplicationForm(forms.ModelForm):
             ),
         }
 
+    @staticmethod
+    def _truthy_flag(raw):
+        return str(raw or "").strip().lower() in {"1", "true", "on", "yes"}
+
+    def _resolve_use_usable_days(self):
+        if self.is_bound:
+            raw = self.data.get("use_usable_days", "0")
+        else:
+            raw = self.fields["use_usable_days"].initial or "0"
+        return self._truthy_flag(raw)
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["loan_product"].required = True
@@ -216,24 +249,29 @@ class LoanApplicationForm(forms.ModelForm):
         self.fields["amount_requested"].help_text = (
             "Choose a loan product first. You can only request an amount within that product's allowed range."
         )
-        self.fields["term_months"].required = True
+        self.fields["term_months"].required = False
         self.fields["interest_rate"].required = True
-        self.fields["usable_from"].required = True
-        self.fields["usable_from"].label = "Application date"
+        # Usable days follows the product setting (configured on Products page).
+        if not self.is_bound:
+            self.fields["use_usable_days"].initial = "0"
+        self.use_usable_days = self._resolve_use_usable_days()
+        # From/To dates are collected on payment, not on apply.
+        self.fields["usable_from"].required = False
+        self.fields["usable_from"].label = "From"
         self.fields["usable_to"].required = False
         self.fields["usable_days"].required = False
         amount_widget = self.fields["amount_requested"].widget
         amount_widget.attrs.setdefault("readonly", "readonly")
         amount_widget.attrs.setdefault("id", "id_amount_requested")
-        # Interest rate and term are editable; product selection only prefills defaults.
+        # Interest rate is editable; term is taken from the product automatically.
         self.fields["interest_rate"].widget.attrs.pop("readonly", None)
-        self.fields["term_months"].widget.attrs.pop("readonly", None)
 
         product = self._resolve_selected_product()
         if product is not None:
             self._apply_product_amount_limits(product)
             self._apply_product_interest_default(product)
             self._apply_product_term_default(product)
+            self._apply_product_usable_days(product)
 
     def _resolve_selected_product(self):
         product = None
@@ -274,11 +312,27 @@ class LoanApplicationForm(forms.ModelForm):
             rate_field.initial = product.interest_rate
 
     def _apply_product_term_default(self, product):
+        # Term is not shown on apply — always locked to the product setting.
         term_field = self.fields["term_months"]
-        term_field.widget.attrs.pop("readonly", None)
-        term_field.widget.attrs["placeholder"] = f"e.g. {product.term_months}"
-        if not self.is_bound and not self.initial.get("term_months"):
+        term_field.initial = product.term_months
+        if self.is_bound:
+            mutable = self.data.copy()
+            mutable[self.add_prefix("term_months")] = str(product.term_months)
+            self.data = mutable
+        else:
             term_field.initial = product.term_months
+
+    def _apply_product_usable_days(self, product):
+        """Usable days on/off comes from the product catalog — not shown on Apply."""
+        enabled = bool(getattr(product, "uses_usable_days", False))
+        flag = "1" if enabled else "0"
+        self.fields["use_usable_days"].initial = flag
+        self.use_usable_days = enabled
+        self.fields["usable_from"].required = False
+        if self.is_bound:
+            mutable = self.data.copy()
+            mutable[self.add_prefix("use_usable_days")] = flag
+            self.data = mutable
 
     def clean_purpose(self):
         purpose = (self.cleaned_data.get("purpose") or "").strip()
@@ -287,9 +341,13 @@ class LoanApplicationForm(forms.ModelForm):
         return purpose
 
     def clean_term_months(self):
+        # Prefer product term; fall back to submitted/hidden value.
+        product = self._resolve_selected_product()
+        if product is not None:
+            return max(1, int(product.term_months or 1))
         term = self.cleaned_data.get("term_months")
         if term is None:
-            raise forms.ValidationError("Please enter the loan term in months.")
+            raise forms.ValidationError("Select a loan product to set the term.")
         if term < 1:
             raise forms.ValidationError("Term must be at least 1 month.")
         return term
@@ -308,17 +366,30 @@ class LoanApplicationForm(forms.ModelForm):
             raise forms.ValidationError("Interest rate cannot be negative.")
         return rate.quantize(Decimal("0.001"))
 
-    def clean(self):
-        import calendar
+    def clean_use_usable_days(self):
+        raw = self.cleaned_data.get("use_usable_days", "0")
+        return "1" if self._truthy_flag(raw) else "0"
 
+    def clean(self):
         cleaned_data = super().clean()
         product = cleaned_data.get("loan_product")
         amount = cleaned_data.get("amount_requested")
-        usable_from = cleaned_data.get("usable_from")
 
         if not product:
             self.add_error("loan_product", "Please select a loan product.")
             return cleaned_data
+
+        # Always use the product term from Loan Products settings.
+        cleaned_data["term_months"] = max(1, int(product.term_months or 1))
+
+        # Usable days follows the product catalog; From/To are entered on payment only.
+        use_usable_days = bool(getattr(product, "uses_usable_days", False))
+        cleaned_data["use_usable_days"] = use_usable_days
+        self.use_usable_days = use_usable_days
+        cleaned_data["usable_from"] = None
+        cleaned_data["usable_to"] = None
+        cleaned_data["usable_days"] = None
+
         if amount is None:
             self.add_error("amount_requested", "Please enter the amount you want to request.")
             return cleaned_data
@@ -331,26 +402,15 @@ class LoanApplicationForm(forms.ModelForm):
                 ),
             )
 
-        # Application date only — end date is one calendar month later.
-        if usable_from:
-            month_index = usable_from.month  # +1 month (0-based: month-1+1)
-            to_year = usable_from.year + month_index // 12
-            to_month = month_index % 12 + 1
-            to_day = min(usable_from.day, calendar.monthrange(to_year, to_month)[1])
-            usable_to = usable_from.replace(year=to_year, month=to_month, day=to_day)
-            cleaned_data["usable_to"] = usable_to
-            cleaned_data["usable_days"] = (usable_to - usable_from).days
-        else:
-            self.add_error("usable_from", "Please select the application date.")
-
         return cleaned_data
 
     def save(self, commit=True):
         application = super().save(commit=False)
-        # Term and interest are user-entered on apply; fall back to product only if blank.
         if application.loan_product_id:
-            if not application.term_months:
-                application.term_months = application.loan_product.term_months
+            # Term always comes from the product; interest falls back if blank.
+            application.term_months = max(
+                1, int(application.loan_product.term_months or 1)
+            )
             if application.interest_rate is None:
                 application.interest_rate = application.loan_product.interest_rate
         if (
@@ -709,38 +769,75 @@ class DisbursementForm(forms.ModelForm):
         label="Net amount released (₱)",
         widget=money_input(min="0", placeholder="0.00"),
     )
+    months_pay = forms.IntegerField(
+        min_value=1,
+        label="Months to pay",
+        help_text="Used to prorate interest: principal × rate × (months pay ÷ 12).",
+        widget=forms.NumberInput(attrs={"min": 1, "step": 1}),
+    )
+    savings_amount = MoneyField(
+        min_value=0,
+        max_digits=12,
+        decimal_places=2,
+        required=False,
+        label="Savings (₱)",
+        help_text="Optional savings withheld from the loan proceeds.",
+        widget=money_input(min="0", placeholder="0.00"),
+    )
+    interest_amount = MoneyField(
+        min_value=0,
+        max_digits=12,
+        decimal_places=2,
+        required=False,
+        label="Interest (₱)",
+        widget=money_input(min="0", placeholder="0.00"),
+    )
+    share_capital_amount = MoneyField(
+        min_value=0,
+        max_digits=12,
+        decimal_places=2,
+        required=False,
+        label="Share capital (₱)",
+        widget=money_input(min="0", placeholder="0.00"),
+    )
     transaction_fee = MoneyField(
         min_value=0,
         max_digits=12,
         decimal_places=2,
         required=False,
-        label="Transaction fee (₱)",
+        label="Service fee (₱)",
         widget=money_input(min="0", placeholder="0.00"),
     )
-    other_deduction_amount = MoneyField(
+    insurance_amount = MoneyField(
         min_value=0,
         max_digits=12,
         decimal_places=2,
         required=False,
-        label="Other deduction (₱)",
+        label="Insurance (₱)",
         widget=money_input(min="0", placeholder="0.00"),
     )
 
     class Meta:
         model = models.Disbursement
         fields = [
-            "amount_released",
+            "months_pay",
+            "interest_amount",
+            "share_capital_amount",
             "transaction_fee",
-            "other_deduction_amount",
-            "other_deduction_label",
+            "insurance_amount",
+            "savings_amount",
+            "amount_released",
             "disbursement_method",
             "reference_number",
         ]
         labels = {
             "amount_released": "Net amount released (₱)",
-            "transaction_fee": "Transaction fee (₱)",
-            "other_deduction_amount": "Other deduction (₱)",
-            "other_deduction_label": "Other deduction description",
+            "months_pay": "Months to pay",
+            "interest_amount": "Interest (₱)",
+            "share_capital_amount": "Share capital (₱)",
+            "transaction_fee": "Service fee (₱)",
+            "insurance_amount": "Insurance (₱)",
+            "savings_amount": "Savings (₱)",
             "disbursement_method": "Disbursement method",
             "reference_number": "Reference number",
         }
@@ -749,100 +846,168 @@ class DisbursementForm(forms.ModelForm):
                 "Cash/check/transfer given to the member after fees. "
                 "Principal for repayment stays the full loan amount."
             ),
-            "transaction_fee": "Optional fee withheld at disbursement (e.g. transfer charge).",
-            "other_deduction_amount": "Optional additional fee withheld at disbursement.",
-            "other_deduction_label": "Shown on the disbursement voucher when other deduction is used.",
             "reference_number": "Optional check / transfer reference.",
         }
         widgets = {
             "disbursement_method": forms.RadioSelect(),
-            "other_deduction_label": forms.TextInput(
-                attrs={"placeholder": "e.g. Processing fee, documentary stamp"}
-            ),
             "reference_number": forms.TextInput(
                 attrs={"placeholder": "Check no., transfer ref., etc."}
             ),
         }
 
-    def __init__(self, *args, amount_requested=None, **kwargs):
+    def __init__(self, *args, amount_requested=None, interest_rate=None, term_months=None, uses_usable_days=False, **kwargs):
+        from . import services
+
         super().__init__(*args, **kwargs)
         self.amount_requested = amount_requested
+        self.interest_rate = (
+            Decimal(interest_rate)
+            if interest_rate is not None
+            else Decimal("0")
+        )
+        self.term_months = int(term_months or 12)
+        self.uses_usable_days = bool(uses_usable_days)
+
         self.fields["disbursement_method"].required = True
         self.fields["disbursement_method"].choices = models.Disbursement.Method.choices
-        self.fields["transaction_fee"].initial = Decimal("0.00")
-        self.fields["other_deduction_amount"].initial = Decimal("0.00")
+        self.fields["reference_number"].required = False
+        self.fields["savings_amount"].initial = Decimal("0.00")
+
+        # Computed fee fields are display-only; server recalculates on save.
+        for name in (
+            "interest_amount",
+            "share_capital_amount",
+            "transaction_fee",
+            "insurance_amount",
+            "amount_released",
+        ):
+            self.fields[name].widget.attrs["readonly"] = "readonly"
+            self.fields[name].required = False
+
+        if self.uses_usable_days:
+            # Usable-days products: no coop withholdings; interest at payment.
+            self.fields["months_pay"].required = False
+            self.fields["months_pay"].widget = forms.HiddenInput()
+            self.fields["savings_amount"].widget = forms.HiddenInput()
+            self.fields["interest_amount"].widget = forms.HiddenInput()
+            self.fields["share_capital_amount"].widget = forms.HiddenInput()
+            self.fields["transaction_fee"].widget = forms.HiddenInput()
+            self.fields["insurance_amount"].widget = forms.HiddenInput()
+            self.fields["amount_released"].help_text = (
+                "Full principal released. Interest is charged at payment using "
+                "principal × rate × (usable days ÷ 360)."
+            )
+
         if amount_requested is not None:
             principal = Decimal(amount_requested)
-            if not (self.instance and self.instance.pk):
-                self.initial.setdefault("amount_released", principal)
-                self.fields["amount_released"].initial = principal
-            self.fields["amount_released"].widget.attrs["data-principal"] = str(principal)
-            self.fields["amount_released"].help_text = (
-                "Net cash to the member. Loan principal for repayment remains "
-                f"₱{principal:,.2f}."
+            months_pay = self.term_months
+            if self.instance and self.instance.pk and self.instance.months_pay:
+                months_pay = int(self.instance.months_pay)
+            self.fields["months_pay"].initial = months_pay
+
+            savings = Decimal("0.00")
+            if self.instance and self.instance.pk and not self.uses_usable_days:
+                savings = Decimal(self.instance.savings_amount or 0)
+
+            calc = services.compute_disbursement_deductions(
+                principal,
+                self.interest_rate,
+                months_pay,
+                savings=savings,
+                uses_usable_days=self.uses_usable_days,
             )
+            if not (self.instance and self.instance.pk):
+                self.initial.setdefault("amount_released", calc["amount_released"])
+                self.initial.setdefault("interest_amount", calc["interest_amount"])
+                self.initial.setdefault(
+                    "share_capital_amount", calc["share_capital_amount"]
+                )
+                self.initial.setdefault("transaction_fee", calc["service_fee_amount"])
+                self.initial.setdefault("insurance_amount", calc["insurance_amount"])
+                self.initial.setdefault("savings_amount", calc["savings_amount"])
+                self.fields["amount_released"].initial = calc["amount_released"]
+                self.fields["interest_amount"].initial = calc["interest_amount"]
+                self.fields["share_capital_amount"].initial = calc[
+                    "share_capital_amount"
+                ]
+                self.fields["transaction_fee"].initial = calc["service_fee_amount"]
+                self.fields["insurance_amount"].initial = calc["insurance_amount"]
+
+            self.fields["amount_released"].widget.attrs["data-principal"] = str(principal)
+            if not self.uses_usable_days:
+                self.fields["amount_released"].help_text = (
+                    "Net cash to the member. Loan principal for repayment remains "
+                    f"₱{principal:,.2f}."
+                )
+            self.deduction_preview = calc
+        else:
+            self.deduction_preview = None
+
         if not self.initial.get("disbursement_method") and not (
             self.instance and self.instance.pk and self.instance.disbursement_method
         ):
             self.fields["disbursement_method"].initial = models.Disbursement.Method.CASH
-        self.fields["reference_number"].required = False
-        self.fields["other_deduction_label"].required = False
 
-    def clean_amount_released(self):
-        amount = self.cleaned_data.get("amount_released")
-        if amount is None:
-            raise forms.ValidationError("Net amount released is required.")
-        if amount < 0:
-            raise forms.ValidationError("Net amount released cannot be negative.")
-        if self.amount_requested is not None and amount > self.amount_requested:
-            raise forms.ValidationError(
-                "Net amount released cannot exceed the loan principal "
-                f"(₱{self.amount_requested:,.2f})."
-            )
-        return amount
-
-    def clean_transaction_fee(self):
-        fee = self.cleaned_data.get("transaction_fee")
-        return Decimal(fee or 0).quantize(TWO_PLACES)
-
-    def clean_other_deduction_amount(self):
-        amount = self.cleaned_data.get("other_deduction_amount")
+    def clean_savings_amount(self):
+        amount = self.cleaned_data.get("savings_amount")
         return Decimal(amount or 0).quantize(TWO_PLACES)
 
+    def clean_months_pay(self):
+        months = self.cleaned_data.get("months_pay")
+        if self.uses_usable_days:
+            return int(months or self.term_months or 1)
+        if months is None or months < 1:
+            raise forms.ValidationError("Months to pay must be at least 1.")
+        return int(months)
+
     def clean(self):
+        from . import services
+
         cleaned = super().clean()
         if self.amount_requested is None:
             return cleaned
 
-        released = cleaned.get("amount_released")
-        if released is None:
-            return cleaned
-
-        transaction_fee = cleaned.get("transaction_fee") or Decimal("0.00")
-        other_amount = cleaned.get("other_deduction_amount") or Decimal("0.00")
-        other_label = (cleaned.get("other_deduction_label") or "").strip()
         principal = Decimal(self.amount_requested).quantize(TWO_PLACES)
-        total = (released + transaction_fee + other_amount).quantize(
-            TWO_PLACES, rounding=ROUND_HALF_UP
+        months_pay = cleaned.get("months_pay") or self.term_months
+        savings = (
+            Decimal("0.00")
+            if self.uses_usable_days
+            else (cleaned.get("savings_amount") or Decimal("0.00"))
         )
 
-        if total != principal:
+        calc = services.compute_disbursement_deductions(
+            principal,
+            self.interest_rate,
+            months_pay,
+            savings=savings,
+            uses_usable_days=self.uses_usable_days,
+        )
+
+        # Always apply formula amounts (ignore tampered posted fee fields).
+        cleaned["interest_amount"] = calc["interest_amount"]
+        cleaned["share_capital_amount"] = calc["share_capital_amount"]
+        cleaned["transaction_fee"] = calc["service_fee_amount"]
+        cleaned["insurance_amount"] = calc["insurance_amount"]
+        cleaned["savings_amount"] = calc["savings_amount"]
+        cleaned["amount_released"] = calc["amount_released"]
+        cleaned["other_deduction_amount"] = Decimal("0.00")
+        cleaned["other_deduction_label"] = ""
+
+        if calc["amount_released"] <= 0:
             raise ValidationError(
-                "Net amount released plus all deductions must equal the loan principal "
-                f"(₱{principal:,.2f}). Current total: ₱{total:,.2f}."
+                "Deductions equal or exceed the loan principal. "
+                "Reduce savings or months to pay so a net amount can be released."
             )
-        if released <= 0 and (transaction_fee > 0 or other_amount > 0):
-            raise ValidationError(
-                "Net amount released must be greater than zero when fees are deducted."
-            )
-        if released <= 0:
-            raise ValidationError("Net amount released must be greater than zero.")
-        if other_amount > 0 and not other_label:
-            self.add_error(
-                "other_deduction_label",
-                "Please describe the other deduction for the disbursement voucher.",
-            )
+        self.deduction_preview = calc
         return cleaned
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        instance.other_deduction_amount = Decimal("0.00")
+        instance.other_deduction_label = ""
+        if commit:
+            instance.save()
+        return instance
 
 
 class PaymentForm(forms.ModelForm):
@@ -852,6 +1017,30 @@ class PaymentForm(forms.ModelForm):
         decimal_places=2,
         label="Amount paid",
         widget=money_input(min="0.01", placeholder="0.00"),
+    )
+    use_usable_days = forms.CharField(
+        required=False,
+        initial="0",
+        label="Use usable days",
+        widget=forms.HiddenInput(attrs={"id": "pay-use-usable-days"}),
+    )
+    renewal_months_pay = forms.IntegerField(
+        min_value=1,
+        required=False,
+        label="Months to pay",
+        help_text="Interest = remaining principal × rate × (months pay ÷ 12).",
+        widget=forms.NumberInput(
+            attrs={"id": "pay-renewal-months", "min": 1, "step": 1}
+        ),
+    )
+    renewal_savings = MoneyField(
+        min_value=0,
+        max_digits=12,
+        decimal_places=2,
+        required=False,
+        label="Savings (₱)",
+        help_text="Optional savings charged on the remaining principal.",
+        widget=money_input(min="0", placeholder="0.00", id="pay-renewal-savings"),
     )
 
     class Meta:
@@ -879,16 +1068,8 @@ class PaymentForm(forms.ModelForm):
             "usable_to": forms.DateInput(
                 attrs={"type": "date", "id": "pay-usable-to"}
             ),
-            "usable_days": forms.NumberInput(
-                attrs={
-                    "id": "pay-usable-days",
-                    "min": "0",
-                    "step": "1",
-                    "readonly": "readonly",
-                    "tabindex": "-1",
-                    "inputmode": "numeric",
-                    "title": "Computed as To − From (days)",
-                }
+            "usable_days": forms.HiddenInput(
+                attrs={"id": "pay-usable-days"}
             ),
         }
         labels = {
@@ -903,19 +1084,33 @@ class PaymentForm(forms.ModelForm):
         }
 
     def __init__(self, *args, application=None, **kwargs):
-        from datetime import timedelta
         from decimal import Decimal
 
-        from django.utils import timezone
+        from loans.services import _add_calendar_months
 
         super().__init__(*args, **kwargs)
         self.application = application
         self._usable_from_tampered = False
+        self.usable_days_editable = bool(
+            getattr(models.LoanSettings.get(), "usable_days_editable", False)
+        )
+        # Usable-days products start ON; normal loan products start OFF.
+        if not self.is_bound:
+            product_uses = bool(
+                application
+                and getattr(application, "loan_product", None)
+                and getattr(application.loan_product, "uses_usable_days", False)
+            )
+            self.fields["use_usable_days"].initial = "1" if product_uses else "0"
+        self.use_usable_days = self._resolve_use_usable_days()
         self.fields["or_number"].required = False
         self.fields["remarks"].required = False
         self.fields["usable_from"].required = False
         self.fields["usable_to"].required = False
         self.fields["usable_days"].required = False
+        self.fields["renewal_months_pay"].required = False
+        self.fields["renewal_savings"].required = False
+        self.fields["renewal_savings"].initial = Decimal("0.00")
 
         remaining = Decimal("0.00")
         remaining_principal = Decimal("0.00")
@@ -934,16 +1129,56 @@ class PaymentForm(forms.ModelForm):
             else Decimal("0")
         )
 
+        from loans.services import (
+            compute_expired_loan_renewal_charges,
+            is_loan_term_expired,
+        )
+
+        self.loan_expired = bool(
+            application is not None and is_loan_term_expired(application)
+        )
+        self.renewal_calc = None
+        if self.loan_expired and remaining_principal > 0:
+            months_default = int(application.term_months or 1)
+            if not self.is_bound:
+                self.fields["renewal_months_pay"].initial = months_default
+            else:
+                try:
+                    months_default = int(
+                        self.data.get("renewal_months_pay") or months_default
+                    )
+                except (TypeError, ValueError):
+                    pass
+            savings_default = Decimal("0.00")
+            if self.is_bound:
+                try:
+                    savings_default = Decimal(
+                        str(self.data.get("renewal_savings") or "0") or "0"
+                    )
+                except Exception:
+                    savings_default = Decimal("0.00")
+            self.renewal_calc = compute_expired_loan_renewal_charges(
+                remaining_principal,
+                self.interest_rate,
+                months_default,
+                savings=savings_default,
+            )
+            self.fields["renewal_months_pay"].required = True
+        else:
+            self.fields["renewal_months_pay"].widget = forms.HiddenInput()
+            self.fields["renewal_savings"].widget = forms.HiddenInput()
+
         # Auto-start next interest period from previous payment To (or application date).
+        # To = one calendar month later (same rule as apply-page usable date calculation).
         if application is not None and not self.is_bound:
             start = application.next_usable_from_date()
+            end = _add_calendar_months(start, 1)
             self.fields["usable_from"].initial = start
-            self.fields["usable_to"].initial = start + timedelta(days=30)
-            self.fields["usable_days"].initial = 30
+            self.fields["usable_to"].initial = end
+            self.fields["usable_days"].initial = (end - start).days
 
-        # Usable dates are required while any balance remains — interest is
-        # computed from balance left to pay at payment time.
-        if remaining > 0:
+        # Usable dates are required only when usable days are enabled for this payment.
+        if remaining > 0 and self.use_usable_days:
             self.fields["usable_from"].required = True
             self.fields["usable_to"].required = True
             self.fields["usable_from"].widget.attrs["required"] = True
@@ -958,16 +1193,37 @@ class PaymentForm(forms.ModelForm):
                     mutable = self.data.copy()
                     mutable["usable_from"] = locked_from.isoformat()
                     self.data = mutable
+        else:
+            self.fields["usable_from"].widget.attrs.pop("required", None)
+            self.fields["usable_to"].widget.attrs.pop("required", None)
+
+        # Days stay hidden — only From/To months are shown (usable interest ≠ savings).
+        self.fields["usable_days"].required = False
 
         amount_field = self.fields["amount_paid"]
         amount_field.required = True
         if remaining > 0:
-            from loans.services import period_interest_on_remaining_principal
-
-            preview_interest = period_interest_on_remaining_principal(
-                application, 30
+            from loans.services import (
+                _add_calendar_months,
+                period_interest_on_remaining_principal,
             )
-            max_amount = (remaining + preview_interest).quantize(Decimal("0.01"))
+
+            if self.use_usable_days and application is not None:
+                start = application.next_usable_from_date()
+                preview_days = (_add_calendar_months(start, 1) - start).days
+            else:
+                preview_days = 0
+            preview_interest = (
+                period_interest_on_remaining_principal(application, preview_days)
+                if preview_days > 0
+                else Decimal("0.00")
+            )
+            renewal_charges = Decimal("0.00")
+            if self.renewal_calc:
+                renewal_charges = Decimal(self.renewal_calc["total_charges"] or 0)
+            max_amount = (remaining + preview_interest + renewal_charges).quantize(
+                Decimal("0.01")
+            )
             amount_field.widget.attrs.update(
                 {
                     "step": "0.01",
@@ -978,9 +1234,13 @@ class PaymentForm(forms.ModelForm):
             )
             # Start empty of balance so staff enter the actual amount paid.
             amount_field.initial = Decimal("0.00")
+            parts = [f"balance left ₱{remaining:,.2f}"]
+            if renewal_charges > 0:
+                parts.append(f"expired-loan charges ₱{renewal_charges:,.2f}")
+            if preview_interest > 0:
+                parts.append(f"period interest ₱{preview_interest:,.2f}")
             amount_field.help_text = (
-                f"Maximum allowed: ₱{max_amount:,.2f} (balance left + period interest). "
-                "Interest is based on balance left to pay, not the original loan amount."
+                f"Maximum allowed: ₱{max_amount:,.2f} ({' + '.join(parts)})."
             )
             amount_field.label = "Amount paid (up to remaining balance)"
         else:
@@ -1001,70 +1261,148 @@ class PaymentForm(forms.ModelForm):
                 "usable_from",
                 "usable_to",
                 "usable_days",
+                "use_usable_days",
+                "renewal_months_pay",
+                "renewal_savings",
             ):
                 self.fields[name].disabled = True
                 self.fields[name].required = False
 
+    def _resolve_use_usable_days(self):
+        """True only when staff explicitly enabled usable days for this payment."""
+        if self.is_bound:
+            raw = self.data.get("use_usable_days", "0")
+        else:
+            raw = self.fields["use_usable_days"].initial or "0"
+        return str(raw).strip().lower() not in ("", "0", "false", "off", "no")
+
+    def clean_use_usable_days(self):
+        raw = self.cleaned_data.get("use_usable_days", "0")
+        return "1" if self._truthy_flag(raw) else "0"
+
+    @staticmethod
+    def _truthy_flag(raw):
+        return str(raw or "").strip().lower() not in ("", "0", "false", "off", "no")
+
     def clean(self):
         from decimal import Decimal
 
-        from loans.services import period_interest_on_remaining_principal
+        from loans.services import (
+            compute_expired_loan_renewal_charges,
+            period_interest_on_remaining_principal,
+        )
 
         cleaned_data = super().clean()
+        use_usable_days = self._truthy_flag(cleaned_data.get("use_usable_days", "0"))
+        cleaned_data["use_usable_days"] = use_usable_days
+        self.use_usable_days = use_usable_days
+
         usable_from = cleaned_data.get("usable_from")
         usable_to = cleaned_data.get("usable_to")
         period_interest = Decimal("0.00")
-
+        renewal_charges = Decimal("0.00")
         remaining = Decimal(self.remaining_balance or 0)
-        if self.application is not None and remaining > 0:
-            expected_from = self.application.next_usable_from_date()
-            if getattr(self, "_usable_from_tampered", False):
+        remaining_principal = Decimal(self.remaining_principal or 0)
+
+        # Expired loan: charge renewal formula on remaining principal.
+        if getattr(self, "loan_expired", False) and remaining_principal > 0:
+            months_pay = cleaned_data.get("renewal_months_pay")
+            if months_pay is None or int(months_pay) < 1:
                 self.add_error(
-                    "usable_from",
-                    "From date is set automatically and cannot be changed.",
+                    "renewal_months_pay",
+                    "Enter months to pay for the expired-loan renewal charges.",
                 )
-            cleaned_data["usable_from"] = expected_from
-            usable_from = expected_from
-
-        if usable_from and usable_to:
-            days = (usable_to - usable_from).days
-            if days < 0:
-                self.add_error("usable_to", "To date must be on or after From date.")
+                months_pay = int(
+                    getattr(self.application, "term_months", None) or 1
+                )
             else:
-                cleaned_data["usable_days"] = days
-                if (
-                    self.application is not None
-                    and days > 0
-                    and Decimal(self.remaining_balance or 0) > 0
-                ):
-                    # Interest on balance left to pay (not original loan amount).
-                    period_interest = period_interest_on_remaining_principal(
-                        self.application, days
-                    )
-        elif usable_from or usable_to:
-            self.add_error(
-                "usable_to",
-                "Select both From and To dates for the interest period.",
+                months_pay = int(months_pay)
+            savings = cleaned_data.get("renewal_savings") or Decimal("0.00")
+            calc = compute_expired_loan_renewal_charges(
+                remaining_principal,
+                self.interest_rate,
+                months_pay,
+                savings=savings,
             )
+            self.renewal_calc = calc
+            renewal_charges = Decimal(calc["total_charges"] or 0)
+            cleaned_data["renewal_months_pay"] = months_pay
+            cleaned_data["renewal_savings"] = calc["savings_amount"]
+            cleaned_data["renewal_breakdown"] = calc
 
-        cleaned_data["period_interest"] = period_interest
-        self.period_interest = period_interest
+        if not use_usable_days:
+            cleaned_data["usable_from"] = None
+            cleaned_data["usable_to"] = None
+            cleaned_data["usable_days"] = None
+        else:
+            if self.application is not None and remaining > 0:
+                expected_from = self.application.next_usable_from_date()
+                if getattr(self, "_usable_from_tampered", False):
+                    self.add_error(
+                        "usable_from",
+                        "From date is set automatically and cannot be changed.",
+                    )
+                cleaned_data["usable_from"] = expected_from
+                usable_from = expected_from
 
-        # Allow paying up to outstanding + newly accrued period interest.
+            if usable_from and usable_to:
+                days = (usable_to - usable_from).days
+                if days < 0:
+                    self.add_error(
+                        "usable_to", "To date must be on or after From date."
+                    )
+                else:
+                    cleaned_data["usable_days"] = days
+                    if (
+                        self.application is not None
+                        and days > 0
+                        and Decimal(self.remaining_balance or 0) > 0
+                    ):
+                        period_interest = period_interest_on_remaining_principal(
+                            self.application, days
+                        )
+            elif usable_from or usable_to:
+                self.add_error(
+                    "usable_to",
+                    "Select both From and To dates for the interest period.",
+                )
+
+        total_extra = (period_interest + renewal_charges).quantize(Decimal("0.01"))
+        cleaned_data["period_interest"] = total_extra
+        cleaned_data["renewal_charges"] = renewal_charges
+        self.period_interest = total_extra
+
         amount = cleaned_data.get("amount_paid")
         remaining = Decimal(self.remaining_balance or 0)
-        max_allowed = (remaining + period_interest).quantize(Decimal("0.01"))
+        uses_formula = False
+        if self.application is not None:
+            from loans.services import product_uses_usable_days
+
+            uses_formula = product_uses_usable_days(self.application)
+        if uses_formula and use_usable_days:
+            # Amount entered is partial principal only. Interest is collected on top.
+            max_allowed = remaining.quantize(Decimal("0.01"))
+        else:
+            max_allowed = (remaining + total_extra).quantize(Decimal("0.01"))
         if amount is not None and max_allowed > 0 and amount > max_allowed:
-            interest_note = (
-                f" + period interest ₱{period_interest:,.2f}"
-                if period_interest > 0
-                else ""
-            )
-            self.add_error(
-                "amount_paid",
-                f"Amount cannot exceed ₱{max_allowed:,.2f} "
-                f"(balance ₱{remaining:,.2f}{interest_note}).",
-            )
+            if uses_formula and use_usable_days:
+                self.add_error(
+                    "amount_paid",
+                    f"Partial pay cannot exceed ₱{max_allowed:,.2f} "
+                    f"(balance left). Interest is added on top as total to pay.",
+                )
+            else:
+                notes = []
+                if renewal_charges > 0:
+                    notes.append(f"expired-loan charges ₱{renewal_charges:,.2f}")
+                if period_interest > 0:
+                    notes.append(f"period interest ₱{period_interest:,.2f}")
+                extra_note = f" + {' + '.join(notes)}" if notes else ""
+                self.add_error(
+                    "amount_paid",
+                    f"Amount cannot exceed ₱{max_allowed:,.2f} "
+                    f"(balance ₱{remaining:,.2f}{extra_note}).",
+                )
         return cleaned_data
 
     def clean_amount_paid(self):

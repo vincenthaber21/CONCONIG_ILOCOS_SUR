@@ -24,7 +24,8 @@ def sync_member_loan_permissions(member):
     if perm is None:
         return
 
-    if member.role == COMMITTEE_ROLE_SLUG:
+    member.clear_assigned_role_cache()
+    if member.has_assigned_role(COMMITTEE_ROLE_SLUG):
         user.user_permissions.add(perm)
     else:
         user.user_permissions.remove(perm)

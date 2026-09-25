@@ -63,10 +63,34 @@
         <td>Approved loan principal</td>
         <td class="breakdown__amount">&#8369;{{ application.amount_requested|currency }}</td>
       </tr>
+      {% if disbursement.interest_amount and disbursement.interest_amount > 0 %}
+      <tr class="breakdown__deduction">
+        <td>Less: Interest{% if disbursement.months_pay %} ({{ disbursement.months_pay }}/12){% endif %}</td>
+        <td class="breakdown__amount">&#8722;&#8369;{{ disbursement.interest_amount|currency }}</td>
+      </tr>
+      {% endif %}
+      {% if disbursement.share_capital_amount and disbursement.share_capital_amount > 0 %}
+      <tr class="breakdown__deduction">
+        <td>Less: Share capital (2%)</td>
+        <td class="breakdown__amount">&#8722;&#8369;{{ disbursement.share_capital_amount|currency }}</td>
+      </tr>
+      {% endif %}
       {% if disbursement.transaction_fee and disbursement.transaction_fee > 0 %}
       <tr class="breakdown__deduction">
-        <td>Less: Transaction fee</td>
+        <td>Less: Service fee (2%)</td>
         <td class="breakdown__amount">&#8722;&#8369;{{ disbursement.transaction_fee|currency }}</td>
+      </tr>
+      {% endif %}
+      {% if disbursement.insurance_amount and disbursement.insurance_amount > 0 %}
+      <tr class="breakdown__deduction">
+        <td>Less: Insurance (0.66%)</td>
+        <td class="breakdown__amount">&#8722;&#8369;{{ disbursement.insurance_amount|currency }}</td>
+      </tr>
+      {% endif %}
+      {% if disbursement.savings_amount and disbursement.savings_amount > 0 %}
+      <tr class="breakdown__deduction">
+        <td>Less: Savings</td>
+        <td class="breakdown__amount">&#8722;&#8369;{{ disbursement.savings_amount|currency }}</td>
       </tr>
       {% endif %}
       {% if disbursement.other_deduction_amount and disbursement.other_deduction_amount > 0 %}
@@ -93,8 +117,14 @@
   </div>
 
   <div class="notes">
+    {% if application.loan_product.uses_usable_days %}
+    <strong>Note:</strong> Full principal &#8369;{{ application.amount_requested|currency }} released.
+    Interest is charged at payment using
+    <em>principal × rate × (usable days ÷ 360)</em>.
+    {% else %}
     <strong>Note:</strong> The loan principal remains &#8369;{{ application.amount_requested|currency }} for repayment
     and interest calculation. Deductions above were withheld at disbursement only.
+    {% endif %}
   </div>
 
   <div class="sign-row">

@@ -516,10 +516,6 @@
         </div>
         {% else %}
         <div>
-          <dt>Interest start month</dt>
-          <dd>Month {{ application.loan_product.interest_start_month }}</dd>
-        </div>
-        <div>
           <dt>Late interest per missed month</dt>
           <dd>{{ monthly_interest_rate|floatformat:4 }} / month of unpaid principal</dd>
         </div>
@@ -771,8 +767,8 @@
         </table>
       </div>
       <p class="helptext">
-        Pay on time = no interest. From month {{ application.loan_product.interest_start_month }} onward,
-        missing a due date adds late interest at rate {{ application.effective_interest_rate|floatformat:4 }} per month
+        Pay on time = no interest. Missing a due date adds late interest at rate
+        {{ application.effective_interest_rate|floatformat:4 }} per month
         (daily = monthly rate ÷ 30).
       </p>
       {% endif %}

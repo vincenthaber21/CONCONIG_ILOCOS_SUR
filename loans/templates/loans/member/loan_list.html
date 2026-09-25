@@ -88,7 +88,7 @@
             <th>Product</th>
             <th>Amount range</th>
             <th>Term</th>
-            <th>Interest from</th>
+            <th>Usable days</th>
             <th>Description</th>
             <th></th>
           </tr>
@@ -99,7 +99,7 @@
             <td class="data-table__strong data-table__lead">{{ product.name }}</td>
             <td data-label="Amount range">&#8369;{{ product.min_amount|currency }} – &#8369;{{ product.max_amount|currency }}</td>
             <td data-label="Term">{{ product.term_months }} months</td>
-            <td data-label="Interest from">Month {{ product.interest_start_month }}</td>
+            <td data-label="Usable days">{% if product.uses_usable_days %}Yes · 360-day{% else %}Normal{% endif %}</td>
             <td class="data-table__muted" data-label="Description">{{ product.description|truncatewords:12|default:"—" }}</td>
             <td class="data-table__action">
               {% if can_request_loan and product.pk not in blocked_product_ids %}

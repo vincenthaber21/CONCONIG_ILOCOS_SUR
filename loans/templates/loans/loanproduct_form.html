@@ -1,13 +1,19 @@
 {% extends "loans/base_loans.html" %}
-{% block title %}Add Loan Product{% endblock %}
+{% block title %}{% if is_edit %}Edit Loan Product{% else %}Add Loan Product{% endif %}{% endblock %}
 {% block content %}
 <div class="loan-form-page loan-form-page--wide">
   <header class="loan-form-page__header">
     <a class="loan-form-page__back" href="{% url 'loans:product-list' %}">
       <i class="bi bi-arrow-left"></i> Loan products
     </a>
-    <h1>Add Loan Product</h1>
-    <p class="subtitle">Define a loan offering members can apply for — amount range and term. Interest rate and usable days are set when applying.</p>
+    <h1>{% if is_edit %}Edit Loan Product{% else %}Add Loan Product{% endif %}</h1>
+    <p class="subtitle">
+      {% if is_edit %}
+      Update this loan offering — amount range, term, and usable-days interest.
+      {% else %}
+      Define a loan offering members can apply for — amount range, term, and whether it uses usable-days interest.
+      {% endif %}
+    </p>
   </header>
 
   <div class="loan-form-page__layout">
@@ -50,24 +56,50 @@
           </div>
         </div>
 
-        <div class="loan-form__row">
-          <div class="loan-form__field">
-            <label for="{{ form.term_months.id_for_label }}">{{ form.term_months.label }}</label>
-            {{ form.term_months }}
-            {% if form.term_months.help_text %}<p class="helptext">{{ form.term_months.help_text }}</p>{% endif %}
-            {% if form.term_months.errors %}<div class="loan-form__errors">{{ form.term_months.errors }}</div>{% endif %}
+        <div class="loan-form__field">
+          <label for="{{ form.term_months.id_for_label }}">{{ form.term_months.label }}</label>
+          {{ form.term_months }}
+          {% if form.term_months.help_text %}<p class="helptext">{{ form.term_months.help_text }}</p>{% endif %}
+          {% if form.term_months.errors %}<div class="loan-form__errors">{{ form.term_months.errors }}</div>{% endif %}
+        </div>
+
+        <div class="loan-product-usable{% if form.uses_usable_days.value == '1' or form.uses_usable_days.value == True %} is-on{% endif %}" id="loan-product-usable">
+          <div class="loan-product-usable__head">
+            <div>
+              <h3 class="loan-product-usable__title">Usable days interest</h3>
+              <p class="loan-product-usable__hint" id="product-usable-hint-on"{% if form.uses_usable_days.value != '1' and form.uses_usable_days.value != True %} hidden{% endif %}>
+                This product uses usable-days interest:
+                <strong>interest = principal × rate × (usable days ÷ 360)</strong>.
+                Amount to pay = interest + partial pay.
+              </p>
+              <p class="loan-product-usable__hint loan-product-usable__hint--off" id="product-usable-hint-off"{% if form.uses_usable_days.value == '1' or form.uses_usable_days.value == True %} hidden{% endif %}>
+                Off = <strong>normal loan</strong> (no usable-days formula). Turn on only for usable-days products.
+              </p>
+            </div>
+            <button
+              type="button"
+              class="loan-product-usable__toggle"
+              id="product-usable-toggle"
+              aria-pressed="{% if form.uses_usable_days.value == '1' or form.uses_usable_days.value == True %}true{% else %}false{% endif %}"
+            >
+              {% if form.uses_usable_days.value == '1' or form.uses_usable_days.value == True %}
+              <i class="bi bi-toggle-on" aria-hidden="true"></i> Disable usable days
+              {% else %}
+              <i class="bi bi-toggle-off" aria-hidden="true"></i> Enable usable days
+              {% endif %}
+            </button>
           </div>
-          <div class="loan-form__field">
-            <label for="{{ form.interest_start_month.id_for_label }}">{{ form.interest_start_month.label }}</label>
-            {{ form.interest_start_month }}
-            {% if form.interest_start_month.help_text %}<p class="helptext">{{ form.interest_start_month.help_text }}</p>{% endif %}
-            {% if form.interest_start_month.errors %}<div class="loan-form__errors">{{ form.interest_start_month.errors }}</div>{% endif %}
-          </div>
+          {{ form.uses_usable_days }}
+          {% if form.uses_usable_days.errors %}<div class="loan-form__errors">{{ form.uses_usable_days.errors }}</div>{% endif %}
         </div>
 
         <div class="loan-form__actions">
           <button type="submit" class="btn-loan">
+            {% if is_edit %}
+            <i class="bi bi-check-lg"></i> Save changes
+            {% else %}
             <i class="bi bi-plus-lg"></i> Save product
+            {% endif %}
           </button>
           <a class="btn--secondary" href="{% url 'loans:product-list' %}">Cancel</a>
         </div>
@@ -86,12 +118,12 @@
           <dd>Set on each loan application (Apply step), not on the product — so rates can differ per borrower.</dd>
         </div>
         <div>
-          <dt>Late interest from month</dt>
-          <dd>First installment month that can receive late interest if unpaid past due (1 = first month).</dd>
-        </div>
-        <div>
           <dt>Usable days</dt>
-          <dd>Interest day count is set on Apply from a From/To date range — not on the product.</dd>
+          <dd>
+            Enable on this product for usable-days loans.
+            Formula: interest = principal × rate × (days ÷ 360);
+            amount pay = interest + partial pay. Example: 10,000 × 0.18 × (16 ÷ 360) = ₱80.
+          </dd>
         </div>
         <div>
           <dt>Amount range</dt>
@@ -224,6 +256,64 @@
   }
   .loan-form__money input { padding-left: 30px !important; }
 
+  .loan-product-usable {
+    margin: 1.1rem 0 0;
+    padding: 1rem 1.1rem;
+    border: 1px dashed #fecaca;
+    border-radius: 12px;
+    background: #fff7ed;
+  }
+  .loan-product-usable.is-on {
+    border-color: #86efac;
+    border-style: solid;
+    background: #f0fdf4;
+  }
+  .loan-product-usable__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: .75rem;
+    flex-wrap: wrap;
+  }
+  .loan-product-usable__title {
+    margin: 0 0 .35rem;
+    font-size: .92rem;
+    font-weight: 700;
+    color: #0f172a;
+  }
+  .loan-product-usable__hint {
+    margin: 0;
+    font-size: .78rem;
+    color: #64748b;
+    line-height: 1.45;
+    max-width: 36rem;
+  }
+  .loan-product-usable__hint--off { color: #b45309; }
+  .loan-product-usable__toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #334155;
+    border-radius: 999px;
+    padding: .35rem .75rem;
+    font-size: .75rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .loan-product-usable__toggle[aria-pressed="true"] {
+    border-color: #86efac;
+    background: #f0fdf4;
+    color: #166534;
+  }
+  .loan-product-usable__toggle[aria-pressed="false"] {
+    border-color: #fecaca;
+    background: #fef2f2;
+    color: #b91c1c;
+  }
+
   .loan-form__errors .errorlist {
     margin: .35rem 0 0;
     padding-left: 1.15rem;
@@ -241,4 +331,34 @@
   .loan-form__actions .btn-loan,
   .loan-form__actions .btn--secondary { margin: 0; }
 </style>
+<script>
+(function () {
+  var input = document.getElementById("product-use-usable-days");
+  var btn = document.getElementById("product-usable-toggle");
+  var box = document.getElementById("loan-product-usable");
+  var hintOn = document.getElementById("product-usable-hint-on");
+  var hintOff = document.getElementById("product-usable-hint-off");
+  if (!input || !btn) return;
+
+  function isOn() {
+    return String(input.value || "0") === "1";
+  }
+
+  function setOn(enabled) {
+    input.value = enabled ? "1" : "0";
+    if (box) box.classList.toggle("is-on", enabled);
+    if (hintOn) hintOn.hidden = !enabled;
+    if (hintOff) hintOff.hidden = enabled;
+    btn.setAttribute("aria-pressed", enabled ? "true" : "false");
+    btn.innerHTML = enabled
+      ? '<i class="bi bi-toggle-on" aria-hidden="true"></i> Disable usable days'
+      : '<i class="bi bi-toggle-off" aria-hidden="true"></i> Enable usable days';
+  }
+
+  btn.addEventListener("click", function () {
+    setOn(!isOn());
+  });
+  setOn(isOn());
+})();
+</script>
 {% endblock %}

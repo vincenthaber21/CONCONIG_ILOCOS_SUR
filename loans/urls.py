@@ -8,6 +8,16 @@ urlpatterns = [
     path("settings/", views.LoanSettingsView.as_view(), name="settings"),
     path("products/", views.LoanProductListView.as_view(), name="product-list"),
     path("products/add/", views.LoanProductCreateView.as_view(), name="product-create"),
+    path(
+        "products/<uuid:pk>/edit/",
+        views.LoanProductUpdateView.as_view(),
+        name="product-edit",
+    ),
+    path(
+        "products/<uuid:pk>/delete/",
+        views.LoanProductDeleteView.as_view(),
+        name="product-delete",
+    ),
     path("inquiries/new/", views.LoanInquiryCreateView.as_view(), name="inquiry-create"),
     path("apply/", views.LoanApplicationCreateView.as_view(), name="application-create"),
     path("", views.LoanApplicationListView.as_view(), name="application-list"),

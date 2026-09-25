@@ -363,9 +363,28 @@ def _member_process_stages(application, pipeline_steps):
             ("Loan principal", f"₱{application.amount_requested:,.2f}"),
             ("Net amount released", f"₱{disbursement.amount_released:,.2f}"),
         ]
+        if disbursement.interest_amount and disbursement.interest_amount > 0:
+            facts_by_key["DISBURSED"].append(
+                ("Interest", f"₱{disbursement.interest_amount:,.2f}")
+            )
+        if (
+            disbursement.share_capital_amount
+            and disbursement.share_capital_amount > 0
+        ):
+            facts_by_key["DISBURSED"].append(
+                ("Share capital", f"₱{disbursement.share_capital_amount:,.2f}")
+            )
         if disbursement.transaction_fee and disbursement.transaction_fee > 0:
             facts_by_key["DISBURSED"].append(
-                ("Transaction fee", f"₱{disbursement.transaction_fee:,.2f}")
+                ("Service fee", f"₱{disbursement.transaction_fee:,.2f}")
+            )
+        if disbursement.insurance_amount and disbursement.insurance_amount > 0:
+            facts_by_key["DISBURSED"].append(
+                ("Insurance", f"₱{disbursement.insurance_amount:,.2f}")
+            )
+        if disbursement.savings_amount and disbursement.savings_amount > 0:
+            facts_by_key["DISBURSED"].append(
+                ("Savings", f"₱{disbursement.savings_amount:,.2f}")
             )
         if (
             disbursement.other_deduction_amount
@@ -590,7 +609,6 @@ def member_loan_list(request):
                 application.amount_requested,
                 application.effective_interest_rate(),
                 application.term_months,
-                application.loan_product.interest_start_month,
             )
             application.monthly_payment = plan["monthly_payment"]
             application.total_payment = plan["total_payment"]
@@ -856,7 +874,7 @@ def member_loan_request(request):
             "max_amount": str(product.max_amount),
             "term_months": product.term_months,
             "interest_rate": str(product.interest_rate),
-            "interest_start_month": product.interest_start_month,
+            "uses_usable_days": bool(product.uses_usable_days),
         }
         for product in products
     }
@@ -961,7 +979,6 @@ def member_loan_detail(request, pk):
                     else Decimal("0.00")
                 ),
                 "late_interest_rate": application.effective_interest_rate(),
-                "late_interest_from_month": application.loan_product.interest_start_month,
             }
             plan_is_estimate = False
         else:
@@ -969,7 +986,6 @@ def member_loan_detail(request, pk):
                 application.amount_requested,
                 application.effective_interest_rate(),
                 application.term_months,
-                application.loan_product.interest_start_month,
             )
             plan_is_estimate = True
 

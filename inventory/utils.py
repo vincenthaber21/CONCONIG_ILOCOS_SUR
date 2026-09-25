@@ -1011,3 +1011,57 @@ def apply_product_project_categories(product, category_ids: list[int] | None) ->
         return
     product.project_categories.set(category_ids)
 
+
+def resolve_product_category_for_user(user, category_id):
+    """
+    Decide which Category a product create/update may use.
+
+    Cashiers may only file a product under one of their assigned project
+    categories. When they have exactly one, that category is used if the
+    field is left blank. Admins and other staff may leave a product
+    uncategorized or pick any category.
+
+    Returns ``(category, project_category_ids, error)``.
+    ``error`` is a user-facing string when the choice is not allowed.
+    """
+    from inventory.models import Category
+
+    assigned_ids = get_cashier_project_category_ids(user)
+    if assigned_ids is None:
+        if category_id in (None, '', 'null'):
+            return None, [], None
+        try:
+            category = Category.objects.get(pk=int(category_id))
+        except (TypeError, ValueError, Category.DoesNotExist):
+            return None, None, 'Selected category does not exist'
+        return category, [category.pk], None
+
+    if not assigned_ids:
+        return None, None, (
+            'No project categories are assigned to your cashier account. '
+            'Ask an admin to assign categories before adding products.'
+        )
+
+    allowed = list(Category.objects.filter(pk__in=assigned_ids).order_by('name'))
+    if not allowed:
+        return None, None, (
+            'No project categories are assigned to your cashier account. '
+            'Ask an admin to assign categories before adding products.'
+        )
+    allowed_by_id = {row.pk: row for row in allowed}
+
+    if category_id not in (None, '', 'null'):
+        try:
+            chosen_id = int(category_id)
+        except (TypeError, ValueError):
+            return None, None, 'You can only add products to your assigned project categories.'
+        chosen = allowed_by_id.get(chosen_id)
+        if chosen is None:
+            return None, None, 'You can only add products to your assigned project categories.'
+    elif len(allowed) == 1:
+        chosen = allowed[0]
+    else:
+        return None, None, 'Select one of your assigned project categories for this product.'
+
+    return chosen, [chosen.pk], None
+

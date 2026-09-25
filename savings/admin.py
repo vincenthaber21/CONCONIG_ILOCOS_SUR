@@ -60,10 +60,11 @@ class SavingsProductAdmin(admin.ModelAdmin):
         (
             "Interest",
             {
-                "fields": ("interest_rate", "compounding"),
+                "fields": ("interest_rate", "interest_apply_months", "compounding"),
                 "description": (
-                    "Annual rate is a flat 5%. Interest is credited monthly on the "
-                    "opening anniversary (same calendar day) as (balance × 5%) ÷ 12."
+                    "Interest = savings × interest rate × apply-every-months ÷ 12. "
+                    "Credited only when the account had no withdrawal in that period. "
+                    "Example: 2,000 × 0.070 × 3 ÷ 12 = ₱35.00."
                 ),
             },
         ),

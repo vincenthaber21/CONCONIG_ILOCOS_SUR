@@ -1,0 +1,32 @@
+<label class="form-label">Roles</label>
+<div class="border rounded-3 p-3 bg-white" id="{{ id_prefix }}RoleBox">
+  {% for role in assignable_roles %}
+    {% if restrict_member_role and role.slug != 'member' %}
+    {% else %}
+    <div class="form-check mb-1">
+      <input class="form-check-input" type="checkbox" value="{{ role.slug }}" id="{{ id_prefix }}Role_{{ role.slug }}" {% if role.slug == 'member' %}checked{% endif %}>
+      <label class="form-check-label" for="{{ id_prefix }}Role_{{ role.slug }}">{{ role.name }}</label>
+    </div>
+    {% endif %}
+  {% empty %}
+    <div class="form-check mb-1">
+      <input class="form-check-input" type="checkbox" value="member" id="{{ id_prefix }}Role_member" checked>
+      <label class="form-check-label" for="{{ id_prefix }}Role_member">Member</label>
+    </div>
+    {% if not restrict_member_role %}
+    <div class="form-check mb-1">
+      <input class="form-check-input" type="checkbox" value="staff" id="{{ id_prefix }}Role_staff">
+      <label class="form-check-label" for="{{ id_prefix }}Role_staff">Staff</label>
+    </div>
+    <div class="form-check mb-1">
+      <input class="form-check-input" type="checkbox" value="cashier" id="{{ id_prefix }}Role_cashier">
+      <label class="form-check-label" for="{{ id_prefix }}Role_cashier">Cashier</label>
+    </div>
+    <div class="form-check">
+      <input class="form-check-input" type="checkbox" value="admin" id="{{ id_prefix }}Role_admin">
+      <label class="form-check-label" for="{{ id_prefix }}Role_admin">Admin</label>
+    </div>
+    {% endif %}
+  {% endfor %}
+</div>
+<small class="text-muted">Select every role this person can open. After login they choose which role to use.</small>

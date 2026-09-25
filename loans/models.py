@@ -89,6 +89,14 @@ class LoanSettings(models.Model):
             "of listed approvers is required."
         ),
     )
+    usable_days_editable = models.BooleanField(
+        default=False,
+        help_text=(
+            "When enabled, staff can type the interest-period Days on the payment form "
+            "(To date updates from From + Days). When disabled, Days is locked and "
+            "computed automatically as To − From."
+        ),
+    )
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
@@ -125,6 +133,7 @@ class LoanSettings(models.Model):
                 "min_membership_enabled": True,
                 "min_membership_months": 3,
                 "committee_single_approver": True,
+                "usable_days_editable": False,
             },
         )
         return obj
@@ -150,18 +159,20 @@ class LoanProduct(BaseModel):
             "at apply time. Daily interest = (rate ÷ 30) × principal."
         ),
     )
-    interest_start_month = models.PositiveIntegerField(
-        default=1,
-        help_text=(
-            "First installment month that can receive late interest if unpaid past due "
-            "(1 = first month). Earlier months stay interest-free even when late."
-        ),
-    )
     min_amount = models.DecimalField(max_digits=12, decimal_places=2)
     max_amount = models.DecimalField(max_digits=12, decimal_places=2)
     term_months = models.PositiveIntegerField(
         default=12,
         help_text="Fixed repayment term in months for this product (set by admin only).",
+    )
+    uses_usable_days = models.BooleanField(
+        default=False,
+        help_text=(
+            "When enabled, this product uses usable-days interest: "
+            "interest = principal × rate × (usable days ÷ 360). "
+            "When disabled, the product uses the normal loan path "
+            "(no usable-days period interest)."
+        ),
     )
     requires_collateral = models.BooleanField(default=False)
     requires_insurance = models.BooleanField(default=False)
@@ -777,17 +788,46 @@ class Disbursement(TimeStampedModel):
         decimal_places=2,
         help_text="Net cash/check/transfer given to the member after deductions.",
     )
+    months_pay = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text="Months used to prorate interest: principal × rate × (months_pay / 12).",
+    )
+    interest_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Interest withheld at disbursement (principal × rate × months_pay / 12).",
+    )
+    share_capital_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Share capital withheld at disbursement (principal × 2%).",
+    )
+    insurance_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Insurance withheld at disbursement (principal × 0.66%).",
+    )
+    savings_amount = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        help_text="Savings withheld at disbursement (staff-entered amount).",
+    )
     transaction_fee = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         default=Decimal("0.00"),
-        help_text="Transaction or service fee withheld at disbursement.",
+        help_text="Service fee withheld at disbursement (principal × 2%).",
     )
     other_deduction_amount = models.DecimalField(
         max_digits=12,
         decimal_places=2,
         default=Decimal("0.00"),
-        help_text="Other fees withheld at disbursement (e.g. processing fee).",
+        help_text="Legacy/other fees withheld at disbursement.",
     )
     other_deduction_label = models.CharField(
         max_length=120,
@@ -812,8 +852,20 @@ class Disbursement(TimeStampedModel):
         return Decimal("0.00")
 
     @property
+    def service_fee_amount(self):
+        """Alias: service fee is stored in transaction_fee."""
+        return Decimal(self.transaction_fee or 0)
+
+    @property
     def total_deductions(self):
-        return Decimal(self.transaction_fee or 0) + Decimal(self.other_deduction_amount or 0)
+        return (
+            Decimal(self.interest_amount or 0)
+            + Decimal(self.share_capital_amount or 0)
+            + Decimal(self.transaction_fee or 0)
+            + Decimal(self.insurance_amount or 0)
+            + Decimal(self.savings_amount or 0)
+            + Decimal(self.other_deduction_amount or 0)
+        )
 
     @property
     def voucher_number(self):

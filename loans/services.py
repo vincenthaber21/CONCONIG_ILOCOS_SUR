@@ -14,6 +14,7 @@ from pathlib import Path
 from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.core.files.base import ContentFile
+from django.db.models import Q
 from django.utils import timezone
 from reportlab.lib.pagesizes import A4, letter
 from reportlab.lib.units import mm
@@ -23,6 +24,180 @@ TWO_PLACES = Decimal("0.01")
 ONE_PLACE = Decimal("0.1")
 BASE_REPAYMENT_SCORE = Decimal("100.0")
 NONCOMPLIANCE_PENALTY = Decimal("0.1")  # -0.1 percentage points per late unpaid installment
+
+# Disbursement deduction rates (fixed % of principal)
+DISBURSEMENT_SHARE_CAPITAL_RATE = Decimal("0.02")
+DISBURSEMENT_SERVICE_FEE_RATE = Decimal("0.02")
+DISBURSEMENT_INSURANCE_RATE = Decimal("0.0066")
+DISBURSEMENT_RATE_BASE_MONTHS = 12  # interest = principal × rate × (months_pay / 12)
+
+
+def compute_disbursement_deductions(
+    principal,
+    interest_rate,
+    months_pay,
+    savings=None,
+    base_months=DISBURSEMENT_RATE_BASE_MONTHS,
+    *,
+    uses_usable_days=False,
+):
+    """Compute disbursement withholdings.
+
+    Normal loan (cooperative formula)::
+        interest = principal × interest_rate × (months_pay / base_months)
+        share_capital = principal × 0.02
+        service_fee = principal × 0.02
+        insurance = principal × 0.0066
+        savings = staff-entered amount (default 0)
+        Net released = principal − all deductions.
+
+    Usable-days product (``uses_usable_days=True``)::
+        No withholdings at disbursement. Full principal is released.
+        Interest is charged later at payment via
+        ``principal × rate × (usable_days / 360)``.
+    """
+    principal = Decimal(principal or 0).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
+    rate = Decimal(interest_rate or 0)
+    pay_months = max(int(months_pay or 0), 0)
+    denom = max(int(base_months or DISBURSEMENT_RATE_BASE_MONTHS), 1)
+    zero = Decimal("0.00")
+
+    if uses_usable_days:
+        return {
+            "principal": principal,
+            "interest_rate": rate,
+            "months_pay": pay_months,
+            "base_months": denom,
+            "interest_amount": zero,
+            "share_capital_amount": zero,
+            "service_fee_amount": zero,
+            "insurance_amount": zero,
+            "savings_amount": zero,
+            "total_deductions": zero,
+            "amount_released": principal,
+            "share_capital_rate": DISBURSEMENT_SHARE_CAPITAL_RATE,
+            "service_fee_rate": DISBURSEMENT_SERVICE_FEE_RATE,
+            "insurance_rate": DISBURSEMENT_INSURANCE_RATE,
+            "uses_usable_days": True,
+        }
+
+    savings_amt = Decimal(savings or 0).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
+    if savings_amt < 0:
+        savings_amt = zero
+
+    fraction = Decimal(pay_months) / Decimal(denom)
+    interest = (principal * rate * fraction).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
+    share_capital = (principal * DISBURSEMENT_SHARE_CAPITAL_RATE).quantize(
+        TWO_PLACES, rounding=ROUND_HALF_UP
+    )
+    service_fee = (principal * DISBURSEMENT_SERVICE_FEE_RATE).quantize(
+        TWO_PLACES, rounding=ROUND_HALF_UP
+    )
+    insurance = (principal * DISBURSEMENT_INSURANCE_RATE).quantize(
+        TWO_PLACES, rounding=ROUND_HALF_UP
+    )
+    total_deductions = (
+        interest + share_capital + service_fee + insurance + savings_amt
+    ).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
+    amount_released = (principal - total_deductions).quantize(
+        TWO_PLACES, rounding=ROUND_HALF_UP
+    )
+    if amount_released < 0:
+        amount_released = zero
+
+    return {
+        "principal": principal,
+        "interest_rate": rate,
+        "months_pay": pay_months,
+        "base_months": denom,
+        "interest_amount": interest,
+        "share_capital_amount": share_capital,
+        "service_fee_amount": service_fee,
+        "insurance_amount": insurance,
+        "savings_amount": savings_amt,
+        "total_deductions": total_deductions,
+        "amount_released": amount_released,
+        "share_capital_rate": DISBURSEMENT_SHARE_CAPITAL_RATE,
+        "service_fee_rate": DISBURSEMENT_SERVICE_FEE_RATE,
+        "insurance_rate": DISBURSEMENT_INSURANCE_RATE,
+        "uses_usable_days": False,
+    }
+
+
+def get_loan_maturity_date(application):
+    """Calendar maturity date for a released loan (disbursement + term months).
+
+    Falls back to lump-sum maturity or the last amortization due date.
+    """
+    lump_sum = getattr(application, "lump_sum_payoff", None)
+    if lump_sum is not None and lump_sum.maturity_date:
+        return lump_sum.maturity_date
+
+    last_installment = (
+        application.amortization_schedules.order_by("-installment_number").first()
+    )
+    if last_installment and last_installment.due_date:
+        return last_installment.due_date
+
+    disbursement = getattr(application, "disbursement", None)
+    if disbursement and disbursement.disbursement_date:
+        start = timezone.localdate(disbursement.disbursement_date)
+    elif getattr(application, "created_at", None):
+        start = timezone.localdate(application.created_at)
+    else:
+        return None
+
+    term = int(application.term_months or 0)
+    if term <= 0:
+        return start
+    return _add_calendar_months(start, term)
+
+
+def is_loan_term_expired(application, as_of_date=None):
+    """True when the loan term has ended and principal still remains unpaid."""
+    remaining = Decimal(application.remaining_principal_balance() or 0)
+    if remaining <= 0:
+        return False
+    status = getattr(application, "status", None)
+    if status in {
+        application.Status.FULLY_PAID,
+        application.Status.CLOSED,
+        application.Status.DRAFT,
+        application.Status.REJECTED,
+    }:
+        return False
+    maturity = get_loan_maturity_date(application)
+    if maturity is None:
+        return False
+    today = as_of_date or timezone.localdate()
+    return maturity < today
+
+
+def compute_expired_loan_renewal_charges(
+    remaining_principal,
+    interest_rate,
+    months_pay,
+    savings=None,
+):
+    """Renewal charges on remaining principal when a loan term has expired.
+
+    Same cooperative rates as disbursement, applied to the unpaid principal::
+
+        interest = remaining × rate × (months_pay / 12)
+        share_capital = remaining × 0.02
+        service_fee = remaining × 0.02
+        insurance = remaining × 0.0066
+        savings = staff input
+    """
+    calc = compute_disbursement_deductions(
+        remaining_principal,
+        interest_rate,
+        months_pay,
+        savings=savings,
+    )
+    calc["remaining_principal"] = calc["principal"]
+    calc["total_charges"] = calc["total_deductions"]
+    return calc
 
 
 def _add_calendar_months(dt, months):
@@ -150,9 +325,13 @@ def eligible_committee_voters():
             is_active=True,
             user__isnull=False,
             user__is_active=True,
-            member_role__slug__in=COMMITTEE_VOTER_ROLES,
+        )
+        .filter(
+            Q(member_role__slug__in=COMMITTEE_VOTER_ROLES)
+            | Q(roles__slug__in=COMMITTEE_VOTER_ROLES)
         )
         .select_related("user", "member_role")
+        .distinct()
         .order_by("member_role__sort_order", "first_name", "last_name")
     )
 
@@ -929,12 +1108,12 @@ def ensure_monthly_repayment_schedule(application, actor=None, request=None):
     )
 
 
-def estimate_payment_schedule(principal, annual_rate_percent, term_months, interest_start_month=1):
+def estimate_payment_schedule(principal, annual_rate_percent, term_months):
     """Compute a monthly payment preview (principal only) without saving.
 
-    Interest is not included in the on-time plan. ``annual_rate_percent`` and
-    ``interest_start_month`` are kept for API compatibility and shown as the
-    late-payment rate in the UI; they do not increase the scheduled amount.
+    Interest is not included in the on-time plan. ``annual_rate_percent`` is
+    kept for API compatibility and shown as the late-payment rate in the UI;
+    it does not increase the scheduled amount.
     """
     principal = Decimal(principal or 0)
     n = int(term_months or 0)
@@ -946,7 +1125,6 @@ def estimate_payment_schedule(principal, annual_rate_percent, term_months, inter
         "monthly_payment": Decimal("0.00"),
         "term_months": n,
         "late_interest_rate": Decimal(annual_rate_percent or 0),
-        "late_interest_from_month": max(1, int(interest_start_month or 1)),
     }
     if principal <= 0 or n <= 0:
         return result
@@ -987,7 +1165,16 @@ def estimate_payment_schedule(principal, annual_rate_percent, term_months, inter
 
 
 DAYS_PER_MONTH = Decimal("30")
+DAYS_PER_BANK_YEAR = Decimal("360")
 ONE = Decimal("1")
+
+
+def product_uses_usable_days(application_or_product):
+    """True when the loan product uses the usable-days (360-day) interest formula."""
+    product = application_or_product
+    if hasattr(application_or_product, "loan_product"):
+        product = getattr(application_or_product, "loan_product", None)
+    return bool(product and getattr(product, "uses_usable_days", False))
 
 
 def interest_per_day(principal, monthly_rate):
@@ -1006,18 +1193,35 @@ def interest_per_day(principal, monthly_rate):
     return (rate / DAYS_PER_MONTH) * principal
 
 
-def compute_interest_balance(principal, monthly_rate, usable_days):
-    """Principal + accrued interest for ``usable_days``.
-
-    Interest applies only while unpaid principal remains. When
-    ``principal <= 0`` (fully paid principal), interest is ₱0.
+def compute_usable_days_interest(principal, rate, usable_days):
+    """Usable-days interest on a 360-day bank year.
 
     Formula::
-        interest_per_day = (input_interest / 30) * loan
-        current_balance = round((interest_per_day * usable_days) + loan)
+        interest = principal × rate × (usable_days / 360)
 
-    ``current_balance`` is rounded to the nearest peso (whole number).
-    Interest is ``current_balance − principal`` so the two stay consistent.
+    Example: 10000 × 0.18 × (16 / 360) = 80.
+    ``amount_pay = interest + partial_pay`` is applied at payment time.
+    """
+    principal = Decimal(principal or 0)
+    rate = Decimal(rate or 0)
+    days = max(0, int(usable_days or 0))
+    if principal <= 0 or rate <= 0 or days <= 0:
+        return Decimal("0.00")
+    interest = (principal * rate * (Decimal(days) / DAYS_PER_BANK_YEAR)).quantize(
+        TWO_PLACES, rounding=ROUND_HALF_UP
+    )
+    return interest
+
+
+def compute_interest_balance(principal, monthly_rate, usable_days, *, uses_usable_days=False):
+    """Principal + accrued interest for ``usable_days``.
+
+    Normal loan (``uses_usable_days=False``)::
+        interest_per_day = (rate / 30) × principal
+        interest = interest_per_day × usable_days
+
+    Usable-days product (``uses_usable_days=True``)::
+        interest = principal × rate × (usable_days / 360)
     """
     principal = Decimal(principal or 0)
     days = max(0, int(usable_days or 0))
@@ -1027,6 +1231,22 @@ def compute_interest_balance(principal, monthly_rate, usable_days):
             "interest": Decimal("0.00"),
             "usable_days": days,
             "current_balance": Decimal("0.00"),
+            "uses_usable_days": bool(uses_usable_days),
+        }
+    if uses_usable_days:
+        interest = compute_usable_days_interest(principal, monthly_rate, days)
+        per_day = (
+            (interest / Decimal(days)).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)
+            if days > 0
+            else Decimal("0")
+        )
+        balance = (principal + interest).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
+        return {
+            "interest_per_day": per_day,
+            "interest": interest,
+            "usable_days": days,
+            "current_balance": balance,
+            "uses_usable_days": True,
         }
     daily = interest_per_day(principal, monthly_rate)
     raw_interest = daily * Decimal(days)
@@ -1037,15 +1257,15 @@ def compute_interest_balance(principal, monthly_rate, usable_days):
         "interest": interest,
         "usable_days": days,
         "current_balance": balance.quantize(TWO_PLACES, rounding=ROUND_HALF_UP),
+        "uses_usable_days": False,
     }
 
 
 def period_interest_on_remaining_principal(application, usable_days):
     """Interest for a payment usable-days period on balance left to pay.
 
-    Each payment uses the current outstanding balance (not the original loan
-    amount). Example: after a first payment leaves ₱31,400, the next period's
-    interest is ``(rate ÷ 30) × 31400 × days``, not based on ₱50,000.
+    Usable-days products use ``principal × rate × (days / 360)``.
+    Normal loans use ``(rate ÷ 30) × balance × days``.
     """
     balance_left = Decimal(application.total_outstanding_balance() or 0)
     if balance_left <= 0:
@@ -1054,6 +1274,7 @@ def period_interest_on_remaining_principal(application, usable_days):
         balance_left,
         application.effective_interest_rate(),
         usable_days,
+        uses_usable_days=product_uses_usable_days(application),
     )["interest"]
 
 
@@ -1071,15 +1292,9 @@ def estimate_late_interest_amount(principal_due, monthly_rate, usable_days=30):
 def attach_missed_payment_costs(payment_plan):
     """Enrich schedule rows with on-time vs missed-due-date amounts.
 
-    Honours loan-product admin settings:
-    - ``late_interest_rate`` (Interest rate)
-    - ``late_interest_from_month`` (Interest start month)
-
-    Months before the start month stay interest-free even if unpaid.
-    From the start month onward, failing to pay adds late interest.
+    Unpaid installments past due can receive late interest at the loan rate.
     """
     rate = Decimal(payment_plan.get("late_interest_rate") or 0)
-    from_month = max(1, int(payment_plan.get("late_interest_from_month") or 1))
     rows = payment_plan.get("rows") or []
 
     total_if_on_time = Decimal("0.00")
@@ -1088,10 +1303,8 @@ def attach_missed_payment_costs(payment_plan):
 
     for row in rows:
         principal = Decimal(row.get("principal_due") or 0)
-        month_no = int(row.get("month") or 0)
         on_time_pay = principal
-        before_start = month_no < from_month
-        can_get_late = (not before_start) and (not row.get("is_paid")) and rate > 0
+        can_get_late = (not row.get("is_paid")) and rate > 0
 
         if can_get_late:
             if row.get("is_overdue") and Decimal(row.get("interest_due") or 0) > 0:
@@ -1108,9 +1321,8 @@ def attach_missed_payment_costs(payment_plan):
         row["on_time_pay"] = on_time_pay
         row["late_interest_if_missed"] = late_interest
         row["total_if_missed"] = if_missed
-        row["before_interest_start"] = before_start
+        row["before_interest_start"] = False
         row["can_get_late_interest"] = can_get_late
-        row["interest_start_month"] = from_month
         row["interest_rate"] = rate
 
         total_if_on_time += on_time_pay
@@ -1195,20 +1407,15 @@ def apply_late_interest(installment, as_of_date=None):
         interest_per_day = (rate / 30) * principal
         interest = interest_per_day * usable_days
         current_balance = round(principal + interest)  # nearest peso
-    - Installments before ``interest_start_month`` never receive late interest.
     """
     as_of_date = as_of_date or timezone.localdate()
     application = installment.application
-    product = application.loan_product
-    interest_start = max(1, int(product.interest_start_month or 1))
 
-    # On-time, still in grace, principal fully paid, or still in the
-    # interest-free months window.
+    # On-time, still in grace, or principal fully paid → no late interest.
     if (
         installment.is_paid
         or application.is_principal_fully_paid()
         or not is_installment_past_grace(installment.due_date, as_of_date)
-        or installment.installment_number < interest_start
     ):
         if installment.interest_due and not installment.is_paid:
             installment.interest_due = Decimal("0.00")
@@ -1345,10 +1552,14 @@ def build_payment_receipt_context(application, payment):
     if payment.usable_from and payment.usable_to and usable_days <= 0:
         usable_days = (payment.usable_to - payment.usable_from).days
 
-    daily = interest_per_day(outstanding_before, rate)
+    uses_formula = product_uses_usable_days(application)
     interest_breakdown = compute_interest_balance(
-        outstanding_before, rate, usable_days
+        outstanding_before,
+        rate,
+        usable_days,
+        uses_usable_days=uses_formula,
     )
+    daily = interest_breakdown["interest_per_day"]
 
     grace_days = int(LoanSettings.get().grace_period_days or 0)
     disbursement = getattr(application, "disbursement", None)
@@ -1361,6 +1572,7 @@ def build_payment_receipt_context(application, payment):
         "loan_principal": principal,
         "monthly_interest_rate": rate,
         "monthly_interest_rate_percent": rate_percent,
+        "uses_usable_days_formula": uses_formula,
         "loan_term_months": application.term_months,
         "grace_period_days": grace_days,
         "usable_from": payment.usable_from,
@@ -1673,7 +1885,6 @@ def build_loan_agreement_context(application):
         application.amount_requested,
         late_rate,
         application.term_months,
-        product.interest_start_month,
     )
     attach_missed_payment_costs(plan)
     today = timezone.localdate()
@@ -1722,8 +1933,20 @@ def build_loan_agreement_context(application):
     if disbursement and disbursement.disbursement_date:
         date_granted = timezone.localdate(disbursement.disbursement_date)
         service_fee = Decimal(disbursement.transaction_fee or 0)
-        other_charges = Decimal(disbursement.other_deduction_amount or 0)
-        other_charges_label = (disbursement.other_deduction_label or "").strip() or "Others"
+        other_charges = (
+            Decimal(disbursement.interest_amount or 0)
+            + Decimal(disbursement.share_capital_amount or 0)
+            + Decimal(disbursement.insurance_amount or 0)
+            + Decimal(disbursement.savings_amount or 0)
+            + Decimal(disbursement.other_deduction_amount or 0)
+        )
+        other_charges_label = "Interest, share capital, insurance & savings"
+        if Decimal(disbursement.other_deduction_amount or 0) > 0 and (
+            disbursement.other_deduction_label or ""
+        ).strip():
+            other_charges_label = (
+                f"{other_charges_label}; {disbursement.other_deduction_label.strip()}"
+            )
         net_proceeds = Decimal(disbursement.amount_released or 0)
     else:
         date_granted = today
@@ -1778,7 +2001,6 @@ def build_loan_agreement_context(application):
         "interest_breakdown": interest_breakdown,
         "late_rate": late_rate,
         "late_rate_pct": late_rate_pct,
-        "interest_start_month": product.interest_start_month,
         "purpose": (application.purpose or "").strip() or "—",
         "amount": amount,
         "amount_php": _format_php(amount),

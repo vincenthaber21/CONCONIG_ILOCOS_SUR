@@ -246,6 +246,13 @@ class Member(models.Model):
         Role,
         on_delete=models.PROTECT,
         related_name="members",
+        help_text="Default role kept for existing member lists. Prefer Member when it is one of the assigned roles.",
+    )
+    roles = models.ManyToManyField(
+        Role,
+        related_name="assigned_members",
+        blank=True,
+        help_text="Every role this person may open after login.",
     )
 
     # Membership application — Personal data
@@ -535,14 +542,111 @@ class Member(models.Model):
         return f"{self.first_name} {self.last_name} ({rfid})"
 
     @property
-    def role(self):
-        """Role slug for backwards compatibility (admin, cashier, staff, member)."""
+    def stored_role_slug(self):
+        """Primary role saved on the account, ignoring the role chosen for this login."""
         if self.member_role_id:
             return self.member_role.slug
         return "member"
 
+    def assigned_role_slugs(self):
+        """Slugs this person may choose after login, including the primary role."""
+        cached = getattr(self, "_assigned_role_slug_cache", None)
+        if cached is not None:
+            return cached
+        prefetched = getattr(self, "_prefetched_objects_cache", {})
+        if "roles" in prefetched:
+            slugs = {role.slug.lower() for role in self.roles.all()}
+        else:
+            slugs = {slug.lower() for slug in self.roles.values_list("slug", flat=True)}
+        if self.member_role_id:
+            slugs.add(self.member_role.slug.lower())
+        if not slugs:
+            slugs.add("member")
+        self._assigned_role_slug_cache = frozenset(slugs)
+        return self._assigned_role_slug_cache
+
+    def clear_assigned_role_cache(self):
+        if hasattr(self, "_assigned_role_slug_cache"):
+            del self._assigned_role_slug_cache
+
+    def has_assigned_role(self, slug):
+        return (slug or "").strip().lower() in self.assigned_role_slugs()
+
+    def shows_account_balance(self):
+        """Committee-only accounts do not use a card balance."""
+        return self.assigned_role_slugs() != frozenset({"committee"})
+
+    def assigned_roles_csv(self):
+        prefetched = getattr(self, "_prefetched_objects_cache", {})
+        if "roles" in prefetched:
+            ordered = sorted(self.roles.all(), key=lambda role: (role.sort_order, role.name))
+            slugs = [role.slug for role in ordered]
+        else:
+            slugs = list(
+                self.roles.order_by("sort_order", "name").values_list("slug", flat=True)
+            )
+        if not slugs and self.member_role_id:
+            slugs = [self.member_role.slug]
+        return ",".join(slugs) or "member"
+
+    @classmethod
+    def pick_primary_role(cls, role_objects):
+        """Prefer Member so cooperative lists still include multi-role people."""
+        roles = list(role_objects or [])
+        if not roles:
+            return Role.resolve_slug("member")
+        member_role = next((role for role in roles if role.slug == "member"), None)
+        if member_role is not None:
+            return member_role
+        return sorted(roles, key=lambda role: (role.sort_order, role.name, role.pk))[0]
+
+    def set_assigned_roles(self, role_objects):
+        """Save every login role and keep ``member_role`` as the primary default."""
+        unique = []
+        seen = set()
+        for role in role_objects or []:
+            if role is None or role.pk in seen:
+                continue
+            seen.add(role.pk)
+            unique.append(role)
+        if not unique:
+            unique = [Role.resolve_slug("member")]
+        self.roles.set(unique)
+        primary = self.pick_primary_role(unique)
+        self.clear_assigned_role_cache()
+        if self.member_role_id != primary.pk:
+            self.member_role = primary
+            self.save(update_fields=["member_role", "updated_at"])
+
+    @property
+    def role(self):
+        """Role slug for this login when the person has chosen one, else the primary role."""
+        stored = self.stored_role_slug
+        from members.active_role import current_request, SESSION_MEMBER_ID, SESSION_ROLE
+
+        request = current_request()
+        if request is None:
+            return stored
+        active = (request.session.get(SESSION_ROLE) or "").strip().lower()
+        member_id = request.session.get(SESSION_MEMBER_ID)
+        if not active or member_id is None:
+            return stored
+        try:
+            if int(member_id) != int(self.pk):
+                return stored
+        except (TypeError, ValueError):
+            return stored
+        if active in self.assigned_role_slugs():
+            return active
+        return stored
+
     def get_role_display(self):
-        """Human-readable role label (matches former CharFieldchoices API)."""
+        """Human-readable role label for the role currently in use."""
+        slug = self.role
+        if slug != self.stored_role_slug:
+            match = self.roles.filter(slug=slug).first()
+            if match is not None:
+                return match.name
         if self.member_role_id:
             return self.member_role.name
         return "Member"
@@ -1105,7 +1209,11 @@ class MemberEditHistory(models.Model):
     email = models.EmailField(null=True, blank=True)
     phone = models.CharField(max_length=20, blank=True)
     rfid_card_number = models.CharField(max_length=50, null=True, blank=True)
-    role = models.CharField(max_length=32, blank=True)
+    role = models.CharField(
+        max_length=128,
+        blank=True,
+        help_text="Comma-separated role slugs at the time of the edit.",
+    )
 
     edited_at = models.DateTimeField(auto_now_add=True)
     edited_by = models.CharField(max_length=150, blank=True)

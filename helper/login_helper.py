@@ -289,12 +289,19 @@ def store_member_session(request: HttpRequest, member) -> None:
     """Persist a member-only session (no Django User linked)."""
     request.session["member_id"] = member.id
     request.session["member_rfid"] = member.rfid_card_number
-    request.session["member_role"] = member.role
+    request.session["member_role"] = member.stored_role_slug
 
 
 def clear_member_session(request: HttpRequest) -> None:
-    """Remove the member-only session keys."""
-    for key in ("member_id", "member_rfid", "member_role"):
+    """Remove the member-only session keys and the role chosen for this login."""
+    for key in (
+        "member_id",
+        "member_rfid",
+        "member_role",
+        "active_role",
+        "active_role_member_id",
+        "post_login_next",
+    ):
         request.session.pop(key, None)
 
 
@@ -309,8 +316,9 @@ def get_session_member(request: HttpRequest):
     try:
         Member = _get_member_model()
         member = Member.objects.get(id=member_id, is_active=True)
-        # Only honour sessions for plain 'member' role without a linked Django user
-        if member.role == "member" and (member.user is None or not getattr(member.user, "username", None)):
+        stored = member.stored_role_slug
+        privileged = bool(member.assigned_role_slugs() & _PRIVILEGED_MEMBER_SLUGS)
+        if stored == "member" and not privileged and (member.user is None or not getattr(member.user, "username", None)):
             return member
     except Exception:
         pass
@@ -325,6 +333,33 @@ def is_member_session_valid(request: HttpRequest) -> bool:
 # ─────────────────────────────────────────────────────────────────────────────
 # Username + password login
 # ─────────────────────────────────────────────────────────────────────────────
+
+def finish_login_redirect(request: HttpRequest, user, member, next_url: str = "") -> str:
+    """
+    Send a multi-role login to the role picker. One role continues as before.
+    Call this after ``login()`` so the session belongs to that user.
+    """
+    from members.active_role import POST_LOGIN_NEXT, SESSION_MEMBER_ID, SESSION_ROLE
+
+    if member is not None and getattr(member, "is_active", False):
+        request.session[SESSION_MEMBER_ID] = member.pk
+        slugs = member.assigned_role_slugs()
+        if len(slugs) > 1:
+            request.session.pop(SESSION_ROLE, None)
+            if next_url:
+                request.session[POST_LOGIN_NEXT] = next_url
+            else:
+                request.session.pop(POST_LOGIN_NEXT, None)
+            return "/choose-role/"
+        request.session[SESSION_ROLE] = next(iter(slugs), "member")
+    if user is not None:
+        return resolve_redirect_url(user, next_url)
+    return resolve_redirect_url_for_member_only(next_url)
+
+
+def _member_has_privileged_role(member) -> bool:
+    return bool(member.assigned_role_slugs() & _PRIVILEGED_MEMBER_SLUGS)
+
 
 def login_with_credentials(
     request: HttpRequest,
@@ -355,7 +390,8 @@ def login_with_credentials(
     user = authenticate(request, username=username, password=password)
     if user is not None:
         login(request, user)
-        redirect_url = resolve_redirect_url(user, next_url)
+        member = get_linked_member(user)
+        redirect_url = finish_login_redirect(request, user, member, next_url)
         return {
             "success": True,
             "redirect_url": redirect_url,
@@ -397,31 +433,27 @@ def login_with_credentials(
             """
             if not result:
                 return None
-            if member.user and member.user.is_active:
-                login(request, member.user)
-                redirect_url = resolve_redirect_url(member.user, next_url)
+            message = f"Welcome back, {member.full_name}!"
+            if _member_has_privileged_role(member) or _member_has_active_django_user(member):
+                if not _member_has_active_django_user(member):
+                    new_user = _create_linked_user_for_privileged_member(member)
+                    login(request, new_user)
+                    user = new_user
+                else:
+                    login(request, member.user)
+                    user = member.user
                 return {
-                    "success": True, "redirect_url": redirect_url,
-                    "user": member.user,
-                    "message": f"Welcome back, {member.full_name}!",
+                    "success": True,
+                    "redirect_url": finish_login_redirect(request, user, member, next_url),
+                    "user": user,
+                    "message": message,
                 }
-            # No linked Django User — auto-create one for privileged roles
-            if member.role in _PRIVILEGED_MEMBER_SLUGS:
-                new_user = _create_linked_user_for_privileged_member(member)
-                login(request, new_user)
-                redirect_url = resolve_redirect_url(new_user, next_url)
-                return {
-                    "success": True, "redirect_url": redirect_url,
-                    "user": new_user,
-                    "message": f"Welcome back, {member.full_name}!",
-                }
-            # Plain member — keep member-only session
             store_member_session(request, member)
             return {
                 "success": True,
-                "redirect_url": resolve_redirect_url_for_member_only(next_url),
+                "redirect_url": finish_login_redirect(request, None, member, next_url),
                 "member_only": True,
-                "message": f"Welcome back, {member.full_name}!",
+                "message": message,
             }
 
         # Fallback A: RFID used as username (member-only account)
@@ -461,7 +493,7 @@ def login_with_credentials(
                 return {"success": False, "error": "Account locked due to too many failed PIN attempts."}
             if result:
                 login(request, django_user)
-                redirect_url = resolve_redirect_url(django_user, next_url)
+                redirect_url = finish_login_redirect(request, django_user, member, next_url)
                 return {
                     "success": True, "redirect_url": redirect_url,
                     "user": django_user,
@@ -496,7 +528,6 @@ def _create_linked_user_for_privileged_member(member):
     while User.objects.filter(username=django_username).exists():
         django_username = f"{base_username}_{counter}"
         counter += 1
-    role_slug = member.role
     new_user = User.objects.create_user(
         username=django_username,
         first_name=member.first_name,
@@ -504,7 +535,7 @@ def _create_linked_user_for_privileged_member(member):
         email=member.email or "",
         password=None,
     )
-    new_user.is_staff = role_slug == "admin"
+    new_user.is_staff = member.has_assigned_role("admin")
     new_user.save(update_fields=["is_staff"])
     member.user = new_user
     member.save(update_fields=["user"])
@@ -539,69 +570,34 @@ def login_with_rfid(
     if not member:
         return {"success": False, "error": "Member not found or inactive."}
 
-    slug = member.role
+    message = f"Welcome back, {member.full_name}!"
+    privileged = _member_has_privileged_role(member)
     has_user = _member_has_active_django_user(member)
 
-    # Kiosk session: plain members (and custom / reseller roles) without Django login
-    if slug == "member" and not has_user:
-        store_member_session(request, member)
-        redirect_url = resolve_redirect_url_for_member_only(next_url)
-        return {
-            "success": True,
-            "redirect_url": redirect_url,
-            "member_only": True,
-            "member": member,
-            "message": f"Welcome back, {member.full_name}!",
-        }
-
-    if slug not in _PRIVILEGED_MEMBER_SLUGS and not has_user:
-        store_member_session(request, member)
-        redirect_url = resolve_redirect_url_for_member_only(next_url)
-        return {
-            "success": True,
-            "redirect_url": redirect_url,
-            "member_only": True,
-            "member": member,
-            "message": f"Welcome back, {member.full_name}!",
-        }
-
-    # Staff / cashier / admin must use Django auth — auto-create user if missing (same as PIN flow)
-    if slug in _PRIVILEGED_MEMBER_SLUGS:
+    if privileged or has_user:
         if not has_user:
             new_user = _create_linked_user_for_privileged_member(member)
             login(request, new_user)
-            redirect_url = resolve_redirect_url(new_user, next_url)
-            return {
-                "success": True,
-                "redirect_url": redirect_url,
-                "member_only": False,
-                "user": new_user,
-                "member": member,
-                "message": f"Welcome back, {member.full_name}!",
-            }
-        login(request, member.user)
-        redirect_url = resolve_redirect_url(member.user, next_url)
+            user = new_user
+        else:
+            login(request, member.user)
+            user = member.user
         return {
             "success": True,
-            "redirect_url": redirect_url,
+            "redirect_url": finish_login_redirect(request, user, member, next_url),
             "member_only": False,
-            "user": member.user,
+            "user": user,
             "member": member,
-            "message": f"Welcome back, {member.user.get_full_name() or member.user.username}!",
+            "message": message,
         }
 
-    if not has_user:
-        return {"success": False, "error": "No active user account linked to this RFID card."}
-
-    login(request, member.user)
-    redirect_url = resolve_redirect_url(member.user, next_url)
+    store_member_session(request, member)
     return {
         "success": True,
-        "redirect_url": redirect_url,
-        "member_only": False,
-        "user": member.user,
+        "redirect_url": finish_login_redirect(request, None, member, next_url),
+        "member_only": True,
         "member": member,
-        "message": f"Welcome back, {member.user.get_full_name() or member.user.username}!",
+        "message": message,
     }
 
 
@@ -621,29 +617,40 @@ def login_member_only_with_pin(
 
     try:
         Member = _get_member_model()
-        member = Member.objects.get(
+        member = Member.objects.select_related("user", "member_role").get(
             rfid_card_number__iexact=rfid,
             is_active=True,
-            member_role__slug="member",
         )
     except Member.DoesNotExist:
         return {"success": False, "error": "Member not found or inactive."}
 
-    # Only for accounts without a Django user
-    if member.user is not None and getattr(member.user, "username", None):
-        return {"success": False, "error": "Please use your username to log in."}
-
     if not member.check_pin(pin):
         return {"success": False, "error": "Incorrect PIN. Please try again."}
 
+    message = f"Welcome back, {member.full_name}!"
+    if _member_has_privileged_role(member) or _member_has_active_django_user(member):
+        if _member_has_active_django_user(member):
+            login(request, member.user)
+            user = member.user
+        else:
+            user = _create_linked_user_for_privileged_member(member)
+            login(request, user)
+        return {
+            "success": True,
+            "redirect_url": finish_login_redirect(request, user, member, next_url),
+            "member_only": False,
+            "user": user,
+            "member": member,
+            "message": message,
+        }
+
     store_member_session(request, member)
-    redirect_url = resolve_redirect_url_for_member_only(next_url)
     return {
         "success": True,
-        "redirect_url": redirect_url,
+        "redirect_url": finish_login_redirect(request, None, member, next_url),
         "member_only": True,
         "member": member,
-        "message": f"Welcome back, {member.full_name}!",
+        "message": message,
     }
 
 
@@ -670,16 +677,13 @@ def validate_rfid(rfid: str) -> dict:
     if not member:
         return {"success": False, "error": "Member not found or inactive.", "code": "member_not_found"}
 
-    slug = member.role
+    privileged = _member_has_privileged_role(member)
     has_user = _member_has_active_django_user(member)
 
-    if slug == "member" and not has_user:
+    if not privileged and not has_user:
         return {"success": True, "member_only": True, "name": member.full_name}
 
-    if slug not in _PRIVILEGED_MEMBER_SLUGS and not has_user:
-        return {"success": True, "member_only": True, "name": member.full_name}
-
-    if slug in _PRIVILEGED_MEMBER_SLUGS and not has_user:
+    if privileged and not has_user:
         proposed = (member.username or "").strip() or f"member_{member.pk}"
         return {"success": True, "username": proposed, "name": member.full_name}
 

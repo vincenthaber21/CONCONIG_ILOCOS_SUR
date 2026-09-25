@@ -44,12 +44,41 @@
       </div>
     </section>
     <section class="card acct-policy-card">
-      <h2>Regular Savings</h2>
+      <h2>{% if interest.is_time_deposit %}Time deposit{% else %}Regular Savings{% endif %}</h2>
       <dl class="acct-policy-card__list">
         <div>
           <dt>Interest</dt>
           <dd>
-            {{ interest.annual_rate_display }} / year · monthly on opening anniversary
+            {% if interest.is_time_deposit %}
+            &#8369;{{ interest.interest_base|currency }} × {{ interest.rate_factor_display }}
+            = &#8369;{{ interest.estimated_interest|currency }}
+            {% if interest.needs_term %}
+            <small class="acct-rate-note">This amount is &#8369;100,001.00 or above. Select 3 months, 6 months, or 1 year for the member.</small>
+            {% elif interest.high_amount %}
+            <small class="acct-rate-note">
+              {% if interest.deposit_term_months == 12 %}
+              1 year: savings × {{ interest.rate_factor_display }}.
+              {% else %}
+              {{ interest.deposit_term_label }}: savings × {{ interest.rate_factor_display }} × ({{ interest.deposit_term_months }}/12).
+              {% endif %}
+            </small>
+            {% elif interest.below_minimum %}
+            <small class="acct-rate-note">No interest unless the time deposit is at least &#8369;5,000.00.</small>
+            {% else %}
+            <small class="acct-rate-note">Up to &#8369;100,000: savings × interest rate.</small>
+            {% endif %}
+            {% else %}
+            &#8369;{{ interest.interest_base|currency }} × {{ interest.rate_factor_display }} × {{ interest.step_months }} ÷ 12
+            = &#8369;{{ interest.estimated_interest|currency }}
+            {% if interest.period_deposits %}
+            <small class="acct-rate-note">Deposits of &#8369;{{ interest.period_deposits|currency }} in this period stay in the balance and are not added here.</small>
+            {% endif %}
+            {% if interest.below_minimum %}
+            <small class="acct-rate-note">No interest while the remaining balance is &#8369;1,000.00 or below.</small>
+            {% elif interest.no_withdrawal %}
+            <small class="acct-rate-note">If this period succeeds, the next period uses the new balance &#8369;{{ interest.next_balance|currency }} × {{ interest.rate_factor_display }} × {{ interest.step_months }} ÷ 12 = &#8369;{{ interest.next_period_interest|currency }}.</small>
+            {% endif %}
+            {% endif %}
           </dd>
         </div>
         {% if interest.last_withdrawal_at %}
@@ -60,11 +89,11 @@
         {% endif %}
         <div>
           <dt>Opening min</dt>
-          <dd>&#8369;1,000.00</dd>
+          <dd>{% if interest.is_time_deposit %}&#8369;{{ account.product.min_opening_deposit|currency }}{% else %}&#8369;1,000.00{% endif %}</dd>
         </div>
         <div>
           <dt>Maximum</dt>
-          <dd>&#8369;1,000,000.00</dd>
+          <dd>{% if interest.is_time_deposit %}{% if account.product.max_balance %}&#8369;{{ account.product.max_balance|currency }}{% else %}No limit{% endif %}{% else %}&#8369;1,000,000.00{% endif %}</dd>
         </div>
         <div>
           <dt>Term</dt>
@@ -95,13 +124,39 @@
           </dd>
         </div>
       </dl>
+      {% if interest.high_amount and account.can_transact %}
+      <form method="post" action="{% url 'savings:account-term' account.pk %}" class="td-term-pick">
+        {% csrf_token %}
+        <p>Select the member's term for &#8369;100,001 and above.</p>
+        <button type="submit" name="deposit_term_months" value="3"{% if account.deposit_term_months == 3 %} class="is-selected"{% endif %}>3 months · {{ account.product.rate_3_months }}</button>
+        <button type="submit" name="deposit_term_months" value="6"{% if account.deposit_term_months == 6 %} class="is-selected"{% endif %}>6 months · {{ account.product.rate_6_months }}</button>
+        <button type="submit" name="deposit_term_months" value="12"{% if account.deposit_term_months == 12 %} class="is-selected"{% endif %}>1 year · {{ account.product.rate_1_year }}</button>
+      </form>
+      {% endif %}
       {% if account.can_transact %}
       <p class="acct-auto-interest">
         <i class="bi bi-percent"></i>
-        Interest is credited <strong>automatically</strong> each month on the opening anniversary
+        {% if interest.is_time_deposit %}
+        From &#8369;5,000 up to &#8369;100,000, interest = time deposit × rate.
+        From &#8369;100,001, the member selects a term:
+        3 months = savings × 0.01 × (3/12),
+        6 months = savings × 0.01 × (6/12),
+        1 year = savings × 0.03.
+        {% else %}
+        Interest uses the savings already in the account at the start of each {{ interest.step_months }}-month period.
+        A deposit during that period is added to the balance and is not included in that period's interest.
+        If the period succeeds, the next period applies the formula to the new balance.
+        If the member withdraws during those {{ interest.step_months }} months, that period is not credited and the {{ interest.step_months }}-month count starts again from the withdrawal.
+        If the remaining balance is ₱1,000.00 or below, interest is not applied.
+        {% endif %}
+        {% if interest.period_reset and interest.last_withdrawal_at %}
+        The withdrawal on {{ interest.last_withdrawal_at|date:"M j, Y" }} reset this period
         {% if interest.next_credit_on %}
-        (next: {{ interest.next_credit_on|date:"M j, Y" }})
+        (next interest: {{ interest.next_credit_on|date:"M j, Y" }})
         {% endif %}.
+        {% elif interest.next_credit_on %}
+        Next interest: {{ interest.next_credit_on|date:"M j, Y" }}.
+        {% endif %}
       </p>
       {% endif %}
     </section>
@@ -474,6 +529,13 @@
     line-height: 1.45;
   }
   .acct-auto-interest i { flex-shrink: 0; margin-top: .15rem; }
+  .td-term-pick { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: .85rem; }
+  .td-term-pick p { flex-basis: 100%; margin: 0; font-size: .82rem; color: #475569; }
+  .td-term-pick button {
+    border: 1px solid #cbd5e1; background: #fff; border-radius: 999px;
+    padding: .4rem .75rem; font-weight: 700; font-size: .78rem; cursor: pointer;
+  }
+  .td-term-pick button.is-selected { border-color: #86efac; background: #f0fdf4; color: #166534; }
 
   .acct-section-head { margin-bottom: 1.1rem; }
   .acct-section-head p { margin: 0; color: #64748b; font-size: .86rem; }

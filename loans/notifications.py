@@ -261,10 +261,23 @@ def _status_content(application, target, extra=None):
                     ("Net amount released", _peso(disbursement.amount_released)),
                 ]
             )
+            if disbursement.interest_amount and disbursement.interest_amount > 0:
+                base_rows.append(("Interest", _peso(disbursement.interest_amount)))
+            if (
+                disbursement.share_capital_amount
+                and disbursement.share_capital_amount > 0
+            ):
+                base_rows.append(
+                    ("Share capital", _peso(disbursement.share_capital_amount))
+                )
             if disbursement.transaction_fee and disbursement.transaction_fee > 0:
                 base_rows.append(
-                    ("Transaction fee", _peso(disbursement.transaction_fee))
+                    ("Service fee", _peso(disbursement.transaction_fee))
                 )
+            if disbursement.insurance_amount and disbursement.insurance_amount > 0:
+                base_rows.append(("Insurance", _peso(disbursement.insurance_amount)))
+            if disbursement.savings_amount and disbursement.savings_amount > 0:
+                base_rows.append(("Savings", _peso(disbursement.savings_amount)))
             if (
                 disbursement.other_deduction_amount
                 and disbursement.other_deduction_amount > 0

@@ -32,7 +32,7 @@
   {% for product in products %}
   <div class="product-tile">
     <h3>{{ product.name }}</h3>
-    <p>{{ product.get_product_type_display }} · {{ savings_policy.annual_rate_display }} / yr</p>
+    <p>{{ product.get_product_type_display }} · {{ product.interest_rate_display }} / yr</p>
     <p style="margin-top:.35rem;">Opening min &#8369;{{ product.min_opening_deposit|currency }}
       {% if product.term_months %} · {{ product.term_months }} months{% endif %}
       · {% if product.allows_withdrawal %}withdrawals allowed{% else %}no withdrawals{% endif %}

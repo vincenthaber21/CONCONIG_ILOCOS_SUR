@@ -1,9 +1,11 @@
-"""Fixed Regular Savings interest policy for every member account.
+"""Savings interest helpers.
 
-Annual rate is a flat 5%. Interest is credited monthly on the anniversary
-of the account opening date (same calendar day each month):
+Each account uses its savings product's annual rate and compounding.
+Interest is credited on the opening anniversary for that schedule:
 
-    interest_per_month = (balance * 0.05) / 12
+    period_interest = (balance * annual_rate%) / periods_per_year
+
+``ANNUAL_INTEREST_RATE`` is only the fallback when a product has no rate.
 """
 
 import calendar
@@ -20,6 +22,8 @@ TWO_PLACES = Decimal("0.01")
 HUNDRED = Decimal("100")
 MONTHS_PER_YEAR = Decimal("12")
 MAX_INTEREST_PERIODS = 120
+# Interest is not credited when the remaining savings are at or below this amount.
+MINIMUM_BALANCE_FOR_INTEREST = Decimal("1000.00")
 
 
 def format_rate(rate):
@@ -68,31 +72,190 @@ def interest_credit_datetime(day):
     return timezone.make_aware(naive, timezone.get_current_timezone())
 
 
-def next_interest_credit_on(after):
-    """Next monthly credit date: one calendar month after ``after``."""
+# Months between credits, and how many credits make one year.
+COMPOUNDING_SCHEDULE = {
+    "none": (12, 1),
+    "monthly": (1, 12),
+    "quarterly": (3, 4),
+    "annually": (12, 1),
+}
+
+COMPOUNDING_PHRASE = {
+    "none": "annually on the opening anniversary (simple)",
+    "monthly": "monthly on the opening anniversary",
+    "quarterly": "quarterly on the opening anniversary",
+    "annually": "annually on the opening anniversary",
+}
+
+
+def compounding_schedule(compounding):
+    """Return ``(step_months, periods_per_year, phrase)`` for a product compounding value."""
+    key = compounding or "monthly"
+    step_months, periods = COMPOUNDING_SCHEDULE.get(key, COMPOUNDING_SCHEDULE["monthly"])
+    phrase = COMPOUNDING_PHRASE.get(key, COMPOUNDING_PHRASE["monthly"])
+    return step_months, periods, phrase
+
+
+def schedule_for_months(months):
+    """Interest credit every ``months`` months. Amount is annual rate × months / 12."""
+    step = int(months or 12)
+    if step < 1:
+        step = 1
+    periods = Decimal(12) / Decimal(step)
+    if step == 1:
+        phrase = "monthly on the opening anniversary"
+    elif step == 3:
+        phrase = "quarterly on the opening anniversary"
+    elif step == 12:
+        phrase = "annually on the opening anniversary"
+    else:
+        phrase = f"every {step} months on the opening anniversary"
+    return step, periods, phrase
+
+
+def next_interest_credit_on(after, months=1):
+    """Next credit date: ``months`` calendar months after ``after``."""
     local_day = _as_local_date(after)
     if local_day is None:
         return None
-    return interest_credit_datetime(_add_months(local_day, 1))
+    return interest_credit_datetime(_add_months(local_day, months))
 
 
-def interest_amount(balance, rate):
-    """Monthly interest: (balance * rate% / 100) / 12.
+def earns_savings_interest(balance):
+    """False when remaining savings are ₱1,000.00 or below."""
+    return Decimal(balance or 0) > MINIMUM_BALANCE_FOR_INTEREST
 
-    Example: 5000 at 5% → (5000 * 0.05) / 12 = 20.83
+
+# Time deposit: not the regular savings months ÷ 12 formula.
+TIME_DEPOSIT_YEAR_MONTHS = 12
+TIME_DEPOSIT_MIN_BALANCE = Decimal("5000.00")
+TIME_DEPOSIT_HIGH_BALANCE = Decimal("100001.00")
+TIME_DEPOSIT_RATE_3_MONTHS = Decimal("0.010")
+TIME_DEPOSIT_RATE_6_MONTHS = Decimal("0.010")
+TIME_DEPOSIT_RATE_1_YEAR = Decimal("0.030")
+TIME_DEPOSIT_TERM_MONTHS = (3, 6, 12)
+
+
+def earns_time_deposit_interest(balance):
+    """True when the time deposit is at least ₱5,000.00."""
+    return Decimal(balance or 0) >= TIME_DEPOSIT_MIN_BALANCE
+
+
+def time_deposit_uses_term(balance):
+    """True from ₱100,001.00 upward."""
+    return Decimal(balance or 0) >= TIME_DEPOSIT_HIGH_BALANCE
+
+
+def time_deposit_term_rate(term_months, product=None):
+    """Rate for the term the member selected. 3 months, 6 months, or 1 year."""
+    try:
+        term = int(term_months or 0)
+    except (TypeError, ValueError):
+        return None
+    fields = {
+        3: ("rate_3_months", TIME_DEPOSIT_RATE_3_MONTHS),
+        6: ("rate_6_months", TIME_DEPOSIT_RATE_6_MONTHS),
+        12: ("rate_1_year", TIME_DEPOSIT_RATE_1_YEAR),
+    }
+    pair = fields.get(term)
+    if pair is None:
+        return None
+    attr, fallback = pair
+    stored = getattr(product, attr, None) if product is not None else None
+    if stored is None:
+        return fallback
+    return Decimal(stored)
+
+
+def time_deposit_term_label(term_months):
+    return {3: "3 months", 6: "6 months", 12: "1 year"}.get(int(term_months or 0), "")
+
+
+def time_deposit_interest_amount(balance, rate, term_months=None, product=None):
+    """Time deposit interest. Regular savings (× months ÷ 12) is not used.
+
+    ₱5,000 up to ₱100,000: savings × interest rate.
+    ₱100,001 and above, for the term the member selected:
+    3 months = savings × 0.01 × (3/12)
+    6 months = savings × 0.01 × (6/12)
+    1 year = savings × 0.03
     """
-    annual = Decimal(balance) * Decimal(rate) / HUNDRED
-    return (annual / MONTHS_PER_YEAR).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
+    amount = Decimal(balance or 0)
+    if time_deposit_uses_term(amount):
+        term_rate = time_deposit_term_rate(term_months, product)
+        if term_rate is None:
+            return Decimal("0.00")
+        try:
+            term = int(term_months or 0)
+        except (TypeError, ValueError):
+            return Decimal("0.00")
+        if term in (3, 6):
+            interest = amount * term_rate * Decimal(term) / MONTHS_PER_YEAR
+        else:
+            interest = amount * term_rate
+    elif TIME_DEPOSIT_MIN_BALANCE <= amount < TIME_DEPOSIT_HIGH_BALANCE:
+        interest = amount * Decimal(rate)
+    else:
+        return Decimal("0.00")
+    return interest.quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
 
 
-def regular_savings_policy():
-    display = format_rate(ANNUAL_INTEREST_RATE)
+def interest_amount(balance, rate, periods_per_year=12, months=None):
+    """Interest for one period: savings × interest × (months ÷ 12).
+
+    ``rate`` is the product figure used as a multiplier (not percent ÷ 100).
+    Example: 2000 at 0.07 every 3 months → 2000 × 0.07 × 3 ÷ 12 = 35.00
+    """
+    if months is None:
+        periods = Decimal(periods_per_year or 12)
+        if periods <= 0:
+            periods = MONTHS_PER_YEAR
+        months = MONTHS_PER_YEAR / periods
+    amount = Decimal(balance) * Decimal(rate) * Decimal(months) / MONTHS_PER_YEAR
+    return amount.quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
+
+
+def _active_regular_product():
+    try:
+        from .models import SavingsProduct
+
+        return (
+            SavingsProduct.objects.filter(
+                is_active=True,
+                product_type=SavingsProduct.ProductType.REGULAR,
+            )
+            .order_by("created_at")
+            .first()
+        )
+    except Exception:
+        return None
+
+
+def regular_savings_policy(product=None):
+    """Display policy for the active Regular Savings product, or the 5% fallback."""
+    rate = ANNUAL_INTEREST_RATE
+    compounding = "monthly"
+    apply_months = 12
+    if product is None:
+        product = _active_regular_product()
+    if product is not None:
+        product_rate = getattr(product, "interest_rate", None)
+        if product_rate is not None:
+            rate = Decimal(product_rate)
+        compounding = getattr(product, "compounding", None) or compounding
+        stored_months = getattr(product, "interest_apply_months", None)
+        if stored_months:
+            apply_months = int(stored_months)
+    _, _, phrase = schedule_for_months(apply_months)
+    display = format_rate(rate)
     return {
-        "annual_rate": ANNUAL_INTEREST_RATE,
+        "annual_rate": rate,
         "annual_rate_display": display,
-        "base_rate": ANNUAL_INTEREST_RATE,
-        "loyalty_rate": ANNUAL_INTEREST_RATE,
+        "base_rate": rate,
+        "loyalty_rate": rate,
         "base_rate_display": display,
         "loyalty_rate_display": display,
-        "compounding": "monthly",
+        "compounding": compounding,
+        "interest_apply_months": apply_months,
+        "schedule_phrase": phrase,
     }

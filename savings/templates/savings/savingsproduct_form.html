@@ -1,29 +1,57 @@
 {% extends "savings/base_savings.html" %}
 {% load currency_filters %}
-{% block title %}{% if object %}Edit Regular Savings{% else %}Add Regular Savings{% endif %}{% endblock %}
+{% block title %}{% if form.is_time_deposit.value == "1" or form.is_time_deposit.value == True %}{% if object %}Edit Time Deposit{% else %}Add Time Deposit{% endif %}{% else %}{% if object %}Edit Regular Savings{% else %}Add Regular Savings{% endif %}{% endif %}{% endblock %}
 {% block content %}
 <div class="loan-form-page">
   <header class="loan-form-page__header">
     <a class="loan-form-page__back" href="{% url 'savings:product-list' %}">
       <i class="bi bi-arrow-left"></i> Savings products
     </a>
-    <h1>{% if object %}Edit Regular Savings{% else %}Add Regular Savings{% endif %}</h1>
-    <p class="subtitle">All member savings use the same Regular Savings policy at a flat 5% annual rate. Set minimum opening deposit and other limits in Django admin under Savings products.</p>
+    <h1 id="product-form-title">{% if form.is_time_deposit.value == "1" or form.is_time_deposit.value == True %}{% if object %}Edit Time Deposit{% else %}Add Time Deposit{% endif %}{% else %}{% if object %}Edit Regular Savings{% else %}Add Regular Savings{% endif %}{% endif %}</h1>
+    <p class="subtitle" id="product-form-subtitle">{% if form.is_time_deposit.value == "1" or form.is_time_deposit.value == True %}From ₱5,000 to ₱100,000, interest = time deposit × rate. From ₱100,001, the member selects 3 months, 6 months, or 1 year.{% else %}Set how many months between interest credits. Each credit uses this product’s annual rate.{% endif %}</p>
   </header>
 
   <section class="card loan-form-page__card">
-    <div class="regular-policy" role="note">
+    <div class="savings-td{% if form.is_time_deposit.value == '1' or form.is_time_deposit.value == True %} is-on{% endif %}" id="time-deposit-box">
+      <div class="savings-td__head">
+        <div>
+          <h3 class="savings-td__title">Time deposit</h3>
+          <p class="savings-td__hint" id="time-deposit-hint-on"{% if form.is_time_deposit.value != '1' and form.is_time_deposit.value != True %} hidden{% endif %}>
+          On. Yearly interest = time deposit × rate (example: ₱50,000 × 0.02 = ₱1,000). The regular months ÷ 12 formula is not used.
+          </p>
+          <p class="savings-td__hint savings-td__hint--off" id="time-deposit-hint-off"{% if form.is_time_deposit.value == '1' or form.is_time_deposit.value == True %} hidden{% endif %}>
+            Off. This product stays <strong>regular savings</strong> (open-ended, coop rate and limits).
+          </p>
+        </div>
+        <button
+          type="button"
+          class="savings-td__toggle"
+          id="product-time-deposit-toggle"
+          aria-pressed="{% if form.is_time_deposit.value == '1' or form.is_time_deposit.value == True %}true{% else %}false{% endif %}"
+        >
+          {% if form.is_time_deposit.value == '1' or form.is_time_deposit.value == True %}
+          <i class="bi bi-toggle-on" aria-hidden="true"></i> Disable time deposit
+          {% else %}
+          <i class="bi bi-toggle-off" aria-hidden="true"></i> Enable time deposit
+          {% endif %}
+        </button>
+      </div>
+    </div>
+
+    <div class="regular-policy" id="regular-policy" role="note"{% if form.is_time_deposit.value == '1' or form.is_time_deposit.value == True %} hidden{% endif %}>
       <div class="regular-policy__badge"><i class="bi bi-piggy-bank"></i> Regular Savings</div>
       <dl class="regular-policy__grid">
         <div><dt>Interest</dt><dd>{{ savings_policy.annual_rate_display }} / year</dd></div>
-        <div><dt>Opening min</dt><dd>{% if object %}&#8369;{{ object.min_opening_deposit|currency }}{% else %}&#8369;1,000.00{% endif %}</dd></div>
-        <div><dt>Maximum</dt><dd>{% if object and object.max_balance %}&#8369;{{ object.max_balance|currency }}{% elif object %}No limit{% else %}&#8369;1,000,000.00{% endif %}</dd></div>
+        <div><dt>Apply every</dt><dd>{{ savings_policy.interest_apply_months }} month{{ savings_policy.interest_apply_months|pluralize }}</dd></div>
+        <div><dt>Opening min</dt><dd>{% if object and object.product_type != 'time_deposit' %}&#8369;{{ object.min_opening_deposit|currency }}{% else %}&#8369;1,000.00{% endif %}</dd></div>
+        <div><dt>Maximum</dt><dd>{% if object and object.product_type != 'time_deposit' and object.max_balance %}&#8369;{{ object.max_balance|currency }}{% elif object and object.product_type != 'time_deposit' %}No limit{% else %}&#8369;1,000,000.00{% endif %}</dd></div>
         <div><dt>Term</dt><dd>Open-ended</dd></div>
       </dl>
     </div>
 
-    <form method="post" class="loan-form">
+    <form method="post" class="loan-form" id="savings-product-form">
       {% csrf_token %}
+      {{ form.is_time_deposit }}
       {% if form.errors %}
       <div class="loan-form__errors" style="margin-bottom:1rem;padding:.85rem 1rem;border-radius:10px;background:#fee2e2;color:#991b1b;">
         <strong>Could not save.</strong> Fix the items below, then save again.
@@ -49,7 +77,72 @@
         {{ form.description }}
       </div>
 
-      <div class="loan-form__checks">
+      <div class="loan-form__field" id="regular-interest-months"{% if form.is_time_deposit.value == '1' or form.is_time_deposit.value == True %} hidden{% endif %}>
+        <label for="{{ form.interest_apply_months.id_for_label }}">{{ form.interest_apply_months.label }}</label>
+        {{ form.interest_apply_months }}
+        <p class="helptext">Interest = savings × rate × these months ÷ 12, and only if the member made no withdrawal during that period. Example: ₱2,000 × 0.07 × 3 ÷ 12 = ₱35.00.</p>
+        {% if form.interest_apply_months.errors %}<div class="loan-form__errors">{{ form.interest_apply_months.errors }}</div>{% endif %}
+      </div>
+
+      <div id="time-deposit-features"{% if form.is_time_deposit.value != '1' and form.is_time_deposit.value != True %} hidden{% endif %}>
+        <h3 class="savings-td__features-title">Time deposit features</h3>
+        <p class="helptext" style="margin:0 0 1rem;">
+          From &#8369;5,000 up to &#8369;100,000, interest = time deposit × interest rate.
+          Example: &#8369;50,000 × 0.02 = &#8369;1,000.00.
+          From &#8369;100,001, the member selects a term:
+          3 months = savings × 0.01 × (3/12),
+          6 months = savings × 0.01 × (6/12),
+          1 year = savings × 0.03.
+        </p>
+        <div class="loan-form__field">
+          <label for="{{ form.interest_rate.id_for_label }}">{{ form.interest_rate.label }}</label>
+          {{ form.interest_rate }}
+          {% if form.interest_rate.help_text %}<p class="helptext">{{ form.interest_rate.help_text }}</p>{% endif %}
+          {% if form.interest_rate.errors %}<div class="loan-form__errors">{{ form.interest_rate.errors }}</div>{% endif %}
+        </div>
+        <div class="td-term-model">
+          <h4>&#8369;100,001 and above</h4>
+          <p class="helptext">The member selects one term.</p>
+          <div class="loan-form__field">
+            <label for="{{ form.rate_3_months.id_for_label }}">{{ form.rate_3_months.label }}</label>
+            {{ form.rate_3_months }}
+            <p class="helptext">3 months = savings × 0.01 × (3/12). Example: &#8369;100,000 × 0.01 × (3/12) = &#8369;250.00.</p>
+            {% if form.rate_3_months.errors %}<div class="loan-form__errors">{{ form.rate_3_months.errors }}</div>{% endif %}
+          </div>
+          <div class="loan-form__field">
+            <label for="{{ form.rate_6_months.id_for_label }}">{{ form.rate_6_months.label }}</label>
+            {{ form.rate_6_months }}
+            <p class="helptext">6 months = savings × 0.01 × (6/12). Example: &#8369;100,000 × 0.01 × (6/12) = &#8369;500.00.</p>
+            {% if form.rate_6_months.errors %}<div class="loan-form__errors">{{ form.rate_6_months.errors }}</div>{% endif %}
+          </div>
+          <div class="loan-form__field">
+            <label for="{{ form.rate_1_year.id_for_label }}">{{ form.rate_1_year.label }}</label>
+            {{ form.rate_1_year }}
+            <p class="helptext">1 year = savings × 0.03. Example: &#8369;100,000 × 0.03 = &#8369;3,000.00.</p>
+            {% if form.rate_1_year.errors %}<div class="loan-form__errors">{{ form.rate_1_year.errors }}</div>{% endif %}
+          </div>
+        </div>
+        <div class="loan-form__row">
+          <div class="loan-form__field">
+            <label for="{{ form.min_opening_deposit.id_for_label }}">{{ form.min_opening_deposit.label }}</label>
+            <div class="loan-form__money"><span>₱</span>{{ form.min_opening_deposit }}</div>
+            {% if form.min_opening_deposit.help_text %}<p class="helptext">{{ form.min_opening_deposit.help_text }}</p>{% endif %}
+            {% if form.min_opening_deposit.errors %}<div class="loan-form__errors">{{ form.min_opening_deposit.errors }}</div>{% endif %}
+          </div>
+          <div class="loan-form__field">
+            <label for="{{ form.max_balance.id_for_label }}">{{ form.max_balance.label }}</label>
+            <div class="loan-form__money"><span>₱</span>{{ form.max_balance }}</div>
+            {% if form.max_balance.help_text %}<p class="helptext">{{ form.max_balance.help_text }}</p>{% endif %}
+            {% if form.max_balance.errors %}<div class="loan-form__errors">{{ form.max_balance.errors }}</div>{% endif %}
+          </div>
+        </div>
+        <div class="loan-form__checks">
+          <label class="loan-form__check">{{ form.allows_withdrawal }}<span>{{ form.allows_withdrawal.label }}</span></label>
+          {% if form.allows_withdrawal.help_text %}<p class="helptext">{{ form.allows_withdrawal.help_text }}</p>{% endif %}
+        </div>
+      </div>
+
+      <div class="loan-form__checks" style="margin-top:1.1rem;">
         <label class="loan-form__check">{{ form.is_active }}<span>{{ form.is_active.label }}</span></label>
       </div>
 
@@ -64,7 +157,7 @@
 </div>
 
 <style>
-  .loan-form-page { width: 100%; max-width: 560px; margin-inline: auto; }
+  .loan-form-page { width: 100%; max-width: 640px; margin-inline: auto; }
   .loan-form-page__header { margin-bottom: 1.25rem; }
   .loan-form-page__header h1 { margin: 0 0 .35rem; }
   .loan-form-page__header .subtitle { margin-bottom: 0; }
@@ -75,6 +168,20 @@
   .loan-form-page__card { padding: 1.5rem 1.6rem; margin-bottom: 0; }
   .loan-form__field { margin-bottom: 1.1rem; }
   .loan-form__field > label:first-child { display: block; margin-bottom: .4rem; font-weight: 600; }
+  .loan-form__field input[type="number"],
+  .loan-form__field input[type="text"],
+  .loan-form__field select,
+  .loan-form__field textarea {
+    width: 100%; max-width: 100%; box-sizing: border-box;
+    padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff;
+    font-size: .92rem;
+  }
+  .loan-form__field .helptext { margin: .35rem 0 0; color: #64748b; font-size: .82rem; }
+  .loan-form__row { display: grid; grid-template-columns: 1fr 1fr; gap: .85rem; }
+  @media (max-width: 640px) { .loan-form__row { grid-template-columns: 1fr; } }
+  .loan-form__money { position: relative; display: flex; align-items: center; }
+  .loan-form__money > span { position: absolute; left: 12px; color: #64748b; font-weight: 600; z-index: 1; }
+  .loan-form__money input { padding-left: 30px !important; }
   .loan-form__checks {
     display: flex; flex-direction: column; gap: .55rem; padding: .9rem 1rem;
     border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc;
@@ -85,7 +192,7 @@
   .loan-form__errors { color: #dc2626; font-size: .82rem; margin-top: .35rem; }
 
   .regular-policy {
-    margin-bottom: 1.35rem; padding: 1rem 1.1rem; border-radius: 12px;
+    margin: 1rem 0 1.35rem; padding: 1rem 1.1rem; border-radius: 12px;
     background: #f8fafc; border: 1px solid #e2e8f0;
   }
   .regular-policy__badge {
@@ -100,5 +207,88 @@
   .regular-policy__grid > div:first-child { grid-column: 1 / -1; }
   .regular-policy__grid dt { margin: 0; font-size: .75rem; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: .03em; }
   .regular-policy__grid dd { margin: .15rem 0 0; font-size: .9rem; font-weight: 600; color: #0f172a; }
+
+  .savings-td {
+    margin-bottom: .25rem; padding: 1rem 1.1rem; border: 1px dashed #cbd5e1;
+    border-radius: 12px; background: #f8fafc;
+  }
+  .savings-td.is-on { border-color: #86efac; border-style: solid; background: #f0fdf4; }
+  .savings-td__head { display: flex; align-items: flex-start; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
+  .savings-td__title { margin: 0 0 .35rem; font-size: .92rem; font-weight: 700; color: #0f172a; }
+  .savings-td__hint { margin: 0; font-size: .78rem; color: #64748b; line-height: 1.45; max-width: 34rem; }
+  .savings-td__hint--off { color: #475569; }
+  .savings-td__toggle {
+    display: inline-flex; align-items: center; gap: .35rem; border: 1px solid #cbd5e1;
+    background: #fff; color: #334155; border-radius: 999px; padding: .4rem .8rem;
+    font-size: .78rem; font-weight: 700; cursor: pointer; white-space: nowrap;
+  }
+  .savings-td__toggle[aria-pressed="true"] { border-color: #86efac; background: #f0fdf4; color: #166534; }
+  .savings-td__toggle[aria-pressed="false"] { border-color: #cbd5e1; background: #fff; color: #334155; }
+  .savings-td__features-title { margin: .2rem 0 1rem; font-size: .95rem; font-weight: 700; }
+  .td-term-model {
+    margin: 0 0 1.1rem; padding: .9rem 1rem; border: 1px solid #bfdbfe;
+    border-radius: 12px; background: #f8fbff;
+  }
+  .td-term-model h4 { margin: 0 0 .35rem; font-size: .92rem; font-weight: 700; }
+  #time-deposit-features { margin-top: 1.15rem; padding-top: .25rem; }
+  [hidden] { display: none !important; }
 </style>
+<script>
+(function () {
+  var input = document.getElementById("product-is-time-deposit");
+  var btn = document.getElementById("product-time-deposit-toggle");
+  var box = document.getElementById("time-deposit-box");
+  var features = document.getElementById("time-deposit-features");
+  var policy = document.getElementById("regular-policy");
+  var regularMonths = document.getElementById("regular-interest-months");
+  var hintOn = document.getElementById("time-deposit-hint-on");
+  var hintOff = document.getElementById("time-deposit-hint-off");
+  var title = document.getElementById("product-form-title");
+  var subtitle = document.getElementById("product-form-subtitle");
+  var nameInput = document.getElementById("id_name");
+  var editing = {% if object %}true{% else %}false{% endif %};
+  if (!input || !btn) return;
+
+  function isOn() {
+    return String(input.value || "0") === "1";
+  }
+
+  function setOn(enabled, swapName) {
+    input.value = enabled ? "1" : "0";
+    if (box) box.classList.toggle("is-on", enabled);
+    if (features) features.hidden = !enabled;
+    if (policy) policy.hidden = enabled;
+    if (regularMonths) regularMonths.hidden = enabled;
+    if (hintOn) hintOn.hidden = !enabled;
+    if (hintOff) hintOff.hidden = enabled;
+    btn.setAttribute("aria-pressed", enabled ? "true" : "false");
+    btn.innerHTML = enabled
+      ? '<i class="bi bi-toggle-on" aria-hidden="true"></i> Disable time deposit'
+      : '<i class="bi bi-toggle-off" aria-hidden="true"></i> Enable time deposit';
+    if (title) {
+      title.textContent = enabled
+        ? (editing ? "Edit Time Deposit" : "Add Time Deposit")
+        : (editing ? "Edit Regular Savings" : "Add Regular Savings");
+    }
+    if (subtitle) {
+      subtitle.textContent = enabled
+        ? "From ₱5,000 to ₱100,000, interest = time deposit × rate. From ₱100,001, the member selects 3 months, 6 months, or 1 year."
+        : "Set how many months between interest credits. Each credit uses this product’s annual rate.";
+    }
+    if (swapName && nameInput) {
+      var current = (nameInput.value || "").trim();
+      if (enabled && (current === "" || current === "Regular Savings")) {
+        nameInput.value = "Time Deposit";
+      } else if (!enabled && current === "Time Deposit") {
+        nameInput.value = "Regular Savings";
+      }
+    }
+  }
+
+  btn.addEventListener("click", function () {
+    setOn(!isOn(), true);
+  });
+  setOn(isOn(), false);
+})();
+</script>
 {% endblock %}

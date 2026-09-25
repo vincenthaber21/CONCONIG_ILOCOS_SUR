@@ -969,9 +969,12 @@
           {% if inventory_cashier_scoped %}
           <div class="alert alert-info border-0 mb-3 py-2 px-3">
             <i class="bi bi-funnel me-1"></i>
-            Showing only products in your assigned project categories.
-            {% if not cashier_project_category_ids %}
-            <strong>No project categories assigned to your cashier account</strong> — products are hidden until an admin assigns categories on your member profile.
+            {% if product_form_categories %}
+            Showing only products in your assigned project categor{{ product_form_categories|length|pluralize:"y,ies" }}:
+            <strong>{% for category in product_form_categories %}{{ category.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</strong>.
+            New products are filed under {% if product_form_categories|length == 1 %}this category{% else %}one of these categories{% endif %}.
+            {% else %}
+            <strong>No project categories assigned to your cashier account</strong> — products stay hidden, and you cannot add products, until an admin assigns categories on your member profile.
             {% endif %}
           </div>
           {% endif %}
@@ -989,9 +992,15 @@
               <button type="button" class="btn btn-outline-warning btn-sm rounded-pill" id="sendStockAlertsBtn" title="Email low-stock and out-of-stock alerts to staff and admin">
                 <i class="bi bi-envelope me-1"></i>Email Stock Alerts
               </button>
-              <button type="button" class="btn btn-light btn-inventory-primary border-0 btn-sm" data-bs-toggle="modal" data-bs-target="#addProductModal" title="Add a new product">
+              {% if cashier_can_add_products %}
+              <button type="button" class="btn btn-light btn-inventory-primary border-0 btn-sm" data-bs-toggle="modal" data-bs-target="#addProductModal" title="Add a new product in your assigned project category">
                 <i class="bi bi-plus-circle me-1"></i>Add Product
               </button>
+              {% else %}
+              <button type="button" class="btn btn-light btn-inventory-primary border-0 btn-sm" disabled title="Ask an admin to assign a project category before adding products">
+                <i class="bi bi-plus-circle me-1"></i>Add Product
+              </button>
+              {% endif %}
               <div class="dropdown">
                 <button class="btn btn-light btn-sm btn-inventory-outline dropdown-toggle" type="button" id="inventoryFeaturesDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                   <i class="bi bi-list-ul me-1"></i>Actions
@@ -1046,15 +1055,23 @@
                   {% endif %}
                   <li><hr class="dropdown-divider"></li>
                   <li>
-                    <a class="dropdown-item" href="#" id="addProductDropdownBtn" data-bs-toggle="modal" data-bs-target="#addProductModal" title="Add a new product">
+                    {% if cashier_can_add_products %}
+                    <a class="dropdown-item" href="#" id="addProductDropdownBtn" data-bs-toggle="modal" data-bs-target="#addProductModal" title="Add a new product in your assigned project category">
                       <i class="bi bi-plus-circle me-2 text-success"></i>Add Product
                     </a>
+                    {% else %}
+                    <span class="dropdown-item text-muted" title="Ask an admin to assign a project category before adding products">
+                      <i class="bi bi-plus-circle me-2"></i>Add Product
+                    </span>
+                    {% endif %}
                   </li>
+                  {% if not inventory_cashier_scoped %}
                   <li>
                     <a class="dropdown-item" href="#" id="manageCategoriesDropdownBtn" data-bs-toggle="modal" data-bs-target="#manageCategoriesModal" title="Manage product categories">
                       <i class="bi bi-tags me-2 text-secondary"></i>Manage Categories
                     </a>
                   </li>
+                  {% endif %}
                 </ul>
               </div>
             </div>
@@ -1173,14 +1190,16 @@
                   <td>
                     <span class="fw-semibold">{{ product.stock_quantity|stock_qty:product.unit_type }}</span>
                     <small class="text-muted d-block">Threshold: {{ product.low_stock_threshold|stock_qty:product.unit_type }}</small>
-                    {% with old_batch=product.old_stock_batch new_batch=product.new_stock_batch %}
+                    {% with old_batch=product.old_stock_batch %}
                     {% if old_batch and old_batch.quantity > 0 %}
                     <small class="text-muted d-block">Old: {{ old_batch.quantity|stock_qty:product.unit_type }} · sell ₱{{ old_batch.unit_price|floatformat:2 }} · buy ₱{{ old_batch.cost|floatformat:2 }}</small>
                     {% endif %}
-                    {% if new_batch and new_batch.quantity > 0 %}
-                    <small class="text-muted d-block">New: {{ new_batch.quantity|stock_qty:product.unit_type }} · sell ₱{{ new_batch.unit_price|floatformat:2 }} · buy ₱{{ new_batch.cost|floatformat:2 }}</small>
-                    {% endif %}
                     {% endwith %}
+                    {% for batch in product.new_stock_batches %}
+                    {% if batch.quantity > 0 %}
+                    <small class="text-muted d-block">New{% if not forloop.first %} {{ forloop.counter }}{% endif %}: {{ batch.quantity|stock_qty:product.unit_type }} · sell ₱{{ batch.unit_price|floatformat:2 }} · buy ₱{{ batch.cost|floatformat:2 }}</small>
+                    {% endif %}
+                    {% endfor %}
                     {% if product.stock_deficit > 0 %}
                       {% if product.stock_quantity <= 0 %}
                         <small class="text-danger d-block fw-semibold">
@@ -1246,6 +1265,7 @@
                             data-new-stock-qty="{% if product.new_stock_batch %}{{ product.new_stock_batch.quantity }}{% else %}0{% endif %}"
                             data-new-stock-price="{% if product.new_stock_batch %}{{ product.new_stock_batch.unit_price }}{% endif %}"
                             data-new-stock-cost="{% if product.new_stock_batch %}{{ product.new_stock_batch.cost }}{% endif %}"
+                            data-extra-new-stocks="{{ product.extra_new_stocks_json|escape }}"
                             data-sale-units="{{ product.dashboard_sale_units_json|escape }}">
                       <i class="bi bi-pencil me-1"></i>Edit
                     </button>
@@ -1268,8 +1288,12 @@
                 {% empty %}
                 <tr>
                   <td colspan="{% if can_manage_giveaways %}9{% else %}8{% endif %}" class="text-center text-muted py-4">
-                    <i class="bi bi-inbox me-2"></i>No products found. 
+                    <i class="bi bi-inbox me-2"></i>No products found.
+                    {% if cashier_can_add_products %}
                     <button type="button" class="btn btn-link p-0" data-bs-toggle="modal" data-bs-target="#addProductModal">Add your first product</button>
+                    {% elif inventory_cashier_scoped %}
+                    <span>Ask an admin to assign a project category before you can add products.</span>
+                    {% endif %}
                   </td>
                 </tr>
                 {% endfor %}
@@ -1395,8 +1419,13 @@
                 {% empty %}
                 <tr>
                   <td colspan="5" class="text-center text-muted py-4">
-                    <i class="bi bi-inbox me-2"></i>No categories found. 
+                    <i class="bi bi-inbox me-2"></i>
+                    {% if inventory_cashier_scoped %}
+                    No project categories are assigned to this cashier account.
+                    {% else %}
+                    No categories found.
                     <button type="button" class="btn btn-link p-0" data-bs-toggle="modal" data-bs-target="#manageCategoriesModal">Add your first category</button>
+                    {% endif %}
                   </td>
                 </tr>
                 {% endfor %}
@@ -1472,7 +1501,7 @@
             <h5 class="modal-title" id="addProductModalLabel"><i class="bi bi-plus-circle me-2"></i>Add Product</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
-          <form id="addProductForm" class="modal-body">
+          <form id="addProductForm" class="modal-body" data-category-required="{% if inventory_cashier_scoped %}1{% else %}0{% endif %}">
             <div id="productAlert" style="display:none;"></div>
             <div class="row g-3">
               <div class="col-md-6">
@@ -1489,14 +1518,22 @@
                 </div>
               </div>
               <div class="col-md-6">
-                <label class="form-label fw-semibold">Category</label>
+                <label class="form-label fw-semibold">Project category{% if inventory_cashier_scoped %} <span class="text-danger">*</span>{% endif %}</label>
                 <select class="form-select" id="productCategory">
+                  {% if not inventory_cashier_scoped %}
                   <option value="">Uncategorized</option>
-                  {% for category in categories %}
-                  <option value="{{ category.id }}">{{ category.name }}</option>
+                  {% elif product_form_categories|length != 1 %}
+                  <option value="">Select your project category</option>
+                  {% endif %}
+                  {% for category in product_form_categories %}
+                  <option value="{{ category.id }}" {% if inventory_cashier_scoped and product_form_categories|length == 1 %}selected{% endif %}>{{ category.name }}</option>
                   {% endfor %}
                 </select>
-                <small class="text-muted">Cashiers only see products in their assigned categories. Manage under Inventory → Categories.</small>
+                {% if inventory_cashier_scoped %}
+                <small class="text-muted">This product is saved under your assigned project category{% if product_form_categories|length != 1 %} — choose one{% endif %}.</small>
+                {% else %}
+                <small class="text-muted">Cashiers only see products in their assigned project categories. Manage under Inventory → Categories.</small>
+                {% endif %}
               </div>
               <div class="col-md-6">
                 <label class="form-label fw-semibold">Sold by</label>
@@ -1526,8 +1563,13 @@
               </div>
               <div class="col-12">
                 <div class="border rounded-3 p-3 bg-light">
-                  <div class="fw-semibold mb-2"><i class="bi bi-layers me-1"></i>Old / New Stock</div>
-                  <small class="text-muted d-block mb-3 js-stock-tier-help">Record quantity with selling and buying prices for each tier. When old stock reaches 0, new stock moves to old stock automatically (both prices are kept).</small>
+                  <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                    <div class="fw-semibold"><i class="bi bi-layers me-1"></i>Old / New Stock</div>
+                    <button type="button" class="btn btn-sm btn-outline-success add-extra-new-stock" data-stock-mode="add">
+                      <i class="bi bi-plus-lg me-1"></i>Add new stock
+                    </button>
+                  </div>
+                  <small class="text-muted d-block mb-3 js-stock-tier-help">Record quantity with selling and buying prices for each tier. Add new stock for another purchase. When old stock reaches 0, the next batch moves to old stock automatically (both prices are kept).</small>
                   <div class="row g-3">
                     <div class="col-md-4">
                       <label class="form-label fw-semibold mb-1 js-old-qty-label">Old Stock Qty</label>
@@ -1555,6 +1597,7 @@
                       <small class="text-muted js-new-cost-help">Purchase cost for this new stock</small>
                     </div>
                   </div>
+                  <div id="productExtraNewStocks"></div>
                 </div>
               </div>
               <div class="col-12 js-wholesale-section">
@@ -1670,7 +1713,7 @@
             <h5 class="modal-title" id="editProductModalLabel"><i class="bi bi-pencil me-2"></i>Edit Product</h5>
             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
           </div>
-          <form id="editProductForm" class="modal-body">
+          <form id="editProductForm" class="modal-body" data-category-required="{% if inventory_cashier_scoped %}1{% else %}0{% endif %}">
             <div id="editProductAlert" style="display:none;"></div>
             <input type="hidden" id="editProductId">
             <div class="row g-3">
@@ -1683,14 +1726,22 @@
                 <input type="text" class="form-control" id="editProductBarcode" placeholder="Scan or type barcode" required>
               </div>
               <div class="col-md-6">
-                <label class="form-label fw-semibold">Category</label>
+                <label class="form-label fw-semibold">Project category{% if inventory_cashier_scoped %} <span class="text-danger">*</span>{% endif %}</label>
                 <select class="form-select" id="editProductCategory">
+                  {% if not inventory_cashier_scoped %}
                   <option value="">Uncategorized</option>
-                  {% for category in categories %}
-                  <option value="{{ category.id }}">{{ category.name }}</option>
+                  {% elif product_form_categories|length != 1 %}
+                  <option value="">Select your project category</option>
+                  {% endif %}
+                  {% for category in product_form_categories %}
+                  <option value="{{ category.id }}" {% if inventory_cashier_scoped and product_form_categories|length == 1 %}selected{% endif %}>{{ category.name }}</option>
                   {% endfor %}
                 </select>
-                <small class="text-muted">Cashiers only see products in their assigned categories. Manage under Inventory → Categories.</small>
+                {% if inventory_cashier_scoped %}
+                <small class="text-muted">Keep this product in your assigned project category{% if product_form_categories|length != 1 %} — choose one{% endif %}.</small>
+                {% else %}
+                <small class="text-muted">Cashiers only see products in their assigned project categories. Manage under Inventory → Categories.</small>
+                {% endif %}
               </div>
               <div class="col-md-6">
                 <label class="form-label fw-semibold">Sold by</label>
@@ -1720,8 +1771,13 @@
               </div>
               <div class="col-12">
                 <div class="border rounded-3 p-3 bg-light">
-                  <div class="fw-semibold mb-2"><i class="bi bi-layers me-1"></i>Old / New Stock</div>
-                  <small class="text-muted d-block mb-3 js-stock-tier-help">Record quantity with selling and buying prices for each tier. When old stock reaches 0, new stock moves to old stock automatically (both prices are kept).</small>
+                  <div class="d-flex justify-content-between align-items-center gap-2 mb-2">
+                    <div class="fw-semibold"><i class="bi bi-layers me-1"></i>Old / New Stock</div>
+                    <button type="button" class="btn btn-sm btn-outline-success add-extra-new-stock" data-stock-mode="edit">
+                      <i class="bi bi-plus-lg me-1"></i>Add new stock
+                    </button>
+                  </div>
+                  <small class="text-muted d-block mb-3 js-stock-tier-help">Record quantity with selling and buying prices for each tier. Add new stock for another purchase. When old stock reaches 0, the next batch moves to old stock automatically (both prices are kept).</small>
                   <div class="row g-3">
                     <div class="col-md-4">
                       <label class="form-label fw-semibold mb-1 js-old-qty-label">Old Stock Qty</label>
@@ -1749,6 +1805,7 @@
                       <small class="text-muted js-new-cost-help">Purchase cost for this new stock</small>
                     </div>
                   </div>
+                  <div id="editProductExtraNewStocks"></div>
                 </div>
               </div>
               <div class="col-12 js-wholesale-section">
@@ -2064,8 +2121,17 @@
       }
 
       const csrftoken = getCsrfToken();
-      const addCategorySelect = createSearchableCategoryDropdown('productCategory', 'Search category...');
-      const editCategorySelect = createSearchableCategoryDropdown('editProductCategory', 'Search category...');
+      const addCategorySelect = createSearchableCategoryDropdown('productCategory', 'Search project category...');
+      const editCategorySelect = createSearchableCategoryDropdown('editProductCategory', 'Search project category...');
+
+      function categorySelectValue(selectId, tomSelect) {
+        if (tomSelect && typeof tomSelect.getValue === 'function') {
+          const value = tomSelect.getValue();
+          if (Array.isArray(value)) return value[0] || '';
+          return value || '';
+        }
+        return document.getElementById(selectId)?.value || '';
+      }
       const inventoryFilterForm = document.getElementById('inventoryFilterForm');
       const inventorySearchInput = document.getElementById('inventorySearchInput');
 
@@ -2141,6 +2207,7 @@
           const el = document.getElementById((isEdit ? 'editProduct' : 'product') + suffix);
           if (el) el.step = step;
         });
+        root.querySelectorAll('.extra-new-qty').forEach((el) => { el.step = step; });
         const setText = (sel, text) => {
           root.querySelectorAll(sel).forEach((el) => { el.textContent = text; });
         };
@@ -2159,8 +2226,8 @@
         setText(
           '.js-stock-tier-help',
           kilo
-            ? 'Record kilograms with selling and buying prices for each tier. When old stock reaches 0, new stock moves to old stock automatically (both prices are kept).'
-            : 'Record quantity with selling and buying prices for each tier. When old stock reaches 0, new stock moves to old stock automatically (both prices are kept).'
+            ? 'Record kilograms with selling and buying prices for each tier. Add new stock for another purchase. When old stock reaches 0, the next batch moves to old stock automatically (both prices are kept).'
+            : 'Record quantity with selling and buying prices for each tier. Add new stock for another purchase. When old stock reaches 0, the next batch moves to old stock automatically (both prices are kept).'
         );
         root.querySelectorAll('.js-wholesale-section').forEach((el) => {
           el.style.display = kilo ? 'none' : '';
@@ -2173,13 +2240,104 @@
         }
       }
 
+      function extraNewStockContainer(mode) {
+        return document.getElementById(mode === 'edit' ? 'editProductExtraNewStocks' : 'productExtraNewStocks');
+      }
+
+      function stockFieldIds(mode) {
+        const isEdit = mode === 'edit';
+        return {
+          oldQty: isEdit ? 'editProductOldStockQty' : 'productOldStockQty',
+          oldPrice: isEdit ? 'editProductOldStockPrice' : 'productOldStockPrice',
+          oldCost: isEdit ? 'editProductOldStockCost' : 'productOldStockCost',
+          newQty: isEdit ? 'editProductNewStockQty' : 'productNewStockQty',
+          newPrice: isEdit ? 'editProductNewStockPrice' : 'productNewStockPrice',
+          newCost: isEdit ? 'editProductNewStockCost' : 'productNewStockCost',
+          stock: isEdit ? 'editProductStock' : 'productStock',
+          price: isEdit ? 'editProductPrice' : 'productPrice',
+          cost: isEdit ? 'editProductCost' : 'productCost',
+        };
+      }
+
+      function clearExtraNewStocks(mode) {
+        const container = extraNewStockContainer(mode);
+        if (container) container.innerHTML = '';
+      }
+
+      function renumberExtraNewStocks(mode) {
+        const container = extraNewStockContainer(mode);
+        if (!container) return;
+        container.querySelectorAll('.extra-new-stock-row').forEach((row, index) => {
+          const title = row.querySelector('.extra-new-stock-title');
+          if (title) title.textContent = 'New stock ' + (index + 2);
+        });
+      }
+
+      function addExtraNewStockRow(mode, values) {
+        const container = extraNewStockContainer(mode);
+        if (!container) return null;
+        const kilo = isKiloForm(mode);
+        const step = kilo ? '0.001' : '1';
+        const target = mode === 'edit' ? 'editProductStock' : 'productStock';
+        const row = document.createElement('div');
+        row.className = 'extra-new-stock-row border-top pt-3 mt-3';
+        row.innerHTML = `
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div class="fw-semibold extra-new-stock-title">New stock</div>
+            <button type="button" class="btn btn-sm btn-outline-danger remove-extra-new-stock" title="Remove this new stock">
+              <i class="bi bi-dash-lg"></i>
+            </button>
+          </div>
+          <div class="row g-3">
+            <div class="col-md-4">
+              <label class="form-label fw-semibold mb-1 js-new-qty-label">${kilo ? 'New Stock Qty (kg)' : 'New Stock Qty'}</label>
+              <input type="number" class="form-control extra-new-qty" min="0" step="${step}" placeholder="0" value="0" data-stock-target="${target}">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold mb-1 js-new-sell-label">${kilo ? 'New Stock Selling Price (₱/kg)' : 'New Stock Selling Price (₱)'}</label>
+              <input type="number" class="form-control extra-new-price" step="0.01" min="0" placeholder="Current selling price">
+            </div>
+            <div class="col-md-4">
+              <label class="form-label fw-semibold mb-1 js-new-buy-label">${kilo ? 'New Stock Buying Price (₱/kg)' : 'New Stock Buying Price (₱)'}</label>
+              <input type="number" class="form-control extra-new-cost" step="0.01" min="0" placeholder="Purchase / cost price">
+              <small class="text-muted js-new-cost-help">${kilo ? 'Purchase cost per kg for this new stock' : 'Purchase cost for this new stock'}</small>
+            </div>
+          </div>`;
+        container.appendChild(row);
+        const qtyEl = row.querySelector('.extra-new-qty');
+        const priceEl = row.querySelector('.extra-new-price');
+        const costEl = row.querySelector('.extra-new-cost');
+        if (qtyEl) qtyEl.value = values && values.quantity != null && values.quantity !== '' ? String(values.quantity) : '0';
+        if (priceEl) priceEl.value = values && values.selling_price != null ? String(values.selling_price) : '';
+        if (costEl) costEl.value = values && values.buying_price != null ? String(values.buying_price) : '';
+        renumberExtraNewStocks(mode);
+        return row;
+      }
+
+      function readExtraNewStocks(mode) {
+        const container = extraNewStockContainer(mode);
+        if (!container) return [];
+        return Array.from(container.querySelectorAll('.extra-new-stock-row')).map((row) => ({
+          quantity: row.querySelector('.extra-new-qty')?.value || '0',
+          selling_price: row.querySelector('.extra-new-price')?.value || '',
+          buying_price: row.querySelector('.extra-new-cost')?.value || '',
+        }));
+      }
+
+      function sumExtraNewQty(mode) {
+        return readExtraNewStocks(mode).reduce(
+          (sum, row) => sum + parseStockQty(row.quantity, mode),
+          0,
+        );
+      }
+
       function syncStockTotalFromTierInputs(stockFieldId, oldQtyId, newQtyId) {
         const mode = stockFieldId === 'editProductStock' ? 'edit' : 'add';
         const oldQty = parseStockQty(document.getElementById(oldQtyId)?.value, mode);
         const newQty = parseStockQty(document.getElementById(newQtyId)?.value, mode);
         const stockEl = document.getElementById(stockFieldId);
         if (stockEl) {
-          stockEl.value = String(roundStockQty(oldQty + newQty, mode));
+          stockEl.value = String(roundStockQty(oldQty + newQty + sumExtraNewQty(mode), mode));
         }
       }
 
@@ -2399,12 +2557,27 @@
           return false;
         }
 
-        const oldQty = parseStockQty(oldQtyEl.value, isEdit ? 'edit' : 'add');
-        const newQty = parseStockQty(newQtyEl.value, isEdit ? 'edit' : 'add');
-        if (oldQty > 0 || newQty <= 0) {
+        const oldQty = parseStockQty(oldQtyEl.value, mode);
+        const newQty = parseStockQty(newQtyEl.value, mode);
+        const positiveExtras = readExtraNewStocks(mode).filter(
+          (row) => parseStockQty(row.quantity, mode) > 0,
+        );
+        if (oldQty > 0 || (newQty <= 0 && positiveExtras.length === 0)) {
           syncStockTotalFromTierInputs(stockId, oldQtyId, newQtyId);
           return false;
         }
+
+        const queue = [];
+        if (newQty > 0) {
+          queue.push({
+            quantity: newQtyEl.value,
+            selling_price: document.getElementById(newPriceId)?.value || '',
+            buying_price: document.getElementById(newCostId)?.value || '',
+          });
+        }
+        positiveExtras.forEach((row) => queue.push(row));
+        const promoted = queue.shift();
+        const nextNew = queue.shift() || null;
 
         const newPriceEl = document.getElementById(newPriceId);
         const newCostEl = document.getElementById(newCostId);
@@ -2412,23 +2585,27 @@
         const oldCostEl = document.getElementById(oldCostId);
         const listPriceEl = document.getElementById(priceId);
         const listCostEl = document.getElementById(costId);
-        const promotedSelling = (newPriceEl?.value || listPriceEl?.value || '').trim();
-        const promotedBuying = (newCostEl?.value || listCostEl?.value || '').trim();
+        const promotedSelling = (promoted.selling_price || listPriceEl?.value || '').trim();
+        const promotedBuying = (promoted.buying_price || listCostEl?.value || '').trim();
 
-        oldQtyEl.value = String(newQty);
+        oldQtyEl.value = String(parseStockQty(promoted.quantity, mode));
         if (oldPriceEl) {
           oldPriceEl.value = promotedSelling;
         }
         if (oldCostEl) {
           oldCostEl.value = promotedBuying;
         }
-        newQtyEl.value = '0';
-        if (newPriceEl) {
-          newPriceEl.value = '';
+        if (nextNew) {
+          newQtyEl.value = String(parseStockQty(nextNew.quantity, mode));
+          if (newPriceEl) newPriceEl.value = nextNew.selling_price || '';
+          if (newCostEl) newCostEl.value = nextNew.buying_price || '';
+        } else {
+          newQtyEl.value = '0';
+          if (newPriceEl) newPriceEl.value = '';
+          if (newCostEl) newCostEl.value = '';
         }
-        if (newCostEl) {
-          newCostEl.value = '';
-        }
+        clearExtraNewStocks(mode);
+        queue.forEach((row) => addExtraNewStockRow(mode, row));
         if (listPriceEl && promotedSelling) {
           listPriceEl.value = promotedSelling;
         }
@@ -2460,6 +2637,10 @@
         formData.append('new_stock_quantity', document.getElementById(newQtyId)?.value || '0');
         formData.append('new_stock_price', document.getElementById(newPriceId)?.value || '');
         formData.append('new_stock_cost', document.getElementById(newCostId)?.value || '');
+        const extraRows = readExtraNewStocks(mode).filter(
+          (row) => parseStockQty(row.quantity, mode) > 0,
+        );
+        formData.append('extra_new_stocks', JSON.stringify(extraRows));
         formData.set('stock_quantity', document.getElementById(stockId)?.value || '0');
         // Keep submitted list price/cost aligned with the active shelf tier fields
         const listPriceId = isEdit ? 'editProductPrice' : 'productPrice';
@@ -2483,6 +2664,36 @@
             syncStockTotalFromTierInputs('productStock', 'productOldStockQty', 'productNewStockQty');
           }
         });
+      });
+
+      document.addEventListener('click', (event) => {
+        const addBtn = event.target.closest('.add-extra-new-stock');
+        if (addBtn) {
+          event.preventDefault();
+          const mode = addBtn.dataset.stockMode === 'edit' ? 'edit' : 'add';
+          const row = addExtraNewStockRow(mode, {});
+          row?.querySelector('.extra-new-qty')?.focus();
+          const ids = stockFieldIds(mode);
+          syncStockTotalFromTierInputs(ids.stock, ids.oldQty, ids.newQty);
+          return;
+        }
+        const removeBtn = event.target.closest('.remove-extra-new-stock');
+        if (!removeBtn) return;
+        event.preventDefault();
+        const row = removeBtn.closest('.extra-new-stock-row');
+        const qtyInput = row?.querySelector('.extra-new-qty');
+        const mode = qtyInput?.dataset.stockTarget === 'editProductStock' ? 'edit' : 'add';
+        row?.remove();
+        renumberExtraNewStocks(mode);
+        const ids = stockFieldIds(mode);
+        syncStockTotalFromTierInputs(ids.stock, ids.oldQty, ids.newQty);
+      });
+
+      document.addEventListener('input', (event) => {
+        if (!event.target.classList || !event.target.classList.contains('extra-new-qty')) return;
+        const mode = event.target.dataset.stockTarget === 'editProductStock' ? 'edit' : 'add';
+        const ids = stockFieldIds(mode);
+        syncStockTotalFromTierInputs(ids.stock, ids.oldQty, ids.newQty);
       });
 
       ['editProductOldStockQty', 'productOldStockQty'].forEach((fieldId) => {
@@ -2602,6 +2813,11 @@
           showInlineAlert(productAlert, 'Name, barcode, and price are required.', 'warning');
           return;
         }
+        const productCategoryId = categorySelectValue('productCategory', addCategorySelect);
+        if (productForm?.dataset.categoryRequired === '1' && !productCategoryId) {
+          showInlineAlert(productAlert, 'Select one of your assigned project categories.', 'warning');
+          return;
+        }
         if (!validateWholesaleFields('add', productAlert)) {
           return;
         }
@@ -2619,7 +2835,7 @@
         const formData = new FormData();
         formData.append('name', name);
         formData.append('barcode', barcode);
-        formData.append('category_id', document.getElementById('productCategory')?.value || '');
+        formData.append('category_id', productCategoryId);
         formData.append('price', price);
         formData.append('cost', document.getElementById('productCost')?.value || '0');
         formData.append('stock_quantity', document.getElementById('productStock')?.value || '0');
@@ -2731,6 +2947,7 @@
         document.getElementById('productNewStockQty').value = '0';
         document.getElementById('productNewStockPrice').value = '';
         document.getElementById('productNewStockCost').value = '';
+        clearExtraNewStocks('add');
         document.getElementById('productImagePreview').style.display = 'none';
         document.getElementById('productImagePreviewImg').src = '';
         if (addCategorySelect) {
@@ -2779,7 +2996,7 @@
       });
 
       // Function to open Edit Product modal
-      function openEditProductModal(productId, name, barcode, categoryId, price, cost, stock, threshold, description, isActive, imageUrl, oldStockQty, oldStockPrice, oldStockCost, newStockQty, newStockPrice, newStockCost, saleUnitsJson, unitType) {
+      function openEditProductModal(productId, name, barcode, categoryId, price, cost, stock, threshold, description, isActive, imageUrl, oldStockQty, oldStockPrice, oldStockCost, newStockQty, newStockPrice, newStockCost, saleUnitsJson, unitType, extraNewStocksJson) {
         document.getElementById('editProductId').value = productId;
         document.getElementById('editProductName').value = name || '';
         document.getElementById('editProductBarcode').value = barcode || '';
@@ -2823,6 +3040,12 @@
         if (oldQty > 0 && newQty <= 0 && oldStockCost !== '' && oldStockCost != null) {
           document.getElementById('editProductCost').value = oldStockCost;
         }
+        clearExtraNewStocks('edit');
+        parseSaleUnitsDataset(extraNewStocksJson).forEach((row) => {
+          if (row && parseStockQty(row.quantity, 'edit') > 0) {
+            addExtraNewStockRow('edit', row);
+          }
+        });
         normalizeStockTierFields('edit');
         syncStockTotalFromTierInputs('editProductStock', 'editProductOldStockQty', 'editProductNewStockQty');
         document.getElementById('editProductThreshold').value = threshold || (isKiloForm('edit') ? '1' : '10');
@@ -2899,7 +3122,8 @@
             btn.dataset.newStockPrice || '',
             btn.dataset.newStockCost || '',
             btn.dataset.saleUnits || '',
-            btn.dataset.productUnitType || 'piece'
+            btn.dataset.productUnitType || 'piece',
+            btn.dataset.extraNewStocks || '[]'
           );
         }
 
@@ -3325,6 +3549,11 @@
           showInlineAlert(editProductAlert, 'Name, barcode, and price are required.', 'warning');
           return;
         }
+        const editCategoryId = categorySelectValue('editProductCategory', editCategorySelect);
+        if (editProductForm?.dataset.categoryRequired === '1' && !editCategoryId) {
+          showInlineAlert(editProductAlert, 'Select one of your assigned project categories.', 'warning');
+          return;
+        }
         if (!validateWholesaleFields('edit', editProductAlert)) {
           return;
         }
@@ -3342,7 +3571,7 @@
         editFormData.append('id', productId);
         editFormData.append('name', editName);
         editFormData.append('barcode', editBarcode);
-        editFormData.append('category_id', document.getElementById('editProductCategory')?.value || '');
+        editFormData.append('category_id', editCategoryId);
         editFormData.append('price', editPrice);
         editFormData.append('cost', document.getElementById('editProductCost')?.value || '0');
         editFormData.append('stock_quantity', document.getElementById('editProductStock')?.value || '0');

@@ -7,6 +7,8 @@ helpers (superuser / Django staff / Member roles admin|cashier|staff) via
 
 import base64
 import uuid
+from decimal import Decimal
+
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.exceptions import PermissionDenied
@@ -17,7 +19,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.decorators.http import require_POST
-from django.views.generic import CreateView, DetailView, ListView, View
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView, View
 from django.utils.decorators import method_decorator
 from django_fsm import TransitionNotAllowed
 from django.db import transaction as db_transaction
@@ -408,9 +410,71 @@ class LoanProductCreateView(LoanStaffMixin, CreateView):
     template_name = "loans/loanproduct_form.html"
     success_url = reverse_lazy("loans:product-list")
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["is_edit"] = False
+        return context
+
     def form_valid(self, form):
         response = super().form_valid(form)
         messages.success(self.request, f'Loan product "{self.object.name}" created.')
+        return response
+
+
+class LoanProductUpdateView(LoanStaffMixin, UpdateView):
+    model = models.LoanProduct
+    form_class = forms.LoanProductForm
+    template_name = "loans/loanproduct_form.html"
+    success_url = reverse_lazy("loans:product-list")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["is_edit"] = True
+        return context
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        messages.success(self.request, f'Loan product "{self.object.name}" updated.')
+        return response
+
+
+class LoanProductDeleteView(LoanStaffMixin, DeleteView):
+    model = models.LoanProduct
+    template_name = "loans/loanproduct_confirm_delete.html"
+    success_url = reverse_lazy("loans:product-list")
+    context_object_name = "product"
+
+    def get_queryset(self):
+        return models.LoanProduct.objects.annotate(
+            application_count=Count("applications")
+        )
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        product = self.object
+        context["application_count"] = int(
+            getattr(product, "application_count", None)
+            or product.applications.count()
+        )
+        context["can_delete"] = context["application_count"] == 0
+        return context
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        app_count = int(
+            getattr(self.object, "application_count", None)
+            or self.object.applications.count()
+        )
+        if app_count > 0:
+            messages.error(
+                request,
+                f'Cannot delete "{self.object.name}" — it has {app_count} loan '
+                f'application{"" if app_count == 1 else "s"}.',
+            )
+            return redirect("loans:product-list")
+        name = self.object.name
+        response = super().post(request, *args, **kwargs)
+        messages.success(request, f'Loan product "{name}" deleted.')
         return response
 
 
@@ -451,7 +515,7 @@ class LoanApplicationCreateView(LoanStaffMixin, CreateView):
                 "max_amount": str(product.max_amount),
                 "term_months": product.term_months,
                 "interest_rate": str(product.interest_rate),
-                "interest_start_month": product.interest_start_month,
+                "uses_usable_days": bool(product.uses_usable_days),
             }
             for product in products
         }
@@ -1355,12 +1419,20 @@ class DisbursementView(LoanStaffMixin, PipelineStepLockMixin, View):
     def _get_disbursement(self, application):
         return models.Disbursement.objects.filter(application=application).first()
 
+    def _form_kwargs(self, application):
+        return {
+            "amount_requested": application.amount_requested,
+            "interest_rate": application.effective_interest_rate(),
+            "term_months": application.term_months,
+            "uses_usable_days": services.product_uses_usable_days(application),
+        }
+
     def get(self, request, pk):
         application = get_object_or_404(models.LoanApplication, pk=pk)
         instance = self._get_disbursement(application)
         form = forms.DisbursementForm(
             instance=instance,
-            amount_requested=application.amount_requested,
+            **self._form_kwargs(application),
         )
         return self._render(request, application, form)
 
@@ -1370,7 +1442,7 @@ class DisbursementView(LoanStaffMixin, PipelineStepLockMixin, View):
         form = forms.DisbursementForm(
             request.POST,
             instance=instance,
-            amount_requested=application.amount_requested,
+            **self._form_kwargs(application),
         )
         if form.is_valid():
             disbursement = form.save(commit=False)
@@ -1391,9 +1463,12 @@ class DisbursementView(LoanStaffMixin, PipelineStepLockMixin, View):
                 metadata={
                     "principal_amount": str(application.amount_requested),
                     "amount_released": str(disbursement.amount_released),
-                    "transaction_fee": str(disbursement.transaction_fee),
-                    "other_deduction_amount": str(disbursement.other_deduction_amount),
-                    "other_deduction_label": disbursement.other_deduction_label,
+                    "months_pay": disbursement.months_pay,
+                    "interest_amount": str(disbursement.interest_amount),
+                    "share_capital_amount": str(disbursement.share_capital_amount),
+                    "service_fee": str(disbursement.transaction_fee),
+                    "insurance_amount": str(disbursement.insurance_amount),
+                    "savings_amount": str(disbursement.savings_amount),
                     "total_deductions": str(disbursement.total_deductions),
                     "disbursement_method": disbursement.disbursement_method,
                     "reference_number": disbursement.reference_number,
@@ -1422,6 +1497,17 @@ class DisbursementView(LoanStaffMixin, PipelineStepLockMixin, View):
         return self._render(request, application, form)
 
     def _render(self, request, application, form):
+        interest_rate = application.effective_interest_rate()
+        uses_usable_days = services.product_uses_usable_days(application)
+        calc = getattr(form, "deduction_preview", None)
+        if calc is None:
+            calc = services.compute_disbursement_deductions(
+                application.amount_requested,
+                interest_rate,
+                application.term_months,
+                savings=Decimal("0.00"),
+                uses_usable_days=uses_usable_days,
+            )
         return render(
             request,
             self.template_name,
@@ -1430,6 +1516,9 @@ class DisbursementView(LoanStaffMixin, PipelineStepLockMixin, View):
                 "form": form,
                 "requested_amount": application.amount_requested,
                 "principal_amount": application.amount_requested,
+                "interest_rate": interest_rate,
+                "deduction_calc": calc,
+                "uses_usable_days": uses_usable_days,
             },
         )
 
@@ -1509,13 +1598,45 @@ class PaymentCollectionView(LoanCommitteeAccessMixin, PipelineStepLockMixin, Vie
         )
         form = forms.PaymentForm(request.POST, application=application)
         if form.is_valid():
+            remarks = (form.cleaned_data.get("remarks") or "").strip()
+            breakdown = form.cleaned_data.get("renewal_breakdown")
+            if breakdown:
+                renewal_note = (
+                    "Expired-loan charges on remaining principal "
+                    f"₱{breakdown['remaining_principal']:,.2f}: "
+                    f"interest ₱{breakdown['interest_amount']:,.2f}, "
+                    f"share capital ₱{breakdown['share_capital_amount']:,.2f}, "
+                    f"service fee ₱{breakdown['service_fee_amount']:,.2f}, "
+                    f"insurance ₱{breakdown['insurance_amount']:,.2f}, "
+                    f"savings ₱{breakdown['savings_amount']:,.2f} "
+                    f"(months pay {breakdown['months_pay']}/12)."
+                )
+                remarks = f"{remarks}\n{renewal_note}".strip() if remarks else renewal_note
+            amount = Decimal(form.cleaned_data["amount_paid"])
+            # Usable-days: the amount entered is partial principal.
+            # Cash collected = partial + period interest, so the balance left
+            # after the payment is balance − partial (interest does not stay owed).
+            if (
+                services.product_uses_usable_days(application)
+                and form.cleaned_data.get("use_usable_days")
+            ):
+                days = int(form.cleaned_data.get("usable_days") or 0)
+                period_interest_cash = services.period_interest_on_remaining_principal(
+                    application, days
+                )
+                amount = (amount + Decimal(period_interest_cash or 0)).quantize(
+                    Decimal("0.01")
+                )
+            renewal_cash = Decimal(form.cleaned_data.get("renewal_charges") or 0)
+            if renewal_cash > 0:
+                amount = (amount + renewal_cash).quantize(Decimal("0.01"))
             payment = services.record_payment(
                 application=application,
-                amount=form.cleaned_data["amount_paid"],
+                amount=amount,
                 collected_by=request.user,
                 payment_method=form.cleaned_data["payment_method"],
                 or_number=form.cleaned_data.get("or_number", ""),
-                remarks=form.cleaned_data.get("remarks", ""),
+                remarks=remarks,
                 usable_from=form.cleaned_data.get("usable_from"),
                 usable_to=form.cleaned_data.get("usable_to"),
                 usable_days=form.cleaned_data.get("usable_days"),
@@ -1538,6 +1659,9 @@ class PaymentCollectionView(LoanCommitteeAccessMixin, PipelineStepLockMixin, Vie
         services.ensure_payment_or_numbers(payments)
         for payment in payments:
             payment.receipt_url = _payment_receipt_url(application.pk, payment.pk)
+        loan_expired = bool(getattr(form, "loan_expired", False))
+        maturity_date = services.get_loan_maturity_date(application)
+        renewal_calc = getattr(form, "renewal_calc", None)
         return render(
             request,
             self.template_name,
@@ -1550,6 +1674,19 @@ class PaymentCollectionView(LoanCommitteeAccessMixin, PipelineStepLockMixin, Vie
                 "principal_fully_paid": application.is_principal_fully_paid(),
                 "interest_rate": application.effective_interest_rate(),
                 "next_usable_from": application.next_usable_from_date(),
+                "uses_usable_days_formula": bool(
+                    getattr(
+                        getattr(application, "loan_product", None),
+                        "uses_usable_days",
+                        False,
+                    )
+                ),
+                "usable_days_editable": bool(
+                    getattr(models.LoanSettings.get(), "usable_days_editable", False)
+                ),
+                "loan_expired": loan_expired,
+                "maturity_date": maturity_date,
+                "renewal_calc": renewal_calc,
                 "payment_receipts_all_url": _payment_receipts_all_url(application.pk),
             },
         )
