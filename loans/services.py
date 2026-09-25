@@ -1572,7 +1572,10 @@ def build_payment_receipt_context(application, payment):
     from .models import LoanSettings
 
     principal = Decimal(application.amount_requested or 0)
-    rate = Decimal(application.effective_interest_rate() or 0)
+    if application.interest_rate is not None:
+        rate = Decimal(application.interest_rate)
+    else:
+        rate = Decimal(application.effective_interest_rate() or 0)
     amount_paid = Decimal(payment.amount_paid or 0)
     period_interest = Decimal(payment.period_interest or 0)
 
@@ -1619,16 +1622,33 @@ def build_payment_receipt_context(application, payment):
         usable_days = (payment.usable_to - payment.usable_from).days
 
     uses_formula = product_uses_usable_days(application)
-    interest_breakdown = compute_interest_balance(
-        outstanding_before,
-        rate,
-        usable_days,
-        uses_usable_days=uses_formula,
-    )
-    daily = interest_breakdown["interest_per_day"]
+    disbursement = getattr(application, "disbursement", None)
+    zero = Decimal("0.00")
+    if disbursement is not None:
+        withheld_interest = Decimal(disbursement.interest_amount or 0).quantize(TWO_PLACES)
+        months_pay = disbursement.months_pay
+        share_capital = Decimal(disbursement.share_capital_amount or 0).quantize(TWO_PLACES)
+        service_fee = Decimal(disbursement.transaction_fee or 0).quantize(TWO_PLACES)
+        insurance_amount = Decimal(disbursement.insurance_amount or 0).quantize(TWO_PLACES)
+        savings_amount = Decimal(disbursement.savings_amount or 0).quantize(TWO_PLACES)
+        net_released = Decimal(disbursement.amount_released or 0).quantize(TWO_PLACES)
+    else:
+        withheld_interest = zero
+        months_pay = None
+        share_capital = zero
+        service_fee = zero
+        insurance_amount = zero
+        savings_amount = zero
+        net_released = zero
+
+    if uses_formula and usable_days > 0 and period_interest > 0:
+        daily = (period_interest / Decimal(usable_days)).quantize(
+            Decimal("0.0001"), rounding=ROUND_HALF_UP
+        )
+    else:
+        daily = Decimal("0.0000")
 
     grace_days = int(LoanSettings.get().grace_period_days or 0)
-    disbursement = getattr(application, "disbursement", None)
 
     rate_percent = (rate * Decimal("100")).quantize(
         Decimal("0.001"), rounding=ROUND_HALF_UP
@@ -1651,17 +1671,28 @@ def build_payment_receipt_context(application, payment):
         "outstanding_after": outstanding_after,
         "remaining_principal_before": remaining_principal_before,
         "remaining_principal_after": remaining_principal_after,
-        "interest_per_day": daily.quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP),
+        "interest_per_day": daily,
         "period_interest": period_interest,
-        "computed_period_interest": interest_breakdown["interest"],
+        "computed_period_interest": period_interest,
+        "withheld_interest": withheld_interest,
+        "months_pay": months_pay,
+        "share_capital_amount": share_capital,
+        "service_fee_amount": service_fee,
+        "insurance_amount": insurance_amount,
+        "savings_amount": savings_amount,
+        "net_released": net_released,
         "amount_paid": amount_paid,
         "cumulative_paid": paid_through,
         "cumulative_interest": interest_through,
         "disbursement": disbursement,
         "interest_formula": (
-            f"(monthly rate ÷ 30) × balance × days = "
-            f"({rate} ÷ 30) × ₱{outstanding_before:,.2f} × {usable_days} day"
-            f"{'s' if usable_days != 1 else ''}"
+            f"{principal} x {rate} x ({usable_days} / 360)"
+            if uses_formula
+            else (
+                f"{principal} x {rate} x ({int(months_pay or 0)} / 12)"
+                if months_pay
+                else f"application rate {rate}"
+            )
         ),
     }
 

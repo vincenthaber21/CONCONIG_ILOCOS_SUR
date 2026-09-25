@@ -77,10 +77,10 @@
       <dd>{{ receipt_detail.loan_term_months }} month{{ receipt_detail.loan_term_months|pluralize }}</dd>
     </div>
     <div>
-      <dt>Monthly interest rate</dt>
+      <dt>Interest rate on this loan</dt>
       <dd>
-        {{ receipt_detail.monthly_interest_rate|floatformat:4 }}
-        <span class="meta-grid__sub">({{ receipt_detail.monthly_interest_rate_percent|floatformat:3 }}% per month)</span>
+        {{ receipt_detail.monthly_interest_rate|floatformat:3 }}
+        <span class="meta-grid__sub">Stored on the loan application</span>
       </dd>
     </div>
     <div>
@@ -114,7 +114,8 @@
     </div>
   </dl>
 
-  <h3 class="or-section-title">Interest period for this payment</h3>
+  <h3 class="or-section-title">Interest recorded on this loan</h3>
+  {% if receipt_detail.uses_usable_days_formula %}
   {% if receipt_detail.has_interest_period %}
   <dl class="meta-grid">
     <div>
@@ -130,30 +131,71 @@
       <dd>{{ receipt_detail.usable_days }} day{{ receipt_detail.usable_days|pluralize }}</dd>
     </div>
     <div>
-      <dt>Interest per day</dt>
-      <dd>&#8369;{{ receipt_detail.interest_per_day|floatformat:4 }}</dd>
-    </div>
-    <div>
-      <dt>Balance used for daily rate</dt>
-      <dd>&#8369;{{ receipt_detail.outstanding_before|currency }}</dd>
-    </div>
-    <div>
-      <dt>Period interest charged</dt>
+      <dt>Period interest stored on this payment</dt>
       <dd>&#8369;{{ receipt_detail.period_interest|currency }}</dd>
     </div>
   </dl>
   <div class="notes notes--formula">
-    <strong>How interest is computed:</strong>
-    daily rate = (monthly rate ÷ 30) × balance left to pay<br>
-    period interest = round(daily rate × usable days), added to your balance<br>
-    <span class="notes__mono">{{ receipt_detail.interest_formula }}</span>
+    <strong>Stored formula:</strong>
+    interest = loan principal × application interest rate × (usable days ÷ 360)<br>
+    <span class="notes__mono">&#8369;{{ receipt_detail.loan_principal|currency }} × {{ receipt_detail.monthly_interest_rate|floatformat:3 }} × ({{ receipt_detail.usable_days }} ÷ 360) = &#8369;{{ receipt_detail.period_interest|currency }}</span>
   </div>
   {% else %}
   <div class="notes">
-    No usable-days interest period was recorded for this payment.
+    No usable-days period is stored on this payment.
     {% if receipt_detail.period_interest and receipt_detail.period_interest > 0 %}
-    Period interest of &#8369;{{ receipt_detail.period_interest|currency }} was still applied to the balance.
+    Period interest stored on this payment is &#8369;{{ receipt_detail.period_interest|currency }}.
     {% endif %}
+  </div>
+  {% endif %}
+  {% elif receipt_detail.disbursement %}
+  <dl class="meta-grid">
+    <div>
+      <dt>Months to pay</dt>
+      <dd>{{ receipt_detail.months_pay }}</dd>
+    </div>
+    <div>
+      <dt>Interest withheld at disbursement</dt>
+      <dd>&#8369;{{ receipt_detail.withheld_interest|currency }}</dd>
+    </div>
+    {% if receipt_detail.share_capital_amount > 0 %}
+    <div>
+      <dt>Share capital</dt>
+      <dd>&#8369;{{ receipt_detail.share_capital_amount|currency }}</dd>
+    </div>
+    {% endif %}
+    {% if receipt_detail.service_fee_amount > 0 %}
+    <div>
+      <dt>Service fee</dt>
+      <dd>&#8369;{{ receipt_detail.service_fee_amount|currency }}</dd>
+    </div>
+    {% endif %}
+    {% if receipt_detail.insurance_amount > 0 %}
+    <div>
+      <dt>Insurance</dt>
+      <dd>&#8369;{{ receipt_detail.insurance_amount|currency }}</dd>
+    </div>
+    {% endif %}
+    {% if receipt_detail.savings_amount > 0 %}
+    <div>
+      <dt>Savings</dt>
+      <dd>&#8369;{{ receipt_detail.savings_amount|currency }}</dd>
+    </div>
+    {% endif %}
+    <div>
+      <dt>Net amount released</dt>
+      <dd>&#8369;{{ receipt_detail.net_released|currency }}</dd>
+    </div>
+  </dl>
+  <div class="notes notes--formula">
+    <strong>Stored formula:</strong>
+    interest = loan principal × application interest rate × (months to pay ÷ 12)<br>
+    <span class="notes__mono">&#8369;{{ receipt_detail.loan_principal|currency }} × {{ receipt_detail.monthly_interest_rate|floatformat:3 }} × ({{ receipt_detail.months_pay }} ÷ 12) = &#8369;{{ receipt_detail.withheld_interest|currency }}</span>
+  </div>
+  {% else %}
+  <div class="notes">
+    Interest rate stored on this loan is {{ receipt_detail.monthly_interest_rate|floatformat:3 }}.
+    No disbursement interest is stored yet.
   </div>
   {% endif %}
 
@@ -169,9 +211,9 @@
       {% if receipt_detail.period_interest and receipt_detail.period_interest > 0 %}
       <tr>
         <td>
-          Period interest
+          Period interest stored on this payment
           {% if receipt_detail.has_interest_period %}
-          ({{ receipt_detail.usable_days }} day{{ receipt_detail.usable_days|pluralize }} @ &#8369;{{ receipt_detail.interest_per_day|floatformat:4 }}/day)
+          ({{ receipt_detail.usable_days }} usable day{{ receipt_detail.usable_days|pluralize }})
           {% endif %}
         </td>
         <td class="breakdown__amount">&#8369;{{ receipt_detail.period_interest|currency }}</td>
@@ -251,7 +293,7 @@
   <p class="security">
     This official receipt is issued for transparency and audit purposes.
     Keep this copy as proof of payment. OR number must match the payment record in the system.
-    Interest is computed only on the balance left to pay using the monthly rate divided by 30 days.
+    Interest rate and interest amount are the values stored on this loan.
     Generated {{ payment.created_at|date:"M j, Y g:i A" }}.
   </p>
 </article>
