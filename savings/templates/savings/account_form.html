@@ -58,6 +58,8 @@
       <form method="post" id="open-savings-account-form" class="open-account-form" autocomplete="off" novalidate data-server-today="{% now 'Y-m-d' %}">
         {% csrf_token %}
         {{ opening_products|json_script:"opening-products-json" }}
+        {{ member_held_products|json_script:"member-held-products-json" }}
+        <p class="open-account-required-note"><span aria-hidden="true">*</span> Required fields are in red. The border clears once the field is filled.</p>
 
         {% if form.errors %}
         <div class="open-account-form__alert" role="alert">
@@ -218,6 +220,7 @@
           <div class="open-account-form__field" id="beneficiaryMemberField" {% if not form.beneficiary_is_member.value %}hidden{% endif %}>
             <label for="{{ form.beneficiary_member.id_for_label }}">{{ form.beneficiary_member.label }}</label>
             {{ form.beneficiary_member }}
+            <p class="open-account-form__hint">The account holder cannot be the beneficiary.</p>
             {% if form.beneficiary_member.errors %}<div class="open-account-form__errors">{{ form.beneficiary_member.errors }}</div>{% endif %}
           </div>
           <div class="open-account-form__row open-account-form__row--date" id="beneficiaryNameFields" {% if form.beneficiary_is_member.value %}hidden{% endif %}>
@@ -272,6 +275,7 @@
             <div class="open-account-form__field" id="beneficiary2MemberField" {% if not form.beneficiary2_is_member.value %}hidden{% endif %}>
               <label for="{{ form.beneficiary2_member.id_for_label }}">{{ form.beneficiary2_member.label }}</label>
               {{ form.beneficiary2_member }}
+              <p class="open-account-form__hint">The account holder cannot be the beneficiary.</p>
               {% if form.beneficiary2_member.errors %}<div class="open-account-form__errors">{{ form.beneficiary2_member.errors }}</div>{% endif %}
             </div>
             <div class="open-account-form__row open-account-form__row--date" id="beneficiary2NameFields" {% if form.beneficiary2_is_member.value %}hidden{% endif %}>
@@ -331,13 +335,14 @@
           <div class="open-account-form__field">
             <label for="{{ form.product.id_for_label }}">{{ form.product.label }}</label>
             {{ form.product }}
+            <p class="open-account-form__hint" id="product-held-note" hidden></p>
             {% if form.product.errors %}<div class="open-account-form__errors">{{ form.product.errors }}</div>{% endif %}
           </div>
 
           <div class="td-open-rules" id="time-deposit-open-rules" hidden>
             <p id="td-flat-rule"><strong>Minimum through maximum:</strong> interest = savings × interest rate.</p>
             <p id="td-term-rule"><strong>Above the maximum:</strong> the member selects a term.</p>
-            <ul>
+            <ul id="td-term-formulas">
               <li>3 months = savings × 0.01 × (3/12)</li>
               <li>6 months = savings × 0.01 × (6/12)</li>
               <li>1 year = savings × 0.03</li>
@@ -757,6 +762,30 @@
     display: block; margin-bottom: .4rem;
     font-weight: 600; font-size: .9rem; color: #334155;
   }
+  .open-account-required-note {
+    display: flex; align-items: center; gap: .45rem;
+    margin: 0 0 1.15rem; padding: .65rem .85rem;
+    border-radius: 10px; background: #fff7f7; border: 1px solid #fecaca;
+    color: #7f1d1d; font-size: .82rem; font-weight: 600;
+  }
+  .open-account-required-note span { color: #dc2626; font-size: 1rem; font-weight: 800; line-height: 1; }
+  .open-account-form__field.is-required > label:first-child,
+  .td-open-terms.is-required > span:first-child { color: #b91c1c; }
+  .open-account-form__field.is-required > label:first-child::after,
+  .td-open-terms.is-required > span:first-child::after {
+    content: " *"; color: #dc2626; font-weight: 800;
+  }
+  .open-account-form__field.is-required.is-empty input:not([type="checkbox"]):not([type="radio"]),
+  .open-account-form__field.is-required.is-empty select,
+  .open-account-form__field.is-required.is-empty textarea,
+  .open-account-form__field.is-required.is-empty .ts-control {
+    border-color: #ef4444;
+    background: #fff7f7;
+  }
+  .td-open-terms.is-required.is-empty ul {
+    margin: .35rem 0 0; padding: .55rem .75rem;
+    border: 1px solid #ef4444; border-radius: 10px; background: #fff7f7;
+  }
   .open-account-form__hint {
     margin: .4rem 0 0; font-size: .78rem; color: #94a3b8;
   }
@@ -1121,7 +1150,9 @@
     var previewTerm = document.getElementById("preview-term");
     var kindBadge = document.querySelector("#open-account-kind span");
     var productCatalog = {};
+    var heldByMember = {};
     var catalogNode = document.getElementById("opening-products-json");
+    var heldNode = document.getElementById("member-held-products-json");
     if (catalogNode) {
       try {
         JSON.parse(catalogNode.textContent).forEach(function (row) {
@@ -1129,10 +1160,53 @@
         });
       } catch (e) {}
     }
+    if (heldNode) {
+      try { heldByMember = JSON.parse(heldNode.textContent) || {}; } catch (e) {}
+    }
 
     function currentProduct() {
       if (!productSelect) return null;
       return productCatalog[String(productSelect.value || "")] || null;
+    }
+
+    function syncProductChoices() {
+      if (!productSelect) return;
+      var blocked = {};
+      function blockFor(selectEl) {
+        if (!selectEl) return;
+        var memberId = selectValue(selectEl);
+        (heldByMember[memberId] || []).forEach(function (productId) {
+          blocked[String(productId)] = true;
+        });
+      }
+      if (!isWalkIn()) {
+        blockFor(memberSelect);
+        if (isJoint()) blockFor(jointSelect);
+      }
+      var available = [];
+      Array.from(productSelect.options).forEach(function (opt) {
+        if (!opt.value) return;
+        var hide = !!blocked[String(opt.value)];
+        opt.hidden = hide;
+        opt.disabled = hide;
+        if (!hide) available.push(String(opt.value));
+      });
+      if (available.indexOf(String(productSelect.value || "")) === -1) {
+        productSelect.value = available[0] || "";
+      }
+      var note = document.getElementById("product-held-note");
+      if (!note) return;
+      var memberChosen = !isWalkIn() && selectHasValue(memberSelect);
+      if (!memberChosen || !Object.keys(blocked).length) {
+        note.hidden = true;
+        return;
+      }
+      note.hidden = false;
+      note.textContent = available.length
+        ? (isJoint()
+          ? "Savings products already held by the primary member or the co-owner are not listed again."
+          : "Savings products this member already holds are not listed again.")
+        : "This member already has an open account for every savings product.";
     }
 
     function selectedTerm() {
@@ -1160,6 +1234,21 @@
       return isFinite(amount) && amount > featureMax(product);
     }
 
+    function termRateText(value, fallback) {
+      var raw = value == null || value === "" ? String(fallback) : String(value);
+      var rate = Number(raw);
+      if (!isFinite(rate) || rate < 0) return String(fallback);
+      return raw;
+    }
+
+    function termRateModel(product) {
+      return {
+        r3: termRateText(product && product.rate3, "0.010"),
+        r6: termRateText(product && product.rate6, "0.010"),
+        r1: termRateText(product && product.rate1, "0.030")
+      };
+    }
+
     function applyProductRules() {
       var product = currentProduct();
       var isTimeDeposit = !!(product && product.type === "time_deposit");
@@ -1181,6 +1270,14 @@
       if (termHint) {
         termHint.textContent = "This deposit is above ₱" + formatAmount(ceiling) + ", so choose the member's term.";
       }
+      var rates = termRateModel(product);
+      var formulaList = document.getElementById("td-term-formulas");
+      if (formulaList) {
+        formulaList.innerHTML =
+          "<li>3 months = savings × " + rates.r3 + " × (3/12)</li>"
+          + "<li>6 months = savings × " + rates.r6 + " × (6/12)</li>"
+          + "<li>1 year = savings × " + rates.r1 + "</li>";
+      }
       var termQualified = isTimeDeposit && aboveFeatureMax(product, amount);
       if (termRules) termRules.hidden = !termQualified;
       var label = product ? product.name : "Savings";
@@ -1201,11 +1298,11 @@
         }
         if (previewRate) {
           previewRate.textContent = term === "3"
-            ? "savings × 0.01 × (3/12)"
+            ? "savings × " + rates.r3 + " × (3/12)"
             : term === "6"
-              ? "savings × 0.01 × (6/12)"
+              ? "savings × " + rates.r6 + " × (6/12)"
               : term === "12"
-                ? "savings × 0.03"
+                ? "savings × " + rates.r1
                 : "Select 3 months, 6 months, or 1 year";
         }
       } else {
@@ -1225,6 +1322,50 @@
         });
     }
     cacheJointOptions();
+
+    function cacheSelectOptions(selectEl) {
+      if (!selectEl) return [];
+      return Array.from(selectEl.options)
+        .filter(function (opt) { return !!opt.value; })
+        .map(function (opt) {
+          return { value: String(opt.value), text: opt.textContent };
+        });
+    }
+    var beneficiaryOptionCache = cacheSelectOptions(beneficiaryMember);
+    var beneficiary2OptionCache = cacheSelectOptions(beneficiary2Member);
+
+    function excludeHolderFromBeneficiary(selectEl, cache) {
+      if (!selectEl || !selectEl.tomselect || !cache.length) return;
+      var ts = selectEl.tomselect;
+      var blocked = {};
+      if (!isWalkIn()) {
+        var primary = selectValue(memberSelect);
+        if (primary) blocked[primary] = true;
+        if (isJoint()) {
+          var coOwner = selectValue(jointSelect);
+          if (coOwner) blocked[coOwner] = true;
+        }
+      }
+      var current = selectValue(selectEl);
+      var keep = {};
+      cache.forEach(function (opt) {
+        if (blocked[opt.value]) return;
+        keep[opt.value] = opt;
+        if (!ts.options[opt.value]) {
+          ts.addOption({ value: opt.value, text: opt.text });
+        }
+      });
+      Object.keys(ts.options).forEach(function (value) {
+        if (!keep[value]) ts.removeOption(value);
+      });
+      if (current && blocked[current]) ts.clear(true);
+      ts.refreshOptions(false);
+    }
+
+    function excludeHolderFromBeneficiaries() {
+      excludeHolderFromBeneficiary(beneficiaryMember, beneficiaryOptionCache);
+      excludeHolderFromBeneficiary(beneficiary2Member, beneficiary2OptionCache);
+    }
 
     function getModal(el) {
       if (!el || typeof bootstrap === "undefined" || !bootstrap.Modal) return null;
@@ -1474,9 +1615,11 @@
     }
 
     function syncTicket() {
+      syncProductChoices();
       applyProductRules();
       syncJointVisibility();
       excludePrimaryFromJointOptions();
+      excludeHolderFromBeneficiaries();
 
       var hasWalkInAddress = !!(
         walkInStreet && walkInStreet.value.trim()
@@ -1559,7 +1702,97 @@
         step.classList.toggle("is-done", done && !active);
         step.classList.toggle("is-active", active);
       });
+      refreshRequiredMarks();
     }
+
+    function stampRequired(id, mode) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      var wrap = el.closest(".open-account-form__field") || el.closest(".td-open-terms");
+      if (wrap) wrap.setAttribute("data-req", mode);
+    }
+
+    function requirementActive(mode) {
+      if (mode === "always") return true;
+      if (mode === "member") return !isWalkIn();
+      if (mode === "walk-in") return isWalkIn();
+      if (mode === "joint") return isJoint();
+      if (mode === "beneficiary-name") return !(beneficiaryIsMember && beneficiaryIsMember.checked);
+      if (mode === "beneficiary-member") return !!(beneficiaryIsMember && beneficiaryIsMember.checked);
+      if (mode === "beneficiary2") return !!(beneficiary2Enabled && beneficiary2Enabled.checked);
+      if (mode === "beneficiary2-name") {
+        return requirementActive("beneficiary2") && !(beneficiary2IsMember && beneficiary2IsMember.checked);
+      }
+      if (mode === "beneficiary2-member") {
+        return requirementActive("beneficiary2") && !!(beneficiary2IsMember && beneficiary2IsMember.checked);
+      }
+      if (mode === "term") {
+        var rules = document.getElementById("time-deposit-open-rules");
+        return !!(rules && !rules.hidden);
+      }
+      return false;
+    }
+
+    function wrapValue(wrap) {
+      var radio = wrap.querySelector("input[type='radio']");
+      if (radio) {
+        var picked = wrap.querySelector("input[type='radio']:checked");
+        return picked ? String(picked.value || "") : "";
+      }
+      var control = wrap.querySelector("input, select, textarea");
+      if (!control) return "";
+      if (control.tomselect) {
+        var val = control.tomselect.getValue();
+        return Array.isArray(val) ? String(val[0] || "") : String(val || "");
+      }
+      var text = String(control.value || "").trim();
+      if (control.classList.contains("js-money-input")) {
+        var amount = Number(text.replace(/,/g, ""));
+        return isFinite(amount) && amount > 0 ? text : "";
+      }
+      return text;
+    }
+
+    function refreshRequiredMarks() {
+      form.querySelectorAll("[data-req]").forEach(function (wrap) {
+        var active = requirementActive(wrap.getAttribute("data-req"));
+        wrap.classList.toggle("is-required", active);
+        wrap.classList.toggle("is-empty", active && !wrapValue(wrap));
+      });
+    }
+
+    [
+      ["{{ form.member.id_for_label }}", "member"],
+      ["{{ form.walk_in_first_name.id_for_label }}", "walk-in"],
+      ["{{ form.walk_in_last_name.id_for_label }}", "walk-in"],
+      ["{{ form.walk_in_street.id_for_label }}", "walk-in"],
+      ["{{ form.walk_in_barangay.id_for_label }}", "walk-in"],
+      ["{{ form.walk_in_municipality.id_for_label }}", "walk-in"],
+      ["{{ form.walk_in_province.id_for_label }}", "walk-in"],
+      ["{{ form.joint_member.id_for_label }}", "joint"],
+      ["{{ form.passbook_serial.id_for_label }}", "always"],
+      ["{{ form.opening_date.id_for_label }}", "always"],
+      ["{{ form.product.id_for_label }}", "always"],
+      ["{{ form.opening_amount.id_for_label }}", "always"],
+      ["{{ form.beneficiary_member.id_for_label }}", "beneficiary-member"],
+      ["{{ form.beneficiary_first_name.id_for_label }}", "beneficiary-name"],
+      ["{{ form.beneficiary_last_name.id_for_label }}", "beneficiary-name"],
+      ["{{ form.beneficiary_relationship.id_for_label }}", "always"],
+      ["{{ form.beneficiary_street.id_for_label }}", "always"],
+      ["{{ form.beneficiary_barangay.id_for_label }}", "always"],
+      ["{{ form.beneficiary_municipality.id_for_label }}", "always"],
+      ["{{ form.beneficiary_province.id_for_label }}", "always"],
+      ["{{ form.beneficiary2_member.id_for_label }}", "beneficiary2-member"],
+      ["{{ form.beneficiary2_first_name.id_for_label }}", "beneficiary2-name"],
+      ["{{ form.beneficiary2_last_name.id_for_label }}", "beneficiary2-name"],
+      ["{{ form.beneficiary2_relationship.id_for_label }}", "beneficiary2"],
+      ["{{ form.beneficiary2_street.id_for_label }}", "beneficiary2"],
+      ["{{ form.beneficiary2_barangay.id_for_label }}", "beneficiary2"],
+      ["{{ form.beneficiary2_municipality.id_for_label }}", "beneficiary2"],
+      ["{{ form.beneficiary2_province.id_for_label }}", "beneficiary2"]
+    ].forEach(function (pair) { stampRequired(pair[0], pair[1]); });
+    var termBox = document.getElementById("time-deposit-open-terms");
+    if (termBox) termBox.setAttribute("data-req", "term");
 
     function validateOpen() {
       clearFlash();

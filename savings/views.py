@@ -256,6 +256,7 @@ def _open_account_context(form):
         "form": form,
         "savings_policy": regular_savings_policy(),
         "opening_products": form.opening_product_catalog(),
+        "member_held_products": form.held_products_by_member(),
     }
 
 

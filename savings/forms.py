@@ -11,7 +11,7 @@ from helper.money_forms import MoneyField, money_input
 from members.models import Member
 
 from . import models
-from .policy import ANNUAL_INTEREST_RATE
+from .policy import ANNUAL_INTEREST_RATE, TIME_DEPOSIT_ACCOUNT_CEILING, savings_balance_ceiling
 
 # Natural / passbook regular savings — fixed coop defaults (not editable).
 REGULAR_NATURAL_DEFAULTS = {
@@ -34,7 +34,6 @@ TIME_DEPOSIT_FIELDS = (
     "max_amount",
     "min_opening_deposit",
     "max_balance",
-    "allows_withdrawal",
     "rate_3_months",
     "rate_6_months",
     "rate_1_year",
@@ -141,7 +140,6 @@ class SavingsProductForm(forms.ModelForm):
             "rate_1_year": forms.NumberInput(
                 attrs={"min": "0", "step": "0.001", "placeholder": "0.030"}
             ),
-            "allows_withdrawal": forms.CheckboxInput(),
         }
         labels = {
             "name": "Display name",
@@ -151,7 +149,6 @@ class SavingsProductForm(forms.ModelForm):
             "rate_3_months": "3 months interest",
             "rate_6_months": "6 months interest",
             "rate_1_year": "1 year interest",
-            "allows_withdrawal": "Allow withdrawals before maturity",
         }
         help_texts = {
             "interest_rate": (
@@ -161,9 +158,6 @@ class SavingsProductForm(forms.ModelForm):
             "rate_3_months": "savings × this rate × (3/12) when the member selects 3 months.",
             "rate_6_months": "savings × this rate × (6/12) when the member selects 6 months.",
             "rate_1_year": "savings × this rate when the member selects 1 year.",
-            "allows_withdrawal": (
-                "When off, this product cannot be withdrawn at the savings desk."
-            ),
         }
 
     @staticmethod
@@ -212,7 +206,6 @@ class SavingsProductForm(forms.ModelForm):
             self.fields["min_opening_deposit"].initial = Decimal("1000.00")
             self.initial["min_opening_deposit"] = Decimal("1000.00")
             self.fields["max_balance"].initial = Decimal("999999.99")
-            self.fields["allows_withdrawal"].initial = True
 
     def clean_code(self):
         raw = (self.cleaned_data.get("code") or "").strip()
@@ -290,27 +283,24 @@ class SavingsProductForm(forms.ModelForm):
         if opening is None:
             cleaned["min_opening_deposit"] = Decimal("5000.00")
             opening = cleaned["min_opening_deposit"]
-        elif opening < Decimal("5000.00"):
+        elif opening < 0:
+            self.add_error("min_opening_deposit", "Minimum amount cannot be negative.")
+        feature = cleaned.get("max_amount") or cleaned.get("max_balance")
+        if not feature:
+            feature = Decimal("100000.00")
+        elif feature > TIME_DEPOSIT_ACCOUNT_CEILING:
             self.add_error(
-                "min_opening_deposit",
-                "Minimum is ₱5,000.00.",
-            )
-        ceiling = cleaned.get("max_balance")
-        if not ceiling:
-            cleaned["max_balance"] = Decimal("1000000.00")
-            ceiling = cleaned["max_balance"]
-        elif ceiling > Decimal("10000000.00"):
-            self.add_error(
-                "max_balance",
+                "max_amount",
                 "Maximum amount cannot be more than ₱10,000,000.00.",
             )
-        if ceiling and opening is not None and ceiling < opening:
+        if feature and opening is not None and feature < opening:
             self.add_error(
-                "max_balance",
+                "max_amount",
                 "Maximum amount must be at least the minimum amount.",
             )
         cleaned["min_amount"] = opening
-        cleaned["max_amount"] = ceiling
+        cleaned["max_amount"] = feature
+        cleaned["max_balance"] = TIME_DEPOSIT_ACCOUNT_CEILING
         return cleaned
 
     def save(self, commit=True):
@@ -323,12 +313,12 @@ class SavingsProductForm(forms.ModelForm):
             instance.term_months = 0
             instance.compounding = models.SavingsProduct.Compounding.ANNUALLY
             instance.early_withdrawal_penalty_percent = Decimal("0.000")
-            if instance.min_opening_deposit is None or instance.min_opening_deposit < Decimal("5000.00"):
+            if instance.min_opening_deposit is None:
                 instance.min_opening_deposit = Decimal("5000.00")
-            if not instance.max_balance:
-                instance.max_balance = Decimal("1000000.00")
+            instance.max_balance = TIME_DEPOSIT_ACCOUNT_CEILING
             instance.min_amount = instance.min_opening_deposit
-            instance.max_amount = instance.max_balance
+            if not instance.max_amount:
+                instance.max_amount = Decimal("100000.00")
             if original_type is None:
                 for field_name, value in TIME_DEPOSIT_CREATE_DEFAULTS.items():
                     setattr(instance, field_name, value)
@@ -701,7 +691,7 @@ class OpenSavingsAccountForm(forms.Form):
                     "name": product.name,
                     "type": product.product_type,
                     "min": str(product.min_opening_deposit or 0),
-                    "max": str(product.max_balance or 0),
+                    "max": str(savings_balance_ceiling(product) or 0),
                     "feature_min": str(getattr(product, "min_amount", None) or "5000.00"),
                     "feature_max": str(getattr(product, "max_amount", None) or "100000.00"),
                     "rate": str(product.interest_rate or 0),
@@ -711,6 +701,29 @@ class OpenSavingsAccountForm(forms.Form):
                 }
             )
         return rows
+
+    def held_products_by_member(self):
+        """Open product ids already held by each member, as primary or co-owner."""
+        product_ids = list(self.fields["product"].queryset.values_list("pk", flat=True))
+        if not product_ids:
+            return {}
+        open_accounts = models.MemberSavingsAccount.objects.filter(
+            product_id__in=product_ids,
+        ).exclude(status=models.MemberSavingsAccount.Status.CLOSED)
+        mapping = {}
+
+        def add(member_id, product_id):
+            if member_id is None or product_id is None:
+                return
+            mapping.setdefault(str(member_id), set()).add(str(product_id))
+
+        for member_id, product_id in open_accounts.values_list("member_id", "product_id"):
+            add(member_id, product_id)
+        for member_id, product_id in models.SavingsJointOwner.objects.filter(
+            account__in=open_accounts,
+        ).values_list("member_id", "account__product_id"):
+            add(member_id, product_id)
+        return {member_id: sorted(ids) for member_id, ids in mapping.items()}
 
     def clean_passbook_serial(self):
         raw = (self.cleaned_data.get("passbook_serial") or "").strip()
@@ -871,7 +884,9 @@ class OpenSavingsAccountForm(forms.Form):
                     "opening_amount",
                     f"Opening deposit must be at least ₱{min_open:,.2f}.",
                 )
-            max_bal = product.max_balance or Decimal("0.00")
+            from .policy import savings_balance_ceiling
+
+            max_bal = savings_balance_ceiling(product)
             if max_bal > Decimal("0.00") and amount > max_bal:
                 self.add_error(
                     "opening_amount",

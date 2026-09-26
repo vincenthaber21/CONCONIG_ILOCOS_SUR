@@ -373,7 +373,6 @@ class SavingsProductTimeDepositFormTests(TestCase):
                 is_time_deposit="1",
                 interest_rate="0.020",
                 min_opening_deposit="10000.00",
-                allows_withdrawal="",
             )
         )
         self.assertTrue(form.is_valid(), form.errors)
@@ -385,13 +384,46 @@ class SavingsProductTimeDepositFormTests(TestCase):
         self.assertEqual(product.rate_6_months, Decimal("0.010"))
         self.assertEqual(product.rate_1_year, Decimal("0.030"))
         self.assertEqual(product.min_opening_deposit, Decimal("10000.00"))
-        self.assertEqual(product.max_balance, Decimal("1000000.00"))
+        self.assertEqual(product.max_balance, Decimal("10000000.00"))
         self.assertEqual(product.min_amount, Decimal("10000.00"))
-        self.assertEqual(product.max_amount, Decimal("1000000.00"))
+        self.assertEqual(product.max_amount, Decimal("100000.00"))
         self.assertEqual(product.interest_apply_months, 12)
         self.assertEqual(product.early_withdrawal_penalty_percent, Decimal("0.000"))
         self.assertEqual(product.compounding, models.SavingsProduct.Compounding.ANNUALLY)
-        self.assertFalse(product.allows_withdrawal)
+        self.assertTrue(product.allows_withdrawal)
+
+    def test_time_deposit_saves_edited_term_interest(self):
+        form = forms.SavingsProductForm(
+            data=self._base(
+                name="Time Deposit",
+                code="td-rates",
+                is_time_deposit="1",
+                interest_rate="0.020",
+                min_opening_deposit="5000.00",
+                max_balance="100000.00",
+                rate_3_months="0.020",
+                rate_6_months="0.015",
+                rate_1_year="0.040",
+            )
+        )
+        self.assertTrue(form.is_valid(), form.errors)
+        product = form.save()
+        self.assertEqual(product.rate_3_months, Decimal("0.020"))
+        self.assertEqual(product.rate_6_months, Decimal("0.015"))
+        self.assertEqual(product.rate_1_year, Decimal("0.040"))
+        amount = Decimal("200000.00")
+        self.assertEqual(
+            time_deposit_interest_amount(amount, Decimal("0.020"), term_months=3, product=product),
+            Decimal("1000.00"),
+        )
+        self.assertEqual(
+            time_deposit_interest_amount(amount, Decimal("0.020"), term_months=6, product=product),
+            Decimal("1500.00"),
+        )
+        self.assertEqual(
+            time_deposit_interest_amount(amount, Decimal("0.020"), term_months=12, product=product),
+            Decimal("8000.00"),
+        )
 
     def test_time_deposit_saves_min_and_max_amount(self):
         form = forms.SavingsProductForm(
@@ -406,7 +438,7 @@ class SavingsProductTimeDepositFormTests(TestCase):
         self.assertTrue(form.is_valid(), form.errors)
         product = form.save()
         self.assertEqual(product.min_opening_deposit, Decimal("8000.00"))
-        self.assertEqual(product.max_balance, Decimal("250000.00"))
+        self.assertEqual(product.max_balance, Decimal("10000000.00"))
         self.assertEqual(product.min_amount, Decimal("8000.00"))
         self.assertEqual(product.max_amount, Decimal("250000.00"))
 
@@ -421,19 +453,23 @@ class SavingsProductTimeDepositFormTests(TestCase):
             )
         )
         self.assertFalse(form.is_valid())
-        self.assertIn("max_balance", form.errors)
+        self.assertIn("max_amount", form.errors)
 
-    def test_time_deposit_minimum_is_5000(self):
+    def test_time_deposit_opening_minimum_follows_the_input(self):
         form = forms.SavingsProductForm(
             data=self._base(
                 name="Time Deposit",
                 code="td-min",
                 is_time_deposit="1",
                 min_opening_deposit="1000.00",
+                max_balance="100000.00",
             )
         )
-        self.assertFalse(form.is_valid())
-        self.assertIn("min_opening_deposit", form.errors)
+        self.assertTrue(form.is_valid(), form.errors)
+        product = form.save()
+        self.assertEqual(product.min_opening_deposit, Decimal("1000.00"))
+        self.assertEqual(product.min_amount, Decimal("1000.00"))
+        self.assertEqual(product.max_amount, Decimal("100000.00"))
 
     def test_disabling_time_deposit_returns_to_regular_policy(self):
         created = forms.SavingsProductForm(

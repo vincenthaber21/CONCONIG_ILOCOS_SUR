@@ -80,15 +80,15 @@
       <div class="loan-form__field" id="interest-rate-field">
         <label for="{{ form.interest_rate.id_for_label }}">{{ form.interest_rate.label }}</label>
         {{ form.interest_rate }}
-        <p class="helptext">Change this anytime. Regular savings uses savings × this rate × months ÷ 12.</p>
+        <p class="helptext" id="interest-rate-help">Change this anytime. Regular savings uses savings × this rate × months ÷ 12.</p>
         {% if form.interest_rate.errors %}<div class="loan-form__errors">{{ form.interest_rate.errors }}</div>{% endif %}
       </div>
 
       <div class="loan-form__field" id="min-opening-deposit-field">
         <label for="{{ form.min_opening_deposit.id_for_label }}">{{ form.min_opening_deposit.label }}</label>
         <div class="loan-form__money"><span>₱</span>{{ form.min_opening_deposit }}</div>
-        {% if form.min_opening_deposit.help_text %}<p class="helptext">{{ form.min_opening_deposit.help_text }}</p>{% endif %}
-        <p class="helptext" id="min-opening-time-deposit-note"{% if form.is_time_deposit.value != '1' and form.is_time_deposit.value != True %} hidden{% endif %}>Minimum is ₱5,000.00 for a time deposit.</p>
+        <p class="helptext" id="min-opening-help">{{ form.min_opening_deposit.help_text }}</p>
+        <p class="helptext" id="min-opening-time-deposit-note"{% if form.is_time_deposit.value != '1' and form.is_time_deposit.value != True %} hidden{% endif %}></p>
         {% if form.min_opening_deposit.errors %}<div class="loan-form__errors">{{ form.min_opening_deposit.errors }}</div>{% endif %}
       </div>
 
@@ -102,46 +102,39 @@
       <div id="time-deposit-features"{% if form.is_time_deposit.value != '1' and form.is_time_deposit.value != True %} hidden{% endif %}>
         <h3 class="savings-td__features-title">Time deposit features</h3>
         <p class="helptext" style="margin:0 0 1rem;" id="time-deposit-features-copy">
-          From the minimum amount through the maximum amount, interest = time deposit × interest rate.
-          Example: &#8369;50,000 × 0.02 = &#8369;1,000.00.
-          Above the maximum amount, the member selects a term:
-          3 months = savings × 0.01 × (3/12),
-          6 months = savings × 0.01 × (6/12),
-          1 year = savings × 0.03.
+          From the minimum through the maximum, interest = time deposit × the interest rate above.
+          Above the maximum, edit the 3 months, 6 months, and 1 year rates below.
         </p>
         <div class="loan-form__row">
           <div class="loan-form__field">
-            <label for="{{ form.max_balance.id_for_label }}">{{ form.max_balance.label }}</label>
-            <div class="loan-form__money"><span>₱</span>{{ form.max_balance }}</div>
-            {% if form.max_balance.help_text %}<p class="helptext">{{ form.max_balance.help_text }}</p>{% endif %}
-            {% if form.max_balance.errors %}<div class="loan-form__errors">{{ form.max_balance.errors }}</div>{% endif %}
+            <label for="{{ form.max_amount.id_for_label }}">{{ form.max_amount.label }}</label>
+            <div class="loan-form__money"><span>₱</span>{{ form.max_amount }}</div>
+            {% if form.max_amount.help_text %}<p class="helptext">{{ form.max_amount.help_text }}</p>{% endif %}
+            <p class="helptext">Deposits above this amount are allowed up to ₱10,000,000.00 when the member selects 3 months, 6 months, or 1 year.</p>
+            {% if form.max_amount.errors %}<div class="loan-form__errors">{{ form.max_amount.errors }}</div>{% endif %}
           </div>
         </div>
-        <div class="td-term-model">
+        <div class="td-term-model" id="td-term-model">
           <h4 id="td-term-heading">Above the maximum amount</h4>
-          <p class="helptext">The member selects one term.</p>
-          <div class="loan-form__field">
+          <p class="helptext" id="td-above-max-copy">The member selects one term. Each rate below is the interest you can edit for that term.</p>
+          <div class="td-term-feature">
             <label for="{{ form.rate_3_months.id_for_label }}">{{ form.rate_3_months.label }}</label>
             {{ form.rate_3_months }}
-            <p class="helptext">3 months = savings × 0.01 × (3/12). Example: &#8369;100,000 × 0.01 × (3/12) = &#8369;250.00.</p>
+            <p class="helptext" id="rate-3-example"></p>
             {% if form.rate_3_months.errors %}<div class="loan-form__errors">{{ form.rate_3_months.errors }}</div>{% endif %}
           </div>
-          <div class="loan-form__field">
+          <div class="td-term-feature">
             <label for="{{ form.rate_6_months.id_for_label }}">{{ form.rate_6_months.label }}</label>
             {{ form.rate_6_months }}
-            <p class="helptext">6 months = savings × 0.01 × (6/12). Example: &#8369;100,000 × 0.01 × (6/12) = &#8369;500.00.</p>
+            <p class="helptext" id="rate-6-example"></p>
             {% if form.rate_6_months.errors %}<div class="loan-form__errors">{{ form.rate_6_months.errors }}</div>{% endif %}
           </div>
-          <div class="loan-form__field">
+          <div class="td-term-feature">
             <label for="{{ form.rate_1_year.id_for_label }}">{{ form.rate_1_year.label }}</label>
             {{ form.rate_1_year }}
-            <p class="helptext">1 year = savings × 0.03. Example: &#8369;100,000 × 0.03 = &#8369;3,000.00.</p>
+            <p class="helptext" id="rate-1-example"></p>
             {% if form.rate_1_year.errors %}<div class="loan-form__errors">{{ form.rate_1_year.errors }}</div>{% endif %}
           </div>
-        </div>
-        <div class="loan-form__checks">
-          <label class="loan-form__check">{{ form.allows_withdrawal }}<span>{{ form.allows_withdrawal.label }}</span></label>
-          {% if form.allows_withdrawal.help_text %}<p class="helptext">{{ form.allows_withdrawal.help_text }}</p>{% endif %}
         </div>
       </div>
 
@@ -233,6 +226,9 @@
     border-radius: 12px; background: #f8fbff;
   }
   .td-term-model h4 { margin: 0 0 .35rem; font-size: .92rem; font-weight: 700; }
+  .td-term-feature { margin-top: .85rem; padding-top: .85rem; border-top: 1px solid #dbeafe; }
+  .td-term-feature > label { display: block; margin-bottom: .4rem; font-weight: 600; }
+  .td-term-feature input { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 10px; background: #fff; font-size: .92rem; }
   #time-deposit-features { margin-top: 1.15rem; padding-top: .25rem; }
   [hidden] { display: none !important; }
 </style>
@@ -250,9 +246,21 @@
   var subtitle = document.getElementById("product-form-subtitle");
   var nameInput = document.getElementById("id_name");
   var example = document.getElementById("regular-interest-example");
+  var openingInput = document.getElementById("{{ form.min_opening_deposit.id_for_label }}");
+  var openingHelp = document.getElementById("min-opening-help");
   var openingNote = document.getElementById("min-opening-time-deposit-note");
   var monthsInput = document.getElementById("{{ form.interest_apply_months.id_for_label }}");
   var rateInput = document.getElementById("{{ form.interest_rate.id_for_label }}");
+  var maxInput = document.getElementById("{{ form.max_amount.id_for_label }}");
+  var rate3Input = document.getElementById("{{ form.rate_3_months.id_for_label }}");
+  var rate6Input = document.getElementById("{{ form.rate_6_months.id_for_label }}");
+  var rate1Input = document.getElementById("{{ form.rate_1_year.id_for_label }}");
+  var featuresCopy = document.getElementById("time-deposit-features-copy");
+  var aboveCopy = document.getElementById("td-above-max-copy");
+  var rate3Example = document.getElementById("rate-3-example");
+  var rate6Example = document.getElementById("rate-6-example");
+  var rate1Example = document.getElementById("rate-1-example");
+  var rateHelp = document.getElementById("interest-rate-help");
   var editing = {% if object %}true{% else %}false{% endif %};
   if (!input || !btn) return;
 
@@ -293,6 +301,21 @@
     }
   }
 
+  function peso(amount) {
+    var cents = Math.round((Number(amount) + Number.EPSILON) * 100) / 100;
+    return "₱" + cents.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function readRate(field, fallback) {
+    var raw = field && String(field.value || "").trim();
+    var rate = raw === "" ? fallback : Number(raw);
+    if (!isFinite(rate) || rate < 0) {
+      rate = fallback;
+      raw = String(fallback);
+    }
+    return { rate: rate, text: raw || String(fallback) };
+  }
+
   function refreshExample() {
     if (!example) return;
     var rate = rateInput && rateInput.value !== ""
@@ -313,13 +336,83 @@
       + ".";
   }
 
+  function readMoney(field, fallback) {
+    var raw = field && String(field.value || "").replace(/,/g, "").replace(/₱/g, "").trim();
+    var amount = raw === "" ? fallback : Number(raw);
+    if (!isFinite(amount) || amount < 0) amount = fallback;
+    return amount;
+  }
+
+  function refreshTermModel() {
+    var flat = readRate(rateInput, 0.02);
+    var r3 = readRate(rate3Input, 0.01);
+    var r6 = readRate(rate6Input, 0.01);
+    var r1 = readRate(rate1Input, 0.03);
+    var opening = readMoney(openingInput, isOn() ? 5000 : 1000);
+    var ceiling = readMoney(maxInput, 1000000);
+    var flatSample = opening > 0 ? opening : 5000;
+    var sample = ceiling > 0 ? ceiling : 100000;
+    if (openingHelp) {
+      openingHelp.textContent = isOn()
+        ? "Change this anytime. A time deposit opens from " + peso(opening) + "."
+        : "Minimum amount required to open an account.";
+    }
+    if (openingNote) {
+      openingNote.textContent = ceiling < opening
+        ? "Raise the maximum amount so it is at least " + peso(opening) + "."
+        : "From " + peso(opening) + " through " + peso(ceiling) + ", interest = time deposit × the rate above.";
+    }
+    if (featuresCopy) {
+      featuresCopy.textContent =
+        "From " + peso(opening) + " through " + peso(ceiling) + ", interest = time deposit × " + flat.text
+        + ". Example: " + peso(flatSample) + " × " + flat.text + " = " + peso(flatSample * flat.rate)
+        + ". Above " + peso(ceiling) + ", the member selects a term: "
+        + "3 months = savings × " + r3.text + " × (3/12), "
+        + "6 months = savings × " + r6.text + " × (6/12), "
+        + "1 year = savings × " + r1.text + ".";
+    }
+    if (aboveCopy) {
+      aboveCopy.textContent = "Edit 3 months interest, 6 months interest, and 1 year interest here. The member selects one term, and the formula uses that rate.";
+    }
+    if (rate3Example) {
+      rate3Example.textContent = "3 months = savings × " + r3.text + " × (3/12). Example: "
+        + peso(sample) + " × " + r3.text + " × (3/12) = " + peso(sample * r3.rate * 3 / 12) + ".";
+    }
+    if (rate6Example) {
+      rate6Example.textContent = "6 months = savings × " + r6.text + " × (6/12). Example: "
+        + peso(sample) + " × " + r6.text + " × (6/12) = " + peso(sample * r6.rate * 6 / 12) + ".";
+    }
+    if (rate1Example) {
+      rate1Example.textContent = "1 year = savings × " + r1.text + ". Example: "
+        + peso(sample) + " × " + r1.text + " = " + peso(sample * r1.rate) + ".";
+    }
+    if (rateHelp) {
+      rateHelp.textContent = isOn()
+        ? "From " + peso(opening) + " through " + peso(ceiling) + ", interest = time deposit × this rate. Example: " + peso(flatSample) + " × " + flat.text + " = " + peso(flatSample * flat.rate) + "."
+        : "Change this anytime. Regular savings uses savings × this rate × months ÷ 12.";
+    }
+    if (hintOn) {
+      hintOn.textContent = "On. From " + peso(opening) + " through " + peso(ceiling) + ", interest = time deposit × " + flat.text
+        + " (example: " + peso(flatSample) + " × " + flat.text + " = " + peso(flatSample * flat.rate)
+        + "). Above " + peso(ceiling) + ", interest follows 3 months, 6 months, or 1 year.";
+    }
+  }
+
   btn.addEventListener("click", function () {
     setOn(!isOn(), true);
+    refreshTermModel();
   });
   if (monthsInput) monthsInput.addEventListener("input", refreshExample);
-  if (rateInput) rateInput.addEventListener("input", refreshExample);
+  [rateInput, openingInput, maxInput, rate3Input, rate6Input, rate1Input].forEach(function (field) {
+    if (!field) return;
+    field.addEventListener("input", function () {
+      refreshExample();
+      refreshTermModel();
+    });
+  });
   setOn(isOn(), false);
   refreshExample();
+  refreshTermModel();
 })();
 </script>
 {% endblock %}

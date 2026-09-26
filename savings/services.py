@@ -27,6 +27,7 @@ from .policy import (
     time_deposit_term_label,
     time_deposit_term_rate,
     time_deposit_uses_term,
+    savings_balance_ceiling,
 )
 
 ZERO = Decimal("0.00")
@@ -76,7 +77,7 @@ def compute_maturity_date(product, opened_at=None):
 
 def _ensure_within_max_balance(account, credit_amount):
     """Reject credits that would push the balance above the product maximum."""
-    max_bal = _money(getattr(account.product, "max_balance", ZERO) or ZERO)
+    max_bal = _money(savings_balance_ceiling(account.product))
     if max_bal <= ZERO:
         return
     projected = _money(account.balance) + _money(credit_amount)
@@ -210,7 +211,7 @@ def open_account(
         raise ValidationError(
             f"Opening deposit must be at least ₱{product.min_opening_deposit}."
         )
-    max_bal = _money(getattr(product, "max_balance", ZERO) or ZERO)
+    max_bal = _money(savings_balance_ceiling(product))
     if max_bal > ZERO and amount > max_bal:
         raise ValidationError(
             f"Opening deposit cannot exceed the maximum balance of ₱{max_bal:,.2f}."
@@ -1043,7 +1044,7 @@ def _rebuild_running_balances(account, focus=None):
     )
     product = account.product
     min_bal = _money(getattr(product, "min_maintaining_balance", ZERO) or ZERO)
-    max_bal = _money(getattr(product, "max_balance", ZERO) or ZERO)
+    max_bal = _money(savings_balance_ceiling(product))
     focus_id = getattr(focus, "pk", None)
     focus_at = getattr(focus, "created_at", None)
     focus_is_credit = bool(focus and focus.is_credit)

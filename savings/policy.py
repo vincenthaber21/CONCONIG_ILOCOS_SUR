@@ -134,6 +134,21 @@ TIME_DEPOSIT_RATE_3_MONTHS = Decimal("0.010")
 TIME_DEPOSIT_RATE_6_MONTHS = Decimal("0.010")
 TIME_DEPOSIT_RATE_1_YEAR = Decimal("0.030")
 TIME_DEPOSIT_TERM_MONTHS = (3, 6, 12)
+TIME_DEPOSIT_ACCOUNT_CEILING = Decimal("10000000.00")
+
+
+def savings_balance_ceiling(product):
+    """Highest balance this product can hold.
+
+    A time deposit's maximum amount is only the interest split. Deposits above
+    it are allowed, up to ₱10,000,000, when the member selects a term.
+    """
+    if getattr(product, "product_type", None) == "time_deposit":
+        return TIME_DEPOSIT_ACCOUNT_CEILING
+    stored = getattr(product, "max_balance", None) if product is not None else None
+    if not stored:
+        return Decimal("0.00")
+    return Decimal(stored)
 
 
 def time_deposit_min_amount(product=None):

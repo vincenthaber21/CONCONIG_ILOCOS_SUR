@@ -20,7 +20,7 @@
         {% if account.passbook_serial %}
         <span><i class="bi bi-journal-text"></i> Passbook {{ account.passbook_serial }}</span>
         {% endif %}
-        <span><i class="bi bi-piggy-bank"></i> Regular Savings</span>
+        <span><i class="bi bi-piggy-bank"></i> {{ account.product.name }}{% if interest.is_time_deposit and interest.deposit_term_label %} · {{ interest.deposit_term_label }}{% endif %}</span>
         {% if account.is_joint %}
         <span><i class="bi bi-people"></i> Joint · primary {{ account.member.full_name }}{% for co in account.co_owner_list %} · co-owner {{ co.full_name }}{% endfor %}</span>
         {% endif %}
@@ -55,7 +55,26 @@
       </div>
     </section>
     <section class="card acct-policy-card">
-      <h2>{% if interest.is_time_deposit %}Time deposit{% else %}Regular Savings{% endif %}</h2>
+      <h2>{% if interest.is_time_deposit %}{{ account.product.name }}{% else %}Regular Savings{% endif %}</h2>
+      {% if interest.is_time_deposit %}
+      <p class="td-availed">
+        <span>Availed</span>
+        {% if interest.high_amount and interest.deposit_term_label %}
+        <strong>{{ interest.deposit_term_label }}</strong>
+        {% if interest.deposit_term_months == 12 %}
+        savings × {{ account.product.rate_1_year }}
+        {% else %}
+        savings × {{ interest.rate_factor_display }} × ({{ interest.deposit_term_months }}/12)
+        {% endif %}
+        {% elif interest.high_amount %}
+        <strong>Choose a term</strong>
+        above &#8369;{{ account.product.max_amount|currency }}
+        {% else %}
+        <strong>Through &#8369;{{ account.product.max_amount|currency }}</strong>
+        savings × interest rate
+        {% endif %}
+      </p>
+      {% endif %}
       <dl class="acct-policy-card__list">
         <div>
           <dt>Interest</dt>
@@ -104,11 +123,11 @@
         </div>
         <div>
           <dt>Maximum</dt>
-          <dd>{% if interest.is_time_deposit %}{% if account.product.max_balance %}&#8369;{{ account.product.max_balance|currency }}{% else %}No limit{% endif %}{% else %}&#8369;1,000,000.00{% endif %}</dd>
+          <dd>{% if interest.is_time_deposit %}&#8369;{{ account.product.max_amount|currency }}{% else %}&#8369;1,000,000.00{% endif %}</dd>
         </div>
         <div>
           <dt>Term</dt>
-          <dd>{% if account.product.term_months %}{{ account.product.term_months }} months{% else %}Open-ended{% endif %}</dd>
+          <dd>{% if interest.is_time_deposit and interest.deposit_term_label %}{{ interest.deposit_term_label }}{% elif account.product.term_months %}{{ account.product.term_months }} months{% else %}Open-ended{% endif %}</dd>
         </div>
         <div>
           <dt>Withdrawals</dt>
@@ -150,9 +169,9 @@
         {% if interest.is_time_deposit %}
         From &#8369;{{ account.product.min_amount|currency }} through &#8369;{{ account.product.max_amount|currency }}, interest = time deposit × rate.
         Above &#8369;{{ account.product.max_amount|currency }}, the member selects a term:
-        3 months = savings × 0.01 × (3/12),
-        6 months = savings × 0.01 × (6/12),
-        1 year = savings × 0.03.
+        3 months = savings × {{ account.product.rate_3_months }} × (3/12),
+        6 months = savings × {{ account.product.rate_6_months }} × (6/12),
+        1 year = savings × {{ account.product.rate_1_year }}.
         {% else %}
         Interest uses the savings already in the account at the start of each {{ interest.step_months }}-month period.
         A deposit during that period is added to the balance and is not included in that period's interest.
@@ -485,7 +504,7 @@
 
   .acct-detail__stats {
     display: grid;
-    grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+    grid-template-columns: minmax(320px, 420px) minmax(0, 1fr);
     gap: 1.25rem;
     align-items: stretch;
     margin-bottom: 1.25rem;
@@ -503,16 +522,18 @@
     flex-direction: column;
     justify-content: center;
     box-sizing: border-box;
+    container-type: inline-size;
   }
   .acct-balance-card__label {
     font-size: .75rem; font-weight: 700; text-transform: uppercase;
     letter-spacing: .06em; opacity: .85; margin-bottom: .45rem;
   }
   .acct-balance-card__amount {
-    font-size: clamp(1.75rem, 1.2rem + 1.6vw, 2.6rem);
+    font-size: clamp(1.35rem, 9cqi, 2.35rem);
     font-weight: 800; line-height: 1.15; margin-bottom: .5rem;
     font-variant-numeric: tabular-nums;
-    word-break: break-word;
+    white-space: nowrap;
+    letter-spacing: -0.02em;
   }
   .acct-balance-card__hint { font-size: .88rem; opacity: .92; line-height: 1.4; }
 
@@ -558,6 +579,17 @@
     line-height: 1.45;
   }
   .acct-auto-interest i { flex-shrink: 0; margin-top: .15rem; }
+  .td-availed {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: .35rem .55rem;
+    margin: .15rem 0 .9rem; padding: .55rem .75rem;
+    border-radius: 10px; background: #f0fdf4; border: 1px solid #86efac;
+    color: #166534; font-size: .88rem; font-weight: 600;
+  }
+  .td-availed span {
+    font-size: .72rem; font-weight: 800; letter-spacing: .04em;
+    text-transform: uppercase; color: #15803d;
+  }
+  .td-availed strong { font-size: .95rem; color: #14532d; }
   .td-term-pick { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: .85rem; }
   .td-term-pick p { flex-basis: 100%; margin: 0; font-size: .82rem; color: #475569; }
   .td-term-pick button {
@@ -738,7 +770,7 @@
 
   @media (max-width: 1100px) {
     .acct-detail__stats {
-      grid-template-columns: minmax(240px, 300px) minmax(0, 1fr);
+      grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
     }
     .acct-policy-card__list { grid-template-columns: 1fr; }
     .acct-policy-card__list > div { border-bottom: 1px solid #f1f5f9; }
